@@ -1,0 +1,399 @@
+import requests
+
+BASE_URL = "https://site.api.espn.com/apis/site/v2/sports"
+
+LEAGUES = {
+    "NFL": "football/nfl",
+    "NBA": "basketball/nba",
+    "MLB": "baseball/mlb",
+    "NHL": "hockey/nhl",
+    "WNBA": "basketball/wnba",
+    "NCAAF": "football/college-football",
+    "NCAAM": "basketball/mens-college-basketball",
+    "Soccer": "soccer/eng.1",  # English Premier League
+    # Add more as needed
+}
+
+def get_leagues():
+    return list(LEAGUES.keys())
+
+def get_scores(league_key, date=None):
+    league_path = LEAGUES.get(league_key)
+    if not league_path:
+        return []
+    
+    url = f"{BASE_URL}/{league_path}/scoreboard"
+    
+    # Add date parameter if provided
+    if date:
+        date_str = date.strftime("%Y%m%d")
+        url += f"?dates={date_str}"
+    
+    resp = requests.get(url)
+    if resp.status_code != 200:
+        return []
+    data = resp.json()
+    events = data.get("events", [])
+    scores = []
+    
+    for event in events:
+        name = event.get("name", "Unknown Game")
+        eid = event.get("id", "")
+        
+        # Extract competition data
+        competitions = event.get("competitions", [])
+        if not competitions:
+            continue
+            
+        comp = competitions[0]
+        
+        # Extract start time and status
+        status = comp.get("status", {})
+        start_time = None
+        game_status = None
+        if status:
+            type_info = status.get("type", {})
+            if "shortDetail" in type_info:
+                start_time = type_info["shortDetail"]
+            elif "detail" in type_info:
+                start_time = type_info["detail"]
+            game_status = type_info.get("description", "")
+        
+        # Extract scores from competitors
+        competitors = comp.get("competitors", [])
+        team_scores = []
+        for competitor in competitors:
+            team = competitor.get("team", {})
+            score = competitor.get("score", "")
+            home_away = competitor.get("homeAway", "")
+            team_info = {
+                "name": team.get("displayName", "Unknown"),
+                "abbreviation": team.get("abbreviation", ""),
+                "score": score,
+                "home_away": home_away
+            }
+            team_scores.append(team_info)
+        
+        scores.append({
+            "id": eid, 
+            "name": name, 
+            "start_time": start_time,
+            "status": game_status,
+            "teams": team_scores
+        })
+    return scores
+
+def get_news(league_key):
+    """Get news headlines and links for a specific league"""
+    league_path = LEAGUES.get(league_key)
+    if not league_path:
+        return []
+    url = f"{BASE_URL}/{league_path}/news"
+    resp = requests.get(url)
+    if resp.status_code != 200:
+        return []
+    data = resp.json()
+    articles = data.get("articles", [])
+    news_items = []
+    for article in articles:
+        news_item = {
+            "headline": article.get("headline", "No headline"),
+            "description": article.get("description", ""),
+            "web_url": article.get("links", {}).get("web", {}).get("href", ""),
+            "mobile_url": article.get("links", {}).get("mobile", {}).get("href", ""),
+            "published": article.get("published", ""),
+            "byline": article.get("byline", "")
+        }
+        news_items.append(news_item)
+    return news_items
+
+def get_game_details(league_key, game_id):
+    league_path = LEAGUES.get(league_key)
+    if not league_path:
+        return {}
+    url = f"{BASE_URL}/{league_path}/summary?event={game_id}"
+    resp = requests.get(url)
+    if resp.status_code != 200:
+        return {}
+    return resp.json()
+
+def extract_meaningful_game_info(details):
+    """Extract meaningful information from game details for display"""
+    if not details or not isinstance(details, dict):
+        return {}
+    
+    info = {}
+    
+    # Basic game info
+    if 'header' in details and 'competitions' in details['header']:
+        comp = details['header']['competitions'][0]
+        
+        # Teams, records, and scores
+        competitors = comp.get('competitors', [])
+        teams = []
+        scores = []
+        for competitor in competitors:
+            team = competitor.get('team', {})
+            record = competitor.get('record', [])
+            score = competitor.get('score', '')
+            team_info = {
+                'name': team.get('displayName', 'Unknown'),
+                'abbreviation': team.get('abbreviation', 'N/A'),
+                'record': record[0].get('summary', 'N/A') if record else 'N/A',
+                'home_away': competitor.get('homeAway', 'unknown'),
+                'score': score
+            }
+            teams.append(team_info)
+            if score:
+                scores.append(f"{team.get('abbreviation', team.get('displayName', 'Unknown'))}: {score}")
+        info['teams'] = teams
+        info['scores'] = scores
+        
+        # Game status and time
+        status = comp.get('status', {})
+        info['status'] = status.get('type', {}).get('description', 'Unknown')
+        info['detailed_status'] = status.get('type', {}).get('detail', 'N/A')
+        
+        # Date
+        info['date'] = comp.get('date', 'N/A')
+    
+    # Venue information
+    if 'gameInfo' in details and 'venue' in details['gameInfo']:
+        venue = details['gameInfo']['venue']
+        info['venue'] = venue.get('fullName', 'Unknown')
+        address = venue.get('address', {})
+        info['venue_city'] = address.get('city', 'Unknown')
+        info['venue_state'] = address.get('state', '')
+    
+    # Weather (if available)
+    if 'gameInfo' in details and 'weather' in details['gameInfo']:
+        weather = details['gameInfo']['weather']
+        info['weather'] = f"{weather.get('displayValue', 'N/A')}"
+        if weather.get('temperature'):
+            info['temperature'] = f"{weather['temperature']}°F"
+    
+    # Odds (if available)
+    if 'odds' in details and details['odds']:
+        odds = details['odds'][0] if details['odds'] else {}
+        if 'details' in odds:
+            info['betting_line'] = odds['details']
+        if 'overUnder' in odds:
+            info['over_under'] = f"O/U {odds['overUnder']}"
+    
+    # Broadcast information
+    if 'broadcasts' in details and details['broadcasts']:
+        networks = []
+        for broadcast in details['broadcasts']:
+            names = broadcast.get('names', [])
+            if names:
+                networks.extend(names)
+        if networks:
+            info['broadcast'] = ', '.join(networks)
+    
+    # Injuries summary
+    if 'injuries' in details:
+        injury_count = len(details['injuries'])
+        if injury_count > 0:
+            info['injuries'] = f"{injury_count} injury report(s) available"
+    
+    return info
+
+def format_complex_data(key, value):
+    """Format complex data structures for better display"""
+    if not value:
+        return "No data available"
+    
+    # Handle cases where value has a "header" key (common ESPN pattern)
+    if isinstance(value, dict) and "header" in value:
+        # Skip the header and process the actual content
+        if len(value) == 1:
+            return "No content data available"
+        # Process other keys in the dict besides "header"
+        content_keys = [k for k in value.keys() if k != "header"]
+        if content_keys:
+            # Use the first non-header key's data
+            actual_value = value[content_keys[0]]
+            return format_complex_data(key, actual_value)
+        return "No usable data found"
+    if isinstance(value, dict) and "header" in value and len(value) == 1:
+        return f"Available: {value['header']}"
+    
+    if key == "gameInfo" and isinstance(value, dict):
+        info_parts = []
+        # Show useful game information
+        if "venue" in value:
+            venue = value["venue"]
+            if isinstance(venue, dict):
+                venue_name = venue.get("fullName", venue.get("displayName", "Unknown Venue"))
+                info_parts.append(f"Venue: {venue_name}")
+        
+        if "attendance" in value:
+            info_parts.append(f"Attendance: {value['attendance']:,}")
+        
+        if "officials" in value and isinstance(value["officials"], list):
+            officials_count = len(value["officials"])
+            if officials_count > 0:
+                info_parts.append(f"Officials: {officials_count} assigned")
+        
+        if "weather" in value:
+            weather = value["weather"]
+            if isinstance(weather, dict):
+                weather_desc = weather.get("displayValue", "")
+                temp = weather.get("temperature", "")
+                if weather_desc or temp:
+                    weather_info = weather_desc
+                    if temp:
+                        weather_info += f" ({temp}°F)" if weather_desc else f"{temp}°F"
+                    info_parts.append(f"Weather: {weather_info}")
+        
+        return "\n".join(info_parts) if info_parts else "No additional game info available"
+    
+    elif key == "news":
+        if isinstance(value, list):
+            if not value:
+                return "No news available"
+            headlines = []
+            for item in value[:3]:  # Show first 3 items
+                if isinstance(item, dict):
+                    headline = item.get("headline", "")
+                    if not headline:
+                        headline = item.get("title", "")
+                    if headline:
+                        headlines.append(f"• {headline}")
+            return "\n".join(headlines) if headlines else "No headlines available"
+        elif isinstance(value, dict):
+            if "articles" in value and isinstance(value["articles"], list):
+                # Handle ESPN news format with articles array
+                articles = value["articles"][:3]
+                headlines = []
+                for article in articles:
+                    if isinstance(article, dict):
+                        headline = article.get("headline", "")
+                        if headline:
+                            headlines.append(f"• {headline}")
+                return "\n".join(headlines) if headlines else "No headlines found"
+            elif "header" in value:
+                # Just show that news is available
+                return "News headlines available (click to view)"
+            else:
+                return "News section available"
+        else:
+            return "News available"
+    
+    elif key == "leaders":
+        if isinstance(value, list):
+            if not value:
+                return "No leaders data available"
+            leader_count = len(value)
+            return f"Statistical leaders available ({leader_count} categories) - Press Enter to view"
+        elif isinstance(value, dict):
+            if "header" in value:
+                category_count = len([k for k in value.keys() if k != "header"])
+                return f"Statistical leaders available ({category_count} categories) - Press Enter to view"
+            else:
+                category_count = len(value.keys())
+                return f"Statistical leaders available ({category_count} categories) - Press Enter to view"
+        else:
+            return "Leaders data available"
+    
+    elif key == "standings":
+        if isinstance(value, list):
+            if not value:
+                return "No standings available"
+            team_count = len(value)
+            return f"Standings available for {team_count} teams - Press Enter to view"
+        elif isinstance(value, dict):
+            if "entries" in value and isinstance(value["entries"], list):
+                team_count = len(value["entries"])
+                return f"Standings available for {team_count} teams - Press Enter to view"
+            elif "header" in value:
+                return "Current standings available - Press Enter to view"
+            else:
+                return "Standings data available - Press Enter to view"
+        else:
+            return "Standings available"
+    
+    elif key == "injuries" and isinstance(value, list):
+        if not value:
+            return "No injuries reported"
+        injury_count = len(value)
+        return f"Injury reports available ({injury_count} players) - Press Enter to view details"
+    
+    elif key == "broadcasts":
+        if isinstance(value, list):
+            if not value:
+                return "No broadcast info"
+            networks = []
+            for broadcast in value:
+                if isinstance(broadcast, dict):
+                    names = broadcast.get("names", [])
+                    networks.extend(names)
+            return ", ".join(networks[:3]) if networks else "No networks listed"
+        elif isinstance(value, dict):
+            if "header" in value:
+                return f"Broadcast info available: {value['header']}"
+            else:
+                return "Broadcast data available"
+        else:
+            return "Broadcast section available"
+    
+    elif key == "odds":
+        if isinstance(value, list):
+            if not value:
+                return "No odds available"
+            odds_info = []
+            for odd in value[:2]:  # Show first 2
+                if isinstance(odd, dict):
+                    provider = odd.get("provider", {}).get("name", "Unknown")
+                    details = odd.get("details", "No details")
+                    over_under = odd.get("overUnder", "")
+                    info = f"• {provider}: {details}"
+                    if over_under:
+                        info += f" (O/U: {over_under})"
+                    odds_info.append(info)
+            return "\n".join(odds_info) if odds_info else "No odds details"
+        elif isinstance(value, dict):
+            if "header" in value:
+                return f"Odds available: {value['header']}"
+            else:
+                return "Odds data available"
+        else:
+            return "Odds section available"
+    
+    elif key == "boxscore" and isinstance(value, dict):
+        teams = value.get("teams", [])
+        if teams:
+            boxscore_info = []
+            for team in teams[:2]:
+                if isinstance(team, dict):
+                    team_info = team.get("team", {})
+                    name = team_info.get("displayName", "Unknown")
+                    stats = team.get("statistics", [])
+                    if stats:
+                        # Show a few key stats
+                        key_stats = []
+                        for stat in stats[:3]:
+                            if isinstance(stat, dict):
+                                stat_name = stat.get("name", "")
+                                stat_value = stat.get("displayValue", "")
+                                if stat_name and stat_value:
+                                    key_stats.append(f"{stat_name}: {stat_value}")
+                        if key_stats:
+                            boxscore_info.append(f"• {name}: {', '.join(key_stats)}")
+            return "\n".join(boxscore_info) if boxscore_info else "No boxscore data"
+        return "No team stats available"
+    
+    elif isinstance(value, list):
+        return f"List with {len(value)} items" + (f": {', '.join(str(v)[:30] + '...' if len(str(v)) > 30 else str(v) for v in value[:3])}" if value and len(str(value[0])) < 50 else "")
+    
+    elif isinstance(value, dict):
+        if len(value) <= 3:
+            # For small dicts, show the key-value pairs
+            items = []
+            for k, v in list(value.items())[:3]:
+                if isinstance(v, (str, int, float)):
+                    items.append(f"{k}: {v}")
+            return "; ".join(items) if items else f"Dict with {len(value)} items"
+        return f"Dict with {len(value)} items: {', '.join(list(value.keys())[:5])}"
+    
+    return str(value)[:100] + ("..." if len(str(value)) > 100 else "")
