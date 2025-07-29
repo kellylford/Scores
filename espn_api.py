@@ -397,3 +397,157 @@ def format_complex_data(key, value):
         return f"Dict with {len(value)} items: {', '.join(list(value.keys())[:5])}"
     
     return str(value)[:100] + ("..." if len(str(value)) > 100 else "")
+
+def get_standings(league_key):
+    """Get current standings for a specific league using scoreboard API"""
+    league_path = LEAGUES.get(league_key)
+    if not league_path:
+        return []
+    
+    # Use scoreboard API since it contains team records
+    url = f"{BASE_URL}/{league_path}/scoreboard"
+    resp = requests.get(url)
+    if resp.status_code != 200:
+        return []
+    
+    data = resp.json()
+    standings = []
+    teams_seen = set()  # To avoid duplicates
+    
+    # MLB Division mapping
+    mlb_divisions = {
+        # American League East
+        "BAL": "AL East", "BOS": "AL East", "NYY": "AL East", "TB": "AL East", "TOR": "AL East",
+        # American League Central  
+        "CWS": "AL Central", "CLE": "AL Central", "DET": "AL Central", "KC": "AL Central", "MIN": "AL Central",
+        # American League West
+        "HOU": "AL West", "LAA": "AL West", "OAK": "AL West", "SEA": "AL West", "TEX": "AL West",
+        # National League East
+        "ATL": "NL East", "MIA": "NL East", "NYM": "NL East", "PHI": "NL East", "WSH": "NL East",
+        # National League Central
+        "CHC": "NL Central", "CIN": "NL Central", "MIL": "NL Central", "PIT": "NL Central", "STL": "NL Central",
+        # National League West
+        "ARI": "NL West", "COL": "NL West", "LAD": "NL West", "SD": "NL West", "SF": "NL West"
+    }
+    
+    try:
+        events = data.get("events", [])
+        
+        for event in events:
+            competitions = event.get("competitions", [])
+            if not competitions:
+                continue
+                
+            comp = competitions[0]
+            competitors = comp.get("competitors", [])
+            
+            for competitor in competitors:
+                team_data = competitor.get("team", {})
+                team_id = team_data.get("id", "")
+                
+                # Skip if we've already processed this team
+                if team_id in teams_seen:
+                    continue
+                teams_seen.add(team_id)
+                
+                # Get team info
+                team_name = team_data.get("displayName", "Unknown")
+                abbreviation = team_data.get("abbreviation", "")
+                
+                # Get division from mapping
+                division = mlb_divisions.get(abbreviation, "League") if league_key == "MLB" else "League"
+                
+                # Get record information
+                records = competitor.get("records", [])
+                wins = losses = 0
+                
+                # Look for the overall record
+                for record in records:
+                    if record.get("name") == "overall":
+                        summary = record.get("summary", "0-0")
+                        try:
+                            wins, losses = map(int, summary.split("-"))
+                        except ValueError:
+                            wins = losses = 0
+                        break
+                
+                # Calculate win percentage
+                total_games = wins + losses
+                win_pct = f"{wins/total_games:.3f}" if total_games > 0 else "0.000"
+                
+                standings.append({
+                    "team_name": team_name,
+                    "abbreviation": abbreviation,
+                    "wins": wins,
+                    "losses": losses,
+                    "win_percentage": win_pct,
+                    "games_back": "N/A",  # We'll calculate this after sorting by division
+                    "division": division,
+                    "logo": team_data.get("logo", "")
+                })
+        
+        # Sort by division, then by wins (descending), then by win percentage
+        standings.sort(key=lambda x: (x["division"], -int(x["wins"]), -float(x["win_percentage"])))
+        
+        # Calculate games back within each division
+        if standings:
+            # Group by division and calculate games back for each division
+            divisions = {}
+            for team in standings:
+                div = team["division"]
+                if div not in divisions:
+                    divisions[div] = []
+                divisions[div].append(team)
+            
+            # Calculate games back for each division
+            for div_name, div_teams in divisions.items():
+                if div_teams:
+                    leader_wins = int(div_teams[0]["wins"])
+                    leader_losses = int(div_teams[0]["losses"])
+                    
+                    for i, team in enumerate(div_teams):
+                        if i == 0:
+                            team["games_back"] = "—"  # Leader
+                        else:
+                            team_wins = int(team["wins"])
+                            team_losses = int(team["losses"])
+                            games_back = ((leader_wins - team_wins) + (team_losses - leader_losses)) / 2
+                            team["games_back"] = f"{games_back:.1f}" if games_back > 0 else "0.0"
+        
+    except (KeyError, IndexError, ValueError) as e:
+        print(f"Error parsing scoreboard data: {e}")
+        return []
+    
+    return standings
+
+def parse_standings_entry(entry, division="League"):
+    """Parse a single standings entry"""
+    if not entry or "team" not in entry:
+        return None
+    
+    team = entry["team"]
+    stats = entry.get("stats", [])
+    
+    # Extract common statistics
+    wins = losses = win_pct = games_back = ""
+    
+    for stat in stats:
+        if stat.get("name") == "wins":
+            wins = stat.get("value", 0)
+        elif stat.get("name") == "losses":
+            losses = stat.get("value", 0)
+        elif stat.get("name") == "winPercent":
+            win_pct = f"{float(stat.get('value', 0)):.3f}"
+        elif stat.get("name") == "gamesBehind":
+            games_back = stat.get("displayValue", "0.0")
+    
+    return {
+        "team_name": team.get("displayName", "Unknown"),
+        "abbreviation": team.get("abbreviation", ""),
+        "wins": wins,
+        "losses": losses,
+        "win_percentage": win_pct,
+        "games_back": games_back,
+        "division": division,
+        "logo": team.get("logo", "")
+    }

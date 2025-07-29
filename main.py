@@ -126,11 +126,18 @@ class SportsScoresApp(QWidget):
             news_count = len(self.news_headlines)
             self.scores_list.addItem(f"--- News ({news_count} stories) ---")
             self.scores_list.item(self.scores_list.count()-1).setData(Qt.ItemDataRole.UserRole, "__news__")
+        
+        # Add standings entry for MLB
+        if self.current_league == "MLB":
+            self.scores_list.addItem("--- Standings ---")
+            self.scores_list.item(self.scores_list.count()-1).setData(Qt.ItemDataRole.UserRole, "__standings__")
 
     def open_scores_item(self, item):
         data = item.data(Qt.ItemDataRole.UserRole)
         if data == "__news__":
             self.show_news_dialog()
+        elif data == "__standings__":
+            self.show_standings_dialog()
         else:
             # Open game details for selected game
             game_id = item.data(Qt.ItemDataRole.UserRole)
@@ -211,6 +218,90 @@ class SportsScoresApp(QWidget):
             self.open_news_story(current_item)
         else:
             QMessageBox.information(self, "No Selection", "Please select a news story first.")
+
+    def show_standings_dialog(self):
+        """Show current MLB standings in an accessible table format"""
+        standings_data = espn_api.get_standings(self.current_league)
+        
+        if not standings_data:
+            QMessageBox.information(self, "Standings", f"No standings data available for {self.current_league}.")
+            return
+        
+        dlg = QDialog(self)
+        dlg.setWindowTitle(f"{self.current_league} Standings")
+        dlg.resize(900, 600)
+        layout = QVBoxLayout()
+        
+        # Create accessible table
+        table = QTableWidget()
+        
+        # Set up table headers
+        headers = ["Team", "W", "L", "Win %", "GB", "Division"]
+        table.setColumnCount(len(headers))
+        table.setHorizontalHeaderLabels(headers)
+        table.setRowCount(len(standings_data))
+        
+        # Populate table
+        for row, team_data in enumerate(standings_data):
+            team_name = team_data.get("team_name", "")
+            
+            # Team name
+            team_item = QTableWidgetItem(team_name)
+            table.setItem(row, 0, team_item)
+            
+            # Wins - include team name in accessible description
+            wins_item = QTableWidgetItem(str(team_data.get("wins", "")))
+            wins_item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, f"{team_name} wins")
+            table.setItem(row, 1, wins_item)
+            
+            # Losses - include team name in accessible description
+            losses_item = QTableWidgetItem(str(team_data.get("losses", "")))
+            losses_item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, f"{team_name} losses")
+            table.setItem(row, 2, losses_item)
+            
+            # Win percentage - include team name in accessible description
+            win_pct_item = QTableWidgetItem(team_data.get("win_percentage", ""))
+            win_pct_item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, f"{team_name} win percentage")
+            table.setItem(row, 3, win_pct_item)
+            
+            # Games back - include team name in accessible description
+            gb_item = QTableWidgetItem(team_data.get("games_back", ""))
+            gb_item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, f"{team_name} games back")
+            table.setItem(row, 4, gb_item)
+            
+            # Division - include team name in accessible description
+            div_item = QTableWidgetItem(team_data.get("division", ""))
+            div_item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, f"{team_name} division")
+            table.setItem(row, 5, div_item)
+        
+        # Make table accessible
+        table.setAlternatingRowColors(True)
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        
+        # Hide row numbers/vertical headers
+        table.verticalHeader().setVisible(False)
+        
+        # Auto-resize columns to content
+        header = table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)  # Team name column stretches
+        
+        # Don't sort here - data is already sorted by division and position in the API
+        
+        layout.addWidget(QLabel(f"Current {self.current_league} Standings:"))
+        layout.addWidget(table)
+        
+        # Add close button
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(dlg.accept)
+        layout.addWidget(close_btn)
+        
+        dlg.setLayout(layout)
+        
+        # Set focus to the table for keyboard navigation
+        table.setFocus()
+        dlg.exec()
 
     def load_game_details(self):
         self.details_list.clear()
