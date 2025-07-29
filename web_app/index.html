@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sports Scores</title>
+    <link rel="stylesheet" href="styles_new.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚾</text></svg>">
+</head>
+<body>
+    <!-- Skip to main content link -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    
+    <!-- Header -->
+    <header role="banner" class="header">
+        <div class="container">
+            <h1 class="logo">
+                <span class="logo-icon" aria-hidden="true">⚾</span>
+                Sports Scores
+            </h1>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main id="main-content" role="main" class="main-content">
+        <div class="container">
+            <!-- Loading indicator -->
+            <div id="loading" class="loading" aria-live="polite">
+                <div class="loading-spinner" aria-hidden="true"></div>
+                <p>Loading...</p>
+            </div>
+
+            <!-- Error message -->
+            <div id="error-message" class="error-message hidden" role="alert">
+                <h2>Error Loading Data</h2>
+                <p id="error-text"></p>
+                <button type="button" class="retry-button" onclick="retryLoad()" aria-label="Retry loading data">
+                    <span aria-hidden="true">🔄</span> Retry
+                </button>
+            </div>
+
+            <!-- Home: League Selection -->
+            <section id="home-section" class="content-section">
+                <h2>Select a League:</h2>
+                <ul id="league-list" class="option-list" role="list">
+                    <!-- Leagues populated by JavaScript -->
+                </ul>
+            </section>
+
+            <!-- League: Scores List -->
+            <section id="league-section" class="content-section hidden">
+                <div class="section-header">
+                    <h2 id="league-title">Scores</h2>
+                    <div class="date-navigation">
+                        <button id="prev-date" class="date-nav-btn" aria-label="Previous day">‹</button>
+                        <span id="current-date" class="current-date"></span>
+                        <button id="next-date" class="date-nav-btn" aria-label="Next day">›</button>
+                    </div>
+                </div>
+                
+                <ul id="scores-list" class="option-list" role="list">
+                    <!-- Scores populated by JavaScript -->
+                </ul>
+                
+                <div class="action-buttons">
+                    <button id="back-to-home" class="action-btn">← Back to Leagues</button>
+                    <button id="refresh-scores" class="action-btn">🔄 Refresh</button>
+                </div>
+            </section>
+
+            <!-- Game Details -->
+            <section id="game-section" class="content-section hidden">
+                <div class="section-header">
+                    <h2 id="game-title">Game Details</h2>
+                </div>
+                
+                <ul id="game-details-list" class="details-list" role="list">
+                    <!-- Game details populated by JavaScript -->
+                </ul>
+                
+                <div class="action-buttons">
+                    <button id="back-to-scores" class="action-btn">← Back to Scores</button>
+                    <button id="refresh-game" class="action-btn">🔄 Refresh</button>
+                    <button id="configure-details" class="action-btn">⚙️ Configure</button>
+                </div>
+            </section>
+
+            <!-- News Modal -->
+            <div id="news-modal" class="modal hidden" role="dialog" aria-labelledby="news-modal-title">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 id="news-modal-title">News Headlines</h2>
+                        <button id="close-news" class="close-btn" aria-label="Close news">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <ul id="news-list" class="news-list" role="list">
+                            <!-- News populated by JavaScript -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Standings Modal -->
+            <div id="standings-modal" class="modal hidden" role="dialog" aria-labelledby="standings-modal-title">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 id="standings-modal-title">Standings</h2>
+                        <button id="close-standings" class="close-btn" aria-label="Close standings">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="standings-content">
+                            <!-- Standings populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configuration Modal -->
+            <div id="config-modal" class="modal hidden" role="dialog" aria-labelledby="config-modal-title">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 id="config-modal-title">Configure Game Details</h2>
+                        <button id="close-config" class="close-btn" aria-label="Close configuration">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="config-form">
+                            <fieldset>
+                                <legend>Select details to display:</legend>
+                                <div id="config-options" class="config-options">
+                                    <!-- Options populated by JavaScript -->
+                                </div>
+                            </fieldset>
+                            <div class="modal-actions">
+                                <button type="button" id="save-config" class="action-btn">Save</button>
+                                <button type="button" id="cancel-config" class="action-btn secondary">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer role="contentinfo" class="footer">
+        <div class="container">
+            <p class="footer-text">
+                Sports data provided by ESPN API.
+            </p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="api.js"></script>
+    <script src="app_new.js"></script>
+</body>
+</html>
