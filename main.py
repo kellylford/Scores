@@ -188,12 +188,34 @@ class StandingsData:
     def __init__(self, raw_data: List[Dict]):
         self.raw_data = raw_data
         self.teams = self._parse_teams(raw_data)
+        self.divisions = self._organize_by_divisions()
     
     def _parse_teams(self, data: List[Dict]) -> List[Dict]:
         """Parse team standings data from various ESPN formats"""
         teams = []
         
-        # Handle different ESPN data structures
+        # Handle the new ESPN API data format which includes division information
+        if isinstance(data, list) and data and isinstance(data[0], dict):
+            # Check if this is the new format with division info
+            first_item = data[0]
+            if "division" in first_item:
+                # This is the enhanced format from espn_api.py
+                for team_data in data:
+                    parsed_team = {
+                        "name": team_data.get("team_name", "Unknown"),
+                        "abbreviation": team_data.get("abbreviation", ""),
+                        "wins": str(team_data.get("wins", "N/A")),
+                        "losses": str(team_data.get("losses", "N/A")),
+                        "win_pct": str(team_data.get("win_percentage", "N/A")),
+                        "games_behind": str(team_data.get("games_back", "N/A")),
+                        "streak": "N/A",  # Not available in this format
+                        "record": f"{team_data.get('wins', 0)}-{team_data.get('losses', 0)}",
+                        "division": team_data.get("division", "League")
+                    }
+                    teams.append(parsed_team)
+                return teams
+        
+        # Handle legacy ESPN data structures
         data_to_process = data
         if isinstance(data, dict):
             if "entries" in data:
@@ -225,7 +247,8 @@ class StandingsData:
                     "win_pct": "N/A",
                     "games_behind": "N/A",
                     "streak": "N/A",
-                    "record": record
+                    "record": record,
+                    "division": "League"  # Default division
                 }
                 
                 # Extract stats from various possible formats
@@ -269,6 +292,24 @@ class StandingsData:
                 teams.append(parsed_team)
         
         return teams
+    
+    def _organize_by_divisions(self) -> Dict[str, List[Dict]]:
+        """Organize teams by division"""
+        divisions = {}
+        for team in self.teams:
+            division = team.get("division", "League")
+            if division not in divisions:
+                divisions[division] = []
+            divisions[division].append(team)
+        
+        # Sort teams within each division by wins (descending), then by win percentage
+        for division_teams in divisions.values():
+            division_teams.sort(key=lambda x: (
+                -int(x["wins"]) if x["wins"] != "N/A" and x["wins"].isdigit() else 0,
+                -float(x["win_pct"]) if x["win_pct"] != "N/A" and x["win_pct"].replace(".", "").isdigit() else 0
+            ))
+        
+        return divisions
 
 class ConfigDialog(QDialog):
     def __init__(self, details, selected, parent=None):
@@ -546,14 +587,18 @@ class GameDetailsView(BaseView):
     
     def _show_detail_dialog(self, field_name: str, field_data: Any):
         """Show detailed data in a dialog"""
+        if field_name == "standings" and isinstance(field_data, list):
+            # Use special standings dialog with keyboard navigation
+            dlg = StandingsDetailDialog(field_data, self.league, self)
+            dlg.exec()
+            return
+        
         dlg = QDialog(self)
         dlg.setWindowTitle(f"{field_name.title()} Details")
         dlg.resize(DIALOG_WIDTH, DIALOG_HEIGHT)
         layout = QVBoxLayout()
         
-        if field_name == "standings" and isinstance(field_data, list):
-            self._add_standings_table_to_layout(layout, field_data)
-        elif field_name == "leaders" and isinstance(field_data, dict):
+        if field_name == "leaders" and isinstance(field_data, dict):
             self._add_leaders_data_to_layout(layout, field_data)
         elif field_name == "boxscore" and isinstance(field_data, dict):
             self._add_boxscore_data_to_layout(layout, field_data)
@@ -760,42 +805,106 @@ class GameDetailsView(BaseView):
             layout.addWidget(QLabel("No standings data available."))
             return
         
-        # Create table
-        table = QTableWidget()
-        table.setColumnCount(len(STANDINGS_HEADERS))
-        table.setHorizontalHeaderLabels(STANDINGS_HEADERS)
-        table.setRowCount(len(standings_data.teams))
+        # Check if we have division data for MLB
+        has_divisions = len(standings_data.divisions) > 1 or any(
+            div != "League" for div in standings_data.divisions.keys()
+        )
         
-        # Populate table
-        for row, team_data in enumerate(standings_data.teams):
-            rank = str(row + 1)
-            items_data = [
-                rank,
-                team_data["name"],
-                team_data["wins"],
-                team_data["losses"],
-                team_data["win_pct"],
-                team_data["games_behind"],
-                team_data["streak"],
-                team_data["record"]
-            ]
+        if has_divisions and hasattr(self, 'league') and self.league == "MLB":
+            # Create tabbed view for divisions
+            tab_widget = QTabWidget()
             
-            for col, value in enumerate(items_data):
-                item = QTableWidgetItem(str(value))
-                table.setItem(row, col, item)
-        
-        # Configure table
-        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        table.setAlternatingRowColors(True)
-        table.verticalHeader().setVisible(False)
-        
-        # Auto-resize columns
-        header = table.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Team name stretches
-        
-        layout.addWidget(table)
+            # Sort divisions for consistent ordering
+            division_order = ["AL East", "AL Central", "AL West", "NL East", "NL Central", "NL West", "League"]
+            sorted_divisions = []
+            
+            for div_name in division_order:
+                if div_name in standings_data.divisions:
+                    sorted_divisions.append((div_name, standings_data.divisions[div_name]))
+            
+            # Add any divisions not in our predefined order
+            for div_name, teams in standings_data.divisions.items():
+                if div_name not in division_order:
+                    sorted_divisions.append((div_name, teams))
+            
+            for div_name, teams in sorted_divisions:
+                if teams:  # Only create tab if there are teams
+                    # Create table for this division
+                    table = QTableWidget()
+                    table.setColumnCount(len(STANDINGS_HEADERS))
+                    table.setHorizontalHeaderLabels(STANDINGS_HEADERS)
+                    table.setRowCount(len(teams))
+                    
+                    # Populate table with division ranking
+                    for row, team_data in enumerate(teams):
+                        rank = str(row + 1)  # Rank within division
+                        items_data = [
+                            rank,
+                            team_data["name"],
+                            team_data["wins"],
+                            team_data["losses"],
+                            team_data["win_pct"],
+                            team_data["games_behind"],
+                            team_data.get("streak", "N/A"),
+                            team_data["record"]
+                        ]
+                        
+                        for col, value in enumerate(items_data):
+                            item = QTableWidgetItem(str(value))
+                            table.setItem(row, col, item)
+                    
+                    # Configure table
+                    table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+                    table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+                    table.setAlternatingRowColors(True)
+                    table.verticalHeader().setVisible(False)
+                    
+                    # Auto-resize columns
+                    header = table.horizontalHeader()
+                    header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+                    header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Team name stretches
+                    
+                    # Add table to tab
+                    tab_widget.addTab(table, div_name)
+            
+            layout.addWidget(tab_widget)
+        else:
+            # Create single table for non-divisional leagues
+            table = QTableWidget()
+            table.setColumnCount(len(STANDINGS_HEADERS))
+            table.setHorizontalHeaderLabels(STANDINGS_HEADERS)
+            table.setRowCount(len(standings_data.teams))
+            
+            # Populate table
+            for row, team_data in enumerate(standings_data.teams):
+                rank = str(row + 1)
+                items_data = [
+                    rank,
+                    team_data["name"],
+                    team_data["wins"],
+                    team_data["losses"],
+                    team_data["win_pct"],
+                    team_data["games_behind"],
+                    team_data.get("streak", "N/A"),
+                    team_data["record"]
+                ]
+                
+                for col, value in enumerate(items_data):
+                    item = QTableWidgetItem(str(value))
+                    table.setItem(row, col, item)
+            
+            # Configure table
+            table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+            table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+            table.setAlternatingRowColors(True)
+            table.verticalHeader().setVisible(False)
+            
+            # Auto-resize columns
+            header = table.horizontalHeader()
+            header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+            header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Team name stretches
+            
+            layout.addWidget(table)
     
     def _add_leaders_data_to_layout(self, layout, data):
         """Add leaders data to layout"""
@@ -999,6 +1108,201 @@ class GameDetailsView(BaseView):
         layout.addWidget(QLabel("Double-click a headline to open in browser:"))
         layout.addWidget(news_list)
 
+class StandingsDetailDialog(QDialog):
+    """Dialog for displaying team standings from game details with keyboard navigation"""
+    
+    def __init__(self, standings_data: List, league: str, parent=None):
+        super().__init__(parent)
+        self.standings_data = StandingsData(standings_data)
+        self.league = league
+        self.setWindowTitle(f"{league} Standings Details")
+        self.resize(STANDINGS_DIALOG_WIDTH, STANDINGS_DIALOG_HEIGHT)
+        
+        # Initialize widget references for keyboard navigation
+        self.tab_widget = None
+        self.single_table = None
+        
+        self.setup_ui()
+    
+    def setup_ui(self):
+        layout = QVBoxLayout()
+        
+        if not self.standings_data.teams:
+            layout.addWidget(QLabel(f"No standings data available for {self.league}."))
+        else:
+            # Check if we have division data
+            has_divisions = len(self.standings_data.divisions) > 1 or any(
+                div != "League" for div in self.standings_data.divisions.keys()
+            )
+            
+            if has_divisions and self.league == "MLB":
+                # Create tabs for different divisions
+                self.tab_widget = QTabWidget()
+                
+                # Sort divisions for consistent ordering
+                division_order = ["AL East", "AL Central", "AL West", "NL East", "NL Central", "NL West", "League"]
+                sorted_divisions = []
+                
+                for div_name in division_order:
+                    if div_name in self.standings_data.divisions:
+                        sorted_divisions.append((div_name, self.standings_data.divisions[div_name]))
+                
+                # Add any divisions not in our predefined order
+                for div_name, teams in self.standings_data.divisions.items():
+                    if div_name not in division_order:
+                        sorted_divisions.append((div_name, teams))
+                
+                for div_name, teams in sorted_divisions:
+                    if teams:  # Only create tab if there are teams
+                        tab_content = self._create_division_table(div_name, teams)
+                        self.tab_widget.addTab(tab_content, div_name)
+                
+                layout.addWidget(QLabel(f"Current {self.league} Standings by Division (F6 to focus tabs, Ctrl+Tab to switch):"))
+                layout.addWidget(self.tab_widget)
+                
+                # Set focus to the first tab
+                if self.tab_widget.count() > 0:
+                    self.tab_widget.setCurrentIndex(0)
+                    first_tab = self.tab_widget.widget(0)
+                    if hasattr(first_tab, 'table'):
+                        first_tab.table.setFocus()
+            else:
+                # Single table for leagues without divisions or non-MLB leagues
+                self.single_table = self._create_single_standings_table(self.standings_data.teams)
+                layout.addWidget(QLabel(f"Current {self.league} Standings:"))
+                layout.addWidget(self.single_table)
+                self.single_table.setFocus()
+        
+        # Add close button
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        layout.addWidget(close_btn)
+        
+        self.setLayout(layout)
+    
+    def _create_division_table(self, division_name: str, teams: List[Dict]) -> QWidget:
+        """Create a table widget for a specific division"""
+        widget = QWidget()
+        layout = QVBoxLayout()
+        
+        # Create table
+        table = QTableWidget()
+        table.setColumnCount(len(STANDINGS_HEADERS))
+        table.setHorizontalHeaderLabels(STANDINGS_HEADERS)
+        table.setRowCount(len(teams))
+        
+        # Populate table with division ranking
+        for row, team_data in enumerate(teams):
+            rank = str(row + 1)  # Rank within division
+            
+            items_data = [
+                rank,
+                team_data["name"],
+                team_data["wins"],
+                team_data["losses"],
+                team_data["win_pct"],
+                team_data["games_behind"],
+                team_data.get("streak", "N/A"),
+                team_data["record"]
+            ]
+            
+            for col, value in enumerate(items_data):
+                item = QTableWidgetItem(str(value))
+                table.setItem(row, col, item)
+        
+        # Configure table
+        table.setAlternatingRowColors(True)
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        table.verticalHeader().setVisible(False)
+        
+        # Auto-resize columns
+        header = table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Team name stretches
+        
+        layout.addWidget(table)
+        widget.setLayout(layout)
+        
+        # Store table reference for focus management
+        widget.table = table
+        
+        return widget
+    
+    def _create_single_standings_table(self, teams: List[Dict]) -> QTableWidget:
+        """Create a single table for all teams (for non-divisional leagues)"""
+        table = QTableWidget()
+        table.setColumnCount(len(STANDINGS_HEADERS))
+        table.setHorizontalHeaderLabels(STANDINGS_HEADERS)
+        table.setRowCount(len(teams))
+        
+        # Populate table
+        for row, team_data in enumerate(teams):
+            rank = str(row + 1)
+            
+            items_data = [
+                rank,
+                team_data["name"],
+                team_data["wins"],
+                team_data["losses"],
+                team_data["win_pct"],
+                team_data["games_behind"],
+                team_data.get("streak", "N/A"),
+                team_data["record"]
+            ]
+            
+            for col, value in enumerate(items_data):
+                item = QTableWidgetItem(str(value))
+                table.setItem(row, col, item)
+        
+        # Configure table
+        table.setAlternatingRowColors(True)
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        table.verticalHeader().setVisible(False)
+        
+        # Auto-resize columns
+        header = table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Team name stretches
+        
+        return table
+    
+    def keyPressEvent(self, event):
+        """Handle keyboard navigation for tabs"""
+        if self.tab_widget:  # Only handle if we have tabs
+            if event.key() == Qt.Key.Key_F6:
+                # F6 focuses on the tab bar
+                self.tab_widget.setFocus()
+                event.accept()
+                return
+            elif event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+                if event.key() == Qt.Key.Key_Tab:
+                    # Ctrl+Tab - next tab
+                    current_index = self.tab_widget.currentIndex()
+                    next_index = (current_index + 1) % self.tab_widget.count()
+                    self.tab_widget.setCurrentIndex(next_index)
+                    # Focus on the table in the new tab
+                    current_tab = self.tab_widget.widget(next_index)
+                    if hasattr(current_tab, 'table'):
+                        current_tab.table.setFocus()
+                    event.accept()
+                    return
+                elif event.key() == Qt.Key.Key_Backtab:
+                    # Ctrl+Shift+Tab - previous tab
+                    current_index = self.tab_widget.currentIndex()
+                    prev_index = (current_index - 1) % self.tab_widget.count()
+                    self.tab_widget.setCurrentIndex(prev_index)
+                    # Focus on the table in the new tab
+                    current_tab = self.tab_widget.widget(prev_index)
+                    if hasattr(current_tab, 'table'):
+                        current_tab.table.setFocus()
+                    event.accept()
+                    return
+        
+        # Call parent implementation for other keys
+        super().keyPressEvent(event)
+
 class NewsDialog(QDialog):
     """Dialog for displaying news headlines"""
     
@@ -1090,52 +1394,55 @@ class StandingsDialog(QDialog):
     def setup_ui(self):
         layout = QVBoxLayout()
         
+        # Initialize widget references for keyboard navigation
+        self.tab_widget = None
+        self.single_table = None
+        
         if not self.standings_data.teams:
             layout.addWidget(QLabel(f"No standings data available for {self.league}."))
         else:
-            # Create accessible table
-            table = QTableWidget()
-            table.setColumnCount(len(STANDINGS_HEADERS))
-            table.setHorizontalHeaderLabels(STANDINGS_HEADERS)
-            table.setRowCount(len(self.standings_data.teams))
+            # Check if we have division data
+            has_divisions = len(self.standings_data.divisions) > 1 or any(
+                div != "League" for div in self.standings_data.divisions.keys()
+            )
             
-            # Populate table
-            for row, team_data in enumerate(self.standings_data.teams):
-                rank = str(row + 1)
+            if has_divisions and self.league == "MLB":
+                # Create tabs for different divisions
+                self.tab_widget = QTabWidget()
                 
-                # Set table items with accessibility descriptions
-                items_data = [
-                    (rank, f"Rank {rank}"),
-                    (team_data["name"], f"Team: {team_data['name']}"),
-                    (team_data["wins"], f"Wins: {team_data['wins']}"),
-                    (team_data["losses"], f"Losses: {team_data['losses']}"),
-                    (team_data["win_pct"], f"Win percentage: {team_data['win_pct']}"),
-                    (team_data["games_behind"], f"Games behind: {team_data['games_behind']}"),
-                    (team_data["streak"], f"Streak: {team_data['streak']}"),
-                    (team_data["record"], f"Record: {team_data['record']}")
-                ]
+                # Sort divisions for consistent ordering
+                division_order = ["AL East", "AL Central", "AL West", "NL East", "NL Central", "NL West", "League"]
+                sorted_divisions = []
                 
-                for col, (value, accessible_text) in enumerate(items_data):
-                    item = QTableWidgetItem(str(value))
-                    item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, accessible_text)
-                    table.setItem(row, col, item)
-            
-            # Make table accessible
-            table.setAlternatingRowColors(True)
-            table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-            table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-            table.verticalHeader().setVisible(False)
-            
-            # Auto-resize columns
-            header = table.horizontalHeader()
-            header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-            header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Team name stretches
-            
-            layout.addWidget(QLabel(f"Current {self.league} Standings:"))
-            layout.addWidget(table)
-            
-            # Set focus to table
-            table.setFocus()
+                for div_name in division_order:
+                    if div_name in self.standings_data.divisions:
+                        sorted_divisions.append((div_name, self.standings_data.divisions[div_name]))
+                
+                # Add any divisions not in our predefined order
+                for div_name, teams in self.standings_data.divisions.items():
+                    if div_name not in division_order:
+                        sorted_divisions.append((div_name, teams))
+                
+                for div_name, teams in sorted_divisions:
+                    if teams:  # Only create tab if there are teams
+                        tab_content = self._create_division_table(div_name, teams)
+                        self.tab_widget.addTab(tab_content, div_name)
+                
+                layout.addWidget(QLabel(f"Current {self.league} Standings by Division (F6 to focus tabs, Ctrl+Tab to switch):"))
+                layout.addWidget(self.tab_widget)
+                
+                # Set focus to the first tab
+                if self.tab_widget.count() > 0:
+                    self.tab_widget.setCurrentIndex(0)
+                    first_tab = self.tab_widget.widget(0)
+                    if hasattr(first_tab, 'table'):
+                        first_tab.table.setFocus()
+            else:
+                # Single table for leagues without divisions or non-MLB leagues
+                self.single_table = self._create_single_standings_table(self.standings_data.teams)
+                layout.addWidget(QLabel(f"Current {self.league} Standings:"))
+                layout.addWidget(self.single_table)
+                self.single_table.setFocus()
         
         # Add close button
         close_btn = QPushButton("Close")
@@ -1143,6 +1450,131 @@ class StandingsDialog(QDialog):
         layout.addWidget(close_btn)
         
         self.setLayout(layout)
+    
+    def _create_division_table(self, division_name: str, teams: List[Dict]) -> QWidget:
+        """Create a table widget for a specific division"""
+        widget = QWidget()
+        layout = QVBoxLayout()
+        
+        # Create table
+        table = QTableWidget()
+        table.setColumnCount(len(STANDINGS_HEADERS))
+        table.setHorizontalHeaderLabels(STANDINGS_HEADERS)
+        table.setRowCount(len(teams))
+        
+        # Populate table with division ranking
+        for row, team_data in enumerate(teams):
+            rank = str(row + 1)  # Rank within division
+            
+            items_data = [
+                (rank, f"Division rank {rank}"),
+                (team_data["name"], f"Team: {team_data['name']}"),
+                (team_data["wins"], f"Wins: {team_data['wins']}"),
+                (team_data["losses"], f"Losses: {team_data['losses']}"),
+                (team_data["win_pct"], f"Win percentage: {team_data['win_pct']}"),
+                (team_data["games_behind"], f"Games behind: {team_data['games_behind']}"),
+                (team_data.get("streak", "N/A"), f"Streak: {team_data.get('streak', 'N/A')}"),
+                (team_data["record"], f"Record: {team_data['record']}")
+            ]
+            
+            for col, (value, accessible_text) in enumerate(items_data):
+                item = QTableWidgetItem(str(value))
+                item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, accessible_text)
+                table.setItem(row, col, item)
+        
+        # Configure table
+        table.setAlternatingRowColors(True)
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        table.verticalHeader().setVisible(False)
+        
+        # Auto-resize columns
+        header = table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Team name stretches
+        
+        layout.addWidget(table)
+        widget.setLayout(layout)
+        
+        # Store table reference for focus management
+        widget.table = table
+        
+        return widget
+    
+    def _create_single_standings_table(self, teams: List[Dict]) -> QTableWidget:
+        """Create a single table for all teams (for non-divisional leagues)"""
+        table = QTableWidget()
+        table.setColumnCount(len(STANDINGS_HEADERS))
+        table.setHorizontalHeaderLabels(STANDINGS_HEADERS)
+        table.setRowCount(len(teams))
+        
+        # Populate table
+        for row, team_data in enumerate(teams):
+            rank = str(row + 1)
+            
+            items_data = [
+                (rank, f"Rank {rank}"),
+                (team_data["name"], f"Team: {team_data['name']}"),
+                (team_data["wins"], f"Wins: {team_data['wins']}"),
+                (team_data["losses"], f"Losses: {team_data['losses']}"),
+                (team_data["win_pct"], f"Win percentage: {team_data['win_pct']}"),
+                (team_data["games_behind"], f"Games behind: {team_data['games_behind']}"),
+                (team_data.get("streak", "N/A"), f"Streak: {team_data.get('streak', 'N/A')}"),
+                (team_data["record"], f"Record: {team_data['record']}")
+            ]
+            
+            for col, (value, accessible_text) in enumerate(items_data):
+                item = QTableWidgetItem(str(value))
+                item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, accessible_text)
+                table.setItem(row, col, item)
+        
+        # Configure table
+        table.setAlternatingRowColors(True)
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        table.verticalHeader().setVisible(False)
+        
+        # Auto-resize columns
+        header = table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Team name stretches
+        
+        return table
+    
+    def keyPressEvent(self, event):
+        """Handle keyboard navigation for tabs"""
+        if self.tab_widget:  # Only handle if we have tabs
+            if event.key() == Qt.Key.Key_F6:
+                # F6 focuses on the tab bar
+                self.tab_widget.setFocus()
+                event.accept()
+                return
+            elif event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+                if event.key() == Qt.Key.Key_Tab:
+                    # Ctrl+Tab - next tab
+                    current_index = self.tab_widget.currentIndex()
+                    next_index = (current_index + 1) % self.tab_widget.count()
+                    self.tab_widget.setCurrentIndex(next_index)
+                    # Focus on the table in the new tab
+                    current_tab = self.tab_widget.widget(next_index)
+                    if hasattr(current_tab, 'table'):
+                        current_tab.table.setFocus()
+                    event.accept()
+                    return
+                elif event.key() == Qt.Key.Key_Backtab:
+                    # Ctrl+Shift+Tab - previous tab
+                    current_index = self.tab_widget.currentIndex()
+                    prev_index = (current_index - 1) % self.tab_widget.count()
+                    self.tab_widget.setCurrentIndex(prev_index)
+                    # Focus on the table in the new tab
+                    current_tab = self.tab_widget.widget(prev_index)
+                    if hasattr(current_tab, 'table'):
+                        current_tab.table.setFocus()
+                    event.accept()
+                    return
+        
+        # Call parent implementation for other keys
+        super().keyPressEvent(event)
 
 class SportsScoresApp(QWidget):
     """Main application class using QStackedWidget for better view management"""
