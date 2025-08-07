@@ -1,26 +1,35 @@
 import sys
 import webbrowser
 from datetime import datetime, timedelta
-from typing import Dict, List, Any, Union  # Removed Optional (unused)
+from typing import Dict, List, Any, Union
+# Add project root to sys.path if running as script
+import os
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
+
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QListWidget, QPushButton, QLabel,
     QHBoxLayout, QCheckBox, QDialog, QMessageBox, QTextEdit, QScrollArea,
     QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget, QStackedWidget,
-    QListWidgetItem  # Added QListWidgetItem
+    QListWidgetItem
 )
 from PyQt6.QtCore import Qt, QTimer
-import espn_api
+
+# New separated modules
+from exceptions import ApiError, DataModelError
+from services.api_service import ApiService
+from models.game import GameData
+from models.news import NewsData
+from models.standings import StandingsData
 
 # Constants
 DETAIL_FIELDS = ["boxscore", "leaders", "standings", "odds", "injuries", "broadcasts", "news", "gameInfo"]
-DEFAULT_CONFIG_FIELDS = ["name", "status", "competitors"]
 BASEBALL_STAT_HEADERS = ["Player", "Position", "AB", "R", "H", "RBI", "BB", "SO", "AVG"]
 STANDINGS_HEADERS = ["Rank", "Team", "Wins", "Losses", "Win %", "GB", "Streak", "Record"]
 TEAM_SUMMARY_HEADERS = ["Team", "Statistic", "Value"]
 INJURY_HEADERS = ["Player", "Position", "Team", "Status", "Details"]
 LEADERS_HEADERS = ["Category/Player", "Team", "Statistic", "Value"]
-
-# UI timing constants
 FOCUS_DELAY_MS = 50
 WINDOW_WIDTH = 600
 WINDOW_HEIGHT = 400
@@ -31,335 +40,36 @@ NEWS_DIALOG_HEIGHT = 500
 STANDINGS_DIALOG_WIDTH = 900
 STANDINGS_DIALOG_HEIGHT = 600
 
-class ApiError(Exception):
-    """Custom exception for API-related errors"""
-    pass
-
-class DataModelError(Exception):
-    """Custom exception for data model parsing errors"""
-    pass
-
-class ApiService:
-    """Service class to handle all ESPN API interactions with error handling"""
-    
-    @staticmethod
-    def safe_api_call(func, *args, **kwargs):
-        """Wrapper for API calls with error handling"""
-        try:
-            return func(*args, **kwargs)
-        except Exception as e:
-            error_msg = f"API Error: {str(e)}"
-            print(f"[ERROR] {error_msg}")  # Log to console
-            raise ApiError(error_msg)
-    
-    @staticmethod
-    def get_leagues() -> List[str]:
-        """Get available leagues with error handling"""
-        try:
-            return ApiService.safe_api_call(espn_api.get_leagues)
-        except ApiError:
-            return []  # Return empty list on error
-    
-    @staticmethod
-    def get_scores(league: str, date) -> List[Dict]:
-        """Get scores for a league and date with error handling"""
-        try:
-            return ApiService.safe_api_call(espn_api.get_scores, league, date)
-        except ApiError:
-            return []
-    
-    @staticmethod
-    def get_news(league: str) -> List[Dict]:
-        """Get news for a league with error handling"""
-        try:
-            return ApiService.safe_api_call(espn_api.get_news, league)
-        except ApiError:
-            return []
-    
-    @staticmethod
-    def get_standings(league: str) -> List[Dict]:
-        """Get standings for a league with error handling"""
-        try:
-            return ApiService.safe_api_call(espn_api.get_standings, league)
-        except ApiError:
-            return []
-    
-    @staticmethod
-    def get_game_details(league: str, game_id: str) -> Dict:
-        """Get game details with error handling"""
-        try:
-            return ApiService.safe_api_call(espn_api.get_game_details, league, game_id)
-        except ApiError:
-            return {}
-    
-    @staticmethod
-    def extract_meaningful_game_info(raw_details: Dict) -> Dict:
-        """Extract meaningful game info with error handling"""
-        try:
-            return ApiService.safe_api_call(espn_api.extract_meaningful_game_info, raw_details) or {}
-        except ApiError:
-            return {}
-
-class GameData:
-    """Data model for game information"""
-    
-    def __init__(self, raw_data: Dict):
-        self.raw_data = raw_data
-        self.id = raw_data.get("id", "")
-        self.name = raw_data.get("name", "Unknown Game")
-        self.teams = raw_data.get("teams", [])
-        self.start_time = raw_data.get("start_time", "")
-    
-    def get_display_text(self) -> str:
-        """Get formatted display text for the game"""
-        display = self.name
-        
-        # Add scores if available
-        if self.teams:
-            team_scores = []
-            for team in self.teams:
-                if team.get("score"):
-                    team_scores.append(f"{team['abbreviation']} {team['score']}")
-            if team_scores:
-                display += f" ({' - '.join(team_scores)})"
-        
-        # Add timing/status info
-        if self.start_time:
-            if not any(team.get("score") for team in self.teams):
-                display += f" - {self.start_time}"
-            else:
-                display += f" - {self.start_time}"
-        
-        return display
-    
-    def has_scores(self) -> bool:
-        """Check if the game has scores available"""
-        return any(team.get("score") for team in self.teams)
-
-class NewsData:
-    """Data model for news articles"""
-    
-    def __init__(self, raw_data: Union[Dict, str]):
-        if isinstance(raw_data, dict):
-            self.headline = raw_data.get("headline", "No headline")
-            self.byline = raw_data.get("byline", "")
-            self.description = raw_data.get("description", "")
-            self.published = raw_data.get("published", "")
-            self.web_url = raw_data.get("web_url", raw_data.get("links", {}).get("web", {}).get("href", ""))
-        else:
-            # Handle legacy string format
-            self.headline = str(raw_data)
-            self.byline = ""
-            self.description = ""
-            self.published = ""
-            self.web_url = ""
-    
-    def get_display_text(self) -> str:
-        """Get formatted display text for the news item"""
-        display_text = self.headline
-        
-        if self.byline:
-            display_text += f"\nBy: {self.byline}"
-        
-        if self.published:
-            try:
-                if "T" in self.published:
-                    date_obj = datetime.fromisoformat(self.published.replace("Z", "+00:00"))
-                    formatted_date = date_obj.strftime("%B %d, %Y at %I:%M %p")
-                    display_text += f"\nPublished: {formatted_date}"
-                else:
-                    display_text += f"\nPublished: {self.published}"
-            except:
-                display_text += f"\nPublished: {self.published}"
-        
-        if self.description:
-            preview = self.description[:150] + "..." if len(self.description) > 150 else self.description
-            display_text += f"\n{preview}"
-        
-        return display_text
-    
-    def has_web_url(self) -> bool:
-        """Check if the news item has a web URL"""
-        return bool(self.web_url)
-
-class StandingsData:
-    """Data model for team standings"""
-    
-    def __init__(self, raw_data: List[Dict]):
-        self.raw_data = raw_data
-        self.teams = self._parse_teams(raw_data)
-        self.divisions = self._organize_by_divisions()
-    
-    def _parse_teams(self, data: List[Dict]) -> List[Dict]:
-        """Parse team standings data from various ESPN formats"""
-        teams = []
-        
-        # Handle the new ESPN API data format which includes division information
-        if isinstance(data, list) and data and isinstance(data[0], dict):
-            # Check if this is the new format with division info
-            first_item = data[0]
-            if "division" in first_item:
-                # This is the enhanced format from espn_api.py
-                for team_data in data:
-                    parsed_team = {
-                        "name": team_data.get("team_name", "Unknown"),
-                        "abbreviation": team_data.get("abbreviation", ""),
-                        "wins": str(team_data.get("wins", "N/A")),
-                        "losses": str(team_data.get("losses", "N/A")),
-                        "win_pct": str(team_data.get("win_percentage", "N/A")),
-                        "games_behind": str(team_data.get("games_back", "N/A")),
-                        "streak": "N/A",  # Not available in this format
-                        "record": f"{team_data.get('wins', 0)}-{team_data.get('losses', 0)}",
-                        "division": team_data.get("division", "League")
-                    }
-                    teams.append(parsed_team)
-                return teams
-        
-        # Handle legacy ESPN data structures
-        data_to_process = data
-        if isinstance(data, dict):
-            if "entries" in data:
-                data_to_process = data["entries"]
-            elif "children" in data:
-                data_to_process = data["children"]
-            else:
-                for key, value in data.items():
-                    if isinstance(value, list) and value:
-                        data_to_process = value
-                        break
-        
-        if not isinstance(data_to_process, list):
-            return teams
-        
-        for team_data in data_to_process:
-            if isinstance(team_data, dict):
-                team = team_data.get("team", {})
-                name = team.get("displayName", team.get("name", team.get("abbreviation", "Unknown")))
-                
-                stats = team_data.get("stats", [])
-                record = team_data.get("record", "")
-                
-                # Initialize stat values
-                parsed_team = {
-                    "name": name,
-                    "wins": "N/A",
-                    "losses": "N/A",
-                    "win_pct": "N/A",
-                    "games_behind": "N/A",
-                    "streak": "N/A",
-                    "record": record,
-                    "division": "League"  # Default division
-                }
-                
-                # Extract stats from various possible formats
-                if isinstance(stats, list):
-                    for stat in stats:
-                        if isinstance(stat, dict):
-                            stat_name = stat.get("name", "").lower()
-                            value = stat.get("value", stat.get("displayValue", ""))
-                            if "wins" in stat_name or stat_name == "w":
-                                parsed_team["wins"] = str(value)
-                            elif "losses" in stat_name or stat_name == "l":
-                                parsed_team["losses"] = str(value)
-                            elif "winpercent" in stat_name or "pct" in stat_name:
-                                parsed_team["win_pct"] = str(value)
-                            elif "gamesbehind" in stat_name or stat_name == "gb":
-                                parsed_team["games_behind"] = str(value)
-                            elif "streak" in stat_name:
-                                parsed_team["streak"] = str(value)
-                elif isinstance(stats, dict):
-                    parsed_team["wins"] = str(stats.get("wins", stats.get("w", "N/A")))
-                    parsed_team["losses"] = str(stats.get("losses", stats.get("l", "N/A")))
-                    parsed_team["win_pct"] = str(stats.get("winPercent", stats.get("pct", "N/A")))
-                    parsed_team["games_behind"] = str(stats.get("gamesBehind", stats.get("gb", "N/A")))
-                    parsed_team["streak"] = str(stats.get("streak", "N/A"))
-                
-                # If we don't have individual stats, try to parse record string
-                if parsed_team["wins"] == "N/A" and parsed_team["losses"] == "N/A" and record:
-                    if "-" in str(record):
-                        parts = str(record).split("-")
-                        if len(parts) >= 2:
-                            parsed_team["wins"] = parts[0].strip()
-                            parsed_team["losses"] = parts[1].strip()
-                
-                # Set display record
-                if not parsed_team["record"]:
-                    if parsed_team["wins"] != "N/A" and parsed_team["losses"] != "N/A":
-                        parsed_team["record"] = f"{parsed_team['wins']}-{parsed_team['losses']}"
-                    else:
-                        parsed_team["record"] = "N/A"
-                
-                teams.append(parsed_team)
-        
-        return teams
-    
-    def _organize_by_divisions(self) -> Dict[str, List[Dict]]:
-        """Organize teams by division"""
-        def _to_int(val: str) -> int:
-            try:
-                return int(val)
-            except Exception:
-                return -10_000  # very low so valid numbers sort ahead
-        def _to_float(val: str) -> float:
-            try:
-                return float(val)
-            except Exception:
-                return -1.0
-        divisions = {}
-        for team in self.teams:
-            division = team.get("division", "League")
-            divisions.setdefault(division, []).append(team)
-        
-        # Sort teams within each division: primary win %, secondary wins (desc)
-        for division_teams in divisions.values():
-            division_teams.sort(
-                key=lambda x: (
-                    _to_float(x.get("win_pct", "-1")),
-                    _to_int(x.get("wins", "-10000"))
-                ),
-                reverse=True
-            )
-        return divisions
-
 class ConfigDialog(QDialog):
     def __init__(self, details, selected, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Configure Game Details")
-        self.layout = QVBoxLayout()
+        layout = QVBoxLayout()
         self.checkboxes = {}
-        for detail in details:
-            cb = QCheckBox(detail)
-            cb.setChecked(detail in selected)
-            self.layout.addWidget(cb)
-            self.checkboxes[detail] = cb
-        btn = QPushButton("OK")
-        btn.clicked.connect(self.accept)
-        self.layout.addWidget(btn)
-        self.setLayout(self.layout)
-    
+        for d in details:
+            cb = QCheckBox(d)
+            cb.setChecked(d in selected)
+            layout.addWidget(cb)
+            self.checkboxes[d] = cb
+        ok_btn = QPushButton("OK")
+        ok_btn.clicked.connect(self.accept)
+        layout.addWidget(ok_btn)
+        self.setLayout(layout)
     def get_selected(self):
         return [d for d, cb in self.checkboxes.items() if cb.isChecked()]
 
 class BaseView(QWidget):
-    """Base class for all views in the application"""
-    
     def __init__(self, parent=None):
         super().__init__(parent)
         self.parent_app = parent
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
-    
     def setup_ui(self):
-        """Override this method to setup the UI"""
         pass
-    
     def on_show(self):
-        """Called when the view is shown"""
         pass
-    
-    def set_focus_with_delay(self, widget):
-        """Set focus on a widget after a short delay"""
-        QTimer.singleShot(FOCUS_DELAY_MS, lambda: widget.setFocus())
+    def set_focus_with_delay(self, w):
+        QTimer.singleShot(FOCUS_DELAY_MS, lambda: w.setFocus())
 
 class HomeView(BaseView):
     """Home view showing league selection"""
@@ -434,56 +144,41 @@ class LeagueView(BaseView):
     def _on_score_item_selected(self, item):
         data = item.data(Qt.ItemDataRole.UserRole)
         if data == "__news__":
-            self._show_news_dialog()
-        elif data == "__standings__":
-            self._show_standings_dialog()
-        else:
-            # Open game details
-            game_id = data
-            if self.parent_app:
-                self.parent_app.open_game_details(game_id)
-    
+            self._show_news_dialog(); return
+        if data == "__standings__":
+            self._show_standings_dialog(); return
+        if data and isinstance(data, str) and self.parent_app:
+            self.parent_app.open_game_details(data)
+
     def load_scores(self):
         """Load scores for the current date"""
         self.scores_list.clear()
-        
-        # Update date label
         date_str = self.current_date.strftime("%A, %B %d, %Y")
         self.date_label.setText(f"Date: {date_str}")
-        
         try:
-            # Get scores and news
             scores_data = ApiService.get_scores(self.league, self.current_date)
             self.news_headlines = ApiService.get_news(self.league)
-            
-            # Process scores
             if not scores_data:
-                self.scores_list.addItem(f"No games scheduled for {date_str}")
+                self.scores_list.addItem("No games found for this date.")
             else:
-                for score_data in scores_data:
-                    game = GameData(score_data)
-                    display_text = game.get_display_text()
-                    
-                    item = self.scores_list.addItem(display_text)
+                for game_raw in scores_data:
+                    game = GameData(game_raw)
+                    item_text = game.get_display_text()
+                    self.scores_list.addItem(item_text)
                     list_item = self.scores_list.item(self.scores_list.count()-1)
-                    list_item.setData(Qt.ItemDataRole.UserRole, game.id)
-            
-            # Add news entry
+                    if list_item:
+                        list_item.setData(Qt.ItemDataRole.UserRole, game_raw.get("id"))
             if self.news_headlines:
-                news_count = len(self.news_headlines)
-                self.scores_list.addItem(f"--- News ({news_count} stories) ---")
+                self.scores_list.addItem("--- News Headlines ---")
                 news_item = self.scores_list.item(self.scores_list.count()-1)
-                news_item.setData(Qt.ItemDataRole.UserRole, "__news__")
-            
-            # Add standings entry for MLB
+                news_item.setData(Qt.ItemDataRole.UserRole, "__news__")  # type: ignore
             if self.league == "MLB":
                 self.scores_list.addItem("--- Standings ---")
                 standings_item = self.scores_list.item(self.scores_list.count()-1)
-                standings_item.setData(Qt.ItemDataRole.UserRole, "__standings__")
-        
+                standings_item.setData(Qt.ItemDataRole.UserRole, "__standings__")  # type: ignore
         except Exception as e:
             self._show_api_error(f"Failed to load scores: {str(e)}")
-    
+
     def _show_news_dialog(self):
         """Show news dialog"""
         try:
@@ -620,7 +315,7 @@ class GameDetailsView(BaseView):
             # Fallback to formatted text
             text_widget = QTextEdit()
             try:
-                formatted_data = ApiService.safe_api_call(espn_api.format_complex_data, field_name, field_data)
+                formatted_data = ApiService.format_complex_data(field_name, field_data)
                 text_widget.setPlainText(formatted_data)
             except ApiError:
                 text_widget.setPlainText("Error formatting data")
@@ -733,14 +428,14 @@ class GameDetailsView(BaseView):
                     list_item_widget.setData(Qt.ItemDataRole.UserRole, {"field": field, "data": value})
             else:
                 try:
-                    formatted_value = ApiService.safe_api_call(espn_api.format_complex_data, field, value)
+                    formatted_value = ApiService.format_complex_data(field, value)
                     self.details_list.addItem(f"{field}: {formatted_value}")
                 except ApiError:
                     self.details_list.addItem(f"{field}: Error formatting data")
         else:
             # Use enhanced formatting for simple data
             try:
-                formatted_value = ApiService.safe_api_call(espn_api.format_complex_data, field, value)
+                formatted_value = ApiService.format_complex_data(field, value)
                 if '\n' in formatted_value:
                     self.details_list.addItem(f"{field}:")
                     for line in formatted_value.split('\n'):
@@ -1102,7 +797,7 @@ class GameDetailsView(BaseView):
             news_data = NewsData(news_item)
             display_text = news_data.get_display_text()
             
-            item = QListWidget.QListWidgetItem(display_text)
+            item = QListWidgetItem(display_text)
             item.setData(Qt.ItemDataRole.UserRole, news_data)
             news_list.addItem(item)
         
@@ -1191,6 +886,8 @@ class StandingsDetailDialog(QDialog):
             for col, v in enumerate(values):
                 table.setItem(row, col, QTableWidgetItem(str(v)))
         self._configure_table(table)
+        if teams:
+            table.setCurrentCell(0, 0)
         layout.addWidget(table)
         widget.setLayout(layout)
         widget.table = table  # type: ignore[attr-defined]
@@ -1209,17 +906,27 @@ class StandingsDetailDialog(QDialog):
             for col, v in enumerate(values):
                 table.setItem(row, col, QTableWidgetItem(str(v)))
         self._configure_table(table)
+        if teams:
+            table.setCurrentCell(0, 0)
         return table
     
     def _configure_table(self, table: QTableWidget):
-        table.setAlternatingRowColors(True)
-        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        """Configure table appearance and behavior"""
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setAlternatingRowColors(True)
         table.verticalHeader().setVisible(False)
+        table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        
+        # Enable keyboard navigation
+        table.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        table.setTabKeyNavigation(True)
+        
         header = table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-    
+        if table.columnCount() > 1:
+            header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Team name stretches
+
     def keyPressEvent(self, event):
         if self.tab_widget:
             if event.key() == Qt.Key.Key_F6:
@@ -1266,12 +973,11 @@ class NewsDialog(QDialog):
         self.news_list.setAccessibleName("News Headlines List")
         self.news_list.setAccessibleDescription("List of news headlines - Enter or double-click opens in browser")
         
-        for idx, item in enumerate(self.news_headlines, start=1):
+        for item in self.news_headlines:
             news = NewsData(item)
             display = news.get_display_text()
             list_item = QListWidgetItem(display)
             list_item.setData(Qt.ItemDataRole.UserRole, news)
-            list_item.setData(Qt.ItemDataRole.AccessibleTextRole, f"Story {idx}: {news.headline}")
             self.news_list.addItem(list_item)
         
         self.news_list.itemActivated.connect(self._open_news_story)
@@ -1381,6 +1087,8 @@ class StandingsDialog(QDialog):
             for col, v in enumerate(values):
                 table.setItem(row, col, QTableWidgetItem(str(v)))
         self._configure_table(table)
+        if teams:
+            table.setCurrentCell(0, 0)
         layout.addWidget(table)
         widget.setLayout(layout)
         widget.table = table  # type: ignore[attr-defined]
@@ -1399,17 +1107,27 @@ class StandingsDialog(QDialog):
             for col, v in enumerate(values):
                 table.setItem(row, col, QTableWidgetItem(str(v)))
         self._configure_table(table)
+        if teams:
+            table.setCurrentCell(0, 0)
         return table
     
     def _configure_table(self, table: QTableWidget):
-        table.setAlternatingRowColors(True)
-        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        """Configure table appearance and behavior"""
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setAlternatingRowColors(True)
         table.verticalHeader().setVisible(False)
+        table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        
+        # Enable keyboard navigation
+        table.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        table.setTabKeyNavigation(True)
+        
         header = table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-    
+        if table.columnCount() > 1:
+            header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Team name stretches
+
     def keyPressEvent(self, event):
         if self.tab_widget:
             if event.key() == Qt.Key.Key_F6:
@@ -1420,14 +1138,14 @@ class StandingsDialog(QDialog):
                     self.tab_widget.setCurrentIndex(i)
                     w = self.tab_widget.widget(i)
                     if hasattr(w, "table"):
-                        w.table.setFocus()  # type: ignore[attr-defined]
+                        w.table.setFocus()  # type: ignore
                     event.accept(); return
                 if event.key() == Qt.Key.Key_Backtab:
                     i = (self.tab_widget.currentIndex() - 1) % self.tab_widget.count()
                     self.tab_widget.setCurrentIndex(i)
                     w = self.tab_widget.widget(i)
                     if hasattr(w, "table"):
-                        w.table.setFocus()  # type: ignore[attr-defined]
+                        w.table.setFocus()  # type: ignore
                     event.accept(); return
         super().keyPressEvent(event)
 
@@ -1454,15 +1172,14 @@ class SportsScoresApp(QWidget):
         self.show()
     
     def _init_config(self):
-        """Initialize configuration with error handling"""
         try:
             leagues = ApiService.get_leagues()
             for league in leagues:
-                self.config[league] = list(DEFAULT_CONFIG_FIELDS)
+                # Start with a minimal default config (can be expanded later)
+                self.config[league] = ["standings", "leaders", "boxscore", "injuries", "news"]
         except Exception as e:
             print(f"[WARNING] Failed to initialize config: {e}")
-            # Continue with empty config - will be handled gracefully
-    
+
     def setup_ui(self):
         """Setup the main UI with QStackedWidget"""
         layout = QVBoxLayout()
@@ -1485,98 +1202,67 @@ class SportsScoresApp(QWidget):
     def open_league(self, league: str):
         """Open a league view"""
         try:
-            # Save current view to stack
             self._push_to_stack("home", None)
-            
             league_view = LeagueView(self, league)
             self._switch_to_view(league_view, "league", league)
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to open league {league}: {str(e)}")
-    
+            QMessageBox.critical(self, "Error", f"Failed to open league: {e}")
+
     def open_game_details(self, game_id: str):
         """Open game details view"""
         try:
-            # Get current league from current view
-            current_view = self.stacked_widget.currentWidget()
-            if isinstance(current_view, LeagueView):
-                league = current_view.league
-                self._push_to_stack("league", league)
-                
-                details_view = GameDetailsView(self, league, game_id)
-                self._switch_to_view(details_view, "game_details", game_id)
-            else:
-                QMessageBox.warning(self, "Error", "Cannot open game details: no league context")
+            self._push_to_stack("league", self.current_league if hasattr(self, 'current_league') else None)
+            gdv = GameDetailsView(self, getattr(self, 'current_league', None), game_id)
+            self._switch_to_view(gdv, "game", game_id)
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to open game details: {str(e)}")
-    
+            QMessageBox.critical(self, "Error", f"Failed to open game details: {e}")
+
     def go_back(self):
-        """Navigate back to the previous view"""
         if not self.view_stack:
             return
-        
         try:
-            view_type, data = self.view_stack.pop()
-            
-            if view_type == "home":
-                self.show_home()
-            elif view_type == "league":
-                self._show_league_view(data)
-            else:
-                print(f"[WARNING] Unknown view type in stack: {view_type}")
-                self.show_home()
+            prev = self.view_stack.pop()
+            vtype, data = prev.get('type'), prev.get('data')
+            if vtype == "home":
+                self.show_home(); return
+            if vtype == "league" and data:
+                self._show_league_view(data); return
+            if vtype == "game" and data:
+                # Going back from game details -> league
+                if hasattr(self, 'current_league') and self.current_league:
+                    self._show_league_view(self.current_league)
+                else:
+                    self.show_home()
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to navigate back: {str(e)}")
-            self.show_home()
-    
-    def _show_league_view(self, league: str):
-        """Show league view without adding to stack"""
-        league_view = LeagueView(self, league)
-        self._switch_to_view(league_view, "league", league)
-    
+            QMessageBox.critical(self, "Error", f"Failed to go back: {e}")
+
+    def _show_league_view(self, data):
+        """Helper method to show league view"""
+        league_view = LeagueView(self, data)
+        self._switch_to_view(league_view, "league", data)
+
     def _switch_to_view(self, view: BaseView, view_type: str, data: Any):
-        """Switch to a new view"""
-        # Clear the stacked widget
+        # Clear existing widgets
         while self.stacked_widget.count():
-            widget = self.stacked_widget.widget(0)
-            self.stacked_widget.removeWidget(widget)
-            widget.deleteLater()
-        
-        # Add and show the new view
+            w = self.stacked_widget.widget(0)
+            self.stacked_widget.removeWidget(w)
+            w.deleteLater()
         self.stacked_widget.addWidget(view)
         self.stacked_widget.setCurrentWidget(view)
-        
-        # Call the view's on_show method
-        view.on_show()
-    
+        # Track current league
+        if view_type == "league" and data:
+            self.current_league = data
+        if hasattr(view, 'on_show'):
+            view.on_show()
+
     def _push_to_stack(self, view_type: str, data: Any):
-        """Push current view info to navigation stack"""
-        self.view_stack.append((view_type, data))
-    
+        self.view_stack.append({"type": view_type, "data": data})
+
     def keyPressEvent(self, event):
-        """Handle global keyboard shortcuts"""
-        try:
-            if event.key() == Qt.Key.Key_Escape:
-                self.go_back()
-            elif event.modifiers() == Qt.KeyboardModifier.AltModifier:
-                current_view = self.stacked_widget.currentWidget()
-                if isinstance(current_view, LeagueView):
-                    if event.key() == Qt.Key.Key_P:
-                        current_view.previous_day()
-                    elif event.key() == Qt.Key.Key_N:
-                        current_view.next_day()
-                    elif event.key() == Qt.Key.Key_B:
-                        self.go_back()
-                    else:
-                        super().keyPressEvent(event)
-                elif event.key() == Qt.Key.Key_B:
-                    self.go_back()
-                else:
-                    super().keyPressEvent(event)
-            else:
-                super().keyPressEvent(event)
-        except Exception as e:
-            print(f"[ERROR] Error in keyPressEvent: {e}")
-            super().keyPressEvent(event)
+        # Global back shortcut
+        if event.modifiers() == Qt.KeyboardModifier.AltModifier and event.key() == Qt.Key.Key_B:
+            self.go_back(); event.accept(); return
+        super().keyPressEvent(event)
 
 
 if __name__ == "__main__":
