@@ -1,12 +1,12 @@
 import sys
 import webbrowser
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Any, Union  # Removed Optional (unused)
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QListWidget, QPushButton, QLabel,
     QHBoxLayout, QCheckBox, QDialog, QMessageBox, QTextEdit, QScrollArea,
-    QTableWidget, QTableWidgetItem, QHeaderView, QTreeWidget, QTreeWidgetItem,
-    QTabWidget, QSplitter, QStackedWidget
+    QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget, QStackedWidget,
+    QListWidgetItem  # Added QListWidgetItem
 )
 from PyQt6.QtCore import Qt, QTimer
 import espn_api
@@ -295,20 +295,30 @@ class StandingsData:
     
     def _organize_by_divisions(self) -> Dict[str, List[Dict]]:
         """Organize teams by division"""
+        def _to_int(val: str) -> int:
+            try:
+                return int(val)
+            except Exception:
+                return -10_000  # very low so valid numbers sort ahead
+        def _to_float(val: str) -> float:
+            try:
+                return float(val)
+            except Exception:
+                return -1.0
         divisions = {}
         for team in self.teams:
             division = team.get("division", "League")
-            if division not in divisions:
-                divisions[division] = []
-            divisions[division].append(team)
+            divisions.setdefault(division, []).append(team)
         
-        # Sort teams within each division by wins (descending), then by win percentage
+        # Sort teams within each division: primary win %, secondary wins (desc)
         for division_teams in divisions.values():
-            division_teams.sort(key=lambda x: (
-                -int(x["wins"]) if x["wins"] != "N/A" and x["wins"].isdigit() else 0,
-                -float(x["win_pct"]) if x["win_pct"] != "N/A" and x["win_pct"].replace(".", "").isdigit() else 0
-            ))
-        
+            division_teams.sort(
+                key=lambda x: (
+                    _to_float(x.get("win_pct", "-1")),
+                    _to_int(x.get("wins", "-10000"))
+                ),
+                reverse=True
+            )
         return divisions
 
 class ConfigDialog(QDialog):
@@ -1118,9 +1128,8 @@ class StandingsDetailDialog(QDialog):
         self.setWindowTitle(f"{league} Standings Details")
         self.resize(STANDINGS_DIALOG_WIDTH, STANDINGS_DIALOG_HEIGHT)
         
-        # Initialize widget references for keyboard navigation
-        self.tab_widget = None
-        self.single_table = None
+        self.tab_widget: QTabWidget | None = None
+        self.single_table: QTableWidget | None = None
         
         self.setup_ui()
     
@@ -1130,177 +1139,106 @@ class StandingsDetailDialog(QDialog):
         if not self.standings_data.teams:
             layout.addWidget(QLabel(f"No standings data available for {self.league}."))
         else:
-            # Check if we have division data
             has_divisions = len(self.standings_data.divisions) > 1 or any(
                 div != "League" for div in self.standings_data.divisions.keys()
             )
-            
             if has_divisions and self.league == "MLB":
-                # Create tabs for different divisions
-                self.tab_widget = QTabWidget()
-                
-                # Sort divisions for consistent ordering
-                division_order = ["AL East", "AL Central", "AL West", "NL East", "NL Central", "NL West", "League"]
-                sorted_divisions = []
-                
-                for div_name in division_order:
-                    if div_name in self.standings_data.divisions:
-                        sorted_divisions.append((div_name, self.standings_data.divisions[div_name]))
-                
-                # Add any divisions not in our predefined order
-                for div_name, teams in self.standings_data.divisions.items():
-                    if div_name not in division_order:
-                        sorted_divisions.append((div_name, teams))
-                
-                for div_name, teams in sorted_divisions:
-                    if teams:  # Only create tab if there are teams
-                        tab_content = self._create_division_table(div_name, teams)
-                        self.tab_widget.addTab(tab_content, div_name)
-                
-                layout.addWidget(QLabel(f"Current {self.league} Standings by Division (F6 to focus tabs, Ctrl+Tab to switch):"))
-                layout.addWidget(self.tab_widget)
-                
-                # Set focus to the first tab
-                if self.tab_widget.count() > 0:
-                    self.tab_widget.setCurrentIndex(0)
-                    first_tab = self.tab_widget.widget(0)
-                    if hasattr(first_tab, 'table'):
-                        first_tab.table.setFocus()
+                self._build_division_tabs(layout)
             else:
-                # Single table for leagues without divisions or non-MLB leagues
                 self.single_table = self._create_single_standings_table(self.standings_data.teams)
                 layout.addWidget(QLabel(f"Current {self.league} Standings:"))
                 layout.addWidget(self.single_table)
                 self.single_table.setFocus()
         
-        # Add close button
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.accept)
         layout.addWidget(close_btn)
-        
         self.setLayout(layout)
     
+    def _build_division_tabs(self, layout: QVBoxLayout):
+        self.tab_widget = QTabWidget()
+        division_order = ["AL East", "AL Central", "AL West", "NL East", "NL Central", "NL West", "League"]
+        ordered: List[tuple[str, List[Dict]]] = []
+        for name in division_order:
+            if name in self.standings_data.divisions:
+                ordered.append((name, self.standings_data.divisions[name]))
+        for name, teams in self.standings_data.divisions.items():
+            if name not in division_order:
+                ordered.append((name, teams))
+        for name, teams in ordered:
+            if teams:
+                tab = self._create_division_table(name, teams)
+                self.tab_widget.addTab(tab, name)
+        layout.addWidget(QLabel("Division tabs: F6 focus, Ctrl+Tab / Ctrl+Shift+Tab cycle."))
+        layout.addWidget(self.tab_widget)
+        if self.tab_widget.count():
+            first = self.tab_widget.widget(0)
+            if hasattr(first, "table"):
+                first.table.setFocus()  # type: ignore[attr-defined]
+    
     def _create_division_table(self, division_name: str, teams: List[Dict]) -> QWidget:
-        """Create a table widget for a specific division"""
         widget = QWidget()
         layout = QVBoxLayout()
-        
-        # Create table
         table = QTableWidget()
         table.setColumnCount(len(STANDINGS_HEADERS))
         table.setHorizontalHeaderLabels(STANDINGS_HEADERS)
         table.setRowCount(len(teams))
-        
-        # Populate table with division ranking
-        for row, team_data in enumerate(teams):
-            rank = str(row + 1)  # Rank within division
-            
-            items_data = [
-                rank,
-                team_data["name"],
-                team_data["wins"],
-                team_data["losses"],
-                team_data["win_pct"],
-                team_data["games_behind"],
-                team_data.get("streak", "N/A"),
-                team_data["record"]
+        for row, t in enumerate(teams):
+            values = [
+                str(row + 1), t.get("name", ""), t.get("wins", ""), t.get("losses", ""),
+                t.get("win_pct", ""), t.get("games_behind", ""), t.get("streak", "N/A"), t.get("record", "")
             ]
-            
-            for col, value in enumerate(items_data):
-                item = QTableWidgetItem(str(value))
-                table.setItem(row, col, item)
-        
-        # Configure table
-        table.setAlternatingRowColors(True)
-        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        table.verticalHeader().setVisible(False)
-        
-        # Auto-resize columns
-        header = table.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Team name stretches
-        
+            for col, v in enumerate(values):
+                table.setItem(row, col, QTableWidgetItem(str(v)))
+        self._configure_table(table)
         layout.addWidget(table)
         widget.setLayout(layout)
-        
-        # Store table reference for focus management
-        widget.table = table
-        
+        widget.table = table  # type: ignore[attr-defined]
         return widget
     
     def _create_single_standings_table(self, teams: List[Dict]) -> QTableWidget:
-        """Create a single table for all teams (for non-divisional leagues)"""
         table = QTableWidget()
         table.setColumnCount(len(STANDINGS_HEADERS))
         table.setHorizontalHeaderLabels(STANDINGS_HEADERS)
         table.setRowCount(len(teams))
-        
-        # Populate table
-        for row, team_data in enumerate(teams):
-            rank = str(row + 1)
-            
-            items_data = [
-                rank,
-                team_data["name"],
-                team_data["wins"],
-                team_data["losses"],
-                team_data["win_pct"],
-                team_data["games_behind"],
-                team_data.get("streak", "N/A"),
-                team_data["record"]
+        for row, t in enumerate(teams):
+            values = [
+                str(row + 1), t.get("name", ""), t.get("wins", ""), t.get("losses", ""),
+                t.get("win_pct", ""), t.get("games_behind", ""), t.get("streak", "N/A"), t.get("record", "")
             ]
-            
-            for col, value in enumerate(items_data):
-                item = QTableWidgetItem(str(value))
-                table.setItem(row, col, item)
-        
-        # Configure table
+            for col, v in enumerate(values):
+                table.setItem(row, col, QTableWidgetItem(str(v)))
+        self._configure_table(table)
+        return table
+    
+    def _configure_table(self, table: QTableWidget):
         table.setAlternatingRowColors(True)
         table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         table.verticalHeader().setVisible(False)
-        
-        # Auto-resize columns
         header = table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Team name stretches
-        
-        return table
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
     
     def keyPressEvent(self, event):
-        """Handle keyboard navigation for tabs"""
-        if self.tab_widget:  # Only handle if we have tabs
+        if self.tab_widget:
             if event.key() == Qt.Key.Key_F6:
-                # F6 focuses on the tab bar
-                self.tab_widget.setFocus()
-                event.accept()
-                return
-            elif event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+                self.tab_widget.setFocus(); event.accept(); return
+            if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
                 if event.key() == Qt.Key.Key_Tab:
-                    # Ctrl+Tab - next tab
-                    current_index = self.tab_widget.currentIndex()
-                    next_index = (current_index + 1) % self.tab_widget.count()
-                    self.tab_widget.setCurrentIndex(next_index)
-                    # Focus on the table in the new tab
-                    current_tab = self.tab_widget.widget(next_index)
-                    if hasattr(current_tab, 'table'):
-                        current_tab.table.setFocus()
-                    event.accept()
-                    return
-                elif event.key() == Qt.Key.Key_Backtab:
-                    # Ctrl+Shift+Tab - previous tab
-                    current_index = self.tab_widget.currentIndex()
-                    prev_index = (current_index - 1) % self.tab_widget.count()
-                    self.tab_widget.setCurrentIndex(prev_index)
-                    # Focus on the table in the new tab
-                    current_tab = self.tab_widget.widget(prev_index)
-                    if hasattr(current_tab, 'table'):
-                        current_tab.table.setFocus()
-                    event.accept()
-                    return
-        
-        # Call parent implementation for other keys
+                    i = (self.tab_widget.currentIndex() + 1) % self.tab_widget.count()
+                    self.tab_widget.setCurrentIndex(i)
+                    w = self.tab_widget.widget(i)
+                    if hasattr(w, "table"):
+                        w.table.setFocus()  # type: ignore[attr-defined]
+                    event.accept(); return
+                if event.key() == Qt.Key.Key_Backtab:
+                    i = (self.tab_widget.currentIndex() - 1) % self.tab_widget.count()
+                    self.tab_widget.setCurrentIndex(i)
+                    w = self.tab_widget.widget(i)
+                    if hasattr(w, "table"):
+                        w.table.setFocus()  # type: ignore[attr-defined]
+                    event.accept(); return
         super().keyPressEvent(event)
 
 class NewsDialog(QDialog):
@@ -1316,72 +1254,66 @@ class NewsDialog(QDialog):
     
     def setup_ui(self):
         layout = QVBoxLayout()
-        
         if not self.news_headlines:
             layout.addWidget(QLabel("No news headlines available for this league."))
-        else:
-            # Create news list
-            news_list = QListWidget()
-            news_list.setAccessibleName("News Headlines List")
-            news_list.setAccessibleDescription("List of news headlines - double-click to open in browser")
-            
-            for i, news_item in enumerate(self.news_headlines):
-                news_data = NewsData(news_item)
-                display_text = news_data.get_display_text()
-                
-                item = QListWidget.QListWidgetItem(display_text)
-                item.setData(Qt.ItemDataRole.UserRole, news_data)
-                item.setData(Qt.ItemDataRole.AccessibleTextRole, f"Article {i+1}: {news_data.headline}")
-                
-                # Make it visually distinct
-                font = item.font()
-                font.setPointSize(font.pointSize() + 1)
-                item.setFont(font)
-                
-                news_list.addItem(item)
-            
-            # Connect double-click to open story
-            news_list.itemDoubleClicked.connect(self._open_news_story)
-            
-            layout.addWidget(QLabel("Double-click a headline to open the full story in your browser:"))
-            layout.addWidget(news_list)
-            
-            # Add buttons
-            btn_layout = QHBoxLayout()
-            
-            open_btn = QPushButton("Open Selected Story")
-            open_btn.clicked.connect(lambda: self._open_selected_news_story(news_list))
-            btn_layout.addWidget(open_btn)
-            
             close_btn = QPushButton("Close")
             close_btn.clicked.connect(self.accept)
-            btn_layout.addWidget(close_btn)
-            
-            layout.addLayout(btn_layout)
-            
-            # Set initial focus
-            news_list.setFocus()
+            layout.addWidget(close_btn)
+            self.setLayout(layout)
+            return
+        
+        self.news_list = QListWidget()
+        self.news_list.setAccessibleName("News Headlines List")
+        self.news_list.setAccessibleDescription("List of news headlines - Enter or double-click opens in browser")
+        
+        for idx, item in enumerate(self.news_headlines, start=1):
+            news = NewsData(item)
+            display = news.get_display_text()
+            list_item = QListWidgetItem(display)
+            list_item.setData(Qt.ItemDataRole.UserRole, news)
+            list_item.setData(Qt.ItemDataRole.AccessibleTextRole, f"Story {idx}: {news.headline}")
+            self.news_list.addItem(list_item)
+        
+        self.news_list.itemActivated.connect(self._open_news_story)
+        self.news_list.itemDoubleClicked.connect(self._open_news_story)
+        
+        layout.addWidget(QLabel("Press Enter or double-click a headline to open in your browser:"))
+        layout.addWidget(self.news_list)
+        
+        btn_row = QHBoxLayout()
+        open_btn = QPushButton("Open Selected")
+        open_btn.clicked.connect(lambda: self._open_selected_news_story())
+        btn_row.addWidget(open_btn)
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        btn_row.addWidget(close_btn)
+        layout.addLayout(btn_row)
         
         self.setLayout(layout)
+        self.news_list.setFocus()
     
     def _open_news_story(self, item):
-        """Open a news story in the default web browser"""
-        news_data = item.data(Qt.ItemDataRole.UserRole)
+        if isinstance(item, QListWidgetItem):
+            news_data = item.data(Qt.ItemDataRole.UserRole)
+        else:
+            news_data = item.data(Qt.ItemDataRole.UserRole) if item else None  # fallback
         if isinstance(news_data, NewsData) and news_data.has_web_url():
-            webbrowser.open(news_data.web_url)
+            if news_data.web_url.startswith(("http://", "https://")):
+                webbrowser.open(news_data.web_url)
+            else:
+                QMessageBox.warning(self, "Invalid URL", "The URL for this story is invalid.")
         else:
             QMessageBox.information(self, "No Link", "No web link available for this story.")
     
-    def _open_selected_news_story(self, news_list):
-        """Open the currently selected news story"""
-        current_item = news_list.currentItem()
-        if current_item:
-            self._open_news_story(current_item)
+    def _open_selected_news_story(self):
+        item = self.news_list.currentItem()
+        if item:
+            self._open_news_story(item)
         else:
-            QMessageBox.information(self, "No Selection", "Please select a news story first.")
+            QMessageBox.information(self, "No Selection", "Select a story first.")
 
 class StandingsDialog(QDialog):
-    """Dialog for displaying team standings"""
+    """Dialog for displaying team standings (invoked from league view)"""
     
     def __init__(self, standings_data: List, league: str, parent=None):
         super().__init__(parent)
@@ -1389,191 +1321,114 @@ class StandingsDialog(QDialog):
         self.league = league
         self.setWindowTitle(f"{league} Standings")
         self.resize(STANDINGS_DIALOG_WIDTH, STANDINGS_DIALOG_HEIGHT)
+        self.tab_widget: QTabWidget | None = None
+        self.single_table: QTableWidget | None = None
         self.setup_ui()
     
     def setup_ui(self):
         layout = QVBoxLayout()
-        
-        # Initialize widget references for keyboard navigation
-        self.tab_widget = None
-        self.single_table = None
-        
         if not self.standings_data.teams:
             layout.addWidget(QLabel(f"No standings data available for {self.league}."))
         else:
-            # Check if we have division data
             has_divisions = len(self.standings_data.divisions) > 1 or any(
-                div != "League" for div in self.standings_data.divisions.keys()
+                d != "League" for d in self.standings_data.divisions
             )
-            
             if has_divisions and self.league == "MLB":
-                # Create tabs for different divisions
-                self.tab_widget = QTabWidget()
-                
-                # Sort divisions for consistent ordering
-                division_order = ["AL East", "AL Central", "AL West", "NL East", "NL Central", "NL West", "League"]
-                sorted_divisions = []
-                
-                for div_name in division_order:
-                    if div_name in self.standings_data.divisions:
-                        sorted_divisions.append((div_name, self.standings_data.divisions[div_name]))
-                
-                # Add any divisions not in our predefined order
-                for div_name, teams in self.standings_data.divisions.items():
-                    if div_name not in division_order:
-                        sorted_divisions.append((div_name, teams))
-                
-                for div_name, teams in sorted_divisions:
-                    if teams:  # Only create tab if there are teams
-                        tab_content = self._create_division_table(div_name, teams)
-                        self.tab_widget.addTab(tab_content, div_name)
-                
-                layout.addWidget(QLabel(f"Current {self.league} Standings by Division (F6 to focus tabs, Ctrl+Tab to switch):"))
-                layout.addWidget(self.tab_widget)
-                
-                # Set focus to the first tab
-                if self.tab_widget.count() > 0:
-                    self.tab_widget.setCurrentIndex(0)
-                    first_tab = self.tab_widget.widget(0)
-                    if hasattr(first_tab, 'table'):
-                        first_tab.table.setFocus()
+                self._build_division_tabs(layout)
             else:
-                # Single table for leagues without divisions or non-MLB leagues
                 self.single_table = self._create_single_standings_table(self.standings_data.teams)
                 layout.addWidget(QLabel(f"Current {self.league} Standings:"))
                 layout.addWidget(self.single_table)
                 self.single_table.setFocus()
-        
-        # Add close button
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.accept)
         layout.addWidget(close_btn)
-        
         self.setLayout(layout)
     
+    def _build_division_tabs(self, layout: QVBoxLayout):
+        self.tab_widget = QTabWidget()
+        division_order = ["AL East", "AL Central", "AL West", "NL East", "NL Central", "NL West", "League"]
+        ordered: List[tuple[str, List[Dict]]] = []
+        for name in division_order:
+            if name in self.standings_data.divisions:
+                ordered.append((name, self.standings_data.divisions[name]))
+        for name, teams in self.standings_data.divisions.items():
+            if name not in division_order:
+                ordered.append((name, teams))
+        for name, teams in ordered:
+            if teams:
+                tab = self._create_division_table(name, teams)
+                self.tab_widget.addTab(tab, name)
+        layout.addWidget(QLabel("Division tabs: F6 focus, Ctrl+Tab / Ctrl+Shift+Tab cycle."))
+        layout.addWidget(self.tab_widget)
+        if self.tab_widget.count():
+            first = self.tab_widget.widget(0)
+            if hasattr(first, "table"):
+                first.table.setFocus()  # type: ignore[attr-defined]
+    
     def _create_division_table(self, division_name: str, teams: List[Dict]) -> QWidget:
-        """Create a table widget for a specific division"""
         widget = QWidget()
         layout = QVBoxLayout()
-        
-        # Create table
         table = QTableWidget()
         table.setColumnCount(len(STANDINGS_HEADERS))
         table.setHorizontalHeaderLabels(STANDINGS_HEADERS)
         table.setRowCount(len(teams))
-        
-        # Populate table with division ranking
-        for row, team_data in enumerate(teams):
-            rank = str(row + 1)  # Rank within division
-            
-            items_data = [
-                (rank, f"Division rank {rank}"),
-                (team_data["name"], f"Team: {team_data['name']}"),
-                (team_data["wins"], f"Wins: {team_data['wins']}"),
-                (team_data["losses"], f"Losses: {team_data['losses']}"),
-                (team_data["win_pct"], f"Win percentage: {team_data['win_pct']}"),
-                (team_data["games_behind"], f"Games behind: {team_data['games_behind']}"),
-                (team_data.get("streak", "N/A"), f"Streak: {team_data.get('streak', 'N/A')}"),
-                (team_data["record"], f"Record: {team_data['record']}")
+        for row, t in enumerate(teams):
+            values = [
+                str(row + 1), t.get("name", ""), t.get("wins", ""), t.get("losses", ""),
+                t.get("win_pct", ""), t.get("games_behind", ""), t.get("streak", "N/A"), t.get("record", "")
             ]
-            
-            for col, (value, accessible_text) in enumerate(items_data):
-                item = QTableWidgetItem(str(value))
-                item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, accessible_text)
-                table.setItem(row, col, item)
-        
-        # Configure table
-        table.setAlternatingRowColors(True)
-        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        table.verticalHeader().setVisible(False)
-        
-        # Auto-resize columns
-        header = table.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Team name stretches
-        
+            for col, v in enumerate(values):
+                table.setItem(row, col, QTableWidgetItem(str(v)))
+        self._configure_table(table)
         layout.addWidget(table)
         widget.setLayout(layout)
-        
-        # Store table reference for focus management
-        widget.table = table
-        
+        widget.table = table  # type: ignore[attr-defined]
         return widget
     
     def _create_single_standings_table(self, teams: List[Dict]) -> QTableWidget:
-        """Create a single table for all teams (for non-divisional leagues)"""
         table = QTableWidget()
         table.setColumnCount(len(STANDINGS_HEADERS))
         table.setHorizontalHeaderLabels(STANDINGS_HEADERS)
         table.setRowCount(len(teams))
-        
-        # Populate table
-        for row, team_data in enumerate(teams):
-            rank = str(row + 1)
-            
-            items_data = [
-                (rank, f"Rank {rank}"),
-                (team_data["name"], f"Team: {team_data['name']}"),
-                (team_data["wins"], f"Wins: {team_data['wins']}"),
-                (team_data["losses"], f"Losses: {team_data['losses']}"),
-                (team_data["win_pct"], f"Win percentage: {team_data['win_pct']}"),
-                (team_data["games_behind"], f"Games behind: {team_data['games_behind']}"),
-                (team_data.get("streak", "N/A"), f"Streak: {team_data.get('streak', 'N/A')}"),
-                (team_data["record"], f"Record: {team_data['record']}")
+        for row, t in enumerate(teams):
+            values = [
+                str(row + 1), t.get("name", ""), t.get("wins", ""), t.get("losses", ""),
+                t.get("win_pct", ""), t.get("games_behind", ""), t.get("streak", "N/A"), t.get("record", "")
             ]
-            
-            for col, (value, accessible_text) in enumerate(items_data):
-                item = QTableWidgetItem(str(value))
-                item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, accessible_text)
-                table.setItem(row, col, item)
-        
-        # Configure table
+            for col, v in enumerate(values):
+                table.setItem(row, col, QTableWidgetItem(str(v)))
+        self._configure_table(table)
+        return table
+    
+    def _configure_table(self, table: QTableWidget):
         table.setAlternatingRowColors(True)
         table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         table.verticalHeader().setVisible(False)
-        
-        # Auto-resize columns
         header = table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Team name stretches
-        
-        return table
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
     
     def keyPressEvent(self, event):
-        """Handle keyboard navigation for tabs"""
-        if self.tab_widget:  # Only handle if we have tabs
+        if self.tab_widget:
             if event.key() == Qt.Key.Key_F6:
-                # F6 focuses on the tab bar
-                self.tab_widget.setFocus()
-                event.accept()
-                return
-            elif event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+                self.tab_widget.setFocus(); event.accept(); return
+            if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
                 if event.key() == Qt.Key.Key_Tab:
-                    # Ctrl+Tab - next tab
-                    current_index = self.tab_widget.currentIndex()
-                    next_index = (current_index + 1) % self.tab_widget.count()
-                    self.tab_widget.setCurrentIndex(next_index)
-                    # Focus on the table in the new tab
-                    current_tab = self.tab_widget.widget(next_index)
-                    if hasattr(current_tab, 'table'):
-                        current_tab.table.setFocus()
-                    event.accept()
-                    return
-                elif event.key() == Qt.Key.Key_Backtab:
-                    # Ctrl+Shift+Tab - previous tab
-                    current_index = self.tab_widget.currentIndex()
-                    prev_index = (current_index - 1) % self.tab_widget.count()
-                    self.tab_widget.setCurrentIndex(prev_index)
-                    # Focus on the table in the new tab
-                    current_tab = self.tab_widget.widget(prev_index)
-                    if hasattr(current_tab, 'table'):
-                        current_tab.table.setFocus()
-                    event.accept()
-                    return
-        
-        # Call parent implementation for other keys
+                    i = (self.tab_widget.currentIndex() + 1) % self.tab_widget.count()
+                    self.tab_widget.setCurrentIndex(i)
+                    w = self.tab_widget.widget(i)
+                    if hasattr(w, "table"):
+                        w.table.setFocus()  # type: ignore[attr-defined]
+                    event.accept(); return
+                if event.key() == Qt.Key.Key_Backtab:
+                    i = (self.tab_widget.currentIndex() - 1) % self.tab_widget.count()
+                    self.tab_widget.setCurrentIndex(i)
+                    w = self.tab_widget.widget(i)
+                    if hasattr(w, "table"):
+                        w.table.setFocus()  # type: ignore[attr-defined]
+                    event.accept(); return
         super().keyPressEvent(event)
 
 class SportsScoresApp(QWidget):
