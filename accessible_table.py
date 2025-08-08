@@ -113,18 +113,17 @@ class AccessibleTable(QTableWidget):
             for col_idx, cell_value in enumerate(row_data):
                 if col_idx < self.columnCount():
                     item = QTableWidgetItem(str(cell_value))
-                    
-                    # Set accessible description for screen readers
-                    # Include column header and cell value
-                    header_text = self.horizontalHeaderItem(col_idx).text() if self.horizontalHeaderItem(col_idx) else f"Column {col_idx + 1}"
-                    item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, 
-                               f"{header_text}: {str(cell_value)}")
-                    
                     self.setItem(row_idx, col_idx, item)
+        
+        # Update accessibility for all cells after populating
+        for row_idx in range(self.rowCount()):
+            for col_idx in range(self.columnCount()):
+                self._update_cell_accessibility(row_idx, col_idx)
         
         # Set focus to first cell if requested and data exists
         if set_focus and data and self.rowCount() > 0 and self.columnCount() > 0:
             self.setCurrentCell(0, 0)
+            self._update_cell_accessibility(0, 0)
     
     def populate_from_dicts(self, data: List[Dict[str, Any]], headers: List[str], 
                           key_mapping: Dict[str, str] = None, set_focus: bool = True):
@@ -169,7 +168,9 @@ class AccessibleTable(QTableWidget):
         # Handle arrow key navigation explicitly - process BEFORE calling parent
         if key == Qt.Key.Key_Up:
             if current_row > 0:
-                self.setCurrentCell(current_row - 1, current_col)
+                new_row = current_row - 1
+                self.setCurrentCell(new_row, current_col)
+                self._update_cell_accessibility(new_row, current_col)
                 self.setFocus()  # Ensure focus stays on table
                 event.accept()
                 return
@@ -180,7 +181,9 @@ class AccessibleTable(QTableWidget):
                 
         elif key == Qt.Key.Key_Down:
             if current_row < self.rowCount() - 1:
-                self.setCurrentCell(current_row + 1, current_col)
+                new_row = current_row + 1
+                self.setCurrentCell(new_row, current_col)
+                self._update_cell_accessibility(new_row, current_col)
                 self.setFocus()  # Ensure focus stays on table
                 event.accept()
                 return
@@ -191,7 +194,9 @@ class AccessibleTable(QTableWidget):
                 
         elif key == Qt.Key.Key_Left:
             if current_col > 0:
-                self.setCurrentCell(current_row, current_col - 1)
+                new_col = current_col - 1
+                self.setCurrentCell(current_row, new_col)
+                self._update_cell_accessibility(current_row, new_col)
                 self.setFocus()  # Ensure focus stays on table
                 event.accept()
                 return
@@ -202,7 +207,9 @@ class AccessibleTable(QTableWidget):
                 
         elif key == Qt.Key.Key_Right:
             if current_col < self.columnCount() - 1:
-                self.setCurrentCell(current_row, current_col + 1)
+                new_col = current_col + 1
+                self.setCurrentCell(current_row, new_col)
+                self._update_cell_accessibility(current_row, new_col)
                 self.setFocus()  # Ensure focus stays on table
                 event.accept()
                 return
@@ -219,6 +226,47 @@ class AccessibleTable(QTableWidget):
         
         # For all other keys, let the parent handle them
         super().keyPressEvent(event)
+    
+    def _update_cell_accessibility(self, row: int, col: int):
+        """
+        Update accessibility description for the current cell to include row context.
+        For player tables, includes player name. For other tables, includes row identifier.
+        """
+        if row < 0 or row >= self.rowCount() or col < 0 or col >= self.columnCount():
+            return
+            
+        current_item = self.item(row, col)
+        if not current_item:
+            return
+            
+        # Get the current cell value
+        cell_value = current_item.text()
+        
+        # Get column header
+        header_item = self.horizontalHeaderItem(col)
+        column_name = header_item.text() if header_item else f"Column {col + 1}"
+        
+        # Get row context (typically from first column - player name or stat name)
+        row_context = ""
+        if self.columnCount() > 0:
+            first_col_item = self.item(row, 0)
+            if first_col_item:
+                row_context = first_col_item.text()
+        
+        # Build enhanced accessibility description
+        if row_context and col > 0:  # Don't include row context for the first column itself
+            accessibility_text = f"{row_context}, {column_name}, {cell_value}"
+        else:
+            accessibility_text = f"{column_name}, {cell_value}"
+            
+        # Update the accessibility using the most compatible method
+        # Many screen readers read tooltips, so this is our primary method
+        current_item.setToolTip(accessibility_text)
+        
+        # Also try other accessibility methods for broader compatibility
+        current_item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, accessibility_text)
+        current_item.setData(Qt.ItemDataRole.AccessibleTextRole, accessibility_text)
+        current_item.setWhatsThis(accessibility_text)  # Additional accessibility method
     
     def set_stretch_column(self, column_index: int):
         """
@@ -348,16 +396,68 @@ class BoxscoreTable(AccessibleTable):
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         
     def keyPressEvent(self, event):
-        """Enhanced key handling for boxscore tables"""
+        """Enhanced key handling for boxscore tables with tab widget support"""
         key = event.key()
+        modifiers = event.modifiers()
         
-        # Handle Ctrl+Tab to switch between tabs (if in a tab widget)
-        if key == Qt.Key.Key_Tab and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
-            # Let the parent tab widget handle this
-            event.ignore()
-            return
+        # Handle Shift+Tab to go back to tab bar
+        if key == Qt.Key.Key_Backtab or (key == Qt.Key.Key_Tab and modifiers == Qt.KeyboardModifier.ShiftModifier):
+            # Find parent tab widget and focus on its tab bar
+            parent = self.parent()
+            while parent:
+                if hasattr(parent, 'tabBar'):  # It's a QTabWidget
+                    parent.tabBar().setFocus()
+                    event.accept()
+                    return
+                parent = parent.parent()
+            # If no tab widget found, let default handling occur
         
-        # Use parent's arrow key navigation
+        # Handle regular Tab to move to next table in same tab or next tab
+        elif key == Qt.Key.Key_Tab and modifiers == Qt.KeyboardModifier.NoModifier:
+            # Find all tables in current tab
+            tab_widget = None
+            parent = self.parent()
+            while parent:
+                if hasattr(parent, 'tabBar'):  # It's a QTabWidget
+                    tab_widget = parent
+                    break
+                parent = parent.parent()
+            
+            if tab_widget:
+                current_widget = tab_widget.currentWidget()
+                if current_widget:
+                    tables = current_widget.findChildren(BoxscoreTable)
+                    if len(tables) > 1:
+                        # Find current table index and move to next
+                        try:
+                            current_index = tables.index(self)
+                            next_index = (current_index + 1) % len(tables)
+                            next_table = tables[next_index]
+                            next_table.setFocus()
+                            if next_table.rowCount() > 0:
+                                next_table.setCurrentCell(0, 0)
+                            event.accept()
+                            return
+                        except (ValueError, IndexError):
+                            pass
+                    
+                    # If only one table or couldn't find next, go to next tab
+                    current_tab = tab_widget.currentIndex()
+                    next_tab = (current_tab + 1) % tab_widget.count()
+                    tab_widget.setCurrentIndex(next_tab)
+                    
+                    # Focus first table in next tab
+                    next_widget = tab_widget.currentWidget()
+                    if next_widget:
+                        next_tables = next_widget.findChildren(BoxscoreTable)
+                        if next_tables:
+                            next_tables[0].setFocus()
+                            if next_tables[0].rowCount() > 0:
+                                next_tables[0].setCurrentCell(0, 0)
+                    event.accept()
+                    return
+        
+        # Use parent's arrow key navigation for all other keys
         super().keyPressEvent(event)
         
     def focusInEvent(self, event):

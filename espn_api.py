@@ -205,12 +205,7 @@ def extract_meaningful_game_info(details):
 
 def _parse_boxscore_data(boxscore_data):
     """Parse ESPN boxscore data into structured format"""
-    print(f"DEBUG: _parse_boxscore_data called with: {type(boxscore_data)}")
-    if boxscore_data:
-        print(f"DEBUG: boxscore_data keys: {list(boxscore_data.keys()) if isinstance(boxscore_data, dict) else 'not a dict'}")
-    
     if not boxscore_data or not isinstance(boxscore_data, dict):
-        print("DEBUG: No boxscore data or not a dict - returning None")
         return None
     
     parsed_boxscore = {
@@ -220,12 +215,20 @@ def _parse_boxscore_data(boxscore_data):
     
     # Parse team statistics
     teams_data = boxscore_data.get("teams", [])
-    print(f"DEBUG: Found {len(teams_data)} teams in boxscore data")
+    if not teams_data:
+        # Sometimes boxscore data is in a different structure - try alternatives
+        # Check if the entire boxscore_data is actually the teams array
+        if isinstance(boxscore_data, list):
+            teams_data = boxscore_data
+        elif "statistics" in boxscore_data:
+            # Sometimes teams data is nested under statistics
+            teams_data = boxscore_data.get("statistics", [])
+    
     for i, team_data in enumerate(teams_data):
-        print(f"DEBUG: Team {i} keys: {list(team_data.keys()) if isinstance(team_data, dict) else 'not a dict'}")
-        
+        if not isinstance(team_data, dict):
+            continue
+            
         team_info = team_data.get("team", {})
-        print(f"DEBUG: Team info keys: {list(team_info.keys()) if isinstance(team_info, dict) else 'not a dict'}")
         
         # Try multiple ways to get team name
         team_name = (team_info.get("displayName") or 
@@ -233,73 +236,79 @@ def _parse_boxscore_data(boxscore_data):
                     team_info.get("abbreviation") or 
                     team_data.get("displayName") or
                     team_data.get("name") or
-                    "Unknown Team")
-        print(f"DEBUG: Team name resolved to: '{team_name}'")
+                    f"Team {i + 1}")
         
         # Parse team statistics - try multiple approaches
         team_stats = {}
         
         # Method 1: Look for statistics array
         statistics = team_data.get("statistics", [])
-        print(f"DEBUG: Team {team_name} has {len(statistics)} stat categories")
         
-        for j, stat_category in enumerate(statistics):
+        for stat_category in statistics:
+            if not isinstance(stat_category, dict):
+                continue
+                
             category_name = stat_category.get("name", "").lower()
-            print(f"DEBUG: Stat category {j}: '{category_name}'")
             
             # Don't filter by category name - process all stats
             stats = stat_category.get("stats", [])
-            print(f"DEBUG: Category '{category_name}' has {len(stats)} stats")
             
             for stat in stats:
+                if not isinstance(stat, dict):
+                    continue
                 stat_name = stat.get("name", "")
                 stat_value = stat.get("displayValue", "") or stat.get("value", "")
                 if stat_name and stat_value:
                     team_stats[stat_name] = stat_value
-                    print(f"DEBUG: Added stat {stat_name}: {stat_value}")
         
         # Method 2: Look for direct stats in team data
         if not team_stats and "stats" in team_data:
             direct_stats = team_data.get("stats", {})
-            print(f"DEBUG: Found direct stats: {list(direct_stats.keys())}")
-            team_stats.update(direct_stats)
+            if isinstance(direct_stats, dict):
+                team_stats.update(direct_stats)
         
-        parsed_boxscore["teams"].append({
-            "name": team_name,
-            "stats": team_stats
-        })
+        # Only add team if we have meaningful data
+        if team_name != f"Team {i + 1}" or team_stats:
+            parsed_boxscore["teams"].append({
+                "name": team_name,
+                "stats": team_stats
+            })
     
     # Parse player statistics (if available)
     players_data = boxscore_data.get("players", [])
-    print(f"DEBUG: Found {len(players_data)} player groups in boxscore data")
     for i, team_players in enumerate(players_data):
-        print(f"DEBUG: Player group {i} has keys: {list(team_players.keys()) if isinstance(team_players, dict) else 'not a dict'}")
-        if isinstance(team_players, dict) and "statistics" in team_players:
-            print(f"DEBUG: Player group {i} statistics: {len(team_players['statistics'])} stat groups")
+        if not isinstance(team_players, dict):
+            continue
+            
         team_info = team_players.get("team", {})
         team_name = (team_info.get("displayName") or 
                     team_info.get("name") or 
                     team_info.get("abbreviation") or
-                    "Unknown Team")
-        print(f"DEBUG: Player group team name: '{team_name}'")
+                    f"Team {i + 1}")
         
         # Get position groups (batters, pitchers, etc.)
         statistics = team_players.get("statistics", [])
         team_player_data = {"team": team_name, "players": []}
-        print(f"DEBUG: Team {team_name} has {len(statistics)} stat groups")
         
         for j, stat_group in enumerate(statistics):
+            if not isinstance(stat_group, dict):
+                continue
+                
             group_name = stat_group.get("name", "").lower()
             athletes = stat_group.get("athletes", [])
-            print(f"DEBUG: Stat group {j}: '{group_name}', athletes: {len(athletes)}")
             
             # ESPN doesn't always have meaningful group names, so process all groups with athletes
             if athletes:  # Process any group that has athletes
-                athletes = stat_group.get("athletes", [])
                 for athlete_data in athletes:
+                    if not isinstance(athlete_data, dict):
+                        continue
+                        
                     athlete = athlete_data.get("athlete", {})
+                    if not isinstance(athlete, dict):
+                        continue
+                        
                     player_name = athlete.get("displayName", "Unknown Player")
-                    position = athlete.get("position", {}).get("abbreviation", "")
+                    position = athlete.get("position", {}).get("abbreviation", "") if isinstance(athlete.get("position"), dict) else ""
                     
                     # Parse player stats
                     stats = athlete_data.get("stats", [])
@@ -334,7 +343,10 @@ def _parse_boxscore_data(boxscore_data):
         if team_player_data["players"]:
             parsed_boxscore["players"].append(team_player_data)
     
-    print(f"DEBUG: Returning parsed_boxscore with {len(parsed_boxscore['teams'])} teams and {len(parsed_boxscore['players'])} player groups")
+    # Return None if no meaningful data was found
+    if not parsed_boxscore["teams"] and not parsed_boxscore["players"]:
+        return None
+    
     return parsed_boxscore
 
 
