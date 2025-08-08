@@ -22,6 +22,7 @@ from services.api_service import ApiService
 from models.game import GameData
 from models.news import NewsData
 from models.standings import StandingsData
+from accessible_table import AccessibleTable, StandingsTable, LeadersTable, BoxscoreTable
 
 # Constants
 DETAIL_FIELDS = ["boxscore", "leaders", "standings", "odds", "injuries", "broadcasts", "news", "gameInfo"]
@@ -864,7 +865,6 @@ class StandingsDetailDialog(QDialog):
             if teams:
                 tab = self._create_division_table(name, teams)
                 self.tab_widget.addTab(tab, name)
-        layout.addWidget(QLabel("Division tabs: F6 focus, Ctrl+Tab / Ctrl+Shift+Tab cycle."))
         layout.addWidget(self.tab_widget)
         if self.tab_widget.count():
             first = self.tab_widget.widget(0)
@@ -913,7 +913,7 @@ class StandingsDetailDialog(QDialog):
     def _configure_table(self, table: QTableWidget):
         """Configure table appearance and behavior"""
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectItems)  # Allow cell selection
         table.setAlternatingRowColors(True)
         table.verticalHeader().setVisible(False)
         table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
@@ -921,6 +921,10 @@ class StandingsDetailDialog(QDialog):
         # Enable keyboard navigation
         table.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         table.setTabKeyNavigation(True)
+        
+        # Enable accessibility features
+        table.setAccessibleName("Standings Table")
+        table.setAccessibleDescription("Team standings with arrow key navigation. Use arrow keys to navigate cells, Tab to enter/exit table.")
         
         header = table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
@@ -1065,7 +1069,6 @@ class StandingsDialog(QDialog):
             if teams:
                 tab = self._create_division_table(name, teams)
                 self.tab_widget.addTab(tab, name)
-        layout.addWidget(QLabel("Division tabs: F6 focus, Ctrl+Tab / Ctrl+Shift+Tab cycle."))
         layout.addWidget(self.tab_widget)
         if self.tab_widget.count():
             first = self.tab_widget.widget(0)
@@ -1114,7 +1117,7 @@ class StandingsDialog(QDialog):
     def _configure_table(self, table: QTableWidget):
         """Configure table appearance and behavior"""
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectItems)  # Allow cell selection
         table.setAlternatingRowColors(True)
         table.verticalHeader().setVisible(False)
         table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
@@ -1122,6 +1125,10 @@ class StandingsDialog(QDialog):
         # Enable keyboard navigation
         table.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         table.setTabKeyNavigation(True)
+        
+        # Enable accessibility features
+        table.setAccessibleName("Standings Table")
+        table.setAccessibleDescription("Team standings with arrow key navigation. Use arrow keys to navigate cells, Tab to enter/exit table.")
         
         header = table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
