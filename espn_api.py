@@ -221,25 +221,48 @@ def _parse_boxscore_data(boxscore_data):
     # Parse team statistics
     teams_data = boxscore_data.get("teams", [])
     print(f"DEBUG: Found {len(teams_data)} teams in boxscore data")
-    for team_data in teams_data:
-        team_info = team_data.get("team", {})
-        team_name = team_info.get("displayName", "Unknown Team")
+    for i, team_data in enumerate(teams_data):
+        print(f"DEBUG: Team {i} keys: {list(team_data.keys()) if isinstance(team_data, dict) else 'not a dict'}")
         
-        # Parse team statistics
+        team_info = team_data.get("team", {})
+        print(f"DEBUG: Team info keys: {list(team_info.keys()) if isinstance(team_info, dict) else 'not a dict'}")
+        
+        # Try multiple ways to get team name
+        team_name = (team_info.get("displayName") or 
+                    team_info.get("name") or 
+                    team_info.get("abbreviation") or 
+                    team_data.get("displayName") or
+                    team_data.get("name") or
+                    "Unknown Team")
+        print(f"DEBUG: Team name resolved to: '{team_name}'")
+        
+        # Parse team statistics - try multiple approaches
         team_stats = {}
+        
+        # Method 1: Look for statistics array
         statistics = team_data.get("statistics", [])
-        for stat_category in statistics:
+        print(f"DEBUG: Team {team_name} has {len(statistics)} stat categories")
+        
+        for j, stat_category in enumerate(statistics):
             category_name = stat_category.get("name", "").lower()
-            if category_name in ["batting", "pitching", "fielding"]:
-                stats = stat_category.get("stats", [])
-                for stat in stats:
-                    stat_name = stat.get("name", "")
-                    stat_value = stat.get("displayValue", "")
-                    if stat_name and stat_value:
-                        # Only include key stats to avoid clutter
-                        if stat_name in ["hits", "runs", "errors", "atBats", "rbi", "homeRuns", 
-                                       "avg", "strikeouts", "walks", "era", "wins", "losses", "saves"]:
-                            team_stats[stat_name] = stat_value
+            print(f"DEBUG: Stat category {j}: '{category_name}'")
+            
+            # Don't filter by category name - process all stats
+            stats = stat_category.get("stats", [])
+            print(f"DEBUG: Category '{category_name}' has {len(stats)} stats")
+            
+            for stat in stats:
+                stat_name = stat.get("name", "")
+                stat_value = stat.get("displayValue", "") or stat.get("value", "")
+                if stat_name and stat_value:
+                    team_stats[stat_name] = stat_value
+                    print(f"DEBUG: Added stat {stat_name}: {stat_value}")
+        
+        # Method 2: Look for direct stats in team data
+        if not team_stats and "stats" in team_data:
+            direct_stats = team_data.get("stats", {})
+            print(f"DEBUG: Found direct stats: {list(direct_stats.keys())}")
+            team_stats.update(direct_stats)
         
         parsed_boxscore["teams"].append({
             "name": team_name,
@@ -254,7 +277,11 @@ def _parse_boxscore_data(boxscore_data):
         if isinstance(team_players, dict) and "statistics" in team_players:
             print(f"DEBUG: Player group {i} statistics: {len(team_players['statistics'])} stat groups")
         team_info = team_players.get("team", {})
-        team_name = team_info.get("displayName", "Unknown Team")
+        team_name = (team_info.get("displayName") or 
+                    team_info.get("name") or 
+                    team_info.get("abbreviation") or
+                    "Unknown Team")
+        print(f"DEBUG: Player group team name: '{team_name}'")
         
         # Get position groups (batters, pitchers, etc.)
         statistics = team_players.get("statistics", [])

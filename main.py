@@ -304,9 +304,17 @@ class GameDetailsView(BaseView):
         dlg.resize(DIALOG_WIDTH, DIALOG_HEIGHT)
         layout = QVBoxLayout()
         
+        # Debug: Show what field and data type we're processing
+        debug_info = QLabel(f"DEBUG: Processing '{field_name}' of type {type(field_data).__name__}")
+        debug_info.setStyleSheet("color: red; font-weight: bold; background: yellow;")
+        layout.addWidget(debug_info)
+        
         if field_name == "leaders" and isinstance(field_data, dict):
             self._add_leaders_data_to_layout(layout, field_data)
         elif field_name == "boxscore" and isinstance(field_data, dict):
+            debug_boxscore = QLabel(f"DEBUG: Calling _add_boxscore_data_to_layout with data: {bool(field_data)}")
+            debug_boxscore.setStyleSheet("color: blue; font-weight: bold;")
+            layout.addWidget(debug_boxscore)
             self._add_boxscore_data_to_layout(layout, field_data)
         elif field_name == "injuries" and isinstance(field_data, list):
             self._add_injuries_list_to_layout(layout, field_data)
@@ -372,11 +380,18 @@ class GameDetailsView(BaseView):
                 # Add copy button
                 copy_debug_btn = QPushButton("Copy Debug Info")
                 def copy_debug_info():
-                    clipboard = QApplication.clipboard()
-                    debug_text = "\n".join(debug_items)
-                    clipboard.setText(debug_text)
-                    copy_debug_btn.setText("Copied!")
-                    QTimer.singleShot(2000, lambda: copy_debug_btn.setText("Copy Debug Info"))
+                    try:
+                        clipboard = QApplication.clipboard()
+                        debug_text = "\n".join(debug_items)
+                        clipboard.setText(debug_text)
+                        copy_debug_btn.setText("Copied!")
+                        # Use a safe timer that checks if button still exists
+                        def reset_button_text():
+                            if copy_debug_btn and not copy_debug_btn.isHidden():
+                                copy_debug_btn.setText("Copy Debug Info")
+                        QTimer.singleShot(2000, reset_button_text)
+                    except Exception as e:
+                        print(f"Copy error: {e}")
                 
                 copy_debug_btn.clicked.connect(copy_debug_info)
                 debug_layout.addWidget(copy_debug_btn)
@@ -731,8 +746,8 @@ class GameDetailsView(BaseView):
             return
         
         # Debug: Add information about what data we received
-        debug_label = QLabel(f"Boxscore data keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
-        debug_label.setStyleSheet("color: blue; font-style: italic;")
+        debug_label = QLabel(f"DEBUG: Boxscore data has {len(data.get('teams', []))} teams, {len(data.get('players', []))} player groups")
+        debug_label.setStyleSheet("color: blue; font-style: italic; font-weight: bold;")
         layout.addWidget(debug_label)
         
         # Create tab widget for organized boxscore display
@@ -746,62 +761,76 @@ class GameDetailsView(BaseView):
         
         # Team Statistics Tab
         if "teams" in data and data["teams"]:
-            # Debug: Show team data info
-            team_debug_label = QLabel(f"Teams found: {len(data['teams'])}")
-            team_debug_label.setStyleSheet("color: green; font-style: italic;")
-            layout.addWidget(team_debug_label)
-            
             team_widget = QWidget()
             team_layout = QVBoxLayout()
             
+            # Debug: Show team processing
+            teams_debug = QLabel(f"DEBUG: Processing {len(data['teams'])} teams")
+            teams_debug.setStyleSheet("color: green; font-weight: bold;")
+            team_layout.addWidget(teams_debug)
+            
             for team_data in data["teams"]:
+                print(f"DEBUG UI: Processing team_data: {team_data}")
                 team_name = team_data.get("name", "Unknown Team")
                 team_stats = team_data.get("stats", {})
+                print(f"DEBUG UI: Team name: '{team_name}', stats count: {len(team_stats)}")
                 
+                # Debug: Show team stats info
+                stats_debug = QLabel(f"DEBUG: Team {team_name} has {len(team_stats)} stats: {list(team_stats.keys())[:5]}...")
+                stats_debug.setStyleSheet("color: purple; font-weight: bold;")
+                team_layout.addWidget(stats_debug)
+                
+                # Create table even if no stats, just show team name
+                team_label = QLabel(f"=== {team_name} ===")
+                team_label.setStyleSheet("font-weight: bold; font-size: 14px; margin: 10px 0;")
+                team_layout.addWidget(team_label)
+                
+                # Create team statistics table
+                create_debug = QLabel(f"DEBUG: Creating team table for {team_name}")
+                create_debug.setStyleSheet("color: orange; font-weight: bold;")
+                team_layout.addWidget(create_debug)
+                
+                team_table = BoxscoreTable(title=f"{team_name} Team Stats")
+                team_table.setup_columns(["Statistic", "Value"])
+                
+                # Convert stats dict to table data
+                stats_data = []
                 if team_stats:
-                    # Create team header
-                    team_label = QLabel(f"=== {team_name} ===")
-                    team_label.setStyleSheet("font-weight: bold; font-size: 14px; margin: 10px 0;")
-                    team_layout.addWidget(team_label)
-                    
-                    # Create team statistics table
-                    team_table = BoxscoreTable(title=f"{team_name} Team Stats")
-                    team_table.setup_columns(["Statistic", "Value"])
-                    
-                    # Debug: Confirm table creation
-                    table_debug_label = QLabel(f"Created team table for {team_name}")
-                    table_debug_label.setStyleSheet("color: orange; font-style: italic;")
-                    team_layout.addWidget(table_debug_label)
-                    
-                    # Convert stats dict to table data
-                    stats_data = []
                     for stat_name, stat_value in team_stats.items():
                         # Make stat names more readable
                         display_name = stat_name.replace('atBats', 'At Bats').replace('homeRuns', 'Home Runs')
                         display_name = display_name.replace('rbi', 'RBI').replace('avg', 'Batting Avg')
                         display_name = display_name.replace('strikeouts', 'Strikeouts').replace('era', 'ERA')
                         stats_data.append([display_name.title(), str(stat_value)])
-                    
-                    # Set focus to first table if not already set
-                    set_focus_for_table = first_table is None
-                    if set_focus_for_table:
-                        first_table = team_table
-                    
-                    team_table.populate_data(stats_data, set_focus=True)  # Always set focus for the first table
-                    team_layout.addWidget(team_table)
+                else:
+                    # Add a placeholder row if no stats
+                    stats_data.append(["No statistics available", "N/A"])
+                
+                # Debug: Confirm table creation
+                table_debug_label = QLabel(f"DEBUG: Table created with {len(stats_data)} rows")
+                table_debug_label.setStyleSheet("color: orange; font-style: italic;")
+                team_layout.addWidget(table_debug_label)
+                
+                # Set focus to first table if not already set
+                set_focus_for_table = first_table is None
+                if set_focus_for_table:
+                    first_table = team_table
+                
+                team_table.populate_data(stats_data, set_focus=True)  # Always set focus for the first table
+                team_layout.addWidget(team_table)
             
             team_widget.setLayout(team_layout)
             tab_widget.addTab(team_widget, "Team Stats")
         
         # Player Statistics Tab
         if "players" in data and data["players"]:
-            # Debug: Show player data info
-            player_debug_label = QLabel(f"Player teams found: {len(data['players'])}")
-            player_debug_label.setStyleSheet("color: green; font-style: italic;")
-            layout.addWidget(player_debug_label)
-            
             player_widget = QWidget()
             player_layout = QVBoxLayout()
+            
+            # Debug: Show player processing
+            players_debug = QLabel(f"DEBUG: Processing {len(data['players'])} player groups")
+            players_debug.setStyleSheet("color: green; font-weight: bold;")
+            player_layout.addWidget(players_debug)
             
             for team_players in data["players"]:
                 team_name = team_players.get("team", "Unknown Team")
