@@ -172,6 +172,10 @@ def extract_meaningful_game_info(details):
         if weather.get('temperature'):
             info['temperature'] = f"{weather['temperature']}°F"
     
+    # Process boxscore data properly
+    if 'boxscore' in details:
+        info['boxscore'] = _parse_boxscore_data(details['boxscore'])
+    
     # Odds (if available)
     if 'odds' in details and details['odds']:
         odds = details['odds'][0] if details['odds'] else {}
@@ -197,6 +201,115 @@ def extract_meaningful_game_info(details):
             info['injuries'] = f"{injury_count} injury report(s) available"
     
     return info
+
+
+def _parse_boxscore_data(boxscore_data):
+    """Parse ESPN boxscore data into structured format"""
+    print(f"DEBUG: _parse_boxscore_data called with: {type(boxscore_data)}")
+    if boxscore_data:
+        print(f"DEBUG: boxscore_data keys: {list(boxscore_data.keys()) if isinstance(boxscore_data, dict) else 'not a dict'}")
+    
+    if not boxscore_data or not isinstance(boxscore_data, dict):
+        print("DEBUG: No boxscore data or not a dict - returning None")
+        return None
+    
+    parsed_boxscore = {
+        "teams": [],
+        "players": []
+    }
+    
+    # Parse team statistics
+    teams_data = boxscore_data.get("teams", [])
+    print(f"DEBUG: Found {len(teams_data)} teams in boxscore data")
+    for team_data in teams_data:
+        team_info = team_data.get("team", {})
+        team_name = team_info.get("displayName", "Unknown Team")
+        
+        # Parse team statistics
+        team_stats = {}
+        statistics = team_data.get("statistics", [])
+        for stat_category in statistics:
+            category_name = stat_category.get("name", "").lower()
+            if category_name in ["batting", "pitching", "fielding"]:
+                stats = stat_category.get("stats", [])
+                for stat in stats:
+                    stat_name = stat.get("name", "")
+                    stat_value = stat.get("displayValue", "")
+                    if stat_name and stat_value:
+                        # Only include key stats to avoid clutter
+                        if stat_name in ["hits", "runs", "errors", "atBats", "rbi", "homeRuns", 
+                                       "avg", "strikeouts", "walks", "era", "wins", "losses", "saves"]:
+                            team_stats[stat_name] = stat_value
+        
+        parsed_boxscore["teams"].append({
+            "name": team_name,
+            "stats": team_stats
+        })
+    
+    # Parse player statistics (if available)
+    players_data = boxscore_data.get("players", [])
+    print(f"DEBUG: Found {len(players_data)} player groups in boxscore data")
+    for i, team_players in enumerate(players_data):
+        print(f"DEBUG: Player group {i} has keys: {list(team_players.keys()) if isinstance(team_players, dict) else 'not a dict'}")
+        if isinstance(team_players, dict) and "statistics" in team_players:
+            print(f"DEBUG: Player group {i} statistics: {len(team_players['statistics'])} stat groups")
+        team_info = team_players.get("team", {})
+        team_name = team_info.get("displayName", "Unknown Team")
+        
+        # Get position groups (batters, pitchers, etc.)
+        statistics = team_players.get("statistics", [])
+        team_player_data = {"team": team_name, "players": []}
+        print(f"DEBUG: Team {team_name} has {len(statistics)} stat groups")
+        
+        for j, stat_group in enumerate(statistics):
+            group_name = stat_group.get("name", "").lower()
+            athletes = stat_group.get("athletes", [])
+            print(f"DEBUG: Stat group {j}: '{group_name}', athletes: {len(athletes)}")
+            
+            # ESPN doesn't always have meaningful group names, so process all groups with athletes
+            if athletes:  # Process any group that has athletes
+                athletes = stat_group.get("athletes", [])
+                for athlete_data in athletes:
+                    athlete = athlete_data.get("athlete", {})
+                    player_name = athlete.get("displayName", "Unknown Player")
+                    position = athlete.get("position", {}).get("abbreviation", "")
+                    
+                    # Parse player stats
+                    stats = athlete_data.get("stats", [])
+                    player_stats = {
+                        "name": player_name,
+                        "position": position
+                    }
+                    
+                    # Determine if this is batting or pitching based on position or stats
+                    is_pitcher = position in ["P", "RP", "SP", "CP"]
+                    
+                    # Map common baseball stats based on player type
+                    if not is_pitcher and len(stats) >= 3:
+                        # Batting stats: AB, R, H, RBI, BB, SO, AVG, etc.
+                        stat_names = ["ab", "r", "h", "rbi", "bb", "so", "avg"]
+                        for i, stat_name in enumerate(stat_names):
+                            if i < len(stats):
+                                player_stats[stat_name] = stats[i]
+                    elif is_pitcher and len(stats) >= 3:
+                        # Pitching stats: IP, H, R, ER, BB, SO, ERA, etc.
+                        stat_names = ["ip", "h", "r", "er", "bb", "so", "era"]
+                        for i, stat_name in enumerate(stat_names):
+                            if i < len(stats):
+                                player_stats[stat_name] = stats[i]
+                    else:
+                        # For players with insufficient stats, just store what we have
+                        for i, stat_value in enumerate(stats):
+                            player_stats[f"stat_{i}"] = stat_value
+                    
+                    team_player_data["players"].append(player_stats)
+        
+        if team_player_data["players"]:
+            parsed_boxscore["players"].append(team_player_data)
+    
+    print(f"DEBUG: Returning parsed_boxscore with {len(parsed_boxscore['teams'])} teams and {len(parsed_boxscore['players'])} player groups")
+    return parsed_boxscore
+
 
 def format_complex_data(key, value):
     """Format complex data structures for better display"""
@@ -399,18 +512,258 @@ def format_complex_data(key, value):
     return str(value)[:100] + ("..." if len(str(value)) > 100 else "")
 
 def get_standings(league_key):
-    """Get current standings for a specific league using scoreboard API"""
+    """Get current standings for a specific league using teams API"""
     league_path = LEAGUES.get(league_key)
     if not league_path:
         return []
     
-    # Use scoreboard API since it contains team records
-    url = f"{BASE_URL}/{league_path}/scoreboard"
-    resp = requests.get(url)
+    # Use teams API to get all teams and their records
+    teams_url = f"{BASE_URL}/{league_path}/teams"
+    resp = requests.get(teams_url)
+    
     if resp.status_code != 200:
         return []
     
     data = resp.json()
+    return _parse_standings_from_teams_api(data, league_key)
+
+def _parse_standings_from_teams_api(data, league_key):
+    """Parse standings from the teams API with detailed team records"""
+    standings = []
+    
+    # MLB Division mapping - Fixed Oakland abbreviation
+    mlb_divisions = {
+        # American League East
+        "BAL": "AL East", "BOS": "AL East", "NYY": "AL East", "TB": "AL East", "TOR": "AL East",
+        # American League Central  
+        "CWS": "AL Central", "CLE": "AL Central", "DET": "AL Central", "KC": "AL Central", "MIN": "AL Central",
+        # American League West
+        "HOU": "AL West", "LAA": "AL West", "OAK": "AL West", "SEA": "AL West", "TEX": "AL West",
+        # National League East
+        "ATL": "NL East", "MIA": "NL East", "NYM": "NL East", "PHI": "NL East", "WSH": "NL East",
+        # National League Central
+        "CHC": "NL Central", "CIN": "NL Central", "MIL": "NL Central", "PIT": "NL Central", "STL": "NL Central",
+        # National League West
+        "ARI": "NL West", "COL": "NL West", "LAD": "NL West", "SD": "NL West", "SF": "NL West"
+    }
+    
+    try:
+        # Navigate through the teams structure
+        sports = data.get("sports", [])
+        if not sports:
+            return []
+            
+        leagues = sports[0].get("leagues", [])
+        if not leagues:
+            return []
+            
+        teams = leagues[0].get("teams", [])
+        
+        for team_entry in teams:
+            team = team_entry.get("team", {})
+            
+            # Get team info
+            team_name = team.get("displayName", "Unknown")
+            abbreviation = team.get("abbreviation", "")
+            team_id = team.get("id", "")
+            
+            # Get division from mapping (fix Oakland)
+            if abbreviation == "ATH":  # ESPN uses ATH for Athletics
+                abbreviation = "OAK"   # But our mapping uses OAK
+            division = mlb_divisions.get(abbreviation, "League") if league_key == "MLB" else "League"
+            
+            # Get detailed team record by making individual API call
+            wins, losses, win_pct = _get_team_record(team_id, league_key)
+            
+            standings.append({
+                "team_name": team_name,
+                "abbreviation": abbreviation,
+                "wins": wins,
+                "losses": losses,
+                "win_percentage": win_pct,
+                "games_back": "N/A",  # We'll calculate this after sorting by division
+                "division": division,
+                "logo": team.get("logos", [{}])[0].get("href", "") if team.get("logos") else ""
+            })
+        
+        # Sort by division, then by wins (descending), then by win percentage
+        standings.sort(key=lambda x: (x["division"], -int(x["wins"]), -float(x["win_percentage"])))
+        
+        # Calculate games back within each division
+        if standings:
+            # Group by division and calculate games back for each division
+            divisions = {}
+            for team in standings:
+                div = team["division"]
+                if div not in divisions:
+                    divisions[div] = []
+                divisions[div].append(team)
+            
+            # Calculate games back for each division
+            for div_name, div_teams in divisions.items():
+                if div_teams:
+                    leader_wins = int(div_teams[0]["wins"])
+                    leader_losses = int(div_teams[0]["losses"])
+                    
+                    for i, team in enumerate(div_teams):
+                        if i == 0:
+                            team["games_back"] = "—"  # Leader
+                        else:
+                            team_wins = int(team["wins"])
+                            team_losses = int(team["losses"])
+                            games_back = ((leader_wins - team_wins) + (team_losses - leader_losses)) / 2
+                            team["games_back"] = f"{games_back:.1f}" if games_back > 0 else "0.0"
+        
+    except (KeyError, IndexError, ValueError) as e:
+        print(f"Error parsing teams API data: {e}")
+        return []
+    
+    return standings
+
+def _get_team_record(team_id, league_key):
+    """Get individual team's win/loss record"""
+    if not team_id:
+        return 0, 0, "0.000"
+        
+    league_path = LEAGUES.get(league_key)
+    if not league_path:
+        return 0, 0, "0.000"
+    
+    try:
+        # Get detailed team information
+        team_url = f"{BASE_URL}/{league_path}/teams/{team_id}"
+        resp = requests.get(team_url)
+        
+        if resp.status_code != 200:
+            return 0, 0, "0.000"
+        
+        data = resp.json()
+        team = data.get("team", {})
+        record = team.get("record", {})
+        items = record.get("items", [])
+        
+        # Look for overall record
+        for item in items:
+            if item.get("type") == "total":
+                summary = item.get("summary", "0-0")
+                try:
+                    # Parse summary like "54-61"
+                    wins, losses = map(int, summary.split("-"))
+                    total_games = wins + losses
+                    win_pct = f"{wins/total_games:.3f}" if total_games > 0 else "0.000"
+                    return wins, losses, win_pct
+                except (ValueError, IndexError):
+                    pass
+                break
+        
+        return 0, 0, "0.000"
+        
+    except Exception as e:
+        print(f"Error getting team {team_id} record: {e}")
+        return 0, 0, "0.000"
+
+def _parse_standings_from_api(data, league_key):
+    """Parse standings from the dedicated standings API"""
+    standings = []
+    
+    # MLB Division mapping
+    mlb_divisions = {
+        # American League East
+        "BAL": "AL East", "BOS": "AL East", "NYY": "AL East", "TB": "AL East", "TOR": "AL East",
+        # American League Central  
+        "CWS": "AL Central", "CLE": "AL Central", "DET": "AL Central", "KC": "AL Central", "MIN": "AL Central",
+        # American League West
+        "HOU": "AL West", "LAA": "AL West", "OAK": "AL West", "SEA": "AL West", "TEX": "AL West",
+        # National League East
+        "ATL": "NL East", "MIA": "NL East", "NYM": "NL East", "PHI": "NL East", "WSH": "NL East",
+        # National League Central
+        "CHC": "NL Central", "CIN": "NL Central", "MIL": "NL Central", "PIT": "NL Central", "STL": "NL Central",
+        # National League West
+        "ARI": "NL West", "COL": "NL West", "LAD": "NL West", "SD": "NL West", "SF": "NL West"
+    }
+    
+    try:
+        # Navigate through the standings structure
+        children = data.get("children", [])
+        
+        for child in children:
+            standings_entries = child.get("standings", {}).get("entries", [])
+            division_name = child.get("name", "League")
+            
+            # For MLB, use our custom division mapping instead of ESPN's division names
+            if league_key == "MLB":
+                for entry in standings_entries:
+                    team = entry.get("team", {})
+                    abbreviation = team.get("abbreviation", "")
+                    division = mlb_divisions.get(abbreviation, "League")
+                    
+                    # Extract stats
+                    stats = entry.get("stats", [])
+                    wins = losses = win_pct = games_back = ""
+                    
+                    for stat in stats:
+                        stat_name = stat.get("name", "")
+                        if stat_name == "wins":
+                            wins = stat.get("value", 0)
+                        elif stat_name == "losses":
+                            losses = stat.get("value", 0)
+                        elif stat_name == "winPercent":
+                            win_pct = f"{float(stat.get('value', 0)):.3f}"
+                        elif stat_name == "gamesBehind":
+                            games_back = stat.get("displayValue", "0.0")
+                    
+                    standings.append({
+                        "team_name": team.get("displayName", "Unknown"),
+                        "abbreviation": abbreviation,
+                        "wins": wins,
+                        "losses": losses,
+                        "win_percentage": win_pct,
+                        "games_back": games_back,
+                        "division": division,
+                        "logo": team.get("logo", "")
+                    })
+            else:
+                # For other leagues, use ESPN's division structure
+                for entry in standings_entries:
+                    team = entry.get("team", {})
+                    
+                    # Extract stats
+                    stats = entry.get("stats", [])
+                    wins = losses = win_pct = games_back = ""
+                    
+                    for stat in stats:
+                        stat_name = stat.get("name", "")
+                        if stat_name == "wins":
+                            wins = stat.get("value", 0)
+                        elif stat_name == "losses":
+                            losses = stat.get("value", 0)
+                        elif stat_name == "winPercent":
+                            win_pct = f"{float(stat.get('value', 0)):.3f}"
+                        elif stat_name == "gamesBehind":
+                            games_back = stat.get("displayValue", "0.0")
+                    
+                    standings.append({
+                        "team_name": team.get("displayName", "Unknown"),
+                        "abbreviation": team.get("abbreviation", ""),
+                        "wins": wins,
+                        "losses": losses,
+                        "win_percentage": win_pct,
+                        "games_back": games_back,
+                        "division": division_name,
+                        "logo": team.get("logo", "")
+                    })
+        
+        # Sort by division, then by wins (descending), then by win percentage
+        standings.sort(key=lambda x: (x["division"], -int(x["wins"]) if isinstance(x["wins"], int) else 0, -float(x["win_percentage"]) if x["win_percentage"] else 0))
+        
+    except (KeyError, IndexError, ValueError) as e:
+        print(f"Error parsing standings API data: {e}")
+        return []
+    
+    return standings
+
+def _parse_standings_from_scoreboard(data, league_key):
+    """Parse standings from scoreboard API (fallback method)"""
     standings = []
     teams_seen = set()  # To avoid duplicates
     

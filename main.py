@@ -329,6 +329,69 @@ class GameDetailsView(BaseView):
         layout.addWidget(close_btn)
         
         dlg.setLayout(layout)
+        
+        # Set focus to first table after dialog is shown (for boxscore)
+        if field_name == "boxscore":
+            def set_focus_to_table():
+                # Find all tables in the dialog
+                tables = dlg.findChildren(BoxscoreTable)
+                debug_items = []
+                debug_items.append(f"Found {len(tables)} BoxscoreTable widgets")
+                
+                if tables:
+                    first_table = tables[0]
+                    debug_items.append(f"Setting focus to table: {first_table.accessible_name}")
+                    debug_items.append(f"Table has {first_table.rowCount()} rows, {first_table.columnCount()} columns")
+                    
+                    first_table.setFocus()
+                    if first_table.rowCount() > 0:
+                        first_table.setCurrentCell(0, 0)
+                        debug_items.append("Focus and cell selection set successfully")
+                    else:
+                        debug_items.append("Table has no rows - no data to display")
+                else:
+                    debug_items.append("No BoxscoreTable found - checking all QTableWidget")
+                    all_tables = dlg.findChildren(QTableWidget)
+                    debug_items.append(f"Found {len(all_tables)} QTableWidget total")
+                
+                # Show debug info in accessible list widget dialog
+                debug_dlg = QDialog(dlg)
+                debug_dlg.setWindowTitle("Boxscore Debug Information")
+                debug_dlg.resize(500, 300)
+                debug_layout = QVBoxLayout()
+                
+                debug_list = QListWidget()
+                debug_list.setAccessibleName("Debug Information")
+                debug_list.setAccessibleDescription("Debug information about boxscore table creation and focus")
+                
+                for item in debug_items:
+                    debug_list.addItem(item)
+                
+                debug_layout.addWidget(debug_list)
+                
+                # Add copy button
+                copy_debug_btn = QPushButton("Copy Debug Info")
+                def copy_debug_info():
+                    clipboard = QApplication.clipboard()
+                    debug_text = "\n".join(debug_items)
+                    clipboard.setText(debug_text)
+                    copy_debug_btn.setText("Copied!")
+                    QTimer.singleShot(2000, lambda: copy_debug_btn.setText("Copy Debug Info"))
+                
+                copy_debug_btn.clicked.connect(copy_debug_info)
+                debug_layout.addWidget(copy_debug_btn)
+                
+                close_debug_btn = QPushButton("Close Debug")
+                close_debug_btn.clicked.connect(debug_dlg.accept)
+                debug_layout.addWidget(close_debug_btn)
+                
+                debug_dlg.setLayout(debug_layout)
+                debug_list.setFocus()
+                debug_dlg.exec()
+            
+            # Use a longer delay to ensure dialog is fully rendered
+            QTimer.singleShot(300, set_focus_to_table)
+        
         dlg.exec()
     
     def load_game_details(self):
@@ -662,83 +725,186 @@ class GameDetailsView(BaseView):
         layout.addWidget(table)
     
     def _add_boxscore_data_to_layout(self, layout, data):
-        """Add boxscore data to layout"""
+        """Add boxscore data to layout using accessible tables"""
         if not data:
             layout.addWidget(QLabel("No boxscore data available."))
             return
         
-        # Create scrollable area for boxscore
-        scroll_area = QScrollArea()
-        scroll_widget = QWidget()
-        scroll_layout = QVBoxLayout()
+        # Debug: Add information about what data we received
+        debug_label = QLabel(f"Boxscore data keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
+        debug_label.setStyleSheet("color: blue; font-style: italic;")
+        layout.addWidget(debug_label)
         
-        # Add team summaries if available
-        if "teams" in data:
+        # Create tab widget for organized boxscore display
+        tab_widget = QTabWidget()
+        tab_widget.setAccessibleName("Boxscore Tabs")
+        tab_widget.setAccessibleDescription("Tabbed view of team and player statistics. Use Ctrl+Tab to switch between tabs.")
+        tab_widget.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+        
+        # Store first table for focus management
+        first_table = None
+        
+        # Team Statistics Tab
+        if "teams" in data and data["teams"]:
+            # Debug: Show team data info
+            team_debug_label = QLabel(f"Teams found: {len(data['teams'])}")
+            team_debug_label.setStyleSheet("color: green; font-style: italic;")
+            layout.addWidget(team_debug_label)
+            
+            team_widget = QWidget()
+            team_layout = QVBoxLayout()
+            
             for team_data in data["teams"]:
                 team_name = team_data.get("name", "Unknown Team")
-                scroll_layout.addWidget(QLabel(f"=== {team_name} ==="))
+                team_stats = team_data.get("stats", {})
                 
-                # Create team summary table
-                if "stats" in team_data:
-                    team_table = QTableWidget()
-                    team_table.setColumnCount(len(TEAM_SUMMARY_HEADERS))
-                    team_table.setHorizontalHeaderLabels(TEAM_SUMMARY_HEADERS)
+                if team_stats:
+                    # Create team header
+                    team_label = QLabel(f"=== {team_name} ===")
+                    team_label.setStyleSheet("font-weight: bold; font-size: 14px; margin: 10px 0;")
+                    team_layout.addWidget(team_label)
                     
-                    stats = team_data["stats"]
-                    team_table.setRowCount(len(stats))
+                    # Create team statistics table
+                    team_table = BoxscoreTable(title=f"{team_name} Team Stats")
+                    team_table.setup_columns(["Statistic", "Value"])
                     
-                    for row, (stat_name, stat_value) in enumerate(stats.items()):
-                        team_table.setItem(row, 0, QTableWidgetItem(team_name))
-                        team_table.setItem(row, 1, QTableWidgetItem(str(stat_name)))
-                        team_table.setItem(row, 2, QTableWidgetItem(str(stat_value)))
+                    # Debug: Confirm table creation
+                    table_debug_label = QLabel(f"Created team table for {team_name}")
+                    table_debug_label.setStyleSheet("color: orange; font-style: italic;")
+                    team_layout.addWidget(table_debug_label)
                     
-                    team_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-                    team_table.verticalHeader().setVisible(False)
-                    team_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-                    scroll_layout.addWidget(team_table)
+                    # Convert stats dict to table data
+                    stats_data = []
+                    for stat_name, stat_value in team_stats.items():
+                        # Make stat names more readable
+                        display_name = stat_name.replace('atBats', 'At Bats').replace('homeRuns', 'Home Runs')
+                        display_name = display_name.replace('rbi', 'RBI').replace('avg', 'Batting Avg')
+                        display_name = display_name.replace('strikeouts', 'Strikeouts').replace('era', 'ERA')
+                        stats_data.append([display_name.title(), str(stat_value)])
+                    
+                    # Set focus to first table if not already set
+                    set_focus_for_table = first_table is None
+                    if set_focus_for_table:
+                        first_table = team_table
+                    
+                    team_table.populate_data(stats_data, set_focus=True)  # Always set focus for the first table
+                    team_layout.addWidget(team_table)
+            
+            team_widget.setLayout(team_layout)
+            tab_widget.addTab(team_widget, "Team Stats")
         
-        # Add player statistics if available
-        if "players" in data:
-            scroll_layout.addWidget(QLabel("=== Player Statistics ==="))
+        # Player Statistics Tab
+        if "players" in data and data["players"]:
+            # Debug: Show player data info
+            player_debug_label = QLabel(f"Player teams found: {len(data['players'])}")
+            player_debug_label.setStyleSheet("color: green; font-style: italic;")
+            layout.addWidget(player_debug_label)
+            
+            player_widget = QWidget()
+            player_layout = QVBoxLayout()
+            
             for team_players in data["players"]:
                 team_name = team_players.get("team", "Unknown Team")
-                scroll_layout.addWidget(QLabel(f"--- {team_name} ---"))
-                
                 players = team_players.get("players", [])
+                
                 if players:
-                    # Create player stats table
-                    player_table = QTableWidget()
-                    player_table.setColumnCount(len(BASEBALL_STAT_HEADERS))
-                    player_table.setHorizontalHeaderLabels(BASEBALL_STAT_HEADERS)
-                    player_table.setRowCount(len(players))
+                    # Create team header
+                    team_label = QLabel(f"=== {team_name} ===")
+                    team_label.setStyleSheet("font-weight: bold; font-size: 14px; margin: 10px 0;")
+                    player_layout.addWidget(team_label)
                     
-                    for row, player in enumerate(players):
-                        player_stats = [
-                            player.get("name", ""),
-                            player.get("position", ""),
-                            player.get("ab", ""),
-                            player.get("r", ""),
-                            player.get("h", ""),
-                            player.get("rbi", ""),
-                            player.get("bb", ""),
-                            player.get("so", ""),
-                            player.get("avg", "")
-                        ]
+                    # Separate batters and pitchers
+                    batters = [p for p in players if p.get("position", "") not in ["P", "RP", "SP", "CP"]]
+                    pitchers = [p for p in players if p.get("position", "") in ["P", "RP", "SP", "CP"]]
+                    
+                    # Batting statistics
+                    if batters:
+                        batting_label = QLabel(f"--- {team_name} Batting ---")
+                        batting_label.setStyleSheet("font-weight: bold; margin: 5px 0;")
+                        player_layout.addWidget(batting_label)
                         
-                        for col, stat in enumerate(player_stats):
-                            item = QTableWidgetItem(str(stat))
-                            player_table.setItem(row, col, item)
+                        batting_table = BoxscoreTable(title=f"{team_name} Batting")
+                        batting_headers = ["Player", "Pos", "AB", "R", "H", "RBI", "BB", "SO", "AVG"]
+                        batting_table.setup_columns(batting_headers, stretch_column=0)
+                        
+                        # Debug: Confirm batting table creation
+                        batting_debug_label = QLabel(f"Created batting table for {team_name} with {len(batters)} batters")
+                        batting_debug_label.setStyleSheet("color: orange; font-style: italic;")
+                        player_layout.addWidget(batting_debug_label)
+                        
+                        batting_data = []
+                        for player in batters:
+                            row = [
+                                player.get("name", ""),
+                                player.get("position", ""),
+                                player.get("ab", "0"),
+                                player.get("r", "0"),
+                                player.get("h", "0"),
+                                player.get("rbi", "0"),
+                                player.get("bb", "0"),
+                                player.get("so", "0"),
+                                player.get("avg", ".000")
+                            ]
+                            batting_data.append(row)
+                        
+                        # Set focus if this is the first table and no team stats tab
+                        set_focus_for_table = first_table is None
+                        if set_focus_for_table:
+                            first_table = batting_table
+                        
+                        batting_table.populate_data(batting_data, set_focus=True)  # Always set focus for first batting table
+                        player_layout.addWidget(batting_table)
                     
-                    player_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-                    player_table.verticalHeader().setVisible(False)
-                    player_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-                    scroll_layout.addWidget(player_table)
+                    # Pitching statistics
+                    if pitchers:
+                        pitching_label = QLabel(f"--- {team_name} Pitching ---")
+                        pitching_label.setStyleSheet("font-weight: bold; margin: 5px 0;")
+                        player_layout.addWidget(pitching_label)
+                        
+                        pitching_table = BoxscoreTable(title=f"{team_name} Pitching")
+                        pitching_headers = ["Player", "IP", "H", "R", "ER", "BB", "SO", "ERA"]
+                        pitching_table.setup_columns(pitching_headers, stretch_column=0)
+                        
+                        pitching_data = []
+                        for player in pitchers:
+                            row = [
+                                player.get("name", ""),
+                                player.get("ip", "0.0"),
+                                player.get("h", "0"),
+                                player.get("r", "0"),
+                                player.get("er", "0"),
+                                player.get("bb", "0"),
+                                player.get("so", "0"),
+                                player.get("era", "0.00")
+                            ]
+                            pitching_data.append(row)
+                        
+                        pitching_table.populate_data(pitching_data, set_focus=False)
+                        player_layout.addWidget(pitching_table)
+            
+            player_widget.setLayout(player_layout)
+            tab_widget.addTab(player_widget, "Player Stats")
         
-        scroll_widget.setLayout(scroll_layout)
-        scroll_area.setWidget(scroll_widget)
-        scroll_area.setWidgetResizable(True)
-        layout.addWidget(scroll_area)
-    
+        # Add the tab widget to the main layout
+        layout.addWidget(tab_widget)
+        
+        # Configure tab widget focus and navigation
+        if tab_widget.count() > 0:
+            tab_widget.setCurrentIndex(0)
+            
+            # Connect tab change signal for proper focus management
+            def on_tab_changed(index):
+                current_widget = tab_widget.currentWidget()
+                if current_widget:
+                    tables = current_widget.findChildren(BoxscoreTable)
+                    if tables:
+                        # Focus on the first table in the new tab
+                        QTimer.singleShot(50, lambda: tables[0].setFocus())
+                        if tables[0].rowCount() > 0:
+                            QTimer.singleShot(50, lambda: tables[0].setCurrentCell(0, 0))
+            
+            tab_widget.currentChanged.connect(on_tab_changed)
+
     def _add_injuries_list_to_layout(self, layout, data):
         """Add injuries list to layout"""
         if not data:
@@ -825,7 +991,7 @@ class StandingsDetailDialog(QDialog):
         self.resize(STANDINGS_DIALOG_WIDTH, STANDINGS_DIALOG_HEIGHT)
         
         self.tab_widget: QTabWidget | None = None
-        self.single_table: QTableWidget | None = None
+        self.single_table: StandingsTable | None = None
         
         self.setup_ui()
     
@@ -874,40 +1040,16 @@ class StandingsDetailDialog(QDialog):
     def _create_division_table(self, division_name: str, teams: List[Dict]) -> QWidget:
         widget = QWidget()
         layout = QVBoxLayout()
-        table = QTableWidget()
-        table.setColumnCount(len(STANDINGS_HEADERS))
-        table.setHorizontalHeaderLabels(STANDINGS_HEADERS)
-        table.setRowCount(len(teams))
-        for row, t in enumerate(teams):
-            values = [
-                str(row + 1), t.get("name", ""), t.get("wins", ""), t.get("losses", ""),
-                t.get("win_pct", ""), t.get("games_behind", ""), t.get("streak", "N/A"), t.get("record", "")
-            ]
-            for col, v in enumerate(values):
-                table.setItem(row, col, QTableWidgetItem(str(v)))
-        self._configure_table(table)
-        if teams:
-            table.setCurrentCell(0, 0)
+        table = StandingsTable(parent=self, division_name=division_name)
+        table.populate_standings(teams, set_focus=True)
         layout.addWidget(table)
         widget.setLayout(layout)
         widget.table = table  # type: ignore[attr-defined]
         return widget
     
-    def _create_single_standings_table(self, teams: List[Dict]) -> QTableWidget:
-        table = QTableWidget()
-        table.setColumnCount(len(STANDINGS_HEADERS))
-        table.setHorizontalHeaderLabels(STANDINGS_HEADERS)
-        table.setRowCount(len(teams))
-        for row, t in enumerate(teams):
-            values = [
-                str(row + 1), t.get("name", ""), t.get("wins", ""), t.get("losses", ""),
-                t.get("win_pct", ""), t.get("games_behind", ""), t.get("streak", "N/A"), t.get("record", "")
-            ]
-            for col, v in enumerate(values):
-                table.setItem(row, col, QTableWidgetItem(str(v)))
-        self._configure_table(table)
-        if teams:
-            table.setCurrentCell(0, 0)
+    def _create_single_standings_table(self, teams: List[Dict]) -> StandingsTable:
+        table = StandingsTable(parent=self)
+        table.populate_standings(teams, set_focus=True)
         return table
     
     def _configure_table(self, table: QTableWidget):
@@ -1032,7 +1174,7 @@ class StandingsDialog(QDialog):
         self.setWindowTitle(f"{league} Standings")
         self.resize(STANDINGS_DIALOG_WIDTH, STANDINGS_DIALOG_HEIGHT)
         self.tab_widget: QTabWidget | None = None
-        self.single_table: QTableWidget | None = None
+        self.single_table: StandingsTable | None = None
         self.setup_ui()
     
     def setup_ui(self):
@@ -1078,40 +1220,16 @@ class StandingsDialog(QDialog):
     def _create_division_table(self, division_name: str, teams: List[Dict]) -> QWidget:
         widget = QWidget()
         layout = QVBoxLayout()
-        table = QTableWidget()
-        table.setColumnCount(len(STANDINGS_HEADERS))
-        table.setHorizontalHeaderLabels(STANDINGS_HEADERS)
-        table.setRowCount(len(teams))
-        for row, t in enumerate(teams):
-            values = [
-                str(row + 1), t.get("name", ""), t.get("wins", ""), t.get("losses", ""),
-                t.get("win_pct", ""), t.get("games_behind", ""), t.get("streak", "N/A"), t.get("record", "")
-            ]
-            for col, v in enumerate(values):
-                table.setItem(row, col, QTableWidgetItem(str(v)))
-        self._configure_table(table)
-        if teams:
-            table.setCurrentCell(0, 0)
+        table = StandingsTable(parent=self, division_name=division_name)
+        table.populate_standings(teams, set_focus=True)
         layout.addWidget(table)
         widget.setLayout(layout)
         widget.table = table  # type: ignore[attr-defined]
         return widget
     
-    def _create_single_standings_table(self, teams: List[Dict]) -> QTableWidget:
-        table = QTableWidget()
-        table.setColumnCount(len(STANDINGS_HEADERS))
-        table.setHorizontalHeaderLabels(STANDINGS_HEADERS)
-        table.setRowCount(len(teams))
-        for row, t in enumerate(teams):
-            values = [
-                str(row + 1), t.get("name", ""), t.get("wins", ""), t.get("losses", ""),
-                t.get("win_pct", ""), t.get("games_behind", ""), t.get("streak", "N/A"), t.get("record", "")
-            ]
-            for col, v in enumerate(values):
-                table.setItem(row, col, QTableWidgetItem(str(v)))
-        self._configure_table(table)
-        if teams:
-            table.setCurrentCell(0, 0)
+    def _create_single_standings_table(self, teams: List[Dict]) -> StandingsTable:
+        table = StandingsTable(parent=self)
+        table.populate_standings(teams, set_focus=True)
         return table
     
     def _configure_table(self, table: QTableWidget):
@@ -1137,22 +1255,20 @@ class StandingsDialog(QDialog):
 
     def keyPressEvent(self, event):
         if self.tab_widget:
-            if event.key() == Qt.Key.Key_F6:
-                self.tab_widget.setFocus(); event.accept(); return
             if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
                 if event.key() == Qt.Key.Key_Tab:
                     i = (self.tab_widget.currentIndex() + 1) % self.tab_widget.count()
                     self.tab_widget.setCurrentIndex(i)
                     w = self.tab_widget.widget(i)
                     if hasattr(w, "table"):
-                        w.table.setFocus()  # type: ignore
+                        w.table.setFocus()  # type: ignore[attr-defined]
                     event.accept(); return
                 if event.key() == Qt.Key.Key_Backtab:
                     i = (self.tab_widget.currentIndex() - 1) % self.tab_widget.count()
                     self.tab_widget.setCurrentIndex(i)
                     w = self.tab_widget.widget(i)
                     if hasattr(w, "table"):
-                        w.table.setFocus()  # type: ignore
+                        w.table.setFocus()  # type: ignore[attr-defined]
                     event.accept(); return
         super().keyPressEvent(event)
 
