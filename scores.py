@@ -12,9 +12,10 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QListWidget, QPushButton, QLabel,
     QHBoxLayout, QCheckBox, QDialog, QMessageBox, QTextEdit, QScrollArea,
     QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget, QStackedWidget,
-    QListWidgetItem
+    QListWidgetItem, QTreeWidget, QTreeWidgetItem
 )
 from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QColor
 
 # New separated modules
 from exceptions import ApiError, DataModelError
@@ -25,7 +26,7 @@ from models.standings import StandingsData
 from accessible_table import AccessibleTable, StandingsTable, LeadersTable, BoxscoreTable
 
 # Constants
-DETAIL_FIELDS = ["boxscore", "leaders", "standings", "odds", "injuries", "broadcasts", "news", "gameInfo"]
+DETAIL_FIELDS = ["boxscore", "plays", "leaders", "standings", "odds", "injuries", "broadcasts", "news", "gameInfo"]
 BASEBALL_STAT_HEADERS = ["Player", "Position", "AB", "R", "H", "RBI", "BB", "SO", "AVG"]
 STANDINGS_HEADERS = ["Rank", "Team", "Wins", "Losses", "Win %", "GB", "Streak", "Record"]
 TEAM_SUMMARY_HEADERS = ["Team", "Statistic", "Value"]
@@ -65,10 +66,24 @@ class BaseView(QWidget):
         self.parent_app = parent
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
+    
+    def keyPressEvent(self, event):
+        """Handle key press events for all views"""
+        if event.key() == Qt.Key.Key_F5:
+            self.refresh()
+        else:
+            super().keyPressEvent(event)
+    
     def setup_ui(self):
         pass
+    
     def on_show(self):
         pass
+    
+    def refresh(self):
+        """Override in subclasses to implement refresh functionality"""
+        pass
+    
     def set_focus_with_delay(self, w):
         QTimer.singleShot(FOCUS_DELAY_MS, lambda: w.setFocus())
 
@@ -114,6 +129,19 @@ class HomeView(BaseView):
         self.layout.addWidget(error_label)
     
     def on_show(self):
+        self.set_focus_with_delay(self.league_list)
+    
+    def refresh(self):
+        """Refresh the league list"""
+        self.league_list.clear()
+        leagues = ApiService.get_leagues()
+        if not leagues:
+            self._show_api_error("Failed to load leagues")
+            return
+        
+        for league in leagues:
+            self.league_list.addItem(league)
+        
         self.set_focus_with_delay(self.league_list)
 
 class LeagueView(BaseView):
@@ -316,6 +344,8 @@ class GameDetailsView(BaseView):
                 if hasattr(child, 'widget') and isinstance(child.widget(), QTabWidget):
                     tab_widget_ref = child.widget()
                     break
+        elif field_name == "plays" and isinstance(field_data, list):
+            self._add_plays_list_to_layout(layout, field_data)
         elif field_name == "injuries" and isinstance(field_data, list):
             self._add_injuries_list_to_layout(layout, field_data)
         elif field_name == "news" and isinstance(field_data, list):
@@ -338,63 +368,76 @@ class GameDetailsView(BaseView):
         
         dlg.setLayout(layout)
         
-        # Add F6 keyboard handling for boxscore dialogs
-        if field_name == "boxscore" and tab_widget_ref:
-            original_keyPressEvent = dlg.keyPressEvent
-            focus_state = {"current": "tab_bar"}  # Track current focus state
+        # Add F5 refresh support for all dialogs
+        original_keyPressEvent = dlg.keyPressEvent
+        focus_state = {"current": "tab_bar"}  # Track current focus state for F6 navigation
+        
+        def custom_keyPressEvent(event):
+            if event.key() == Qt.Key.Key_F5:
+                # Refresh the dialog by reloading the data
+                try:
+                    dlg.accept()  # Close current dialog
+                    # Reload and reshow
+                    raw_details = ApiService.get_game_details(self.league, self.game_id)
+                    updated_field_data = raw_details.get(field_name)
+                    if updated_field_data:
+                        self._show_detail_dialog(field_name, updated_field_data)
+                except Exception as e:
+                    QMessageBox.critical(self, "Refresh Error", f"Failed to refresh {field_name}: {str(e)}")
+                return
             
-            def custom_keyPressEvent(event):
-                if event.key() == Qt.Key.Key_F6:
-                    # Cycle through: tab_bar -> first_table -> other_tables -> next_tab -> repeat
-                    current_tab_index = tab_widget_ref.currentIndex()
-                    current_widget = tab_widget_ref.widget(current_tab_index)
+            # Handle F6 for boxscore dialogs
+            if event.key() == Qt.Key.Key_F6 and field_name == "boxscore" and tab_widget_ref:
+                # Cycle through: tab_bar -> first_table -> other_tables -> next_tab -> repeat
+                current_tab_index = tab_widget_ref.currentIndex()
+                current_widget = tab_widget_ref.widget(current_tab_index)
+                
+                if current_widget:
+                    tables = current_widget.findChildren(BoxscoreTable)
                     
-                    if current_widget:
-                        tables = current_widget.findChildren(BoxscoreTable)
+                    if focus_state["current"] == "tab_bar":
+                        # Move from tab bar to first table in current tab
+                        if tables and tables[0].rowCount() > 0:
+                            tables[0].setFocus()
+                            tables[0].setCurrentCell(0, 0)
+                            focus_state["current"] = f"table_0"
+                        event.accept()
+                        return
                         
-                        if focus_state["current"] == "tab_bar":
-                            # Move from tab bar to first table in current tab
-                            if tables and tables[0].rowCount() > 0:
-                                tables[0].setFocus()
-                                tables[0].setCurrentCell(0, 0)
-                                focus_state["current"] = f"table_0"
-                            event.accept()
-                            return
+                    elif focus_state["current"].startswith("table_"):
+                        # Currently on a table, move to next table or next tab
+                        try:
+                            current_table_idx = int(focus_state["current"].split("_")[1])
+                            next_table_idx = current_table_idx + 1
                             
-                        elif focus_state["current"].startswith("table_"):
-                            # Currently on a table, move to next table or next tab
-                            try:
-                                current_table_idx = int(focus_state["current"].split("_")[1])
-                                next_table_idx = current_table_idx + 1
-                                
-                                if next_table_idx < len(tables) and tables[next_table_idx].rowCount() > 0:
-                                    # Move to next table in same tab
-                                    tables[next_table_idx].setFocus()
-                                    tables[next_table_idx].setCurrentCell(0, 0)
-                                    focus_state["current"] = f"table_{next_table_idx}"
-                                else:
-                                    # Move to next tab
-                                    next_tab_index = (current_tab_index + 1) % tab_widget_ref.count()
-                                    tab_widget_ref.setCurrentIndex(next_tab_index)
-                                    tab_widget_ref.tabBar().setFocus()
-                                    focus_state["current"] = "tab_bar"
-                            except:
-                                # Fallback to tab bar
+                            if next_table_idx < len(tables) and tables[next_table_idx].rowCount() > 0:
+                                # Move to next table in same tab
+                                tables[next_table_idx].setFocus()
+                                tables[next_table_idx].setCurrentCell(0, 0)
+                                focus_state["current"] = f"table_{next_table_idx}"
+                            else:
+                                # Move to next tab
+                                next_tab_index = (current_tab_index + 1) % tab_widget_ref.count()
+                                tab_widget_ref.setCurrentIndex(next_tab_index)
                                 tab_widget_ref.tabBar().setFocus()
                                 focus_state["current"] = "tab_bar"
-                            
-                            event.accept()
-                            return
-                    
-                    # Fallback: just go to tab bar
-                    tab_widget_ref.tabBar().setFocus()
-                    focus_state["current"] = "tab_bar"
-                    event.accept()
-                    return
-                    
-                original_keyPressEvent(event)
+                        except:
+                            # Fallback to tab bar
+                            tab_widget_ref.tabBar().setFocus()
+                            focus_state["current"] = "tab_bar"
+                        
+                        event.accept()
+                        return
                 
-            dlg.keyPressEvent = custom_keyPressEvent
+                # Fallback: just go to tab bar
+                tab_widget_ref.tabBar().setFocus()
+                focus_state["current"] = "tab_bar"
+                event.accept()
+                return
+                
+            original_keyPressEvent(event)
+            
+        dlg.keyPressEvent = custom_keyPressEvent
         
         # Set focus to first table after dialog is shown (for boxscore)
         if field_name == "boxscore":
@@ -490,6 +533,10 @@ class GameDetailsView(BaseView):
         config_fields = self.config.get(self.league, [])
         config_fields = [field for field in config_fields if field in DETAIL_FIELDS]
         
+        # Always include plays if available
+        if "plays" not in config_fields and raw_details.get("plays"):
+            config_fields.append("plays")
+        
         if config_fields:
             self.details_list.addItem("--- Additional Details ---")
             for field in config_fields:
@@ -501,7 +548,7 @@ class GameDetailsView(BaseView):
     
     def _add_configurable_field(self, field: str, value: Any):
         """Add a configurable field to the details list"""
-        navigable_fields = ["standings", "leaders", "boxscore", "injuries", "news"]
+        navigable_fields = ["standings", "leaders", "boxscore", "plays", "injuries", "news"]
         
         if field in navigable_fields:
             has_data = self._check_field_has_data(field, value)
@@ -540,6 +587,8 @@ class GameDetailsView(BaseView):
             return len(value) > 0
         elif field == "boxscore" and isinstance(value, dict):
             return bool(value.get("teams") or value.get("players"))
+        elif field == "plays" and isinstance(value, list):
+            return len(value) > 0
         elif field == "injuries" and isinstance(value, list):
             return len(value) > 0
         elif field == "news" and isinstance(value, (list, dict)):
@@ -952,6 +1001,368 @@ class GameDetailsView(BaseView):
             tab_widget.setCurrentIndex(0)
             # Focus on the tab bar initially so arrows can navigate tabs
             QTimer.singleShot(50, lambda: tab_widget.tabBar().setFocus())
+
+    def _add_plays_list_to_layout(self, layout, data):
+        """Add hierarchical play-by-play tree to layout"""
+        if not data:
+            layout.addWidget(QLabel("No play-by-play data available."))
+            return
+        
+        # Detect sport type from data structure or current league
+        sport_type = self._detect_sport_type(data)
+        
+        # Add header info
+        info_label = QLabel(f"Play-by-Play ({len(data)} plays)")
+        info_label.setStyleSheet("font-weight: bold; font-size: 14px; margin: 10px 0;")
+        layout.addWidget(info_label)
+        
+        # Create tree widget for hierarchical view
+        plays_tree = QTreeWidget()
+        plays_tree.setAccessibleName("Play-by-Play Tree")
+        plays_tree.setAccessibleDescription("Hierarchical view of game plays organized by period and drive/inning. Use up/down arrows to navigate, left/right to expand/collapse.")
+        plays_tree.setHeaderLabels(["Play Description"])
+        
+        # Add custom event handling for better accessibility
+        def on_item_expanded(item):
+            # Provide accessibility feedback for expansions
+            item_text = item.text(0)
+            plays_tree.setAccessibleDescription(f"Expanded {item_text}. Use arrow keys to navigate children.")
+        
+        def on_item_collapsed(item):
+            # Provide accessibility feedback for collapses
+            item_text = item.text(0)
+            plays_tree.setAccessibleDescription(f"Collapsed {item_text}. Use right arrow to expand.")
+        
+        plays_tree.itemExpanded.connect(on_item_expanded)
+        plays_tree.itemCollapsed.connect(on_item_collapsed)
+        
+        if sport_type == "MLB":
+            self._build_baseball_tree(plays_tree, data)
+        elif sport_type == "NFL":
+            self._build_football_tree(plays_tree, data)
+        else:
+            # Default to generic organization
+            self._build_generic_tree(plays_tree, data)
+        
+        layout.addWidget(plays_tree)
+    
+    def _detect_sport_type(self, data):
+        """Detect sport type from play data or current league"""
+        if hasattr(self, 'league') and self.league:
+            return self.league
+        
+        # Try to detect from data structure
+        if data and len(data) > 0:
+            sample_play = data[0]
+            period = sample_play.get("period", {})
+            period_display = period.get("displayValue", "")
+            
+            if "inning" in period_display.lower():
+                return "MLB"
+            elif "quarter" in period_display.lower():
+                return "NFL"
+        
+        return "Generic"
+    
+    def _build_baseball_tree(self, plays_tree, data):
+        """Build baseball-specific hierarchical tree"""
+        # Group plays by inning/period
+        inning_groups = {}
+        for play in data:
+            period_info = play.get("period", {})
+            period_number = period_info.get("number", 0)
+            period_display = period_info.get("displayValue", f"Period {period_number}")
+            period_type = period_info.get("type", "Unknown").lower()
+            
+            if period_display not in inning_groups:
+                inning_groups[period_display] = {"top": [], "bottom": []}
+            
+            # Use the actual period type from ESPN data
+            if period_type == "top":
+                inning_groups[period_display]["top"].append(play)
+            elif period_type == "bottom":
+                inning_groups[period_display]["bottom"].append(play)
+            else:
+                # Fallback for other sports or unknown types
+                inning_groups[period_display]["top"].append(play)
+        
+        # Build tree structure
+        for period_display in sorted(inning_groups.keys(), key=lambda x: int(x.split()[0][:-2]) if x.split()[0][:-2].isdigit() else 0):
+            inning_item = QTreeWidgetItem([period_display])
+            inning_item.setExpanded(True)  # Expand by default
+            plays_tree.addTopLevelItem(inning_item)
+            
+            period_data = inning_groups[period_display]
+            
+            # Add top half (if any plays)
+            if period_data["top"]:
+                # Extract inning number and create proper label
+                inning_num = period_display.split()[0]  # "1st", "2nd", etc.
+                top_item = QTreeWidgetItem([f"Top of the {inning_num}"])
+                top_item.setExpanded(True)
+                inning_item.addChild(top_item)
+                self._add_baseball_plays_to_tree_group(top_item, period_data["top"])
+            
+            # Add bottom half (if any plays)
+            if period_data["bottom"]:
+                # Extract inning number and create proper label
+                inning_num = period_display.split()[0]  # "1st", "2nd", etc.
+                bottom_item = QTreeWidgetItem([f"Bottom of the {inning_num}"])
+                bottom_item.setExpanded(True)
+                inning_item.addChild(bottom_item)
+                self._add_baseball_plays_to_tree_group(bottom_item, period_data["bottom"])
+    
+    def _build_football_tree(self, plays_tree, data):
+        """Build NFL-specific hierarchical tree"""
+        # Group plays by quarter and drive
+        quarter_groups = {}
+        
+        for play in data:
+            period_info = play.get("period", {})
+            period_number = period_info.get("number", 1)
+            period_display = period_info.get("displayValue", f"{period_number}Q")
+            
+            drive_number = play.get("driveNumber", "Unknown")
+            drive_team = play.get("team", {}).get("id", "Unknown")
+            
+            if period_display not in quarter_groups:
+                quarter_groups[period_display] = {}
+            
+            drive_key = f"Drive {drive_number} (Team {drive_team})"
+            if drive_key not in quarter_groups[period_display]:
+                quarter_groups[period_display][drive_key] = []
+            
+            quarter_groups[period_display][drive_key].append(play)
+        
+        # Build tree structure
+        for period_display in sorted(quarter_groups.keys()):
+            quarter_item = QTreeWidgetItem([period_display])
+            quarter_item.setExpanded(True)
+            plays_tree.addTopLevelItem(quarter_item)
+            
+            drives = quarter_groups[period_display]
+            for drive_key in sorted(drives.keys()):
+                drive_plays = drives[drive_key]
+                if drive_plays:
+                    # Determine drive result
+                    drive_result = self._determine_drive_result(drive_plays)
+                    drive_display = f"{drive_key}: {drive_result}" if drive_result else drive_key
+                    
+                    drive_item = QTreeWidgetItem([drive_display])
+                    drive_item.setExpanded(False)  # Collapsed by default
+                    quarter_item.addChild(drive_item)
+                    
+                    self._add_football_plays_to_drive(drive_item, drive_plays)
+    
+    def _build_generic_tree(self, plays_tree, data):
+        """Build generic hierarchical tree for unknown sports"""
+        # Group by period only
+        period_groups = {}
+        for play in data:
+            period_info = play.get("period", {})
+            period_display = period_info.get("displayValue", "Unknown Period")
+            
+            if period_display not in period_groups:
+                period_groups[period_display] = []
+            period_groups[period_display].append(play)
+        
+        # Build simple tree
+        for period_display in sorted(period_groups.keys()):
+            period_item = QTreeWidgetItem([period_display])
+            period_item.setExpanded(True)
+            plays_tree.addTopLevelItem(period_item)
+            
+            for play in period_groups[period_display]:
+                play_text = play.get("text", "Unknown play")
+                play_item = QTreeWidgetItem([play_text])
+                period_item.addChild(play_item)
+    
+    def _add_baseball_plays_to_tree_group(self, parent_item, plays):
+        """Add plays to a tree group, organizing by at-bat with result as main node"""
+        # Filter out transition plays (inning markers, etc.)
+        meaningful_plays = []
+        for play in plays:
+            play_text = play.get("text", "")
+            
+            # Skip inning transition markers and empty plays
+            if (play_text.startswith("Top of the") or 
+                play_text.startswith("Bottom of the") or 
+                play_text.startswith("End of the") or
+                play_text.startswith("Middle of the") or
+                not play_text.strip()):
+                continue
+                
+            meaningful_plays.append(play)
+        
+        # Group plays by at-bat
+        at_bats = []
+        current_at_bat = None
+        
+        for play in meaningful_plays:
+            play_text = play.get("text", "")
+            
+            # Check if this is a batter announcement (start of new at-bat)
+            if " pitches to " in play_text:
+                # End previous at-bat if exists
+                if current_at_bat:
+                    at_bats.append(current_at_bat)
+                
+                # Start new at-bat
+                parts = play_text.split(" pitches to ")
+                if len(parts) >= 2:
+                    batter_name = parts[1].strip()
+                    current_at_bat = {
+                        "batter": batter_name,
+                        "plays": [],
+                        "result": None,
+                        "scoring": False
+                    }
+                continue
+            
+            # Add play to current at-bat
+            if current_at_bat:
+                current_at_bat["plays"].append(play)
+                
+                # Check if this is the result play (final outcome)
+                # Look for player name in the play text to identify result plays
+                batter_name = current_at_bat["batter"]
+                name_words = batter_name.split()
+                
+                # Check if any part of the player's name appears in the play text
+                name_found_in_play = any(name_part.lower() in play_text.lower() 
+                                       for name_part in name_words if len(name_part) > 2)
+                
+                if name_found_in_play or any(outcome in play_text.lower() for outcome in 
+                       ["struck out", "grounded out", "flied out", "popped out", "lined out", 
+                        "fouled out", "reached on error", "singled", "doubled", "tripled", "homered",
+                        "walked", "hit by pitch", "reached on fielder's choice", "reached on",
+                        "grounded into", "flied into", "popped into", "lined into", "single to", "double to"]):
+                    current_at_bat["result"] = play_text
+                    if play.get("scoringPlay", False):
+                        current_at_bat["scoring"] = True
+                        current_at_bat["score"] = f"({play.get('awayScore', 0)}-{play.get('homeScore', 0)})"
+                    
+                    # End this at-bat
+                    at_bats.append(current_at_bat)
+                    current_at_bat = None
+        
+        # Add any remaining at-bat
+        if current_at_bat:
+            # If no clear result, use last play as result
+            if current_at_bat["plays"] and not current_at_bat["result"]:
+                last_play = current_at_bat["plays"][-1]
+                current_at_bat["result"] = last_play.get("text", "At-bat in progress")
+            at_bats.append(current_at_bat)
+        
+        # Create tree nodes for each at-bat
+        for at_bat in at_bats:
+            if not at_bat["batter"] or not at_bat["result"]:
+                continue
+                
+            # Create main node with batter name and result
+            result_text = at_bat["result"]
+            if at_bat["scoring"]:
+                main_text = f"⚾ {at_bat['batter']}: {result_text} {at_bat.get('score', '')}"
+            else:
+                main_text = f"{at_bat['batter']}: {result_text}"
+            
+            at_bat_item = QTreeWidgetItem([main_text])
+            at_bat_item.setExpanded(False)  # Collapsed by default
+            
+            # Highlight scoring at-bats
+            if at_bat["scoring"]:
+                at_bat_item.setBackground(0, QColor(255, 255, 150))  # Light yellow
+            
+            parent_item.addChild(at_bat_item)
+            
+            # Add pitch-by-pitch details as children (excluding the result play)
+            pitch_count = 0
+            for play in at_bat["plays"]:
+                play_text = play.get("text", "")
+                
+                # Skip the result play since it's already in the main node
+                if play_text == at_bat["result"]:
+                    continue
+                
+                # Add pitch details
+                if "Pitch" in play_text or any(pitch_type in play_text.lower() for pitch_type in 
+                                             ["ball", "strike", "foul", "looking", "swinging"]):
+                    pitch_count += 1
+                    
+                    # Extract additional pitch details if available
+                    enhanced_text = play_text
+                    velocity = play.get("pitchVelocity")
+                    pitch_type = play.get("pitchType", {})
+                    pitch_type_text = pitch_type.get("text", "") if isinstance(pitch_type, dict) else ""
+                    
+                    # Add velocity and pitch type if available
+                    if velocity and pitch_type_text:
+                        enhanced_text = f"{play_text} ({velocity} mph {pitch_type_text})"
+                    elif velocity:
+                        enhanced_text = f"{play_text} ({velocity} mph)"
+                    elif pitch_type_text:
+                        enhanced_text = f"{play_text} ({pitch_type_text})"
+                    
+                    pitch_item = QTreeWidgetItem([f"  {enhanced_text}"])
+                    at_bat_item.addChild(pitch_item)
+                else:
+                    # Other play details (substitutions, etc.)
+                    detail_item = QTreeWidgetItem([f"  {play_text}"])
+                    at_bat_item.addChild(detail_item)
+
+    def _determine_drive_result(self, drive_plays):
+        """Determine the result of an NFL drive"""
+        if not drive_plays:
+            return "No plays"
+        
+        last_play = drive_plays[-1]
+        play_text = last_play.get("text", "").lower()
+        
+        # Check for common drive outcomes
+        if "touchdown" in play_text:
+            return "Touchdown"
+        elif "field goal" in play_text:
+            return "Field Goal"
+        elif "punt" in play_text:
+            return "Punt"
+        elif "turnover" in play_text or "interception" in play_text or "fumble" in play_text:
+            return "Turnover"
+        elif "safety" in play_text:
+            return "Safety"
+        elif any(end_indicator in play_text for end_indicator in ["end of quarter", "end of half", "end of game"]):
+            return "End of Period"
+        else:
+            return f"{len(drive_plays)} plays"
+    
+    def _add_football_plays_to_drive(self, parent_item, plays):
+        """Add NFL plays to a drive, organizing by meaningful sequences"""
+        for play in plays:
+            play_text = play.get("text", "Unknown play")
+            
+            # Extract down and distance info if available
+            down = play.get("down")
+            distance = play.get("distance")
+            yard_line = play.get("yardLine")
+            
+            # Enhance play text with context
+            enhanced_text = play_text
+            if down and distance:
+                enhanced_text = f"{down} & {distance}: {play_text}"
+            
+            if yard_line:
+                enhanced_text = f"{enhanced_text} (at {yard_line})"
+            
+            # Create play item
+            play_item = QTreeWidgetItem([enhanced_text])
+            
+            # Highlight scoring plays
+            if play.get("scoringPlay", False):
+                play_item.setBackground(0, QColor(255, 255, 150))  # Light yellow
+                away_score = play.get("awayScore", 0)
+                home_score = play.get("homeScore", 0)
+                play_item.setText(0, f"🏈 {enhanced_text} ({away_score}-{home_score})")
+            
+            parent_item.addChild(play_item)
 
     def _add_injuries_list_to_layout(self, layout, data):
         """Add injuries list to layout"""
