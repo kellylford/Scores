@@ -382,10 +382,11 @@ def format_complex_data(key, value):
         if "attendance" in value:
             info_parts.append(f"Attendance: {value['attendance']:,}")
         
-        if "officials" in value and isinstance(value["officials"], list):
-            officials_count = len(value["officials"])
-            if officials_count > 0:
-                info_parts.append(f"Officials: {officials_count} assigned")
+        # Skip officials here - they're handled interactively in the main game details
+        # if "officials" in value and isinstance(value["officials"], list):
+        #     officials_count = len(value["officials"])
+        #     if officials_count > 0:
+        #         info_parts.append(f"Officials: {officials_count} assigned")
         
         if "weather" in value:
             weather = value["weather"]
