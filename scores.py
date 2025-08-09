@@ -26,7 +26,7 @@ from models.standings import StandingsData
 from accessible_table import AccessibleTable, StandingsTable, LeadersTable, BoxscoreTable, InjuryTable
 
 # Constants
-DETAIL_FIELDS = ["boxscore", "plays", "leaders", "standings", "odds", "injuries", "broadcasts", "news", "gameInfo"]
+DETAIL_FIELDS = ["boxscore", "plays", "drives", "leaders", "standings", "odds", "injuries", "broadcasts", "news", "gameInfo"]
 BASEBALL_STAT_HEADERS = ["Player", "Position", "AB", "R", "H", "RBI", "BB", "SO", "AVG"]
 STANDINGS_HEADERS = ["Rank", "Team", "Wins", "Losses", "Win %", "GB", "Streak", "Record"]
 TEAM_SUMMARY_HEADERS = ["Team", "Statistic", "Value"]
@@ -453,6 +453,7 @@ class GameDetailsView(BaseView):
         self.league = league
         self.game_id = game_id
         self.config = parent.config if parent else {}
+        self.raw_game_data = None  # Store raw data for drill-down access
         self.setup_ui()
     
     def setup_ui(self):
@@ -516,6 +517,10 @@ class GameDetailsView(BaseView):
                     break
         elif field_name == "plays" and isinstance(field_data, list):
             self._add_plays_list_to_layout(layout, field_data)
+        elif field_name == "drives" and isinstance(field_data, dict):
+            self._add_drives_list_to_layout(layout, field_data)
+        elif field_name == "officials" and isinstance(field_data, list):
+            self._add_officials_list_to_layout(layout, field_data)
         elif field_name == "injuries" and isinstance(field_data, list):
             self._add_injuries_list_to_layout(layout, field_data)
         elif field_name == "news" and isinstance(field_data, list):
@@ -667,8 +672,11 @@ class GameDetailsView(BaseView):
                 raw_details = ApiService.get_game_details(self.league, self.game_id)
                 details = ApiService.extract_meaningful_game_info(raw_details)
             
-            # Display basic game information
-            self._add_basic_game_info(details)
+            # Store raw data for drill-down access
+            self.raw_game_data = raw_details
+            
+            # Display basic game information with interactive elements
+            self._add_basic_game_info(details, raw_details)
             
             # Show configurable details
             self._add_configurable_details(raw_details)
@@ -691,7 +699,7 @@ class GameDetailsView(BaseView):
         
         return None
     
-    def _add_basic_game_info(self, details: Dict):
+    def _add_basic_game_info(self, details: Dict, raw_details: Dict = None):
         """Add basic game information to the details list"""
         # Display teams and records
         if 'teams' in details:
@@ -728,6 +736,19 @@ class GameDetailsView(BaseView):
             if 'temperature' in details:
                 weather_display += f", {details['temperature']}"
             self.details_list.addItem(f"Weather: {weather_display}")
+        
+        # Officials - make interactive if available
+        if raw_details and 'gameInfo' in raw_details:
+            game_info = raw_details['gameInfo']
+            if 'officials' in game_info and isinstance(game_info['officials'], list):
+                officials = game_info['officials']
+                if officials:
+                    officials_item = QListWidgetItem(f"Officials: {len(officials)} assigned (Press Enter for details)")
+                    officials_item.setData(Qt.ItemDataRole.UserRole, {
+                        "field": "officials",
+                        "data": officials
+                    })
+                    self.details_list.addItem(officials_item)
         
         # Betting information
         if 'betting_line' in details:
@@ -776,7 +797,7 @@ class GameDetailsView(BaseView):
     
     def _add_configurable_field(self, field: str, value: Any):
         """Add a configurable field to the details list"""
-        navigable_fields = ["standings", "leaders", "boxscore", "plays", "injuries", "news"]
+        navigable_fields = ["standings", "leaders", "boxscore", "plays", "drives", "injuries", "news"]
         
         if field in navigable_fields:
             has_data = self._check_field_has_data(field, value)
@@ -817,6 +838,11 @@ class GameDetailsView(BaseView):
             return bool(value.get("teams") or value.get("players"))
         elif field == "plays" and isinstance(value, list):
             return len(value) > 0
+        elif field == "drives" and isinstance(value, dict):
+            # NFL drives data - check for current drive or previous drives
+            current = value.get("current")
+            previous = value.get("previous", [])
+            return bool(current) or len(previous) > 0
         elif field == "injuries" and isinstance(value, list):
             return len(value) > 0
         elif field == "news" and isinstance(value, (list, dict)):
@@ -1273,6 +1299,128 @@ class GameDetailsView(BaseView):
         
         layout.addWidget(plays_tree)
     
+    def _add_drives_list_to_layout(self, layout, drives_data):
+        """Add NFL drives data to layout (NFL-specific method)"""
+        if not drives_data:
+            layout.addWidget(QLabel("No drives data available."))
+            return
+        
+        # Handle both current drive and drive history
+        all_drives = []
+        
+        # Add current drive if available
+        current_drive = drives_data.get("current")
+        if current_drive:
+            all_drives.append(("Current Drive", current_drive))
+        
+        # Add previous drives if available
+        previous_drives = drives_data.get("previous", [])
+        for i, drive in enumerate(previous_drives):
+            drive_num = len(previous_drives) - i  # Number drives in reverse order
+            all_drives.append((f"Drive {drive_num}", drive))
+        
+        if not all_drives:
+            layout.addWidget(QLabel("No drive data available."))
+            return
+        
+        # Add header info
+        total_drives = len(all_drives)
+        info_label = QLabel(f"Drive-by-Drive Summary ({total_drives} drives)")
+        info_label.setStyleSheet("font-weight: bold; font-size: 14px; margin: 10px 0;")
+        layout.addWidget(info_label)
+        
+        # Create tree widget for drives
+        drives_tree = QTreeWidget()
+        drives_tree.setAccessibleName("NFL Drives Tree")
+        drives_tree.setAccessibleDescription("Hierarchical view of NFL drives organized by quarter. Use up/down arrows to navigate, left/right to expand/collapse.")
+        drives_tree.setHeaderLabels(["Drive Summary"])
+        
+        # Group drives by quarter for better organization
+        quarter_groups = {}
+        
+        for drive_label, drive in all_drives:
+            if not drive or not isinstance(drive, dict):
+                continue
+                
+            # Get drive info
+            description = drive.get("description", "Unknown drive")
+            team_info = drive.get("team", {})
+            team_name = team_info.get("displayName", "Unknown Team")
+            
+            # Determine quarter from plays
+            plays = drive.get("plays", [])
+            quarter = "Unknown Quarter"
+            if plays and len(plays) > 0:
+                first_play = plays[0]
+                period_info = first_play.get("period", {})
+                quarter_num = period_info.get("number", "?")
+                quarter = f"Quarter {quarter_num}"
+            
+            # Group by quarter
+            if quarter not in quarter_groups:
+                quarter_groups[quarter] = []
+            
+            quarter_groups[quarter].append((drive_label, drive, team_name, description))
+        
+        # Build tree structure by quarter
+        for quarter in sorted(quarter_groups.keys()):
+            quarter_item = QTreeWidgetItem([quarter])
+            quarter_item.setExpanded(True)
+            drives_tree.addTopLevelItem(quarter_item)
+            
+            drives_in_quarter = quarter_groups[quarter]
+            for drive_label, drive, team_name, description in drives_in_quarter:
+                # Create drive summary node
+                drive_summary = f"{team_name}: {description}"
+                drive_item = QTreeWidgetItem([drive_summary])
+                drive_item.setExpanded(False)  # Collapsed by default
+                quarter_item.addChild(drive_item)
+                
+                # Add individual plays under the drive
+                plays = drive.get("plays", [])
+                for play in plays:
+                    play_text = play.get("text", "Unknown play")
+                    
+                    # Add down and distance information for NFL plays
+                    down_distance_prefix = ""
+                    start = play.get("start", {})
+                    down = start.get("down", 0)
+                    distance = start.get("distance", 0)
+                    
+                    # Use pre-formatted down/distance text if available
+                    end = play.get("end", {})
+                    short_down_text = end.get("shortDownDistanceText", "")
+                    
+                    if short_down_text:
+                        down_distance_prefix = f"[{short_down_text}] "
+                    elif down > 0:  # Regular downs (not kickoffs, etc.)
+                        down_distance_prefix = f"[{down} & {distance}] "
+                    
+                    # Add extra context for key plays
+                    if play.get("scoringPlay"):
+                        away_score = play.get("awayScore", 0)
+                        home_score = play.get("homeScore", 0)
+                        play_text = f"🏈 SCORE: {down_distance_prefix}{play_text} ({away_score}-{home_score})"
+                    else:
+                        play_text = f"{down_distance_prefix}{play_text}"
+                    
+                    # Add clock context
+                    clock = play.get("clock", {})
+                    if clock:
+                        clock_display = clock.get("displayValue", "")
+                        if clock_display:
+                            play_text = f"[{clock_display}] {play_text}"
+                    
+                    play_item = QTreeWidgetItem([play_text])
+                    
+                    # Highlight scoring plays
+                    if play.get("scoringPlay"):
+                        play_item.setBackground(0, QColor(255, 255, 150))  # Light yellow
+                    
+                    drive_item.addChild(play_item)
+        
+        layout.addWidget(drives_tree)
+    
     def _detect_sport_type(self, data):
         """Detect sport type from play data or current league"""
         if hasattr(self, 'league') and self.league:
@@ -1612,6 +1760,29 @@ class GameDetailsView(BaseView):
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)  # Team name stretches
         
         layout.addWidget(injury_table)
+    
+    def _add_officials_list_to_layout(self, layout, data):
+        """Add officials list to layout"""
+        if not data:
+            layout.addWidget(QLabel("No officials data available."))
+            return
+        
+        # Create a clean list widget for officials
+        officials_list = QListWidget()
+        officials_list.setAccessibleName("Officials List")
+        officials_list.setAccessibleDescription("List of game officials and their positions")
+        
+        for official in data:
+            name = official.get('displayName', 'Unknown Official')
+            position_info = official.get('position', {})
+            position = position_info.get('displayName', 'Unknown Position')
+            order = official.get('order', 0)
+            
+            # Create formatted display text
+            list_item = f"{order}. {name} - {position}"
+            officials_list.addItem(list_item)
+        
+        layout.addWidget(officials_list)
     
     def _add_news_list_to_layout(self, layout, data):
         """Add news list to layout"""
