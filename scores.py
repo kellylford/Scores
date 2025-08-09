@@ -23,14 +23,14 @@ from services.api_service import ApiService
 from models.game import GameData
 from models.news import NewsData
 from models.standings import StandingsData
-from accessible_table import AccessibleTable, StandingsTable, LeadersTable, BoxscoreTable
+from accessible_table import AccessibleTable, StandingsTable, LeadersTable, BoxscoreTable, InjuryTable
 
 # Constants
 DETAIL_FIELDS = ["boxscore", "plays", "leaders", "standings", "odds", "injuries", "broadcasts", "news", "gameInfo"]
 BASEBALL_STAT_HEADERS = ["Player", "Position", "AB", "R", "H", "RBI", "BB", "SO", "AVG"]
 STANDINGS_HEADERS = ["Rank", "Team", "Wins", "Losses", "Win %", "GB", "Streak", "Record"]
 TEAM_SUMMARY_HEADERS = ["Team", "Statistic", "Value"]
-INJURY_HEADERS = ["Player", "Position", "Team", "Status", "Details"]
+INJURY_HEADERS = ["Player", "Position", "Team", "Status", "Type", "Details", "Return Date"]
 LEADERS_HEADERS = ["Category/Player", "Team", "Statistic", "Value"]
 FOCUS_DELAY_MS = 50
 WINDOW_WIDTH = 600
@@ -86,6 +86,14 @@ class BaseView(QWidget):
     
     def set_focus_with_delay(self, w):
         QTimer.singleShot(FOCUS_DELAY_MS, lambda: w.setFocus())
+    
+    def set_focus_and_select_first(self, list_widget):
+        """Set focus to list widget and select the first item"""
+        def focus_and_select():
+            list_widget.setFocus()
+            if list_widget.count() > 0:
+                list_widget.setCurrentRow(0)
+        QTimer.singleShot(FOCUS_DELAY_MS, focus_and_select)
 
 class HomeView(BaseView):
     """Home view showing league selection"""
@@ -129,7 +137,7 @@ class HomeView(BaseView):
         self.layout.addWidget(error_label)
     
     def on_show(self):
-        self.set_focus_with_delay(self.league_list)
+        self.set_focus_and_select_first(self.league_list)
     
     def refresh(self):
         """Refresh the league list"""
@@ -142,7 +150,7 @@ class HomeView(BaseView):
         for league in leagues:
             self.league_list.addItem(league)
         
-        self.set_focus_with_delay(self.league_list)
+        self.set_focus_and_select_first(self.league_list)
 
 class LeagueView(BaseView):
     """View showing scores for a specific league"""
@@ -189,6 +197,12 @@ class LeagueView(BaseView):
             self.news_headlines = ApiService.get_news(self.league)
             if not scores_data:
                 self.scores_list.addItem("No games found for this date.")
+                # Add Kitchen Sink demo for MLB when no games found
+                if self.league.lower() == "mlb":
+                    self.scores_list.addItem("--- Demo Game (Kitchen Sink) ---")
+                    demo_item = self.scores_list.item(self.scores_list.count()-1)
+                    if demo_item:
+                        demo_item.setData(Qt.ItemDataRole.UserRole, "DEMO_KITCHEN_SINK")
             else:
                 for game_raw in scores_data:
                     game = GameData(game_raw)
@@ -197,6 +211,12 @@ class LeagueView(BaseView):
                     list_item = self.scores_list.item(self.scores_list.count()-1)
                     if list_item:
                         list_item.setData(Qt.ItemDataRole.UserRole, game_raw.get("id"))
+                # Also add demo option when there are games
+                if self.league.lower() == "mlb":
+                    self.scores_list.addItem("--- Demo Game (Kitchen Sink) ---")
+                    demo_item = self.scores_list.item(self.scores_list.count()-1)
+                    if demo_item:
+                        demo_item.setData(Qt.ItemDataRole.UserRole, "DEMO_KITCHEN_SINK")
             if self.news_headlines:
                 self.scores_list.addItem("--- News Headlines ---")
                 news_item = self.scores_list.item(self.scores_list.count()-1)
@@ -234,18 +254,18 @@ class LeagueView(BaseView):
         """Navigate to previous day"""
         self.current_date -= timedelta(days=1)
         self.load_scores()
-        self.set_focus_with_delay(self.scores_list)
+        self.set_focus_and_select_first(self.scores_list)
     
     def next_day(self):
         """Navigate to next day"""
         self.current_date += timedelta(days=1)
         self.load_scores()
-        self.set_focus_with_delay(self.scores_list)
+        self.set_focus_and_select_first(self.scores_list)
     
     def refresh(self):
         """Refresh the current view"""
         self.load_scores()
-        self.set_focus_with_delay(self.scores_list)
+        self.set_focus_and_select_first(self.scores_list)
     
     def _add_nav_buttons(self):
         btn_layout = QHBoxLayout()
@@ -278,7 +298,7 @@ class LeagueView(BaseView):
         QMessageBox.warning(self, "API Error", message)
     
     def on_show(self):
-        self.set_focus_with_delay(self.scores_list)
+        self.set_focus_and_select_first(self.scores_list)
 
 class GameDetailsView(BaseView):
     """View showing detailed information for a specific game"""
@@ -324,6 +344,11 @@ class GameDetailsView(BaseView):
         if field_name == "standings" and isinstance(field_data, list):
             # Use special standings dialog with keyboard navigation
             dlg = StandingsDetailDialog(field_data, self.league, self)
+            dlg.exec()
+            return
+        elif field_name == "kitchensink":
+            # Use special Kitchen Sink dialog
+            dlg = KitchenSinkDialog(field_data, self)
             dlg.exec()
             return
         
@@ -464,8 +489,34 @@ class GameDetailsView(BaseView):
         self.details_list.clear()
         
         try:
-            raw_details = ApiService.get_game_details(self.league, self.game_id)
-            details = ApiService.extract_meaningful_game_info(raw_details)
+            # Check for demo mode - use saved data for Kitchen Sink demonstration
+            if self.game_id == "DEMO_KITCHEN_SINK" and self.league.lower() == "mlb":
+                raw_details = self._load_demo_kitchen_sink_data()
+                if raw_details:
+                    details = ApiService.extract_meaningful_game_info(raw_details)
+                else:
+                    # Fallback demo data
+                    details = {
+                        'teams': [
+                            {'name': 'Pittsburgh Pirates', 'home_away': 'away', 'record': '62-59'},
+                            {'name': 'Cincinnati Reds', 'home_away': 'home', 'record': '58-63'}
+                        ],
+                        'status': 'Final',
+                        'scores': ['3', '2'],
+                        'venue': 'Great American Ball Park',
+                        'venue_city': 'Cincinnati',
+                        'venue_state': 'OH'
+                    }
+                    raw_details = {
+                        'rosters': [{'team': {'displayName': 'Demo Team'}, 'roster': []}],
+                        'article': {'headline': 'Demo Kitchen Sink Game'},
+                        'seasonseries': [{'summary': 'Demo series data'}],
+                        'againstTheSpread': [{'displayName': 'Demo Team', 'record': 'Demo ATS'}],
+                        'pickcenter': [{'provider': {'name': 'Demo Expert'}, 'details': 'Demo pick'}]
+                    }
+            else:
+                raw_details = ApiService.get_game_details(self.league, self.game_id)
+                details = ApiService.extract_meaningful_game_info(raw_details)
             
             # Display basic game information
             self._add_basic_game_info(details)
@@ -475,6 +526,21 @@ class GameDetailsView(BaseView):
             
         except Exception as e:
             self._show_api_error(f"Failed to load game details: {str(e)}")
+    
+    def _load_demo_kitchen_sink_data(self):
+        """Load saved Kitchen Sink data for demonstration"""
+        import json
+        import os
+        
+        try:
+            json_file = os.path.join(os.path.dirname(__file__), "api_exploration", "game_details_401696639.json")
+            if os.path.exists(json_file):
+                with open(json_file, 'r') as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"Error loading demo data: {e}")
+        
+        return None
     
     def _add_basic_game_info(self, details: Dict):
         """Add basic game information to the details list"""
@@ -529,22 +595,35 @@ class GameDetailsView(BaseView):
             self.details_list.addItem(f"Injuries: {details['injuries']}")
     
     def _add_configurable_details(self, raw_details: Dict):
-        """Add configurable detail fields"""
-        config_fields = self.config.get(self.league, [])
-        config_fields = [field for field in config_fields if field in DETAIL_FIELDS]
+        """Add all available detail fields (no longer configurable - show everything)"""
+        # Show all available detail fields - be more permissive than before
+        all_available_fields = []
         
-        # Always include plays if available
-        if "plays" not in config_fields and raw_details.get("plays"):
-            config_fields.append("plays")
+        # Include ALL detail fields that have any data (even empty lists/dicts) 
+        for field in DETAIL_FIELDS:
+            value = raw_details.get(field)
+            if value is not None:  # Include if field exists, even if empty
+                all_available_fields.append(field)
         
-        if config_fields:
+        # Always include plays if available (even if empty, for consistency)
+        if raw_details.get("plays") is not None and "plays" not in all_available_fields:
+            all_available_fields.append("plays")
+        
+        # Always add Kitchen Sink for ALL MLB games (for testing)
+        if self.league.lower() == "mlb":
+            all_available_fields.append("kitchensink")
+        
+        if all_available_fields:
             self.details_list.addItem("--- Additional Details ---")
-            for field in config_fields:
-                value = raw_details.get(field, "N/A")
-                if value == "N/A" or not value:
-                    self.details_list.addItem(f"{field}: No data available")
+            for field in all_available_fields:
+                if field == "kitchensink":
+                    self._add_kitchen_sink_item(raw_details)
                 else:
-                    self._add_configurable_field(field, value)
+                    value = raw_details.get(field, "N/A")
+                    if value == "N/A" or not value:
+                        self.details_list.addItem(f"{field}: No data available")
+                    else:
+                        self._add_configurable_field(field, value)
     
     def _add_configurable_field(self, field: str, value: Any):
         """Add a configurable field to the details list"""
@@ -554,7 +633,7 @@ class GameDetailsView(BaseView):
             has_data = self._check_field_has_data(field, value)
             
             if has_data:
-                item_text = f"{field.title()}: Press Enter to view details"
+                item_text = f"{field.title()}"
                 self.details_list.addItem(item_text)
                 list_item_widget = self.details_list.item(self.details_list.count() - 1)
                 if list_item_widget:
@@ -595,21 +674,24 @@ class GameDetailsView(BaseView):
             return len(value) > 0 if isinstance(value, list) else bool(value.get("articles"))
         return False
     
-    def open_config(self):
-        """Open configuration dialog"""
-        selected = self.config.get(self.league, [])
-        selected = [field for field in selected if field in DETAIL_FIELDS]
-        dlg = ConfigDialog(DETAIL_FIELDS, selected, self)
-        if dlg.exec():
-            self.config[self.league] = dlg.get_selected()
-            if self.parent_app:
-                self.parent_app.config = self.config
-            self.load_game_details()
+    def _has_kitchen_sink_data(self, raw_details: Dict) -> bool:
+        """Check if game has additional Kitchen Sink data available"""
+        kitchen_sink_fields = ["rosters", "seasonseries", "article", "againstTheSpread", 
+                              "pickcenter", "winprobability", "videos"]
+        return any(raw_details.get(field) for field in kitchen_sink_fields)
+    
+    def _add_kitchen_sink_item(self, raw_details: Dict):
+        """Add Kitchen Sink item to the details list"""
+        item_text = "Kitchen Sink (Additional MLB Data)"
+        self.details_list.addItem(item_text)
+        list_item_widget = self.details_list.item(self.details_list.count() - 1)
+        if list_item_widget:
+            list_item_widget.setData(Qt.ItemDataRole.UserRole, {"field": "kitchensink", "data": raw_details})
     
     def refresh(self):
         """Refresh the game details"""
         self.load_game_details()
-        self.set_focus_with_delay(self.details_list)
+        self.set_focus_and_select_first(self.details_list)
     
     def _add_nav_buttons(self):
         btn_layout = QHBoxLayout()
@@ -623,10 +705,6 @@ class GameDetailsView(BaseView):
         refresh_btn.clicked.connect(self.refresh)
         btn_layout.addWidget(refresh_btn)
         
-        config_btn = QPushButton("Config")
-        config_btn.clicked.connect(self.open_config)
-        btn_layout.addWidget(config_btn)
-        
         self.layout.addLayout(btn_layout)
     
     def _show_api_error(self, message: str):
@@ -636,7 +714,7 @@ class GameDetailsView(BaseView):
         QMessageBox.warning(self, "API Error", message)
     
     def on_show(self):
-        self.set_focus_with_delay(self.details_list)
+        self.set_focus_and_select_first(self.details_list)
     
     def _add_standings_table_to_layout(self, layout, data):
         """Add standings table to layout"""
@@ -1365,41 +1443,26 @@ class GameDetailsView(BaseView):
             parent_item.addChild(play_item)
 
     def _add_injuries_list_to_layout(self, layout, data):
-        """Add injuries list to layout"""
+        """Add injuries list to layout using accessible table"""
         if not data:
             layout.addWidget(QLabel("No injury data available."))
             return
         
-        # Create injuries table
-        table = QTableWidget()
-        table.setColumnCount(len(INJURY_HEADERS))
-        table.setHorizontalHeaderLabels(INJURY_HEADERS)
-        table.setRowCount(len(data))
+        # Create accessible injury table
+        injury_table = InjuryTable(parent=self, title="Injury Report")
+        injury_table.setColumnCount(len(INJURY_HEADERS))
+        injury_table.setHorizontalHeaderLabels(INJURY_HEADERS)
         
-        for row, injury in enumerate(data):
-            injury_data = [
-                injury.get("player", ""),
-                injury.get("position", ""),
-                injury.get("team", ""),
-                injury.get("status", ""),
-                injury.get("details", "")
-            ]
-            
-            for col, value in enumerate(injury_data):
-                item = QTableWidgetItem(str(value))
-                table.setItem(row, col, item)
+        # Populate with injury data using the specialized method
+        injury_table.populate_injury_data(data, set_focus=True)
         
-        # Configure table
-        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        table.setAlternatingRowColors(True)
-        table.verticalHeader().setVisible(False)
-        
-        header = table.horizontalHeader()
+        # Configure table appearance
+        header = injury_table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)  # Player name stretches
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)  # Team name stretches
         
-        layout.addWidget(table)
+        layout.addWidget(injury_table)
     
     def _add_news_list_to_layout(self, layout, data):
         """Add news list to layout"""
@@ -1551,6 +1614,349 @@ class StandingsDetailDialog(QDialog):
                     if hasattr(w, "table"):
                         w.table.setFocus()  # type: ignore[attr-defined]
                     event.accept(); return
+        super().keyPressEvent(event)
+
+class KitchenSinkDialog(QDialog):
+    """Dialog for displaying additional MLB data features not shown in main views"""
+    
+    def __init__(self, raw_game_data: Dict, parent=None):
+        super().__init__(parent)
+        self.raw_data = raw_game_data
+        self.setWindowTitle("Kitchen Sink - Additional MLB Data")
+        self.resize(1000, 700)
+        
+        self.tab_widget: QTabWidget | None = None
+        self.setup_ui()
+    
+    def setup_ui(self):
+        layout = QVBoxLayout()
+        
+        # Create tabs for different data types
+        self.tab_widget = QTabWidget()
+        
+        # Add tabs for each available feature (only if data exists)
+        self._add_rosters_tab()
+        self._add_season_series_tab()
+        self._add_articles_tab()
+        self._add_betting_tab()
+        self._add_picks_tab()
+        self._add_win_probability_tab()
+        self._add_videos_tab()
+        
+        layout.addWidget(self.tab_widget)
+        
+        # Close button
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        layout.addWidget(close_btn)
+        
+        self.setLayout(layout)
+        
+        # Set focus to first tab
+        if self.tab_widget.count() > 0:
+            self.tab_widget.setCurrentIndex(0)
+            QTimer.singleShot(50, lambda: self.tab_widget.setFocus())
+    
+    def _add_rosters_tab(self):
+        """Add rosters/lineups tab"""
+        rosters_data = self.raw_data.get("rosters")
+        if not rosters_data:
+            return
+            
+        scroll_area = QScrollArea()
+        content_widget = QWidget()
+        layout = QVBoxLayout()
+        
+        layout.addWidget(QLabel("🧑‍🤝‍🧑 STARTING LINEUPS & ROSTERS"))
+        
+        if isinstance(rosters_data, list):
+            for team_data in rosters_data:
+                if isinstance(team_data, dict):
+                    team_info = team_data.get("team", {})
+                    team_name = team_info.get("displayName", "Unknown Team")
+                    layout.addWidget(QLabel(f"\n{team_name}:"))
+                    
+                    roster = team_data.get("roster", [])
+                    if roster:
+                        table = AccessibleTable()
+                        table.setColumnCount(4)
+                        table.setHorizontalHeaderLabels(["Position", "Player", "Number", "Status"])
+                        
+                        table.setRowCount(len(roster))
+                        for row, player in enumerate(roster):
+                            position = player.get("position", {})
+                            pos_name = position.get("displayName", "") if isinstance(position, dict) else str(position)
+                            
+                            athlete = player.get("athlete", {})
+                            player_name = athlete.get("displayName", "") if isinstance(athlete, dict) else str(athlete)
+                            jersey = athlete.get("jersey", "") if isinstance(athlete, dict) else ""
+                            
+                            status = player.get("status", "")
+                            
+                            table.setItem(row, 0, QTableWidgetItem(pos_name))
+                            table.setItem(row, 1, QTableWidgetItem(player_name))
+                            table.setItem(row, 2, QTableWidgetItem(str(jersey)))
+                            table.setItem(row, 3, QTableWidgetItem(str(status)))
+                        
+                        table.resizeColumnsToContents()
+                        layout.addWidget(table)
+                    else:
+                        layout.addWidget(QLabel("  No roster data available"))
+        else:
+            layout.addWidget(QLabel("No roster data available"))
+        
+        content_widget.setLayout(layout)
+        scroll_area.setWidget(content_widget)
+        scroll_area.setWidgetResizable(True)
+        self.tab_widget.addTab(scroll_area, "Rosters")
+    
+    def _add_season_series_tab(self):
+        """Add season series head-to-head tab"""
+        series_data = self.raw_data.get("seasonseries")
+        if not series_data:
+            return
+            
+        widget = QWidget()
+        layout = QVBoxLayout()
+        
+        layout.addWidget(QLabel("🗓️ SEASON SERIES (Head-to-Head Record)"))
+        
+        if isinstance(series_data, list):
+            for series_item in series_data:
+                if isinstance(series_item, dict):
+                    summary = series_item.get("summary", "No series data available")
+                    layout.addWidget(QLabel(f"\nSeries Summary: {summary}"))
+                    
+                    # Show individual games if available
+                    events = series_item.get("events", [])
+                    if events:
+                        layout.addWidget(QLabel(f"\nGames in Series ({len(events)} total):"))
+                        
+                        table = AccessibleTable()
+                        table.setColumnCount(4)
+                        table.setHorizontalHeaderLabels(["Date", "Matchup", "Score", "Result"])
+                        
+                        table.setRowCount(len(events))
+                        for row, event in enumerate(events):
+                            date = event.get("date", "")
+                            name = event.get("name", "")
+                            score = event.get("shortName", "")
+                            status = event.get("status", {})
+                            completed = status.get("type", {}).get("completed", False) if isinstance(status, dict) else False
+                            result = "Completed" if completed else "Scheduled"
+                            
+                            table.setItem(row, 0, QTableWidgetItem(date))
+                            table.setItem(row, 1, QTableWidgetItem(name))
+                            table.setItem(row, 2, QTableWidgetItem(score))
+                            table.setItem(row, 3, QTableWidgetItem(result))
+                        
+                        table.resizeColumnsToContents()
+                        layout.addWidget(table)
+        else:
+            layout.addWidget(QLabel("No season series data available"))
+        
+        widget.setLayout(layout)
+        self.tab_widget.addTab(widget, "Season Series")
+    
+    def _add_win_probability_tab(self):
+        """Add win probability tracking tab"""
+        win_prob_data = self.raw_data.get("winprobability")
+        if not win_prob_data or (isinstance(win_prob_data, list) and len(win_prob_data) == 0):
+            return
+            
+        widget = QWidget()
+        layout = QVBoxLayout()
+        
+        layout.addWidget(QLabel("📊 WIN PROBABILITY TRACKING"))
+        
+        if isinstance(win_prob_data, list) and win_prob_data:
+            layout.addWidget(QLabel(f"\nTotal probability data points: {len(win_prob_data)}"))
+            
+            # Show current/final probability
+            latest = win_prob_data[-1] if win_prob_data else {}
+            home_prob = latest.get("homeWinPercentage", 0)
+            away_prob = 100 - home_prob
+            
+            layout.addWidget(QLabel(f"Final/Current Probabilities:"))
+            layout.addWidget(QLabel(f"  Home Team: {home_prob:.1f}%"))
+            layout.addWidget(QLabel(f"  Away Team: {away_prob:.1f}%"))
+            
+            # Show probability changes over time (sample)
+            if len(win_prob_data) > 5:
+                layout.addWidget(QLabel(f"\nSample probability changes:"))
+                
+                table = AccessibleTable()
+                table.setColumnCount(3)
+                table.setHorizontalHeaderLabels(["Play", "Home Win %", "Away Win %"])
+                
+                # Show first 10 entries as sample
+                sample_data = win_prob_data[:10]
+                table.setRowCount(len(sample_data))
+                
+                for row, prob_point in enumerate(sample_data):
+                    play_id = str(prob_point.get("playId", f"Play {row+1}"))
+                    home_pct = f"{prob_point.get('homeWinPercentage', 0):.1f}%"
+                    away_pct = f"{100 - prob_point.get('homeWinPercentage', 0):.1f}%"
+                    
+                    table.setItem(row, 0, QTableWidgetItem(play_id))
+                    table.setItem(row, 1, QTableWidgetItem(home_pct))
+                    table.setItem(row, 2, QTableWidgetItem(away_pct))
+                
+                table.resizeColumnsToContents()
+                layout.addWidget(table)
+        else:
+            layout.addWidget(QLabel("No win probability data available"))
+        
+        widget.setLayout(layout)
+        self.tab_widget.addTab(widget, "Win Probability")
+    
+    def _add_articles_tab(self):
+        """Add game articles/recaps tab"""
+        article_data = self.raw_data.get("article")
+        if not article_data:
+            return
+            
+        scroll_area = QScrollArea()
+        content_widget = QWidget()
+        layout = QVBoxLayout()
+        
+        layout.addWidget(QLabel("📰 GAME ARTICLES & RECAPS"))
+        
+        if isinstance(article_data, dict):
+            headline = article_data.get("headline", "No headline")
+            article_type = article_data.get("type", "Unknown")
+            description = article_data.get("description", "")
+            story = article_data.get("story", "")
+            
+            layout.addWidget(QLabel(f"\nHeadline: {headline}"))
+            layout.addWidget(QLabel(f"Type: {article_type}"))
+            
+            if description:
+                layout.addWidget(QLabel(f"\nDescription:"))
+                desc_text = QTextEdit()
+                desc_text.setPlainText(description)
+                desc_text.setReadOnly(True)
+                desc_text.setMaximumHeight(100)
+                layout.addWidget(desc_text)
+            
+            if story:
+                layout.addWidget(QLabel(f"\nFull Article:"))
+                story_text = QTextEdit()
+                story_text.setPlainText(story)
+                story_text.setReadOnly(True)
+                layout.addWidget(story_text)
+        else:
+            layout.addWidget(QLabel("No article data available"))
+        
+        content_widget.setLayout(layout)
+        scroll_area.setWidget(content_widget)
+        scroll_area.setWidgetResizable(True)
+        self.tab_widget.addTab(scroll_area, "Articles")
+    
+    def _add_videos_tab(self):
+        """Add game videos/highlights tab"""
+        videos_data = self.raw_data.get("videos")
+        if not videos_data or (isinstance(videos_data, list) and len(videos_data) == 0):
+            return
+            
+        widget = QWidget()
+        layout = QVBoxLayout()
+        
+        layout.addWidget(QLabel("🎥 GAME HIGHLIGHTS & VIDEOS"))
+        
+        if isinstance(videos_data, list) and videos_data:
+            layout.addWidget(QLabel(f"\nAvailable videos: {len(videos_data)}"))
+            
+            table = AccessibleTable()
+            table.setColumnCount(4)
+            table.setHorizontalHeaderLabels(["Title", "Description", "Duration", "Keywords"])
+            
+            table.setRowCount(len(videos_data))
+            for row, video in enumerate(videos_data):
+                title = video.get("headline", video.get("title", ""))
+                description = video.get("description", "")
+                duration = f"{video.get('duration', 0)} seconds"
+                keywords = ", ".join(video.get("keywords", []))
+                
+                table.setItem(row, 0, QTableWidgetItem(title))
+                table.setItem(row, 1, QTableWidgetItem(description))
+                table.setItem(row, 2, QTableWidgetItem(duration))
+                table.setItem(row, 3, QTableWidgetItem(keywords))
+            
+            table.resizeColumnsToContents()
+            layout.addWidget(table)
+        else:
+            layout.addWidget(QLabel("No video data available"))
+        
+        widget.setLayout(layout)
+        self.tab_widget.addTab(widget, "Videos")
+    
+    def _add_betting_tab(self):
+        """Add against the spread betting performance tab"""
+        ats_data = self.raw_data.get("againstTheSpread")
+        if not ats_data:
+            return
+            
+        widget = QWidget()
+        layout = QVBoxLayout()
+        
+        layout.addWidget(QLabel("🎰 AGAINST THE SPREAD PERFORMANCE"))
+        
+        if isinstance(ats_data, list):
+            for team_data in ats_data:
+                if isinstance(team_data, dict):
+                    team_name = team_data.get("displayName", "Unknown Team")
+                    record = team_data.get("record", "No record")
+                    
+                    layout.addWidget(QLabel(f"\n{team_name}:"))
+                    layout.addWidget(QLabel(f"  ATS Record: {record}"))
+        else:
+            layout.addWidget(QLabel("No betting performance data available"))
+        
+        widget.setLayout(layout)
+        self.tab_widget.addTab(widget, "Betting ATS")
+    
+    def _add_picks_tab(self):
+        """Add expert picks and predictions tab"""
+        picks_data = self.raw_data.get("pickcenter")
+        if not picks_data:
+            return
+            
+        widget = QWidget()
+        layout = QVBoxLayout()
+        
+        layout.addWidget(QLabel("🎯 EXPERT PICKS & PREDICTIONS"))
+        
+        if isinstance(picks_data, list) and picks_data:
+            for pick_item in picks_data:
+                if isinstance(pick_item, dict):
+                    provider = pick_item.get("provider", {}).get("name", "Unknown")
+                    details = pick_item.get("details", "")
+                    spread = pick_item.get("spread", "")
+                    over_under = pick_item.get("overUnder", "")
+                    
+                    layout.addWidget(QLabel(f"\nProvider: {provider}"))
+                    if details:
+                        layout.addWidget(QLabel(f"Pick Details: {details}"))
+                    if spread:
+                        layout.addWidget(QLabel(f"Spread: {spread}"))
+                    if over_under:
+                        layout.addWidget(QLabel(f"Over/Under: {over_under}"))
+        else:
+            layout.addWidget(QLabel("No expert picks data available"))
+        
+        widget.setLayout(layout)
+        self.tab_widget.addTab(widget, "Expert Picks")
+    
+    def keyPressEvent(self, event):
+        """Handle F6 for tab navigation"""
+        if event.key() == Qt.Key.Key_F6 and self.tab_widget:
+            current_tab = self.tab_widget.currentIndex()
+            next_tab = (current_tab + 1) % self.tab_widget.count()
+            self.tab_widget.setCurrentIndex(next_tab)
+            self.tab_widget.setFocus()
+            event.accept()
+            return
         super().keyPressEvent(event)
 
 class NewsDialog(QDialog):

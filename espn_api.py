@@ -437,14 +437,14 @@ def format_complex_data(key, value):
             if not value:
                 return "No leaders data available"
             leader_count = len(value)
-            return f"Statistical leaders available ({leader_count} categories) - Press Enter to view"
+            return f"Statistical leaders available ({leader_count} categories)"
         elif isinstance(value, dict):
             if "header" in value:
                 category_count = len([k for k in value.keys() if k != "header"])
-                return f"Statistical leaders available ({category_count} categories) - Press Enter to view"
+                return f"Statistical leaders available ({category_count} categories)"
             else:
                 category_count = len(value.keys())
-                return f"Statistical leaders available ({category_count} categories) - Press Enter to view"
+                return f"Statistical leaders available ({category_count} categories)"
         else:
             return "Leaders data available"
     
@@ -453,15 +453,15 @@ def format_complex_data(key, value):
             if not value:
                 return "No standings available"
             team_count = len(value)
-            return f"Standings available for {team_count} teams - Press Enter to view"
+            return f"Standings available for {team_count} teams"
         elif isinstance(value, dict):
             if "entries" in value and isinstance(value["entries"], list):
                 team_count = len(value["entries"])
-                return f"Standings available for {team_count} teams - Press Enter to view"
+                return f"Standings available for {team_count} teams"
             elif "header" in value:
-                return "Current standings available - Press Enter to view"
+                return "Current standings available"
             else:
-                return "Standings data available - Press Enter to view"
+                return "Standings data available"
         else:
             return "Standings available"
     
@@ -469,7 +469,7 @@ def format_complex_data(key, value):
         if not value:
             return "No injuries reported"
         injury_count = len(value)
-        return f"Injury reports available ({injury_count} players) - Press Enter to view details"
+        return f"Injury reports available ({injury_count} players)"
     
     elif key == "broadcasts":
         if isinstance(value, list):

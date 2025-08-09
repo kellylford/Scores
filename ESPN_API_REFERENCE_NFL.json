@@ -1,0 +1,1644 @@
+{
+  "league": "nfl",
+  "exploration_time": "2025-08-09T00:37:58.052186",
+  "endpoints": {
+    "scoreboard_today": {
+      "endpoint": "scoreboard",
+      "url": "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard",
+      "description": "Current day's games, scores, and basic information",
+      "structure": {
+        "type": "dict",
+        "keys": {
+          "leagues": {
+            "type": "list",
+            "length": 1,
+            "item_type": {
+              "type": "dict",
+              "keys": {
+                "id": {
+                  "type": "str",
+                  "sample": "28"
+                },
+                "uid": {
+                  "type": "str",
+                  "sample": "s:20~l:28"
+                },
+                "name": {
+                  "type": "str",
+                  "sample": "National Football League"
+                },
+                "abbreviation": {
+                  "type": "str",
+                  "sample": "NFL"
+                },
+                "slug": {
+                  "type": "str",
+                  "sample": "nfl"
+                },
+                "season": {
+                  "type": "<class 'dict'>",
+                  "truncated": true
+                },
+                "logos": {
+                  "type": "<class 'list'>",
+                  "truncated": true
+                },
+                "calendarType": {
+                  "type": "str",
+                  "sample": "list"
+                },
+                "calendarIsWhitelist": {
+                  "type": "bool",
+                  "sample": true
+                },
+                "calendarStartDate": {
+                  "type": "str",
+                  "sample": "2025-07-31T07:00Z"
+                },
+                "calendarEndDate": {
+                  "type": "str",
+                  "sample": "2026-02-12T07:59Z"
+                },
+                "calendar": {
+                  "type": "<class 'list'>",
+                  "truncated": true
+                }
+              }
+            }
+          },
+          "season": {
+            "type": "dict",
+            "keys": {
+              "type": {
+                "type": "int",
+                "sample": 1
+              },
+              "year": {
+                "type": "int",
+                "sample": 2025
+              }
+            }
+          },
+          "week": {
+            "type": "dict",
+            "keys": {
+              "number": {
+                "type": "int",
+                "sample": 2
+              }
+            }
+          },
+          "events": {
+            "type": "list",
+            "length": 16,
+            "item_type": {
+              "type": "dict",
+              "keys": {
+                "id": {
+                  "type": "str",
+                  "sample": "401776263"
+                },
+                "uid": {
+                  "type": "str",
+                  "sample": "s:20~l:28~e:401776263"
+                },
+                "date": {
+                  "type": "str",
+                  "sample": "2025-08-09T17:00Z"
+                },
+                "name": {
+                  "type": "str",
+                  "sample": "New York Giants at Buffalo Bills"
+                },
+                "shortName": {
+                  "type": "str",
+                  "sample": "NYG @ BUF"
+                },
+                "season": {
+                  "type": "<class 'dict'>",
+                  "truncated": true
+                },
+                "week": {
+                  "type": "<class 'dict'>",
+                  "truncated": true
+                },
+                "competitions": {
+                  "type": "<class 'list'>",
+                  "truncated": true
+                },
+                "links": {
+                  "type": "<class 'list'>",
+                  "truncated": true
+                },
+                "weather": {
+                  "type": "<class 'dict'>",
+                  "truncated": true
+                },
+                "status": {
+                  "type": "<class 'dict'>",
+                  "truncated": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "sample_data": {
+        "top_level_keys": [
+          "leagues",
+          "season",
+          "week",
+          "events"
+        ],
+        "sample_event": {
+          "id": "401776263",
+          "name": "New York Giants at Buffalo Bills",
+          "status": "Scheduled",
+          "teams": [
+            "Buffalo Bills",
+            "New York Giants"
+          ]
+        }
+      },
+      "key_fields": [
+        "events",
+        "season",
+        "week",
+        "leagues"
+      ]
+    },
+    "standings": {
+      "endpoint": "standings",
+      "url": "https://site.api.espn.com/apis/site/v2/sports/football/nfl/standings",
+      "description": "League standings and team records",
+      "structure": {
+        "type": "dict",
+        "keys": {
+          "fullViewLink": {
+            "type": "dict",
+            "keys": {
+              "text": {
+                "type": "str",
+                "sample": "Full Standings"
+              },
+              "href": {
+                "type": "str",
+                "sample": "https://www.espn.com/nfl/standings"
+              }
+            }
+          }
+        }
+      },
+      "sample_data": {
+        "top_level_keys": [
+          "fullViewLink"
+        ]
+      },
+      "key_fields": []
+    },
+    "teams": {
+      "endpoint": "teams",
+      "url": "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams",
+      "description": "All teams in the league with detailed information",
+      "structure": {
+        "type": "dict",
+        "keys": {
+          "sports": {
+            "type": "list",
+            "length": 1,
+            "item_type": {
+              "type": "dict",
+              "keys": {
+                "id": {
+                  "type": "str",
+                  "sample": "20"
+                },
+                "uid": {
+                  "type": "str",
+                  "sample": "s:20"
+                },
+                "name": {
+                  "type": "str",
+                  "sample": "Football"
+                },
+                "slug": {
+                  "type": "str",
+                  "sample": "football"
+                },
+                "leagues": {
+                  "type": "<class 'list'>",
+                  "truncated": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "sample_data": {
+        "top_level_keys": [
+          "sports"
+        ]
+      },
+      "key_fields": []
+    },
+    "news": {
+      "endpoint": "news",
+      "url": "https://site.api.espn.com/apis/site/v2/sports/football/nfl/news",
+      "description": "Recent news articles for the league",
+      "structure": {
+        "type": "dict",
+        "keys": {
+          "header": {
+            "type": "str",
+            "sample": "NFL News"
+          },
+          "link": {
+            "type": "dict",
+            "keys": {
+              "language": {
+                "type": "str",
+                "sample": "en"
+              },
+              "rel": {
+                "type": "list",
+                "length": 3,
+                "item_type": {
+                  "type": "<class 'str'>",
+                  "truncated": true
+                }
+              },
+              "href": {
+                "type": "str",
+                "sample": "https://www.espn.com/nfl/"
+              },
+              "text": {
+                "type": "str",
+                "sample": "All NFL News"
+              },
+              "shortText": {
+                "type": "str",
+                "sample": "All News"
+              },
+              "isExternal": {
+                "type": "bool",
+                "sample": false
+              },
+              "isPremium": {
+                "type": "bool",
+                "sample": false
+              }
+            }
+          },
+          "articles": {
+            "type": "list",
+            "length": 6,
+            "item_type": {
+              "type": "dict",
+              "keys": {
+                "id": {
+                  "type": "int",
+                  "sample": 45929128
+                },
+                "nowId": {
+                  "type": "str",
+                  "sample": "1-45929128"
+                },
+                "contentKey": {
+                  "type": "str",
+                  "sample": "45929128-1-5-1"
+                },
+                "dataSourceIdentifier": {
+                  "type": "str",
+                  "sample": "699ddd4a6b643"
+                },
+                "type": {
+                  "type": "str",
+                  "sample": "HeadlineNews"
+                },
+                "headline": {
+                  "type": "str",
+                  "sample": "Lions-Falcons preseason game ends early after Morice Norris injury"
+                },
+                "description": {
+                  "type": "str",
+                  "sample": "The preseason game between the Lions and Falcons was suspended in the fourth quarter Friday night af"
+                },
+                "lastModified": {
+                  "type": "str",
+                  "sample": "2025-08-09T05:09:38Z"
+                },
+                "published": {
+                  "type": "str",
+                  "sample": "2025-08-09T05:09:40Z"
+                },
+                "images": {
+                  "type": "<class 'list'>",
+                  "truncated": true
+                },
+                "categories": {
+                  "type": "<class 'list'>",
+                  "truncated": true
+                },
+                "premium": {
+                  "type": "bool",
+                  "sample": false
+                },
+                "links": {
+                  "type": "<class 'dict'>",
+                  "truncated": true
+                },
+                "byline": {
+                  "type": "str",
+                  "sample": "Marc Raimondi"
+                }
+              }
+            }
+          }
+        }
+      },
+      "sample_data": {
+        "top_level_keys": [
+          "header",
+          "link",
+          "articles"
+        ],
+        "sample_article": {
+          "headline": "Lions-Falcons preseason game ends early after Morice Norris injury",
+          "description": "The preseason game between the Lions and Falcons was suspended in the fourth quarter Friday night af...",
+          "published": "2025-08-09T05:09:40Z"
+        }
+      },
+      "key_fields": [
+        "header",
+        "results"
+      ]
+    },
+    "game_details_examples": [
+      {
+        "game_id": "401776263",
+        "endpoint": "summary?event=401776263",
+        "url": "https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=401776263",
+        "description": "Detailed game information for game 401776263",
+        "structure": {
+          "type": "dict",
+          "keys": {
+            "boxscore": {
+              "type": "dict",
+              "keys": {
+                "teams": {
+                  "type": "list",
+                  "length": 2,
+                  "item_type": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  }
+                }
+              }
+            },
+            "format": {
+              "type": "dict",
+              "keys": {
+                "regulation": {
+                  "type": "dict",
+                  "keys": {
+                    "periods": {
+                      "type": "int",
+                      "sample": 4
+                    },
+                    "displayName": {
+                      "type": "str",
+                      "sample": "Quarter"
+                    },
+                    "slug": {
+                      "type": "str",
+                      "sample": "quarter"
+                    },
+                    "clock": {
+                      "type": "float",
+                      "sample": 900.0
+                    }
+                  }
+                },
+                "overtime": {
+                  "type": "dict",
+                  "keys": {
+                    "periods": {
+                      "type": "int",
+                      "sample": 1
+                    },
+                    "displayName": {
+                      "type": "str",
+                      "sample": "sudden-death"
+                    },
+                    "slug": {
+                      "type": "str",
+                      "sample": "sudden-death"
+                    },
+                    "clock": {
+                      "type": "float",
+                      "sample": 600.0
+                    }
+                  }
+                }
+              }
+            },
+            "gameInfo": {
+              "type": "dict",
+              "keys": {
+                "venue": {
+                  "type": "dict",
+                  "keys": {
+                    "id": {
+                      "type": "str",
+                      "sample": "3883"
+                    },
+                    "guid": {
+                      "type": "str",
+                      "sample": "3c80cf14-6837-377a-b30d-1b9559f2f6f4"
+                    },
+                    "fullName": {
+                      "type": "str",
+                      "sample": "Highmark Stadium"
+                    },
+                    "address": {
+                      "type": "<class 'dict'>",
+                      "truncated": true
+                    },
+                    "grass": {
+                      "type": "bool",
+                      "sample": false
+                    },
+                    "images": {
+                      "type": "<class 'list'>",
+                      "truncated": true
+                    }
+                  }
+                },
+                "weather": {
+                  "type": "dict",
+                  "keys": {
+                    "temperature": {
+                      "type": "int",
+                      "sample": 85
+                    },
+                    "highTemperature": {
+                      "type": "int",
+                      "sample": 85
+                    },
+                    "lowTemperature": {
+                      "type": "int",
+                      "sample": 85
+                    },
+                    "conditionId": {
+                      "type": "str",
+                      "sample": "4"
+                    },
+                    "gust": {
+                      "type": "int",
+                      "sample": 17
+                    },
+                    "precipitation": {
+                      "type": "int",
+                      "sample": 0
+                    },
+                    "link": {
+                      "type": "<class 'dict'>",
+                      "truncated": true
+                    }
+                  }
+                }
+              }
+            },
+            "lastFiveGames": {
+              "type": "list",
+              "length": 2,
+              "item_type": {
+                "type": "dict",
+                "keys": {
+                  "displayOrder": {
+                    "type": "int",
+                    "sample": 2
+                  },
+                  "team": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  },
+                  "events": {
+                    "type": "<class 'list'>",
+                    "truncated": true
+                  }
+                }
+              }
+            },
+            "leaders": {
+              "type": "list",
+              "length": 2,
+              "item_type": {
+                "type": "dict",
+                "keys": {
+                  "team": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  },
+                  "leaders": {
+                    "type": "<class 'list'>",
+                    "truncated": true
+                  }
+                }
+              }
+            },
+            "injuries": {
+              "type": "list",
+              "length": 2,
+              "item_type": {
+                "type": "dict",
+                "keys": {
+                  "team": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  },
+                  "injuries": {
+                    "type": "<class 'list'>",
+                    "truncated": true
+                  }
+                }
+              }
+            },
+            "broadcasts": {
+              "type": "list",
+              "length": 0
+            },
+            "pickcenter": {
+              "type": "list",
+              "length": 1,
+              "item_type": {
+                "type": "dict",
+                "keys": {
+                  "provider": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  },
+                  "details": {
+                    "type": "str",
+                    "sample": "BUF -3"
+                  },
+                  "overUnder": {
+                    "type": "float",
+                    "sample": 36.5
+                  },
+                  "spread": {
+                    "type": "float",
+                    "sample": -3.0
+                  },
+                  "overOdds": {
+                    "type": "float",
+                    "sample": -115.0
+                  },
+                  "underOdds": {
+                    "type": "float",
+                    "sample": -105.0
+                  },
+                  "awayTeamOdds": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  },
+                  "homeTeamOdds": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  },
+                  "links": {
+                    "type": "<class 'list'>",
+                    "truncated": true
+                  },
+                  "moneyline": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  },
+                  "pointSpread": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  },
+                  "total": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  },
+                  "link": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  },
+                  "header": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  }
+                }
+              }
+            },
+            "againstTheSpread": {
+              "type": "list",
+              "length": 2,
+              "item_type": {
+                "type": "dict",
+                "keys": {
+                  "team": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  },
+                  "records": {
+                    "type": "<class 'list'>",
+                    "truncated": true
+                  }
+                }
+              }
+            },
+            "odds": {
+              "type": "list",
+              "length": 0
+            },
+            "winprobability": {
+              "type": "list",
+              "length": 0
+            },
+            "news": {
+              "type": "dict",
+              "keys": {
+                "header": {
+                  "type": "str",
+                  "sample": "NFL News"
+                },
+                "link": {
+                  "type": "dict",
+                  "keys": {
+                    "language": {
+                      "type": "str",
+                      "sample": "en"
+                    },
+                    "rel": {
+                      "type": "<class 'list'>",
+                      "truncated": true
+                    },
+                    "href": {
+                      "type": "str",
+                      "sample": "https://www.espn.com/nfl/"
+                    },
+                    "text": {
+                      "type": "str",
+                      "sample": "All NFL News"
+                    },
+                    "shortText": {
+                      "type": "str",
+                      "sample": "All News"
+                    },
+                    "isExternal": {
+                      "type": "bool",
+                      "sample": false
+                    },
+                    "isPremium": {
+                      "type": "bool",
+                      "sample": false
+                    }
+                  }
+                },
+                "articles": {
+                  "type": "list",
+                  "length": 6,
+                  "item_type": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  }
+                }
+              }
+            },
+            "header": {
+              "type": "dict",
+              "keys": {
+                "id": {
+                  "type": "str",
+                  "sample": "401776263"
+                },
+                "uid": {
+                  "type": "str",
+                  "sample": "s:20~l:28~e:401776263"
+                },
+                "season": {
+                  "type": "dict",
+                  "keys": {
+                    "year": {
+                      "type": "int",
+                      "sample": 2025
+                    },
+                    "current": {
+                      "type": "bool",
+                      "sample": true
+                    },
+                    "type": {
+                      "type": "int",
+                      "sample": 1
+                    }
+                  }
+                },
+                "timeValid": {
+                  "type": "bool",
+                  "sample": true
+                },
+                "competitions": {
+                  "type": "list",
+                  "length": 1,
+                  "item_type": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  }
+                },
+                "links": {
+                  "type": "list",
+                  "length": 2,
+                  "item_type": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  }
+                },
+                "week": {
+                  "type": "int",
+                  "sample": 2
+                },
+                "league": {
+                  "type": "dict",
+                  "keys": {
+                    "id": {
+                      "type": "str",
+                      "sample": "28"
+                    },
+                    "uid": {
+                      "type": "str",
+                      "sample": "s:20~l:28"
+                    },
+                    "name": {
+                      "type": "str",
+                      "sample": "National Football League"
+                    },
+                    "abbreviation": {
+                      "type": "str",
+                      "sample": "NFL"
+                    },
+                    "slug": {
+                      "type": "str",
+                      "sample": "nfl"
+                    },
+                    "isTournament": {
+                      "type": "bool",
+                      "sample": false
+                    },
+                    "links": {
+                      "type": "<class 'list'>",
+                      "truncated": true
+                    }
+                  }
+                }
+              }
+            },
+            "wallclockAvailable": {
+              "type": "bool",
+              "sample": false
+            },
+            "meta": {
+              "type": "dict",
+              "keys": {
+                "gp_topic": {
+                  "type": "str",
+                  "sample": "gp-football-nfl-401776263"
+                },
+                "gameSwitcherEnabled": {
+                  "type": "bool",
+                  "sample": true
+                },
+                "picker_topic": {
+                  "type": "str",
+                  "sample": "picker-football-nfl"
+                },
+                "gameState": {
+                  "type": "str",
+                  "sample": "pre"
+                }
+              }
+            },
+            "ticketsInfo": {
+              "type": "dict",
+              "keys": {
+                "tickets": {
+                  "type": "list",
+                  "length": 17,
+                  "item_type": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  }
+                },
+                "seatSituation": {
+                  "type": "dict",
+                  "keys": {
+                    "opponentTeamName": {
+                      "type": "str",
+                      "sample": "Giants"
+                    },
+                    "currentTeamName": {
+                      "type": "str",
+                      "sample": "Bills"
+                    },
+                    "venueName": {
+                      "type": "str",
+                      "sample": "Highmark Stadium"
+                    },
+                    "summary": {
+                      "type": "str",
+                      "sample": "Tickets as low as $21"
+                    },
+                    "date": {
+                      "type": "str",
+                      "sample": "2025-08-09T17:00:00Z"
+                    },
+                    "dateShort": {
+                      "type": "str",
+                      "sample": "8/9/25, 10:00"
+                    },
+                    "dateDay": {
+                      "type": "str",
+                      "sample": "Sat"
+                    },
+                    "homeAway": {
+                      "type": "str",
+                      "sample": "home"
+                    },
+                    "eventLink": {
+                      "type": "str",
+                      "sample": "https://www.vividseats.com/buffalo-bills-tickets-highmark-stadium-8-11-2025--sports-nfl-football/pro"
+                    },
+                    "venueLink": {
+                      "type": "str",
+                      "sample": "https://www.vividseats.com/highmark-stadium-tickets/venue/1385?wsUser=717"
+                    },
+                    "genericLink": {
+                      "type": "str",
+                      "sample": "https://www.vividseats.com?wsUser=717"
+                    },
+                    "teamLink": {
+                      "type": "str",
+                      "sample": "https://www.vividseats.com/buffalo-bills-tickets--sports-nfl-football/performer/128?wsUser=717"
+                    }
+                  }
+                }
+              }
+            },
+            "standings": {
+              "type": "dict",
+              "keys": {
+                "fullViewLink": {
+                  "type": "dict",
+                  "keys": {
+                    "text": {
+                      "type": "str",
+                      "sample": "Full Standings"
+                    },
+                    "href": {
+                      "type": "str",
+                      "sample": "https://www.espn.com/nfl/standings"
+                    }
+                  }
+                },
+                "header": {
+                  "type": "str",
+                  "sample": "2025 Standings"
+                },
+                "groups": {
+                  "type": "list",
+                  "length": 2,
+                  "item_type": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  }
+                },
+                "isSameConference": {
+                  "type": "bool",
+                  "sample": false
+                }
+              }
+            }
+          }
+        },
+        "sample_data": {
+          "top_level_keys": [
+            "boxscore",
+            "format",
+            "gameInfo",
+            "lastFiveGames",
+            "leaders",
+            "injuries",
+            "broadcasts",
+            "pickcenter",
+            "againstTheSpread",
+            "odds"
+          ]
+        },
+        "key_fields": []
+      },
+      {
+        "game_id": "401773012",
+        "endpoint": "summary?event=401773012",
+        "url": "https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=401773012",
+        "description": "Detailed game information for game 401773012",
+        "structure": {
+          "type": "dict",
+          "keys": {
+            "boxscore": {
+              "type": "dict",
+              "keys": {
+                "teams": {
+                  "type": "list",
+                  "length": 2,
+                  "item_type": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  }
+                }
+              }
+            },
+            "format": {
+              "type": "dict",
+              "keys": {
+                "regulation": {
+                  "type": "dict",
+                  "keys": {
+                    "periods": {
+                      "type": "int",
+                      "sample": 4
+                    },
+                    "displayName": {
+                      "type": "str",
+                      "sample": "Quarter"
+                    },
+                    "slug": {
+                      "type": "str",
+                      "sample": "quarter"
+                    },
+                    "clock": {
+                      "type": "float",
+                      "sample": 900.0
+                    }
+                  }
+                },
+                "overtime": {
+                  "type": "dict",
+                  "keys": {
+                    "periods": {
+                      "type": "int",
+                      "sample": 1
+                    },
+                    "displayName": {
+                      "type": "str",
+                      "sample": "sudden-death"
+                    },
+                    "slug": {
+                      "type": "str",
+                      "sample": "sudden-death"
+                    },
+                    "clock": {
+                      "type": "float",
+                      "sample": 600.0
+                    }
+                  }
+                }
+              }
+            },
+            "gameInfo": {
+              "type": "dict",
+              "keys": {
+                "venue": {
+                  "type": "dict",
+                  "keys": {
+                    "id": {
+                      "type": "str",
+                      "sample": "5239"
+                    },
+                    "guid": {
+                      "type": "str",
+                      "sample": "d0b85a2a-5b22-356b-aebc-6aeec6d097c3"
+                    },
+                    "fullName": {
+                      "type": "str",
+                      "sample": "U.S. Bank Stadium"
+                    },
+                    "address": {
+                      "type": "<class 'dict'>",
+                      "truncated": true
+                    },
+                    "grass": {
+                      "type": "bool",
+                      "sample": false
+                    },
+                    "images": {
+                      "type": "<class 'list'>",
+                      "truncated": true
+                    }
+                  }
+                },
+                "weather": {
+                  "type": "dict",
+                  "keys": {
+                    "temperature": {
+                      "type": "int",
+                      "sample": 84
+                    },
+                    "highTemperature": {
+                      "type": "int",
+                      "sample": 84
+                    },
+                    "lowTemperature": {
+                      "type": "int",
+                      "sample": 84
+                    },
+                    "conditionId": {
+                      "type": "str",
+                      "sample": "2"
+                    },
+                    "gust": {
+                      "type": "int",
+                      "sample": 15
+                    },
+                    "precipitation": {
+                      "type": "int",
+                      "sample": 0
+                    },
+                    "link": {
+                      "type": "<class 'dict'>",
+                      "truncated": true
+                    }
+                  }
+                }
+              }
+            },
+            "lastFiveGames": {
+              "type": "list",
+              "length": 2,
+              "item_type": {
+                "type": "dict",
+                "keys": {
+                  "displayOrder": {
+                    "type": "int",
+                    "sample": 2
+                  },
+                  "team": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  },
+                  "events": {
+                    "type": "<class 'list'>",
+                    "truncated": true
+                  }
+                }
+              }
+            },
+            "leaders": {
+              "type": "list",
+              "length": 2,
+              "item_type": {
+                "type": "dict",
+                "keys": {
+                  "team": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  },
+                  "leaders": {
+                    "type": "<class 'list'>",
+                    "truncated": true
+                  }
+                }
+              }
+            },
+            "injuries": {
+              "type": "list",
+              "length": 2,
+              "item_type": {
+                "type": "dict",
+                "keys": {
+                  "team": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  },
+                  "injuries": {
+                    "type": "<class 'list'>",
+                    "truncated": true
+                  }
+                }
+              }
+            },
+            "broadcasts": {
+              "type": "list",
+              "length": 0
+            },
+            "pickcenter": {
+              "type": "list",
+              "length": 1,
+              "item_type": {
+                "type": "dict",
+                "keys": {
+                  "provider": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  },
+                  "details": {
+                    "type": "str",
+                    "sample": "MIN -3"
+                  },
+                  "overUnder": {
+                    "type": "float",
+                    "sample": 38.5
+                  },
+                  "spread": {
+                    "type": "float",
+                    "sample": -3.0
+                  },
+                  "overOdds": {
+                    "type": "float",
+                    "sample": -110.0
+                  },
+                  "underOdds": {
+                    "type": "float",
+                    "sample": -110.0
+                  },
+                  "awayTeamOdds": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  },
+                  "homeTeamOdds": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  },
+                  "links": {
+                    "type": "<class 'list'>",
+                    "truncated": true
+                  },
+                  "moneyline": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  },
+                  "pointSpread": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  },
+                  "total": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  },
+                  "link": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  },
+                  "header": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  }
+                }
+              }
+            },
+            "againstTheSpread": {
+              "type": "list",
+              "length": 2,
+              "item_type": {
+                "type": "dict",
+                "keys": {
+                  "team": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  },
+                  "records": {
+                    "type": "<class 'list'>",
+                    "truncated": true
+                  }
+                }
+              }
+            },
+            "odds": {
+              "type": "list",
+              "length": 0
+            },
+            "winprobability": {
+              "type": "list",
+              "length": 0
+            },
+            "news": {
+              "type": "dict",
+              "keys": {
+                "header": {
+                  "type": "str",
+                  "sample": "NFL News"
+                },
+                "link": {
+                  "type": "dict",
+                  "keys": {
+                    "language": {
+                      "type": "str",
+                      "sample": "en"
+                    },
+                    "rel": {
+                      "type": "<class 'list'>",
+                      "truncated": true
+                    },
+                    "href": {
+                      "type": "str",
+                      "sample": "https://www.espn.com/nfl/"
+                    },
+                    "text": {
+                      "type": "str",
+                      "sample": "All NFL News"
+                    },
+                    "shortText": {
+                      "type": "str",
+                      "sample": "All News"
+                    },
+                    "isExternal": {
+                      "type": "bool",
+                      "sample": false
+                    },
+                    "isPremium": {
+                      "type": "bool",
+                      "sample": false
+                    }
+                  }
+                },
+                "articles": {
+                  "type": "list",
+                  "length": 6,
+                  "item_type": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  }
+                }
+              }
+            },
+            "header": {
+              "type": "dict",
+              "keys": {
+                "id": {
+                  "type": "str",
+                  "sample": "401773012"
+                },
+                "uid": {
+                  "type": "str",
+                  "sample": "s:20~l:28~e:401773012"
+                },
+                "season": {
+                  "type": "dict",
+                  "keys": {
+                    "year": {
+                      "type": "int",
+                      "sample": 2025
+                    },
+                    "current": {
+                      "type": "bool",
+                      "sample": true
+                    },
+                    "type": {
+                      "type": "int",
+                      "sample": 1
+                    }
+                  }
+                },
+                "timeValid": {
+                  "type": "bool",
+                  "sample": true
+                },
+                "competitions": {
+                  "type": "list",
+                  "length": 1,
+                  "item_type": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  }
+                },
+                "links": {
+                  "type": "list",
+                  "length": 2,
+                  "item_type": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  }
+                },
+                "week": {
+                  "type": "int",
+                  "sample": 2
+                },
+                "league": {
+                  "type": "dict",
+                  "keys": {
+                    "id": {
+                      "type": "str",
+                      "sample": "28"
+                    },
+                    "uid": {
+                      "type": "str",
+                      "sample": "s:20~l:28"
+                    },
+                    "name": {
+                      "type": "str",
+                      "sample": "National Football League"
+                    },
+                    "abbreviation": {
+                      "type": "str",
+                      "sample": "NFL"
+                    },
+                    "slug": {
+                      "type": "str",
+                      "sample": "nfl"
+                    },
+                    "isTournament": {
+                      "type": "bool",
+                      "sample": false
+                    },
+                    "links": {
+                      "type": "<class 'list'>",
+                      "truncated": true
+                    }
+                  }
+                }
+              }
+            },
+            "wallclockAvailable": {
+              "type": "bool",
+              "sample": false
+            },
+            "meta": {
+              "type": "dict",
+              "keys": {
+                "gp_topic": {
+                  "type": "str",
+                  "sample": "gp-football-nfl-401773012"
+                },
+                "gameSwitcherEnabled": {
+                  "type": "bool",
+                  "sample": true
+                },
+                "picker_topic": {
+                  "type": "str",
+                  "sample": "picker-football-nfl"
+                },
+                "gameState": {
+                  "type": "str",
+                  "sample": "pre"
+                }
+              }
+            },
+            "ticketsInfo": {
+              "type": "dict",
+              "keys": {
+                "tickets": {
+                  "type": "list",
+                  "length": 19,
+                  "item_type": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  }
+                },
+                "seatSituation": {
+                  "type": "dict",
+                  "keys": {
+                    "opponentTeamName": {
+                      "type": "str",
+                      "sample": "Texans"
+                    },
+                    "currentTeamName": {
+                      "type": "str",
+                      "sample": "Vikings"
+                    },
+                    "venueName": {
+                      "type": "str",
+                      "sample": "U.S. Bank Stadium"
+                    },
+                    "summary": {
+                      "type": "str",
+                      "sample": "Tickets as low as $16"
+                    },
+                    "date": {
+                      "type": "str",
+                      "sample": "2025-08-09T20:00:00Z"
+                    },
+                    "dateShort": {
+                      "type": "str",
+                      "sample": "8/9/25, 1:00"
+                    },
+                    "dateDay": {
+                      "type": "str",
+                      "sample": "Sat"
+                    },
+                    "homeAway": {
+                      "type": "str",
+                      "sample": "home"
+                    },
+                    "eventLink": {
+                      "type": "str",
+                      "sample": "https://www.vividseats.com/minnesota-vikings-tickets-us-bank-stadium-8-11-2025--sports-nfl-football/"
+                    },
+                    "venueLink": {
+                      "type": "str",
+                      "sample": "https://www.vividseats.com/us-bank-stadium-tickets/venue/14778?wsUser=717"
+                    },
+                    "genericLink": {
+                      "type": "str",
+                      "sample": "https://www.vividseats.com?wsUser=717"
+                    },
+                    "teamLink": {
+                      "type": "str",
+                      "sample": "https://www.vividseats.com/minnesota-vikings-tickets--sports-nfl-football/performer/555?wsUser=717"
+                    }
+                  }
+                }
+              }
+            },
+            "standings": {
+              "type": "dict",
+              "keys": {
+                "fullViewLink": {
+                  "type": "dict",
+                  "keys": {
+                    "text": {
+                      "type": "str",
+                      "sample": "Full Standings"
+                    },
+                    "href": {
+                      "type": "str",
+                      "sample": "https://www.espn.com/nfl/standings"
+                    }
+                  }
+                },
+                "header": {
+                  "type": "str",
+                  "sample": "2025 Standings"
+                },
+                "groups": {
+                  "type": "list",
+                  "length": 2,
+                  "item_type": {
+                    "type": "<class 'dict'>",
+                    "truncated": true
+                  }
+                },
+                "isSameConference": {
+                  "type": "bool",
+                  "sample": false
+                }
+              }
+            }
+          }
+        },
+        "sample_data": {
+          "top_level_keys": [
+            "boxscore",
+            "format",
+            "gameInfo",
+            "lastFiveGames",
+            "leaders",
+            "injuries",
+            "broadcasts",
+            "pickcenter",
+            "againstTheSpread",
+            "odds"
+          ]
+        },
+        "key_fields": []
+      }
+    ],
+    "schedule_historical": {
+      "endpoint": "scoreboard?dates=20250808",
+      "url": "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=20250808",
+      "description": "Games for specific date (20250808)",
+      "structure": {
+        "type": "dict",
+        "keys": {
+          "leagues": {
+            "type": "list",
+            "length": 1,
+            "item_type": {
+              "type": "dict",
+              "keys": {
+                "id": {
+                  "type": "str",
+                  "sample": "28"
+                },
+                "uid": {
+                  "type": "str",
+                  "sample": "s:20~l:28"
+                },
+                "name": {
+                  "type": "str",
+                  "sample": "National Football League"
+                },
+                "abbreviation": {
+                  "type": "str",
+                  "sample": "NFL"
+                },
+                "slug": {
+                  "type": "str",
+                  "sample": "nfl"
+                },
+                "season": {
+                  "type": "<class 'dict'>",
+                  "truncated": true
+                },
+                "logos": {
+                  "type": "<class 'list'>",
+                  "truncated": true
+                },
+                "calendarType": {
+                  "type": "str",
+                  "sample": "list"
+                },
+                "calendarIsWhitelist": {
+                  "type": "bool",
+                  "sample": true
+                },
+                "calendarStartDate": {
+                  "type": "str",
+                  "sample": "2025-07-31T07:00Z"
+                },
+                "calendarEndDate": {
+                  "type": "str",
+                  "sample": "2026-02-12T07:59Z"
+                },
+                "calendar": {
+                  "type": "<class 'list'>",
+                  "truncated": true
+                }
+              }
+            }
+          },
+          "events": {
+            "type": "list",
+            "length": 3,
+            "item_type": {
+              "type": "dict",
+              "keys": {
+                "id": {
+                  "type": "str",
+                  "sample": "401773016"
+                },
+                "uid": {
+                  "type": "str",
+                  "sample": "s:20~l:28~e:401773016"
+                },
+                "date": {
+                  "type": "str",
+                  "sample": "2025-08-08T23:00Z"
+                },
+                "name": {
+                  "type": "str",
+                  "sample": "Detroit Lions at Atlanta Falcons"
+                },
+                "shortName": {
+                  "type": "str",
+                  "sample": "DET @ ATL"
+                },
+                "season": {
+                  "type": "<class 'dict'>",
+                  "truncated": true
+                },
+                "week": {
+                  "type": "<class 'dict'>",
+                  "truncated": true
+                },
+                "competitions": {
+                  "type": "<class 'list'>",
+                  "truncated": true
+                },
+                "links": {
+                  "type": "<class 'list'>",
+                  "truncated": true
+                },
+                "status": {
+                  "type": "<class 'dict'>",
+                  "truncated": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "sample_data": {
+        "top_level_keys": [
+          "leagues",
+          "events"
+        ],
+        "sample_event": {
+          "id": "401773016",
+          "name": "Detroit Lions at Atlanta Falcons",
+          "status": "Final",
+          "teams": [
+            "Atlanta Falcons",
+            "Detroit Lions"
+          ]
+        }
+      },
+      "key_fields": [
+        "events",
+        "season",
+        "week",
+        "leagues"
+      ]
+    }
+  }
+}

@@ -476,3 +476,82 @@ class BoxscoreTable(AccessibleTable):
         if set_focus and self.rowCount() > 0 and self.columnCount() > 0:
             self.setCurrentCell(0, 0)
             self.setFocus()
+
+
+class InjuryTable(AccessibleTable):
+    """Specialized table for displaying injury report data"""
+    
+    def __init__(self, parent=None, title: str = "Injury Report"):
+        super().__init__(
+            parent=parent,
+            accessible_name=title,
+            accessible_description=f"{title} table showing player injuries with status and details"
+        )
+        # Configure for injury-specific needs
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        
+    def populate_injury_data(self, injury_data: List[Dict], set_focus: bool = True):
+        """
+        Populate table with injury data from ESPN API format
+        
+        Args:
+            injury_data: List of team injury objects from ESPN API
+            set_focus: Whether to set focus to first cell after population
+        """
+        if not injury_data:
+            return
+            
+        # Flatten the team-based injury structure into a list of individual injuries
+        all_injuries = []
+        
+        for team_injury in injury_data:
+            team_info = team_injury.get("team", {})
+            team_name = team_info.get("displayName", "Unknown Team")
+            team_abbr = team_info.get("abbreviation", "")
+            
+            injuries = team_injury.get("injuries", [])
+            for injury in injuries:
+                athlete = injury.get("athlete", {})
+                details = injury.get("details", {})
+                
+                injury_row = [
+                    athlete.get("displayName", "Unknown Player"),
+                    athlete.get("position", {}).get("abbreviation", ""),
+                    f"{team_name} ({team_abbr})" if team_abbr else team_name,
+                    injury.get("status", "Unknown"),
+                    details.get("type", "Not specified"),
+                    details.get("detail", "No details available"),
+                    details.get("returnDate", "Unknown") if details.get("returnDate") else "TBD"
+                ]
+                all_injuries.append(injury_row)
+        
+        # Use parent's populate_data method
+        self.populate_data(all_injuries, set_focus)
+        
+        # Set accessible description with count
+        injury_count = len(all_injuries)
+        team_count = len(injury_data)
+        self.setAccessibleDescription(
+            f"Injury report table with {injury_count} injuries across {team_count} teams. "
+            "Use arrow keys to navigate between cells, Tab to exit table."
+        )
+        
+    def enhance_cell_accessibility(self, row: int, col: int, value: Any):
+        """Add injury-specific accessibility enhancements"""
+        item = self.item(row, col)
+        if not item:
+            return
+            
+        # Add contextual descriptions for injury data
+        player_name = self.item(row, 0).text() if self.item(row, 0) else "Unknown"
+        
+        if col == 3:  # Status column
+            item.setAccessibleDescription(f"{player_name} injury status: {value}")
+        elif col == 4:  # Type column
+            item.setAccessibleDescription(f"{player_name} injury type: {value}")
+        elif col == 5:  # Details column
+            item.setAccessibleDescription(f"{player_name} injury details: {value}")
+        elif col == 6:  # Return date column
+            item.setAccessibleDescription(f"{player_name} expected return: {value}")
+        else:
+            item.setAccessibleDescription(f"{value}")
