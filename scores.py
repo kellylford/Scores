@@ -518,6 +518,9 @@ class GameDetailsView(BaseView):
                 raw_details = ApiService.get_game_details(self.league, self.game_id)
                 details = ApiService.extract_meaningful_game_info(raw_details)
             
+            # Store raw details for export functionality
+            self.current_raw_details = raw_details
+            
             # Display basic game information
             self._add_basic_game_info(details)
             
@@ -1086,13 +1089,28 @@ class GameDetailsView(BaseView):
             layout.addWidget(QLabel("No play-by-play data available."))
             return
         
+        # Store plays data for export functionality
+        self.current_plays_data = data
+        
         # Detect sport type from data structure or current league
         sport_type = self._detect_sport_type(data)
         
-        # Add header info
+        # Add header info with export button
+        header_layout = QHBoxLayout()
         info_label = QLabel(f"Play-by-Play ({len(data)} plays)")
         info_label.setStyleSheet("font-weight: bold; font-size: 14px; margin: 10px 0;")
-        layout.addWidget(info_label)
+        header_layout.addWidget(info_label)
+        
+        # Add Export Game Log button
+        export_btn = QPushButton("Export Game Log")
+        export_btn.setAccessibleName("Export Game Log Button")
+        export_btn.setAccessibleDescription("Export the complete game log as an HTML file")
+        export_btn.clicked.connect(self._export_game_log)
+        export_btn.setMaximumWidth(150)
+        header_layout.addWidget(export_btn)
+        header_layout.addStretch()  # Push button to the left
+        
+        layout.addLayout(header_layout)
         
         # Create tree widget for hierarchical view
         plays_tree = QTreeWidget()
@@ -1123,6 +1141,9 @@ class GameDetailsView(BaseView):
             self._build_generic_tree(plays_tree, data)
         
         layout.addWidget(plays_tree)
+        
+        # Set focus to the tree for better accessibility
+        QTimer.singleShot(100, lambda: plays_tree.setFocus())
     
     def _detect_sport_type(self, data):
         """Detect sport type from play data or current league"""
@@ -1441,6 +1462,646 @@ class GameDetailsView(BaseView):
                 play_item.setText(0, f"🏈 {enhanced_text} ({away_score}-{home_score})")
             
             parent_item.addChild(play_item)
+
+    def _export_game_log(self):
+        """Export complete game log as HTML file"""
+        try:
+            if not hasattr(self, 'current_plays_data') or not self.current_plays_data:
+                QMessageBox.warning(self, "Export Error", "No play data available to export.")
+                return
+            
+            # Generate filename with game information
+            filename = self._generate_export_filename()
+            
+            # Generate HTML content
+            html_content = self._generate_game_log_html()
+            
+            # Save to file in the application directory
+            app_dir = os.getcwd()  # Current working directory where app was launched
+            file_path = os.path.join(app_dir, filename)
+            
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+            
+            # Show success message
+            QMessageBox.information(
+                self,
+                "Export Complete",
+                f"Game log exported successfully!\n\nFile saved as:\n{filename}\n\nLocation: {app_dir}"
+            )
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", f"Failed to export game log:\n{str(e)}")
+    
+    def _generate_export_filename(self):
+        """Generate a unique filename for the exported game log"""
+        from datetime import datetime
+        
+        # Get current date for the filename
+        current_date = datetime.now().strftime("%Y%m%d")
+        
+        # Try to extract team information for a meaningful filename
+        game_info = ""
+        team_names = self._extract_team_nicknames()
+        
+        if team_names:
+            away_team, home_team = team_names
+            game_info = f"{away_team}_vs_{home_team}"
+        elif hasattr(self, 'game_id') and self.game_id:
+            game_info = f"game_{self.game_id}"
+        
+        # Fallback to league if no specific game info
+        if not game_info:
+            league = getattr(self, 'league', 'UNKNOWN').upper()
+            game_info = f"{league}_game"
+        
+        # Create filename
+        filename = f"game_log_{game_info}_{current_date}.html"
+        
+        # Sanitize filename (remove/replace invalid characters)
+        invalid_chars = '<>:"/\\|?*'
+        for char in invalid_chars:
+            filename = filename.replace(char, '_')
+        
+        return filename
+    
+    def _extract_team_nicknames(self):
+        """Extract team nicknames from game data"""
+        try:
+            # Try to get team info from the stored raw details
+            if hasattr(self, 'current_raw_details') and self.current_raw_details:
+                details = self.current_raw_details
+                if 'header' in details:
+                    competitors = details['header'].get('competitions', [{}])[0].get('competitors', [])
+                    if len(competitors) >= 2:
+                        # Find away team (order=0) and home team (order=1)
+                        away_team = None
+                        home_team = None
+                        for competitor in competitors:
+                            if competitor.get('homeAway') == 'away':
+                                away_team = competitor['team']['name']  # e.g., "Athletics", "Brewers"
+                            elif competitor.get('homeAway') == 'home':
+                                home_team = competitor['team']['name']  # e.g., "Nationals", "Yankees"
+                        
+                        if away_team and home_team:
+                            return away_team, home_team
+                        
+                        # Fallback to order-based extraction
+                        if len(competitors) >= 2:
+                            away_team = competitors[0]['team']['name']
+                            home_team = competitors[1]['team']['name']
+                            return away_team, home_team
+            
+            # Fallback: try to extract from plays data
+            if hasattr(self, 'current_plays_data') and self.current_plays_data:
+                # Look for team info in the first play
+                first_play = self.current_plays_data[0]
+                if 'homeTeam' in first_play and 'awayTeam' in first_play:
+                    away_team = first_play['awayTeam'].get('name', first_play['awayTeam'].get('abbreviation', 'AWAY'))
+                    home_team = first_play['homeTeam'].get('name', first_play['homeTeam'].get('abbreviation', 'HOME'))
+                    return away_team, home_team
+        except Exception:
+            pass
+        
+        return None
+    
+    def _generate_game_log_html(self):
+        """Generate HTML content for the complete game log"""
+        sport_type = self._detect_sport_type(self.current_plays_data)
+        
+        # Generate better title with team names
+        title = f"Exported Game Log - {sport_type}"
+        team_names = self._extract_team_nicknames()
+        if team_names:
+            away_team, home_team = team_names
+            title = f"Exported Game Log - {sport_type} - {away_team} vs {home_team}"
+        
+        html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title}</title>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+        }}
+        .header {{
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }}
+        .period {{
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }}
+        .period-header {{
+            background-color: #e9e9e9;
+            padding: 10px;
+            font-weight: bold;
+            font-size: 18px;
+        }}
+        .half-section {{
+            margin: 10px;
+        }}
+        .half-header {{
+            background-color: #f9f9f9;
+            padding: 8px;
+            font-weight: bold;
+            border-left: 4px solid #007cba;
+            margin: 10px 0 5px 0;
+        }}
+        .at-bat {{
+            margin: 10px 0;
+            padding: 8px;
+            border-left: 3px solid #ccc;
+            background-color: #fafafa;
+        }}
+        .at-bat.scoring {{
+            border-left-color: #ff6b35;
+            background-color: #fff5f0;
+        }}
+        .at-bat-list {{
+            list-style-type: none;
+            padding-left: 0;
+            margin: 10px 0;
+        }}
+        .at-bat-item {{
+            margin: 10px 0;
+            padding: 8px;
+            border-left: 3px solid #ccc;
+            background-color: #fafafa;
+        }}
+        .at-bat-item.scoring {{
+            border-left-color: #ff6b35;
+            background-color: #fff5f0;
+        }}
+        .at-bat-header {{
+            font-weight: bold;
+            margin-bottom: 5px;
+        }}
+        .at-bat-title {{
+            font-size: 18px;
+            font-weight: bold;
+            margin: 10px 0 8px 0;
+            color: #333;
+        }}
+        .at-bat-title.scoring {{
+            color: #ff6b35;
+        }}
+        .pitch-list {{
+            list-style-type: disc;
+            margin: 8px 0;
+            padding-left: 25px;
+        }}
+        .pitch-item {{
+            color: #666;
+            margin: 3px 0;
+            font-size: 14px;
+        }}
+        .at-bat-result {{
+            font-style: italic;
+            color: #333;
+            margin-top: 8px;
+            font-weight: bold;
+            border-top: 1px solid #ddd;
+            padding-top: 5px;
+        }}
+        .pitch {{
+            margin: 3px 0 3px 20px;
+            color: #666;
+            font-size: 14px;
+        }}
+        .drive {{
+            margin: 10px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }}
+        .drive-header {{
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }}
+        .play {{
+            margin: 3px 0 3px 15px;
+            padding: 3px;
+        }}
+        .play.scoring {{
+            background-color: #fff5f0;
+            font-weight: bold;
+        }}
+        .export-info {{
+            margin-top: 30px;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 3px;
+            font-size: 12px;
+            color: #666;
+        }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{title}</h1>
+        <p><strong>Total Plays:</strong> {len(self.current_plays_data)}</p>
+        <p><strong>Export Date:</strong> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
+    </div>
+"""
+        
+        if sport_type == "MLB":
+            html += self._generate_baseball_html()
+        elif sport_type == "NFL":
+            html += self._generate_football_html()
+        else:
+            html += self._generate_generic_html()
+        
+        html += f"""
+    <div class="export-info">
+        <p>This game log was exported from the Sports Scores application.</p>
+        <p>Generated on {datetime.now().strftime("%Y-%m-%d at %H:%M:%S")}</p>
+    </div>
+</body>
+</html>"""
+        
+        return html
+    
+    def _generate_baseball_html(self):
+        """Generate HTML for baseball game log"""
+        # Group plays by inning (similar to tree structure)
+        inning_groups = {}
+        for play in self.current_plays_data:
+            period_info = play.get("period", {})
+            period_display = period_info.get("displayValue", f"Period {period_info.get('number', 0)}")
+            period_type = period_info.get("type", "Unknown").lower()
+            
+            if period_display not in inning_groups:
+                inning_groups[period_display] = {"top": [], "bottom": []}
+            
+            if period_type == "top":
+                inning_groups[period_display]["top"].append(play)
+            elif period_type == "bottom":
+                inning_groups[period_display]["bottom"].append(play)
+            else:
+                inning_groups[period_display]["top"].append(play)
+        
+        html = ""
+        for period_display in sorted(inning_groups.keys(), key=lambda x: int(x.split()[0][:-2]) if x.split()[0][:-2].isdigit() else 0):
+            period_data = inning_groups[period_display]
+            
+            html += f'<div class="period">'
+            html += f'<div class="period-header">{period_display}</div>'
+            
+            # Top half
+            if period_data["top"]:
+                inning_num = period_display.split()[0]
+                html += f'<div class="half-section">'
+                html += f'<div class="half-header">Top of the {inning_num}</div>'
+                html += self._generate_baseball_at_bats_html_with_lists(period_data["top"])
+                html += '</div>'
+            
+            # Bottom half
+            if period_data["bottom"]:
+                inning_num = period_display.split()[0]
+                html += f'<div class="half-section">'
+                html += f'<div class="half-header">Bottom of the {inning_num}</div>'
+                html += self._generate_baseball_at_bats_html_with_lists(period_data["bottom"])
+                html += '</div>'
+            
+            html += '</div>'
+        
+        return html
+    
+    def _generate_baseball_at_bats_html_with_lists(self, plays):
+        """Generate HTML for baseball at-bats using proper list structure"""
+        # Group plays into at-bats with better logic
+        at_bats = []
+        current_at_bat = None
+        
+        for play in plays:
+            play_type = play.get("type", {}).get("type", "")
+            play_text = play.get("text", "")
+            at_bat_id = play.get("atBatId")
+            
+            # Skip only true inning management plays
+            if play_type in ["start-inning", "end-inning"] and "inning" in play_text.lower():
+                continue
+            
+            # Start new at-bat or continue existing one
+            if current_at_bat is None or (at_bat_id and current_at_bat["id"] != at_bat_id):
+                if current_at_bat:
+                    at_bats.append(current_at_bat)
+                
+                # Extract batter name from participants
+                batter_name = "Unknown"
+                participants = play.get("participants", [])
+                for participant in participants:
+                    if participant.get("type") == "batter":
+                        athlete = participant.get("athlete", {})
+                        batter_name = athlete.get("shortName") or athlete.get("displayName") or "Unknown"
+                        break
+                
+                # If we still don't have a name, try the play text
+                if batter_name == "Unknown" and play_text:
+                    # Try to extract name from play text patterns
+                    if " to " in play_text:
+                        parts = play_text.split(" to ")
+                        if len(parts) > 0:
+                            potential_name = parts[0].strip()
+                            if len(potential_name.split()) <= 3:
+                                batter_name = potential_name
+                    elif " struck out" in play_text:
+                        name_part = play_text.split(" struck out")[0].strip()
+                        if len(name_part.split()) <= 3:
+                            batter_name = name_part
+                
+                current_at_bat = {
+                    "id": at_bat_id,
+                    "batter": batter_name,
+                    "result": "",
+                    "plays": [],
+                    "scoring": False,
+                    "score": ""
+                }
+            
+            current_at_bat["plays"].append(play)
+            
+            # Check for scoring play
+            if play.get("scoringPlay", False):
+                current_at_bat["scoring"] = True
+                away_score = play.get("awayScore", 0)
+                home_score = play.get("homeScore", 0)
+                current_at_bat["score"] = f"({away_score}-{home_score})"
+            
+            # Look for at-bat result plays (less restrictive)
+            if not current_at_bat["result"] and play_text:
+                # If it's not just a pitch description, it might be a result
+                if not any(pitch_word in play_text.lower() for pitch_word in 
+                          ["pitch", "ball ", "strike ", "foul tip"]):
+                    current_at_bat["result"] = play_text
+        
+        if current_at_bat:
+            at_bats.append(current_at_bat)
+        
+        if not at_bats:
+            return '<p>No at-bats in this half inning.</p>'
+        
+        html = '<ul class="at-bat-list">'
+        
+        for at_bat in at_bats:
+            # Be less restrictive about showing at-bats
+            if not at_bat["batter"] or at_bat["batter"] == "Unknown":
+                # If no batter name, use the play text as a fallback
+                if at_bat["plays"] and at_bat["plays"][0].get("text"):
+                    at_bat["batter"] = "Play"
+                else:
+                    continue
+            
+            # Use the result or fall back to the most meaningful play
+            result_text = at_bat["result"]
+            if not result_text and at_bat["plays"]:
+                # Find the most meaningful play (not just pitch descriptions)
+                for play in reversed(at_bat["plays"]):  # Start from the end
+                    text = play.get("text", "")
+                    if text and not any(pitch_word in text.lower() for pitch_word in 
+                                      ["pitch ", "ball ", "strike ", "foul tip"]):
+                        result_text = text
+                        break
+                
+                # If still no result, use the last play
+                if not result_text:
+                    result_text = at_bat["plays"][-1].get("text", "")
+            
+            if not result_text:
+                continue
+                
+            scoring_class = "scoring" if at_bat["scoring"] else ""
+            score_text = f" {at_bat['score']}" if at_bat["scoring"] else ""
+            
+            html += f'<li class="at-bat-item {scoring_class}">'
+            html += f'<h2 class="at-bat-title {scoring_class}">{at_bat["batter"]}: {result_text}{score_text}</h2>'
+            
+            # Add pitch details as a nested list
+            pitch_plays = []
+            for play in at_bat["plays"]:
+                play_text = play.get("text", "")
+                
+                # Skip the result play and include pitch-related plays
+                if play_text != result_text and any(pitch_keyword in play_text.lower() for pitch_keyword in 
+                       ["ball", "strike", "foul", "looking", "swinging", "pitch"]):
+                    
+                    # Extract additional pitch details if available (same logic as tree view)
+                    enhanced_text = play_text
+                    velocity = play.get("pitchVelocity")
+                    pitch_type = play.get("pitchType", {})
+                    pitch_type_text = pitch_type.get("text", "") if isinstance(pitch_type, dict) else ""
+                    
+                    # Add velocity and pitch type if available
+                    if velocity and pitch_type_text:
+                        enhanced_text = f"{play_text} ({velocity} mph {pitch_type_text})"
+                    elif velocity:
+                        enhanced_text = f"{play_text} ({velocity} mph)"
+                    elif pitch_type_text:
+                        enhanced_text = f"{play_text} ({pitch_type_text})"
+                    
+                    pitch_plays.append(enhanced_text)
+            
+            if pitch_plays:
+                html += '<ul class="pitch-list">'
+                for pitch_text in pitch_plays:
+                    html += f'<li class="pitch-item">{pitch_text}</li>'
+                html += '</ul>'
+            
+            # Repeat the result at the end for better flow
+            html += f'<div class="at-bat-result">Result: {result_text}{score_text}</div>'
+            
+            html += '</li>'
+        
+        html += '</ul>'
+        return html
+    
+    def _generate_baseball_at_bats_html(self, plays):
+        """Generate HTML for baseball at-bats"""
+        # Group plays into at-bats with better logic
+        at_bats = []
+        current_at_bat = None
+        
+        for play in plays:
+            play_type = play.get("type", {}).get("type", "")
+            play_text = play.get("text", "")
+            at_bat_id = play.get("atBatId")
+            
+            # Skip only true inning management plays
+            if play_type in ["start-inning", "end-inning"] and "inning" in play_text.lower():
+                continue
+            
+            # Start new at-bat or continue existing one
+            if current_at_bat is None or (at_bat_id and current_at_bat["id"] != at_bat_id):
+                if current_at_bat:
+                    at_bats.append(current_at_bat)
+                
+                # Extract batter name from participants
+                batter_name = "Unknown"
+                participants = play.get("participants", [])
+                for participant in participants:
+                    if participant.get("type") == "batter":
+                        athlete = participant.get("athlete", {})
+                        batter_name = athlete.get("shortName") or athlete.get("displayName") or "Unknown"
+                        break
+                
+                # If we still don't have a name, try the play text
+                if batter_name == "Unknown" and play_text:
+                    # Try to extract name from play text patterns
+                    if " to " in play_text:
+                        # Pattern: "John Smith to first base"
+                        parts = play_text.split(" to ")
+                        if len(parts) > 0:
+                            potential_name = parts[0].strip()
+                            if len(potential_name.split()) <= 3:  # Reasonable name length
+                                batter_name = potential_name
+                    elif " struck out" in play_text:
+                        # Pattern: "Smith struck out swinging"
+                        name_part = play_text.split(" struck out")[0].strip()
+                        if len(name_part.split()) <= 3:
+                            batter_name = name_part
+                
+                current_at_bat = {
+                    "id": at_bat_id,
+                    "batter": batter_name,
+                    "result": "",
+                    "plays": [],
+                    "scoring": False,
+                    "score": ""
+                }
+            
+            current_at_bat["plays"].append(play)
+            
+            # Check for scoring play
+            if play.get("scoringPlay", False):
+                current_at_bat["scoring"] = True
+                away_score = play.get("awayScore", 0)
+                home_score = play.get("homeScore", 0)
+                current_at_bat["score"] = f"({away_score}-{home_score})"
+            
+            # Look for at-bat result plays (less restrictive)
+            if not current_at_bat["result"] and play_text:
+                # If it's not just a pitch description, it might be a result
+                if not any(pitch_word in play_text.lower() for pitch_word in 
+                          ["pitch", "ball ", "strike ", "foul tip"]):
+                    current_at_bat["result"] = play_text
+        
+        if current_at_bat:
+            at_bats.append(current_at_bat)
+        
+        html = ""
+        for at_bat in at_bats:
+            # Be less restrictive about showing at-bats
+            if not at_bat["batter"] or at_bat["batter"] == "Unknown":
+                # If no batter name, use the play text as a fallback
+                if at_bat["plays"] and at_bat["plays"][0].get("text"):
+                    at_bat["batter"] = "Play"
+                else:
+                    continue
+            
+            # Use the result or fall back to the most meaningful play
+            result_text = at_bat["result"]
+            if not result_text and at_bat["plays"]:
+                # Find the most meaningful play (not just pitch descriptions)
+                for play in reversed(at_bat["plays"]):  # Start from the end
+                    text = play.get("text", "")
+                    if text and not any(pitch_word in text.lower() for pitch_word in 
+                                      ["pitch ", "ball ", "strike ", "foul tip"]):
+                        result_text = text
+                        break
+                
+                # If still no result, use the last play
+                if not result_text:
+                    result_text = at_bat["plays"][-1].get("text", "")
+            
+            if not result_text:
+                continue
+                
+            scoring_class = "scoring" if at_bat["scoring"] else ""
+            score_text = f" {at_bat['score']}" if at_bat["scoring"] else ""
+            
+            html += f'<div class="at-bat {scoring_class}">'
+            html += f'<strong>{at_bat["batter"]}: {result_text}{score_text}</strong>'
+            
+            # Add pitch details (but filter out the result play to avoid duplication)
+            for play in at_bat["plays"]:
+                play_text = play.get("text", "")
+                
+                # Skip the result play and include pitch-related plays
+                if play_text != result_text and any(pitch_keyword in play_text.lower() for pitch_keyword in 
+                       ["ball", "strike", "foul", "looking", "swinging", "pitch"]):
+                    html += f'<div class="pitch">{play_text}</div>'
+            
+            html += '</div>'
+        
+        return html
+    
+    def _generate_football_html(self):
+        """Generate HTML for football game log"""
+        # Group by quarter and drive
+        quarter_groups = {}
+        
+        for play in self.current_plays_data:
+            period_info = play.get("period", {})
+            period_display = period_info.get("displayValue", f"{period_info.get('number', 1)}Q")
+            
+            drive_number = play.get("driveNumber", "Unknown")
+            drive_team = play.get("team", {}).get("id", "Unknown")
+            
+            if period_display not in quarter_groups:
+                quarter_groups[period_display] = {}
+            
+            drive_key = f"Drive {drive_number} (Team {drive_team})"
+            if drive_key not in quarter_groups[period_display]:
+                quarter_groups[period_display][drive_key] = []
+            
+            quarter_groups[period_display][drive_key].append(play)
+        
+        html = ""
+        for period_display in sorted(quarter_groups.keys()):
+            html += f'<div class="period">'
+            html += f'<div class="period-header">{period_display}</div>'
+            
+            for drive_key, drive_plays in quarter_groups[period_display].items():
+                html += f'<div class="drive">'
+                html += f'<div class="drive-header">{drive_key}</div>'
+                
+                for play in drive_plays:
+                    scoring_class = "scoring" if play.get("scoringPlay", False) else ""
+                    play_text = play.get("text", "")
+                    
+                    if play.get("scoringPlay", False):
+                        away_score = play.get("awayScore", 0)
+                        home_score = play.get("homeScore", 0)
+                        play_text = f"🏈 {play_text} ({away_score}-{home_score})"
+                    
+                    html += f'<div class="play {scoring_class}">{play_text}</div>'
+                
+                html += '</div>'
+            
+            html += '</div>'
+        
+        return html
+    
+    def _generate_generic_html(self):
+        """Generate HTML for generic sport game log"""
+        html = '<div class="period">'
+        html += '<div class="period-header">All Plays</div>'
+        
+        for i, play in enumerate(self.current_plays_data, 1):
+            play_text = play.get("text", f"Play {i}")
+            html += f'<div class="play">{play_text}</div>'
+        
+        html += '</div>'
+        return html
 
     def _add_injuries_list_to_layout(self, layout, data):
         """Add injuries list to layout using accessible table"""
