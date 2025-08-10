@@ -1947,6 +1947,23 @@ class GameDetailsView(BaseView):
         .at-bat-title.scoring {{
             color: #ff6b35;
         }}
+        .inning-half-title {{
+            font-size: 20px;
+            font-weight: bold;
+            margin: 15px 0 10px 0;
+            color: #444;
+            border-bottom: 2px solid #007cba;
+            padding-bottom: 5px;
+        }}
+        .at-bat-heading {{
+            font-size: 16px;
+            font-weight: bold;
+            margin: 8px 0 5px 0;
+            color: #333;
+        }}
+        .at-bat-heading.scoring {{
+            color: #ff6b35;
+        }}
         .pitch-list {{
             list-style-type: disc;
             margin: 8px 0;
@@ -2054,7 +2071,7 @@ class GameDetailsView(BaseView):
             if period_data["top"]:
                 inning_num = period_display.split()[0]
                 html += f'<div class="half-section">'
-                html += f'<div class="half-header">Top of the {inning_num}</div>'
+                html += f'<h2 class="inning-half-title">Top of the {inning_num}</h2>'
                 html += self._generate_baseball_at_bats_html_with_lists(period_data["top"])
                 html += '</div>'
             
@@ -2062,7 +2079,7 @@ class GameDetailsView(BaseView):
             if period_data["bottom"]:
                 inning_num = period_display.split()[0]
                 html += f'<div class="half-section">'
-                html += f'<div class="half-header">Bottom of the {inning_num}</div>'
+                html += f'<h2 class="inning-half-title">Bottom of the {inning_num}</h2>'
                 html += self._generate_baseball_at_bats_html_with_lists(period_data["bottom"])
                 html += '</div>'
             
@@ -2177,7 +2194,7 @@ class GameDetailsView(BaseView):
             score_text = f" {at_bat['score']}" if at_bat["scoring"] else ""
             
             html += f'<li class="at-bat-item {scoring_class}">'
-            html += f'<h2 class="at-bat-title {scoring_class}">{at_bat["batter"]}: {result_text}{score_text}</h2>'
+            html += f'<h3 class="at-bat-heading {scoring_class}">{at_bat["batter"]}: {result_text}{score_text}</h3>'
             
             # Add pitch details as a nested list
             pitch_plays = []
