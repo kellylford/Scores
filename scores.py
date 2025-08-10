@@ -1473,7 +1473,7 @@ class GameDetailsView(BaseView):
         return "Generic"
     
     def _build_baseball_tree(self, plays_tree, data):
-        """Build baseball-specific hierarchical tree"""
+        """Build baseball-specific hierarchical tree with enhanced information"""
         # Group plays by inning/period
         inning_groups = {}
         for play in data:
@@ -1494,6 +1494,9 @@ class GameDetailsView(BaseView):
                 # Fallback for other sports or unknown types
                 inning_groups[period_display]["top"].append(play)
         
+        # Calculate running scores and pitcher info
+        score_tracker = self._calculate_running_scores(data)
+        
         # Build tree structure
         for period_display in sorted(inning_groups.keys(), key=lambda x: int(x.split()[0][:-2]) if x.split()[0][:-2].isdigit() else 0):
             inning_item = QTreeWidgetItem([period_display])
@@ -1501,24 +1504,130 @@ class GameDetailsView(BaseView):
             plays_tree.addTopLevelItem(inning_item)
             
             period_data = inning_groups[period_display]
+            inning_num = period_display.split()[0]  # "1st", "2nd", etc.
             
             # Add top half (if any plays)
             if period_data["top"]:
-                # Extract inning number and create proper label
-                inning_num = period_display.split()[0]  # "1st", "2nd", etc.
-                top_item = QTreeWidgetItem([f"Top of the {inning_num}"])
+                # Get score after top half and pitcher info
+                half_key = f"{period_display}_top"
+                score_info = score_tracker.get(half_key, {})
+                pitcher_info = self._extract_pitcher_info(period_data["top"])
+                
+                # Create enhanced label with score and pitcher
+                label = self._create_enhanced_half_inning_label(f"Top of the {inning_num}", score_info, pitcher_info)
+                top_item = QTreeWidgetItem([label])
                 top_item.setExpanded(True)
                 inning_item.addChild(top_item)
                 self._add_baseball_plays_to_tree_group(top_item, period_data["top"])
             
             # Add bottom half (if any plays)
             if period_data["bottom"]:
-                # Extract inning number and create proper label
-                inning_num = period_display.split()[0]  # "1st", "2nd", etc.
-                bottom_item = QTreeWidgetItem([f"Bottom of the {inning_num}"])
+                # Get score after bottom half and pitcher info
+                half_key = f"{period_display}_bottom"
+                score_info = score_tracker.get(half_key, {})
+                pitcher_info = self._extract_pitcher_info(period_data["bottom"])
+                
+                # Create enhanced label with score and pitcher
+                label = self._create_enhanced_half_inning_label(f"Bottom of the {inning_num}", score_info, pitcher_info)
+                bottom_item = QTreeWidgetItem([label])
                 bottom_item.setExpanded(True)
                 inning_item.addChild(bottom_item)
                 self._add_baseball_plays_to_tree_group(bottom_item, period_data["bottom"])
+    
+    def _calculate_running_scores(self, plays_data):
+        """Calculate running scores after each half-inning"""
+        score_tracker = {}
+        home_score = 0
+        away_score = 0
+        
+        # Group plays by inning and half for scoring calculations
+        for play in plays_data:
+            period_info = play.get("period", {})
+            period_display = period_info.get("displayValue", "Unknown")
+            period_type = period_info.get("type", "Unknown").lower()
+            
+            # Track scoring plays
+            if play.get("scoringPlay", False):
+                # Extract runs scored from play text
+                runs_scored = self._extract_runs_from_play(play.get("text", ""))
+                team_id = play.get("team", {}).get("id")
+                
+                # Determine if home or away team scored
+                if self._is_home_team_batting(period_type):
+                    home_score += runs_scored
+                else:
+                    away_score += runs_scored
+            
+            # Store score after this half-inning
+            half_key = f"{period_display}_{period_type}"
+            score_tracker[half_key] = {
+                "home": home_score,
+                "away": away_score,
+                "total_runs": home_score + away_score
+            }
+        
+        return score_tracker
+    
+    def _extract_runs_from_play(self, play_text):
+        """Extract number of runs scored from a play description"""
+        import re
+        # Look for patterns like "scores", "2 runs score", etc.
+        if "scores" in play_text.lower():
+            # Try to find number before "run" or "runs"
+            match = re.search(r'(\d+)\s+runs?\s+score', play_text.lower())
+            if match:
+                return int(match.group(1))
+            # Single run if just "scores"
+            return 1
+        return 0
+    
+    def _is_home_team_batting(self, period_type):
+        """Determine if home team is batting based on period type"""
+        return period_type == "bottom"
+    
+    def _extract_pitcher_info(self, half_inning_plays):
+        """Extract pitcher information from half-inning plays"""
+        pitcher_name = "Unknown"
+        pitcher_changes = []
+        
+        for play in half_inning_plays:
+            play_text = play.get("text", "")
+            
+            # Look for pitcher announcements
+            if " pitches to " in play_text:
+                parts = play_text.split(" pitches to ")
+                if len(parts) >= 2:
+                    pitcher_name = parts[0].strip()
+                    break
+            
+            # Look for pitching changes
+            if "pitching change" in play_text.lower() or "new pitcher" in play_text.lower():
+                pitcher_changes.append(play_text)
+        
+        return {
+            "pitcher": pitcher_name,
+            "changes": pitcher_changes
+        }
+    
+    def _create_enhanced_half_inning_label(self, base_label, score_info, pitcher_info):
+        """Create enhanced label with score and pitcher information"""
+        label_parts = [base_label]
+        
+        # Add score information if available
+        if score_info and score_info.get("total_runs", 0) > 0:
+            away_score = score_info.get("away", 0)
+            home_score = score_info.get("home", 0)
+            label_parts.append(f"({away_score}-{home_score})")
+        
+        # Add pitcher information if available
+        pitcher = pitcher_info.get("pitcher")
+        if pitcher and pitcher != "Unknown":
+            # Keep it concise - just last name if possible
+            pitcher_parts = pitcher.split()
+            display_pitcher = pitcher_parts[-1] if pitcher_parts else pitcher
+            label_parts.append(f"- {display_pitcher} pitching")
+        
+        return " ".join(label_parts)
     
     def _build_football_tree(self, plays_tree, data):
         """Build NFL-specific hierarchical tree"""
