@@ -12,7 +12,8 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QListWidget, QPushButton, QLabel,
     QHBoxLayout, QCheckBox, QDialog, QMessageBox, QTextEdit, QScrollArea,
     QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget, QStackedWidget,
-    QListWidgetItem, QTreeWidget, QTreeWidgetItem, QSpinBox, QComboBox
+    QListWidgetItem, QTreeWidget, QTreeWidgetItem, QSpinBox, QComboBox,
+    QSizePolicy
 )
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QColor
@@ -33,8 +34,8 @@ TEAM_SUMMARY_HEADERS = ["Team", "Statistic", "Value"]
 INJURY_HEADERS = ["Player", "Position", "Team", "Status", "Type", "Details", "Return Date"]
 LEADERS_HEADERS = ["Category/Player", "Team", "Statistic", "Value"]
 FOCUS_DELAY_MS = 50
-WINDOW_WIDTH = 600
-WINDOW_HEIGHT = 400
+WINDOW_WIDTH = 800  # Increased from 600 for better default size
+WINDOW_HEIGHT = 600  # Increased from 400 for better default size
 DIALOG_WIDTH = 800
 DIALOG_HEIGHT = 600
 NEWS_DIALOG_WIDTH = 700
@@ -3511,7 +3512,19 @@ class SportsScoresApp(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Sports Scores (ESPN)")
-        self.resize(WINDOW_WIDTH, WINDOW_HEIGHT)
+        
+        # Set proper window sizing behavior
+        self.setMinimumSize(500, 300)  # Minimum usable size
+        self.resize(WINDOW_WIDTH, WINDOW_HEIGHT)  # Initial size
+        
+        # Enable proper window controls and resizing
+        self.setWindowFlags(Qt.WindowType.Window | 
+                           Qt.WindowType.WindowMinimizeButtonHint | 
+                           Qt.WindowType.WindowMaximizeButtonHint | 
+                           Qt.WindowType.WindowCloseButtonHint)
+        
+        # Allow the window to be resizable
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         
         # Application state
         self.config = {}
@@ -3622,6 +3635,17 @@ class SportsScoresApp(QWidget):
         elif event.key() == Qt.Key.Key_Escape:
             self.go_back(); event.accept(); return
         super().keyPressEvent(event)
+
+    def resizeEvent(self, event):
+        """Handle window resize events to ensure proper content scaling"""
+        super().resizeEvent(event)
+        # Ensure the stacked widget takes full advantage of available space
+        if hasattr(self, 'stacked_widget'):
+            self.stacked_widget.resize(event.size())
+            # Notify current view of resize if it has a resize handler
+            current_widget = self.stacked_widget.currentWidget()
+            if current_widget and hasattr(current_widget, 'handle_resize'):
+                current_widget.handle_resize(event.size())
 
 
 if __name__ == "__main__":
