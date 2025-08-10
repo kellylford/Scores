@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QListWidget, QPushButton, QLabel,
     QHBoxLayout, QCheckBox, QDialog, QMessageBox, QTextEdit, QScrollArea,
     QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget, QStackedWidget,
-    QListWidgetItem, QTreeWidget, QTreeWidgetItem
+    QListWidgetItem, QTreeWidget, QTreeWidgetItem, QSpinBox, QComboBox
 )
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QColor
@@ -26,7 +26,7 @@ from models.standings import StandingsData
 from accessible_table import AccessibleTable, StandingsTable, LeadersTable, BoxscoreTable, InjuryTable
 
 # Constants
-DETAIL_FIELDS = ["boxscore", "plays", "leaders", "standings", "odds", "injuries", "broadcasts", "news", "gameInfo"]
+DETAIL_FIELDS = ["boxscore", "plays", "drives", "leaders", "standings", "odds", "injuries", "broadcasts", "news", "gameInfo"]
 BASEBALL_STAT_HEADERS = ["Player", "Position", "AB", "R", "H", "RBI", "BB", "SO", "AVG"]
 STANDINGS_HEADERS = ["Rank", "Team", "Wins", "Losses", "Win %", "GB", "Streak", "Record"]
 TEAM_SUMMARY_HEADERS = ["Team", "Statistic", "Value"]
@@ -60,6 +60,114 @@ class ConfigDialog(QDialog):
     def get_selected(self):
         return [d for d, cb in self.checkboxes.items() if cb.isChecked()]
 
+class DatePickerDialog(QDialog):
+    """Dialog for selecting a specific date to view scores"""
+    
+    def __init__(self, current_date, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Go to Date")
+        self.setModal(True)
+        self.selected_date = current_date
+        self.setup_ui()
+    
+    def setup_ui(self):
+        layout = QVBoxLayout()
+        
+        # Instructions
+        layout.addWidget(QLabel("Select a date to view scores:"))
+        
+        # Date controls in a horizontal layout
+        date_layout = QHBoxLayout()
+        
+        # Month selection
+        date_layout.addWidget(QLabel("Month:"))
+        self.month_combo = QComboBox()
+        self.month_combo.setEditable(True)  # Allow typing
+        months = ["January", "February", "March", "April", "May", "June",
+                 "July", "August", "September", "October", "November", "December"]
+        self.month_combo.addItems(months)
+        self.month_combo.setCurrentIndex(self.selected_date.month - 1)
+        date_layout.addWidget(self.month_combo)
+        
+        # Day selection
+        date_layout.addWidget(QLabel("Day:"))
+        self.day_spin = QSpinBox()
+        self.day_spin.setRange(1, 31)
+        self.day_spin.setValue(self.selected_date.day)
+        self.day_spin.setKeyboardTracking(True)  # Allow typing numbers
+        date_layout.addWidget(self.day_spin)
+        
+        # Year selection
+        date_layout.addWidget(QLabel("Year:"))
+        self.year_spin = QSpinBox()
+        self.year_spin.setRange(1900, 2030)  # ESPN accepts dates back to 1900 (data available from ~1993)
+        self.year_spin.setValue(self.selected_date.year)
+        self.year_spin.setKeyboardTracking(True)  # Allow typing numbers
+        date_layout.addWidget(self.year_spin)
+        
+        layout.addLayout(date_layout)
+        
+        # Update day range when month/year changes
+        self.month_combo.currentIndexChanged.connect(self.update_day_range)
+        self.year_spin.valueChanged.connect(self.update_day_range)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        
+        ok_btn = QPushButton("Go to Date")
+        ok_btn.clicked.connect(self.accept)
+        ok_btn.setDefault(True)
+        button_layout.addWidget(ok_btn)
+        
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.reject)
+        button_layout.addWidget(cancel_btn)
+        
+        layout.addLayout(button_layout)
+        self.setLayout(layout)
+        
+        # Set focus to month combo
+        self.month_combo.setFocus()
+    
+    def update_day_range(self):
+        """Update the valid day range based on selected month and year"""
+        import calendar
+        
+        month = self.month_combo.currentIndex() + 1
+        year = self.year_spin.value()
+        
+        # Get the number of days in the selected month
+        max_days = calendar.monthrange(year, month)[1]
+        
+        # Update the day spinner range
+        current_day = self.day_spin.value()
+        self.day_spin.setRange(1, max_days)
+        
+        # If current day is now invalid, set to max valid day
+        if current_day > max_days:
+            self.day_spin.setValue(max_days)
+    
+    def get_selected_date(self):
+        """Get the selected date as a datetime.date object"""
+        from datetime import date
+        
+        month = self.month_combo.currentIndex() + 1
+        day = self.day_spin.value()
+        year = self.year_spin.value()
+        
+        try:
+            return date(year, month, day)
+        except ValueError:
+            # Invalid date, return current date
+            return self.selected_date
+    
+    def keyPressEvent(self, event):
+        """Handle Escape key to close dialog"""
+        if event.key() == Qt.Key.Key_Escape:
+            self.reject()
+        else:
+            super().keyPressEvent(event)
+
 class BaseView(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -71,6 +179,10 @@ class BaseView(QWidget):
         """Handle key press events for all views"""
         if event.key() == Qt.Key.Key_F5:
             self.refresh()
+        elif event.key() == Qt.Key.Key_Escape:
+            # Escape key goes back to previous level
+            if self.parent_app and hasattr(self.parent_app, 'go_back'):
+                self.parent_app.go_back()
         else:
             super().keyPressEvent(event)
     
@@ -97,6 +209,13 @@ class BaseView(QWidget):
 
 class HomeView(BaseView):
     """Home view showing league selection"""
+    
+    def keyPressEvent(self, event):
+        """Handle key press events - but don't handle Escape for home view"""
+        if event.key() == Qt.Key.Key_F5:
+            self.refresh()
+        else:
+            super(BaseView, self).keyPressEvent(event)  # Skip BaseView's Escape handling
     
     def setup_ui(self):
         self.layout.addWidget(QLabel("Select a League:"))
@@ -262,6 +381,19 @@ class LeagueView(BaseView):
         self.load_scores()
         self.set_focus_and_select_first(self.scores_list)
     
+    def go_to_date(self):
+        """Show date picker dialog and navigate to selected date"""
+        try:
+            dialog = DatePickerDialog(self.current_date, self)
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                new_date = dialog.get_selected_date()
+                if new_date != self.current_date:
+                    self.current_date = new_date
+                    self.load_scores()
+                    self.set_focus_and_select_first(self.scores_list)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to change date: {str(e)}")
+    
     def refresh(self):
         """Refresh the current view"""
         self.load_scores()
@@ -285,6 +417,11 @@ class LeagueView(BaseView):
         next_btn.clicked.connect(self.next_day)
         btn_layout.addWidget(next_btn)
         
+        go_to_date_btn = QPushButton("Go to Date (Ctrl+G)")
+        go_to_date_btn.setShortcut("Ctrl+G")
+        go_to_date_btn.clicked.connect(self.go_to_date)
+        btn_layout.addWidget(go_to_date_btn)
+        
         refresh_btn = QPushButton("Refresh")
         refresh_btn.clicked.connect(self.refresh)
         btn_layout.addWidget(refresh_btn)
@@ -297,6 +434,14 @@ class LeagueView(BaseView):
         error_item = self.scores_list.addItem(f"Error: {message}")
         QMessageBox.warning(self, "API Error", message)
     
+    def keyPressEvent(self, event):
+        """Handle key press events for league view"""
+        if event.key() == Qt.Key.Key_G and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            self.go_to_date()
+        else:
+            # Call parent to handle F5, Escape, etc.
+            super().keyPressEvent(event)
+    
     def on_show(self):
         self.set_focus_and_select_first(self.scores_list)
 
@@ -308,6 +453,7 @@ class GameDetailsView(BaseView):
         self.league = league
         self.game_id = game_id
         self.config = parent.config if parent else {}
+        self.raw_game_data = None  # Store raw data for drill-down access
         self.setup_ui()
     
     def setup_ui(self):
@@ -371,6 +517,10 @@ class GameDetailsView(BaseView):
                     break
         elif field_name == "plays" and isinstance(field_data, list):
             self._add_plays_list_to_layout(layout, field_data)
+        elif field_name == "drives" and isinstance(field_data, dict):
+            self._add_drives_list_to_layout(layout, field_data)
+        elif field_name == "officials" and isinstance(field_data, list):
+            self._add_officials_list_to_layout(layout, field_data)
         elif field_name == "injuries" and isinstance(field_data, list):
             self._add_injuries_list_to_layout(layout, field_data)
         elif field_name == "news" and isinstance(field_data, list):
@@ -409,6 +559,10 @@ class GameDetailsView(BaseView):
                         self._show_detail_dialog(field_name, updated_field_data)
                 except Exception as e:
                     QMessageBox.critical(self, "Refresh Error", f"Failed to refresh {field_name}: {str(e)}")
+                return
+            elif event.key() == Qt.Key.Key_Escape:
+                # Escape closes the dialog
+                dlg.reject()
                 return
             
             # Handle F6 for boxscore dialogs
@@ -545,7 +699,7 @@ class GameDetailsView(BaseView):
         
         return None
     
-    def _add_basic_game_info(self, details: Dict):
+    def _add_basic_game_info(self, details: Dict, raw_details: Dict = None):
         """Add basic game information to the details list"""
         # Display teams and records
         if 'teams' in details:
@@ -576,12 +730,25 @@ class GameDetailsView(BaseView):
                 venue_info += ")"
             self.details_list.addItem(f"Venue: {venue_info}")
         
-        # Weather
-        if 'weather' in details:
-            weather_display = details['weather']
-            if 'temperature' in details:
-                weather_display += f", {details['temperature']}"
-            self.details_list.addItem(f"Weather: {weather_display}")
+        # Weather is handled in the configurable details section (gameInfo) for better formatting
+        # if 'weather' in details:
+        #     weather_display = details['weather']
+        #     if 'temperature' in details:
+        #         weather_display += f", {details['temperature']}"
+        #     self.details_list.addItem(f"Weather: {weather_display}")
+        
+        # Officials - make interactive if available
+        if raw_details and 'gameInfo' in raw_details:
+            game_info = raw_details['gameInfo']
+            if 'officials' in game_info and isinstance(game_info['officials'], list):
+                officials = game_info['officials']
+                if officials:
+                    officials_item = QListWidgetItem(f"Officials: {len(officials)} assigned (Press Enter for details)")
+                    officials_item.setData(Qt.ItemDataRole.UserRole, {
+                        "field": "officials",
+                        "data": officials
+                    })
+                    self.details_list.addItem(officials_item)
         
         # Betting information
         if 'betting_line' in details:
@@ -630,7 +797,7 @@ class GameDetailsView(BaseView):
     
     def _add_configurable_field(self, field: str, value: Any):
         """Add a configurable field to the details list"""
-        navigable_fields = ["standings", "leaders", "boxscore", "plays", "injuries", "news"]
+        navigable_fields = ["standings", "leaders", "boxscore", "plays", "drives", "injuries", "news"]
         
         if field in navigable_fields:
             has_data = self._check_field_has_data(field, value)
@@ -671,6 +838,11 @@ class GameDetailsView(BaseView):
             return bool(value.get("teams") or value.get("players"))
         elif field == "plays" and isinstance(value, list):
             return len(value) > 0
+        elif field == "drives" and isinstance(value, dict):
+            # NFL drives data - check for current drive or previous drives
+            current = value.get("current")
+            previous = value.get("previous", [])
+            return bool(current) or len(previous) > 0
         elif field == "injuries" and isinstance(value, list):
             return len(value) > 0
         elif field == "news" and isinstance(value, (list, dict)):
@@ -1144,6 +1316,128 @@ class GameDetailsView(BaseView):
         
         # Set focus to the tree for better accessibility
         QTimer.singleShot(100, lambda: plays_tree.setFocus())
+    
+    def _add_drives_list_to_layout(self, layout, drives_data):
+        """Add NFL drives data to layout (NFL-specific method)"""
+        if not drives_data:
+            layout.addWidget(QLabel("No drives data available."))
+            return
+        
+        # Handle both current drive and drive history
+        all_drives = []
+        
+        # Add current drive if available
+        current_drive = drives_data.get("current")
+        if current_drive:
+            all_drives.append(("Current Drive", current_drive))
+        
+        # Add previous drives if available
+        previous_drives = drives_data.get("previous", [])
+        for i, drive in enumerate(previous_drives):
+            drive_num = len(previous_drives) - i  # Number drives in reverse order
+            all_drives.append((f"Drive {drive_num}", drive))
+        
+        if not all_drives:
+            layout.addWidget(QLabel("No drive data available."))
+            return
+        
+        # Add header info
+        total_drives = len(all_drives)
+        info_label = QLabel(f"Drive-by-Drive Summary ({total_drives} drives)")
+        info_label.setStyleSheet("font-weight: bold; font-size: 14px; margin: 10px 0;")
+        layout.addWidget(info_label)
+        
+        # Create tree widget for drives
+        drives_tree = QTreeWidget()
+        drives_tree.setAccessibleName("NFL Drives Tree")
+        drives_tree.setAccessibleDescription("Hierarchical view of NFL drives organized by quarter. Use up/down arrows to navigate, left/right to expand/collapse.")
+        drives_tree.setHeaderLabels(["Drive Summary"])
+        
+        # Group drives by quarter for better organization
+        quarter_groups = {}
+        
+        for drive_label, drive in all_drives:
+            if not drive or not isinstance(drive, dict):
+                continue
+                
+            # Get drive info
+            description = drive.get("description", "Unknown drive")
+            team_info = drive.get("team", {})
+            team_name = team_info.get("displayName", "Unknown Team")
+            
+            # Determine quarter from plays
+            plays = drive.get("plays", [])
+            quarter = "Unknown Quarter"
+            if plays and len(plays) > 0:
+                first_play = plays[0]
+                period_info = first_play.get("period", {})
+                quarter_num = period_info.get("number", "?")
+                quarter = f"Quarter {quarter_num}"
+            
+            # Group by quarter
+            if quarter not in quarter_groups:
+                quarter_groups[quarter] = []
+            
+            quarter_groups[quarter].append((drive_label, drive, team_name, description))
+        
+        # Build tree structure by quarter
+        for quarter in sorted(quarter_groups.keys()):
+            quarter_item = QTreeWidgetItem([quarter])
+            quarter_item.setExpanded(True)
+            drives_tree.addTopLevelItem(quarter_item)
+            
+            drives_in_quarter = quarter_groups[quarter]
+            for drive_label, drive, team_name, description in drives_in_quarter:
+                # Create drive summary node
+                drive_summary = f"{team_name}: {description}"
+                drive_item = QTreeWidgetItem([drive_summary])
+                drive_item.setExpanded(False)  # Collapsed by default
+                quarter_item.addChild(drive_item)
+                
+                # Add individual plays under the drive
+                plays = drive.get("plays", [])
+                for play in plays:
+                    play_text = play.get("text", "Unknown play")
+                    
+                    # Add down and distance information for NFL plays
+                    down_distance_prefix = ""
+                    start = play.get("start", {})
+                    down = start.get("down", 0)
+                    distance = start.get("distance", 0)
+                    
+                    # Use pre-formatted down/distance text if available
+                    end = play.get("end", {})
+                    short_down_text = end.get("shortDownDistanceText", "")
+                    
+                    if short_down_text:
+                        down_distance_prefix = f"[{short_down_text}] "
+                    elif down > 0:  # Regular downs (not kickoffs, etc.)
+                        down_distance_prefix = f"[{down} & {distance}] "
+                    
+                    # Add extra context for key plays
+                    if play.get("scoringPlay"):
+                        away_score = play.get("awayScore", 0)
+                        home_score = play.get("homeScore", 0)
+                        play_text = f"🏈 SCORE: {down_distance_prefix}{play_text} ({away_score}-{home_score})"
+                    else:
+                        play_text = f"{down_distance_prefix}{play_text}"
+                    
+                    # Add clock context
+                    clock = play.get("clock", {})
+                    if clock:
+                        clock_display = clock.get("displayValue", "")
+                        if clock_display:
+                            play_text = f"[{clock_display}] {play_text}"
+                    
+                    play_item = QTreeWidgetItem([play_text])
+                    
+                    # Highlight scoring plays
+                    if play.get("scoringPlay"):
+                        play_item.setBackground(0, QColor(255, 255, 150))  # Light yellow
+                    
+                    drive_item.addChild(play_item)
+        
+        layout.addWidget(drives_tree)
     
     def _detect_sport_type(self, data):
         """Detect sport type from play data or current league"""
@@ -2125,6 +2419,29 @@ class GameDetailsView(BaseView):
         
         layout.addWidget(injury_table)
     
+    def _add_officials_list_to_layout(self, layout, data):
+        """Add officials list to layout"""
+        if not data:
+            layout.addWidget(QLabel("No officials data available."))
+            return
+        
+        # Create a clean list widget for officials
+        officials_list = QListWidget()
+        officials_list.setAccessibleName("Officials List")
+        officials_list.setAccessibleDescription("List of game officials and their positions")
+        
+        for official in data:
+            name = official.get('displayName', 'Unknown Official')
+            position_info = official.get('position', {})
+            position = position_info.get('displayName', 'Unknown Position')
+            order = official.get('order', 0)
+            
+            # Create formatted display text
+            list_item = f"{order}. {name} - {position}"
+            officials_list.addItem(list_item)
+        
+        layout.addWidget(officials_list)
+    
     def _add_news_list_to_layout(self, layout, data):
         """Add news list to layout"""
         if not data:
@@ -2140,18 +2457,22 @@ class GameDetailsView(BaseView):
             layout.addWidget(QLabel("No news articles available."))
             return
         
-        # Create list widget for news
+        # Create list widget for news headlines (consistent with other views)
         news_list = QListWidget()
+        news_list.setAccessibleName("News Headlines List")
+        news_list.setAccessibleDescription("List of news headlines - Enter or double-click opens in browser")
         
+        # Add just the headlines as list items (consistent formatting)
         for news_item in news_articles:
             news_data = NewsData(news_item)
-            display_text = news_data.get_display_text()
+            # Get just the headline for consistent list display
+            headline = news_data.headline if hasattr(news_data, 'headline') else news_data.get_display_text()
             
-            item = QListWidgetItem(display_text)
+            item = QListWidgetItem(headline)
             item.setData(Qt.ItemDataRole.UserRole, news_data)
             news_list.addItem(item)
         
-        # Connect double-click to open in browser
+        # Connect activation (Enter key or double-click) to open in browser
         def open_news_item(item):
             news_data = item.data(Qt.ItemDataRole.UserRole)
             if isinstance(news_data, NewsData) and news_data.has_web_url():
@@ -2159,8 +2480,10 @@ class GameDetailsView(BaseView):
             else:
                 QMessageBox.information(self, "No Link", "No web link available for this story.")
         
+        news_list.itemActivated.connect(open_news_item)
         news_list.itemDoubleClicked.connect(open_news_item)
-        layout.addWidget(QLabel("Double-click a headline to open in browser:"))
+        
+        layout.addWidget(QLabel("News Headlines (Enter or double-click to open in browser):"))
         layout.addWidget(news_list)
 
 class StandingsDetailDialog(QDialog):
@@ -2257,6 +2580,9 @@ class StandingsDetailDialog(QDialog):
             header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Team name stretches
 
     def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.reject()
+            return
         if self.tab_widget:
             if event.key() == Qt.Key.Key_F6:
                 self.tab_widget.setFocus(); event.accept(); return
@@ -2477,42 +2803,92 @@ class KitchenSinkDialog(QDialog):
         if not article_data:
             return
             
-        scroll_area = QScrollArea()
-        content_widget = QWidget()
+        widget = QWidget()
         layout = QVBoxLayout()
         
         layout.addWidget(QLabel("📰 GAME ARTICLES & RECAPS"))
         
+        # Handle both single article and multiple articles
+        articles_list = []
         if isinstance(article_data, dict):
-            headline = article_data.get("headline", "No headline")
-            article_type = article_data.get("type", "Unknown")
-            description = article_data.get("description", "")
-            story = article_data.get("story", "")
+            # Single article
+            articles_list = [article_data]
+        elif isinstance(article_data, list):
+            # Multiple articles
+            articles_list = article_data
+        
+        if articles_list:
+            # Create list widget for articles (consistent with news display)
+            articles_list_widget = QListWidget()
+            articles_list_widget.setAccessibleName("Game Articles List")
+            articles_list_widget.setAccessibleDescription("List of game articles and recaps")
             
-            layout.addWidget(QLabel(f"\nHeadline: {headline}"))
-            layout.addWidget(QLabel(f"Type: {article_type}"))
+            # Add each article as a list item (just the headline)
+            for article in articles_list:
+                if isinstance(article, dict):
+                    headline = article.get("headline", "No headline")
+                    article_type = article.get("type", "")
+                    
+                    # Create clean headline display
+                    display_text = headline
+                    if article_type and article_type != "Unknown":
+                        display_text = f"[{article_type}] {headline}"
+                    
+                    item = QListWidgetItem(display_text)
+                    item.setData(Qt.ItemDataRole.UserRole, article)
+                    articles_list_widget.addItem(item)
             
-            if description:
-                layout.addWidget(QLabel(f"\nDescription:"))
-                desc_text = QTextEdit()
-                desc_text.setPlainText(description)
-                desc_text.setReadOnly(True)
-                desc_text.setMaximumHeight(100)
-                layout.addWidget(desc_text)
+            # Connect activation to show full article details
+            def show_article_details(item):
+                article = item.data(Qt.ItemDataRole.UserRole)
+                if isinstance(article, dict):
+                    # Create a detailed view dialog
+                    dialog = QDialog(self)
+                    dialog.setWindowTitle("Article Details")
+                    dialog.resize(600, 400)
+                    
+                    dialog_layout = QVBoxLayout()
+                    
+                    headline = article.get("headline", "No headline")
+                    article_type = article.get("type", "Unknown")
+                    description = article.get("description", "")
+                    story = article.get("story", "")
+                    
+                    dialog_layout.addWidget(QLabel(f"Headline: {headline}"))
+                    dialog_layout.addWidget(QLabel(f"Type: {article_type}"))
+                    
+                    if description:
+                        dialog_layout.addWidget(QLabel("\nDescription:"))
+                        desc_text = QTextEdit()
+                        desc_text.setPlainText(description)
+                        desc_text.setReadOnly(True)
+                        desc_text.setMaximumHeight(100)
+                        dialog_layout.addWidget(desc_text)
+                    
+                    if story:
+                        dialog_layout.addWidget(QLabel("\nFull Article:"))
+                        story_text = QTextEdit()
+                        story_text.setPlainText(story)
+                        story_text.setReadOnly(True)
+                        dialog_layout.addWidget(story_text)
+                    
+                    close_btn = QPushButton("Close")
+                    close_btn.clicked.connect(dialog.accept)
+                    dialog_layout.addWidget(close_btn)
+                    
+                    dialog.setLayout(dialog_layout)
+                    dialog.exec()
             
-            if story:
-                layout.addWidget(QLabel(f"\nFull Article:"))
-                story_text = QTextEdit()
-                story_text.setPlainText(story)
-                story_text.setReadOnly(True)
-                layout.addWidget(story_text)
+            articles_list_widget.itemActivated.connect(show_article_details)
+            articles_list_widget.itemDoubleClicked.connect(show_article_details)
+            
+            layout.addWidget(QLabel("\nArticles (Enter or double-click to view details):"))
+            layout.addWidget(articles_list_widget)
         else:
             layout.addWidget(QLabel("No article data available"))
         
-        content_widget.setLayout(layout)
-        scroll_area.setWidget(content_widget)
-        scroll_area.setWidgetResizable(True)
-        self.tab_widget.addTab(scroll_area, "Articles")
+        widget.setLayout(layout)
+        self.tab_widget.addTab(widget, "Articles")
     
     def _add_videos_tab(self):
         """Add game videos/highlights tab"""
@@ -2610,8 +2986,11 @@ class KitchenSinkDialog(QDialog):
         self.tab_widget.addTab(widget, "Expert Picks")
     
     def keyPressEvent(self, event):
-        """Handle F6 for tab navigation"""
-        if event.key() == Qt.Key.Key_F6 and self.tab_widget:
+        """Handle F6 for tab navigation and Escape to close"""
+        if event.key() == Qt.Key.Key_Escape:
+            self.reject()
+            return
+        elif event.key() == Qt.Key.Key_F6 and self.tab_widget:
             current_tab = self.tab_widget.currentIndex()
             next_tab = (current_tab + 1) % self.tab_widget.count()
             self.tab_widget.setCurrentIndex(next_tab)
@@ -2645,10 +3024,12 @@ class NewsDialog(QDialog):
         self.news_list.setAccessibleName("News Headlines List")
         self.news_list.setAccessibleDescription("List of news headlines - Enter or double-click opens in browser")
         
+        # Display headlines as consistent list items
         for item in self.news_headlines:
             news = NewsData(item)
-            display = news.get_display_text()
-            list_item = QListWidgetItem(display)
+            # Get just the headline for consistent display
+            headline = news.headline if hasattr(news, 'headline') else news.get_display_text()
+            list_item = QListWidgetItem(headline)
             list_item.setData(Qt.ItemDataRole.UserRole, news)
             self.news_list.addItem(list_item)
         
@@ -2669,6 +3050,13 @@ class NewsDialog(QDialog):
         
         self.setLayout(layout)
         self.news_list.setFocus()
+    
+    def keyPressEvent(self, event):
+        """Handle Escape key to close dialog"""
+        if event.key() == Qt.Key.Key_Escape:
+            self.reject()
+        else:
+            super().keyPressEvent(event)
     
     def _open_news_story(self, item):
         if isinstance(item, QListWidgetItem):
@@ -2780,6 +3168,9 @@ class StandingsDialog(QDialog):
             header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Team name stretches
 
     def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.reject()
+            return
         if self.tab_widget:
             if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
                 if event.key() == Qt.Key.Key_Tab:
@@ -2910,6 +3301,9 @@ class SportsScoresApp(QWidget):
     def keyPressEvent(self, event):
         # Global back shortcut
         if event.modifiers() == Qt.KeyboardModifier.AltModifier and event.key() == Qt.Key.Key_B:
+            self.go_back(); event.accept(); return
+        # Escape key also goes back
+        elif event.key() == Qt.Key.Key_Escape:
             self.go_back(); event.accept(); return
         super().keyPressEvent(event)
 
