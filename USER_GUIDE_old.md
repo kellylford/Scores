@@ -1,6 +1,6 @@
 # Sports Scores Application - User Guide
 
-**Version:** 0.8.0 Beta  
+**Version:** 2.0 (Current Development)  
 **Last Updated:** August 10, 2025  
 **Platform:** Windows Desktop (PyQt6)
 
@@ -15,14 +15,14 @@
 8. [Accessibility Features](#accessibility-features)
 9. [What Works Well](#what-works-well-)
 10. [Known Areas for Improvement](#known-areas-for-improvement-)
-11. [Tips for Best Experience](#tips-for-best-experience)
+11. [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Getting Started
 
 ### First Launch
-1. **Run the application:** Launch `SportsScores.exe` from your downloads folder
+1. **Run the application:** Double-click `scores.py` or run `python scores.py` from command line
 2. **Home Screen:** You'll see a list of available sports leagues (NFL, MLB, NBA, NHL, etc.)
 3. **Select a League:** Use arrow keys to navigate, press Enter to select
 
@@ -109,7 +109,7 @@ The application uses a **stacked navigation system** where you can move between 
 
 ### 2. News Integration
 - **League News:** Access news stories from the league screen
-- **Story Links:** Press Enter on headlines to open full articles in browser
+- **Story Links:** Double-click headlines to open full articles in browser
 - **Author Information:** Shows bylines when available
 
 ### 3. Game Details
@@ -195,7 +195,7 @@ Export complete game logs to beautifully formatted HTML files for sharing or arc
 ### How to Export
 1. **Navigate to Game Details:** Select any completed game
 2. **Access Plays/Drives:** Go to the detailed plays (baseball) or drives (football) view
-3. **Select Export Button:** Navigate to "Export Game Log" button and press Enter
+3. **Click Export Button:** Look for "Export Game Log" button
 4. **Choose Location:** Save the HTML file to your desired location
 
 ### What Gets Exported
@@ -229,7 +229,7 @@ The app generates files like:
 ## Accessibility Features
 
 ### Screen Reader Support
-- **Screen Reader Compatible:** Tested with multiple screen readers including JAWS and NVDA
+- **JAWS Compatible:** Tested with JAWS screen reader
 - **Proper Focus Management:** Tab order follows logical sequence
 - **Descriptive Labels:** All controls have meaningful names
 - **Status Announcements:** Important changes are announced
@@ -295,27 +295,108 @@ The app generates files like:
 
 ## Known Areas for Improvement 🔧
 
-### 🚧 **Current Limitations**
+### 🚧 **Development Priorities**
 
-#### Table Navigation
-- **Limited Screen Reader Support:** Tables don't fully activate advanced screen reader table navigation features
-- **Basic Navigation:** Currently uses standard arrow key navigation
-- **Future Goal:** Working toward enhanced screen reader table functionality
+#### Table Accessibility (High Priority)
+- **Limited Table Navigation:** Tables don't activate JAWS virtual cursor mode
+- **Missing Table Commands:** Can't use Ctrl+Alt+Arrow for table navigation
+- **Workaround:** Currently using enhanced QTableWidget with improved accessibility
+- **Goal:** Full HTML table functionality for screen readers
 
-#### Export Feature Scope
-- **Limited Sports:** Currently works for MLB and NFL only
-- **Future Expansion:** Planning support for basketball and hockey
-- **Data Dependency:** Export quality depends on available ESPN data
+#### Data Completeness (Medium Priority)
+- **Inconsistent Play Details:** Some games have limited play-by-play data
+- **API Limitations:** Dependent on ESPN's data availability
+- **Missing Information:** Some fields occasionally empty
+- **Timing:** Data completeness varies by league and game status
 
-#### Search and Organization
-- **No Search:** Cannot search for specific teams or players
-- **No Favorites:** Cannot bookmark favorite teams for quick access
-- **Basic Sorting:** Tables use default sorting only
+#### User Interface Enhancements (Medium Priority)
+- **Search Functionality:** No search for specific teams or players
+- **Favorites:** Can't bookmark favorite teams
+- **Customization:** Limited theme or display options
+- **Sorting:** Tables don't support custom sorting
 
-#### Data Completeness
-- **API Dependent:** Some game data may be incomplete
-- **Variable Quality:** Play-by-play detail varies by game and league
-- **Live Data Only:** No offline storage for previously viewed games
+#### Technical Improvements (Low Priority)
+- **Caching:** No offline data storage for previously viewed games
+- **Performance:** Large datasets can be slow to load
+- **Error Recovery:** Limited graceful handling of API failures
+- **Configuration:** Settings could be more granular
+
+### 🎯 **Specific Improvement Areas**
+
+#### Export Enhancements
+- **More Sports:** Expand export to basketball, hockey
+- **Format Options:** PDF, CSV, or text export options
+- **Batch Export:** Export multiple games at once
+- **Scheduling:** Automatic export of favorite team games
+
+#### Accessibility Refinements
+- **Table Navigation:** Working toward full virtual cursor support
+- **Voice Commands:** Potential voice navigation integration
+- **Screen Reader Optimization:** Enhanced announcements and descriptions
+- **Custom Shortcuts:** User-configurable keyboard shortcuts
+
+#### Data Presentation
+- **Advanced Statistics:** More detailed player and team analytics
+- **Historical Data:** Access to past seasons and records
+- **Comparative Views:** Side-by-side team or player comparisons
+- **Trend Analysis:** Statistical trends over time
+
+---
+
+## Troubleshooting
+
+### Common Issues & Solutions
+
+#### Application Won't Start
+```
+Problem: "ModuleNotFoundError" or similar
+Solution: Ensure PyQt6 is installed: pip install PyQt6 requests
+```
+
+#### No Games Showing
+```
+Problem: Empty game lists
+Solution: 
+1. Check internet connection
+2. Try different date (Alt+P/Alt+N)
+3. Refresh the view
+4. ESPN API may be temporarily unavailable
+```
+
+#### Export Not Working
+```
+Problem: Export button missing or fails
+Solution:
+1. Ensure you're in a game's plays/drives view
+2. Check if game has detailed play data
+3. Verify write permissions in save location
+4. Try a different save location
+```
+
+#### Keyboard Navigation Issues
+```
+Problem: Tab/arrow keys not working
+Solution:
+1. Click in the main window area first
+2. Check if focus is in a text field
+3. Use Alt+B to return to main navigation
+4. Try Escape to reset focus
+```
+
+#### Screen Reader Problems
+```
+Problem: Screen reader not announcing properly
+Solution:
+1. Ensure JAWS/NVDA is running before starting app
+2. Tab through interface to establish focus
+3. Use arrow keys in lists and tables
+4. Check screen reader's application-specific settings
+```
+
+### Getting Help
+- **Documentation:** Check project README.md for technical details
+- **Issues:** Report problems via GitHub issues
+- **Development Status:** See DEVELOPMENT_STATUS_CURRENT.md for latest updates
 
 ---
 
@@ -341,10 +422,8 @@ The app generates files like:
 
 ---
 
-**Need Help?** See the [Technical Guide](TECHNICAL_GUIDE.md) for troubleshooting and advanced information.
-
-**Application Version:** 0.8.0 Beta  
-**User Guide Version:** 2.0  
+**Application Version:** 2.0 Development  
+**User Guide Version:** 1.0  
 **Last Updated:** August 10, 2025
 
-*This is a beta release. Features and functionality may change as development continues.*
+*This guide reflects the current state of development. Features and functionality may change as development continues.*
