@@ -1,8 +1,8 @@
 # GitHub Releases Guide - Sports Scores Application
 
-## 🎯 **Release Created: v1.0.0**
+## 🎯 **Release Created: v0.8.0**
 
-I've created a Git tag `v1.0.0` and pushed it to GitHub. Now you can create the official release!
+I've created a Git tag `v0.8.0` and pushed it to GitHub. Now you can create the official release!
 
 ## 📋 **How to Create the Release on GitHub**
 
@@ -12,16 +12,18 @@ I've created a Git tag `v1.0.0` and pushed it to GitHub. Now you can create the 
 3. Click **"Create a new release"**
 
 ### **Step 2: Select Your Tag**
-- **Tag version:** Select `v1.0.0` (should appear in dropdown)
-- **Release title:** `Sports Scores v1.0.0 - Initial Release`
+- **Tag version:** Select `v0.8.0` (should appear in dropdown)
+- **Release title:** `Sports Scores v0.8.0 - Beta Release`
 
 ### **Step 3: Write Release Notes**
 ```markdown
-# Sports Scores v1.0.0 - Initial Release
+# Sports Scores v0.8.0 - Beta Release
 
 A desktop application for browsing live sports scores with professional accessibility features.
 
-## ✨ **Key Features**
+⚠️ **This is a beta release** - fully functional but with known areas for improvement.
+
+## ✨ **Current Features**
 - **Live Sports Data** - MLB, NFL, NBA, NHL and more via ESPN API
 - **Export Game Logs** - Professional HTML format for baseball and football
 - **Full Accessibility** - Complete keyboard navigation and screen reader support
@@ -44,13 +46,22 @@ A desktop application for browsing live sports scores with professional accessib
 - Internet connection for live data
 - No Python installation required
 
-## 🐛 **Known Issues**
-- Table navigation could be improved (virtual cursor mode)
-- Export currently limited to MLB and NFL games
-- Some API data may be incomplete depending on ESPN availability
+## � **Known Areas for Improvement**
+- **Table Navigation:** Working toward virtual cursor mode support
+- **Export Expansion:** Currently limited to MLB and NFL games
+- **API Dependencies:** Some data may be incomplete depending on ESPN availability
+- **Search & Favorites:** Not yet implemented
+- **Mobile Support:** Desktop Windows only
+
+## 🎯 **Roadmap to v1.0**
+- Enhanced table accessibility
+- Export support for all sports
+- Search and favorites functionality
+- Performance optimizations
 
 ---
-**File Size:** ~38MB (includes all GUI libraries and dependencies)
+**File Size:** ~38MB (includes all GUI libraries and dependencies)  
+**Beta Status:** Fully functional with room for enhancement
 ```
 
 ### **Step 4: Upload Your Executable**
@@ -90,9 +101,9 @@ You could also attach:
 
 ## 🔗 **Direct Links After Publishing**
 - **Releases page:** https://github.com/kellylford/Scores/releases
-- **Direct download:** https://github.com/kellylford/Scores/releases/download/v1.0.0/SportsScores.exe
+- **Direct download:** https://github.com/kellylford/Scores/releases/download/v0.8.0/SportsScores.exe
 - **Latest release:** https://github.com/kellylford/Scores/releases/latest
 
 ---
 
-**Your tag `v1.0.0` is ready! Go to GitHub to complete the release creation.**
+**Your tag `v0.8.0` is ready! Go to GitHub to complete the release creation.**
