@@ -1341,11 +1341,26 @@ class GameDetailsView(BaseView):
             layout.addWidget(QLabel("No drive data available."))
             return
         
-        # Add header info
+        # Store drives data for export functionality
+        self.current_drives_data = drives_data
+        
+        # Add header info with export button
+        header_layout = QHBoxLayout()
         total_drives = len(all_drives)
         info_label = QLabel(f"Drive-by-Drive Summary ({total_drives} drives)")
         info_label.setStyleSheet("font-weight: bold; font-size: 14px; margin: 10px 0;")
-        layout.addWidget(info_label)
+        header_layout.addWidget(info_label)
+        
+        # Add Export Game Log button
+        export_btn = QPushButton("Export Game Log")
+        export_btn.setAccessibleName("Export Game Log Button")
+        export_btn.setAccessibleDescription("Export the complete game log as an HTML file")
+        export_btn.clicked.connect(self._export_game_log)
+        export_btn.setMaximumWidth(150)
+        header_layout.addWidget(export_btn)
+        header_layout.addStretch()  # Push button to the left
+        
+        layout.addLayout(header_layout)
         
         # Create tree widget for drives
         drives_tree = QTreeWidget()
@@ -1760,8 +1775,12 @@ class GameDetailsView(BaseView):
     def _export_game_log(self):
         """Export complete game log as HTML file"""
         try:
-            if not hasattr(self, 'current_plays_data') or not self.current_plays_data:
-                QMessageBox.warning(self, "Export Error", "No play data available to export.")
+            # Check for either plays data or drives data
+            has_plays = hasattr(self, 'current_plays_data') and self.current_plays_data
+            has_drives = hasattr(self, 'current_drives_data') and self.current_drives_data
+            
+            if not has_plays and not has_drives:
+                QMessageBox.warning(self, "Export Error", "No play or drive data available to export.")
                 return
             
             # Generate filename with game information
@@ -1854,6 +1873,34 @@ class GameDetailsView(BaseView):
                     away_team = first_play['awayTeam'].get('name', first_play['awayTeam'].get('abbreviation', 'AWAY'))
                     home_team = first_play['homeTeam'].get('name', first_play['homeTeam'].get('abbreviation', 'HOME'))
                     return away_team, home_team
+            
+            # Fallback: try to extract from drives data
+            if hasattr(self, 'current_drives_data') and self.current_drives_data:
+                # Look for team info in drives
+                all_teams = set()
+                drives_data = self.current_drives_data
+                
+                # Check current drive
+                current_drive = drives_data.get("current")
+                if current_drive and isinstance(current_drive, dict):
+                    team_info = current_drive.get("team", {})
+                    if team_info.get("displayName"):
+                        all_teams.add(team_info["displayName"])
+                
+                # Check previous drives
+                previous_drives = drives_data.get("previous", [])
+                for drive in previous_drives:
+                    if isinstance(drive, dict):
+                        team_info = drive.get("team", {})
+                        if team_info.get("displayName"):
+                            all_teams.add(team_info["displayName"])
+                
+                # If we found teams, return them (order may not be perfect but better than nothing)
+                teams_list = list(all_teams)
+                if len(teams_list) >= 2:
+                    return teams_list[0], teams_list[1]
+                elif len(teams_list) == 1:
+                    return teams_list[0], "Opponent"
         except Exception:
             pass
         
@@ -1861,7 +1908,30 @@ class GameDetailsView(BaseView):
     
     def _generate_game_log_html(self):
         """Generate HTML content for the complete game log"""
-        sport_type = self._detect_sport_type(self.current_plays_data)
+        # Determine what data we have and sport type
+        has_plays = hasattr(self, 'current_plays_data') and self.current_plays_data
+        has_drives = hasattr(self, 'current_drives_data') and self.current_drives_data
+        
+        if has_plays:
+            sport_type = self._detect_sport_type(self.current_plays_data)
+            data_for_sport_detection = self.current_plays_data
+            total_items = len(self.current_plays_data)
+            data_type = "Plays"
+        elif has_drives:
+            sport_type = "NFL"  # Drives are typically NFL
+            data_for_sport_detection = self.current_drives_data
+            # Count total drives from both current and previous
+            total_drives = 0
+            if self.current_drives_data.get("current"):
+                total_drives += 1
+            if self.current_drives_data.get("previous"):
+                total_drives += len(self.current_drives_data.get("previous", []))
+            total_items = total_drives
+            data_type = "Drives"
+        else:
+            sport_type = "Unknown"
+            total_items = 0
+            data_type = "Items"
         
         # Generate better title with team names
         title = f"Exported Game Log - {sport_type}"
@@ -1997,6 +2067,21 @@ class GameDetailsView(BaseView):
             font-weight: bold;
             color: #333;
             margin-bottom: 5px;
+            font-size: 16px;
+        }}
+        .play-list {{
+            list-style-type: disc;
+            margin: 8px 0;
+            padding-left: 25px;
+        }}
+        .play-item {{
+            margin: 3px 0;
+            color: #333;
+            font-size: 14px;
+        }}
+        .play-item.scoring {{
+            color: #ff6b35;
+            font-weight: bold;
         }}
         .play {{
             margin: 3px 0 3px 15px;
@@ -2019,7 +2104,7 @@ class GameDetailsView(BaseView):
 <body>
     <div class="header">
         <h1>{title}</h1>
-        <p><strong>Total Plays:</strong> {len(self.current_plays_data)}</p>
+        <p><strong>Total {data_type}:</strong> {total_items}</p>
         <p><strong>Export Date:</strong> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
     </div>
 """
@@ -2027,7 +2112,10 @@ class GameDetailsView(BaseView):
         if sport_type == "MLB":
             html += self._generate_baseball_html()
         elif sport_type == "NFL":
-            html += self._generate_football_html()
+            if has_drives:
+                html += self._generate_football_drives_html()
+            else:
+                html += self._generate_football_html()
         else:
             html += self._generate_generic_html()
         
@@ -2396,6 +2484,108 @@ class GameDetailsView(BaseView):
                     
                     html += f'<div class="play {scoring_class}">{play_text}</div>'
                 
+                html += '</div>'
+            
+            html += '</div>'
+        
+        return html
+    
+    def _generate_football_drives_html(self):
+        """Generate HTML for football game log from drives data"""
+        # Process drives data structure
+        drives_data = self.current_drives_data
+        all_drives = []
+        
+        # Add current drive if available
+        current_drive = drives_data.get("current")
+        if current_drive:
+            all_drives.append(("Current Drive", current_drive))
+        
+        # Add previous drives if available
+        previous_drives = drives_data.get("previous", [])
+        for i, drive in enumerate(previous_drives):
+            drive_num = len(previous_drives) - i  # Number drives in reverse order
+            all_drives.append((f"Drive {drive_num}", drive))
+        
+        # Group drives by quarter for better organization
+        quarter_groups = {}
+        
+        for drive_label, drive in all_drives:
+            if not drive or not isinstance(drive, dict):
+                continue
+                
+            # Get drive info
+            description = drive.get("description", "Unknown drive")
+            team_info = drive.get("team", {})
+            team_name = team_info.get("displayName", "Unknown Team")
+            
+            # Determine quarter from plays
+            plays = drive.get("plays", [])
+            quarter = "Unknown Quarter"
+            if plays and len(plays) > 0:
+                first_play = plays[0]
+                period_info = first_play.get("period", {})
+                quarter = period_info.get("displayValue", f"{period_info.get('number', 1)}Q")
+            
+            if quarter not in quarter_groups:
+                quarter_groups[quarter] = []
+            
+            quarter_groups[quarter].append({
+                "label": drive_label,
+                "team": team_name,
+                "description": description,
+                "plays": plays
+            })
+        
+        html = ""
+        for quarter_name in sorted(quarter_groups.keys()):
+            html += f'<div class="period">'
+            html += f'<h2 class="period-header">{quarter_name}</h2>'
+            
+            for drive_info in quarter_groups[quarter_name]:
+                html += f'<div class="drive">'
+                html += f'<h3 class="drive-header">{drive_info["team"]}: {drive_info["description"]}</h3>'
+                html += f'<ul class="play-list">'
+                
+                for play in drive_info["plays"]:
+                    play_text = play.get("text", "Unknown play")
+                    
+                    # Add down and distance information
+                    start = play.get("start", {})
+                    down = start.get("down", 0)
+                    distance = start.get("distance", 0)
+                    
+                    # Use pre-formatted down/distance text if available
+                    end = play.get("end", {})
+                    short_down_text = end.get("shortDownDistanceText", "")
+                    
+                    if short_down_text:
+                        down_distance_prefix = f"[{short_down_text}] "
+                    elif down > 0:  # Regular downs (not kickoffs, etc.)
+                        down_distance_prefix = f"[{down} & {distance}] "
+                    else:
+                        down_distance_prefix = ""
+                    
+                    # Check for scoring play
+                    scoring_class = ""
+                    if play.get("scoringPlay"):
+                        scoring_class = "scoring"
+                        away_score = play.get("awayScore", 0)
+                        home_score = play.get("homeScore", 0)
+                        play_text = f"🏈 SCORE: {down_distance_prefix}{play_text} ({away_score}-{home_score})"
+                    else:
+                        play_text = f"{down_distance_prefix}{play_text}"
+                    
+                    # Add clock context
+                    clock = play.get("clock", {})
+                    if clock:
+                        clock_display = clock.get("displayValue", "")
+                        if clock_display:
+                            play_text = f"[{clock_display}] {play_text}"
+                    
+                    html += f'<li class="play-item {scoring_class}">{play_text}</li>'
+                
+                html += '</ul>'
                 html += '</div>'
             
             html += '</div>'
