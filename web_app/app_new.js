@@ -35,15 +35,11 @@ class SportsApp {
         document.getElementById('prev-date').addEventListener('click', () => this.changeDate(-1));
         document.getElementById('next-date').addEventListener('click', () => this.changeDate(1));
         
-        // Configuration
-        document.getElementById('configure-details').addEventListener('click', () => this.showConfigModal());
-        document.getElementById('save-config').addEventListener('click', () => this.saveConfig());
-        document.getElementById('cancel-config').addEventListener('click', () => this.hideConfigModal());
         
         // Modal close buttons
         document.getElementById('close-news').addEventListener('click', () => this.hideNewsModal());
         document.getElementById('close-standings').addEventListener('click', () => this.hideStandingsModal());
-        document.getElementById('close-config').addEventListener('click', () => this.hideConfigModal());
+    // Removed config modal close event
         
         // Close modals on escape
         document.addEventListener('keydown', (e) => {
@@ -61,7 +57,6 @@ class SportsApp {
             
             const items = Array.from(activeList.querySelectorAll('li'));
             const currentIndex = items.findIndex(item => item.classList.contains('focused'));
-            
             switch(e.key) {
                 case 'ArrowDown':
                     e.preventDefault();
@@ -237,24 +232,18 @@ class SportsApp {
 
     formatGameDisplay(game) {
         let display = game.name || 'Game';
-        
         // Add scores if available
-        if (game.teams && game.teams.length >= 2) {
-            const team1 = game.teams[0];
-            const team2 = game.teams[1];
-            
-            if (team1.score !== undefined && team2.score !== undefined) {
-                display += ` (${team1.abbreviation} ${team1.score} - ${team2.abbreviation} ${team2.score})`;
+        if (game.awayTeam && game.homeTeam) {
+            if (game.awayTeam.score !== undefined && game.homeTeam.score !== undefined) {
+                display += ` (${game.awayTeam.abbreviation} ${game.awayTeam.score} - ${game.homeTeam.abbreviation} ${game.homeTeam.score})`;
             }
         }
-        
         // Add status/time
-        if (game.status) {
-            display += ` - ${game.status}`;
+        if (game.status && game.status.type) {
+            display += ` - ${game.status.type}`;
         } else if (game.startTime) {
-            display += ` - ${game.startTime}`;
+            display += ` - ${game.startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
         }
-        
         return display;
     }
 
@@ -272,35 +261,172 @@ class SportsApp {
 
     async loadGameDetails() {
         this.showLoading();
-        
         try {
             const gameDetails = await ESPNApi.getGameDetails(this.currentGameId, this.config[this.currentLeague]);
             const detailsList = document.getElementById('game-details-list');
             detailsList.innerHTML = '';
-            
-            // Set game title
             document.getElementById('game-title').textContent = gameDetails.name || 'Game Details';
-            
-            // Display configured details
-            const configuredDetails = this.config[this.currentLeague] || ['name', 'status', 'competitors'];
-            
-            configuredDetails.forEach(detailType => {
-                if (gameDetails[detailType]) {
+
+            // MLB: Expandable half-innings
+            if (this.currentLeague === 'MLB' && gameDetails.innings) {
+                gameDetails.innings.forEach((inning, idx) => {
+                    ['top', 'bottom'].forEach(half => {
+                        if (inning[half]) {
+                            const halfData = inning[half];
+                            const halfLabel = `${half === 'top' ? 'Top' : 'Bot'} ${inning.number}`;
+                            const scoreLabel = `Score: ${halfData.score}`;
+                            const pitcherLabel = halfData.pitcher ? `Pitcher: ${halfData.pitcher}` : '';
+                            const li = document.createElement('li');
+                            li.className = 'half-inning';
+                            li.tabIndex = 0;
+                            li.innerHTML = `<span class=\"half-inning-header\"><strong>${halfLabel}</strong> &mdash; ${scoreLabel} ${pitcherLabel ? '&mdash; ' + pitcherLabel : ''}</span>`;
+
+                            // Expand/collapse details
+                            const detailsDiv = document.createElement('div');
+                            detailsDiv.className = 'half-inning-details hidden';
+                            if (halfData.batters && halfData.batters.length) {
+                                const battersList = document.createElement('ul');
+                                battersList.className = 'batters-list';
+                                halfData.batters.forEach(batter => {
+                                    const batterLi = document.createElement('li');
+                                    batterLi.textContent = `${batter.name} (${batter.result})`;
+                                    battersList.appendChild(batterLi);
+                                });
+                                detailsDiv.appendChild(battersList);
+                            }
+                            li.appendChild(detailsDiv);
+
+                            // Toggle expand/collapse
+                            li.addEventListener('click', () => {
+                                detailsDiv.classList.toggle('hidden');
+                            });
+                            li.addEventListener('keydown', (e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    detailsDiv.classList.toggle('hidden');
+                                }
+                            });
+                            detailsList.appendChild(li);
+                        }
+                    });
+                });
+            }
+            // NFL: Expandable drives by quarter
+            else if (this.currentLeague === 'NFL' && gameDetails.drives) {
+                gameDetails.drives.forEach((quarter, qIdx) => {
+                    const quarterLabel = `Quarter ${quarter.number}`;
                     const li = document.createElement('li');
-                    li.innerHTML = `<strong>${this.formatDetailLabel(detailType)}:</strong> ${gameDetails[detailType]}`;
+                    li.className = 'quarter-drive';
+                    li.tabIndex = 0;
+                    li.innerHTML = `<span class=\"quarter-header\"><strong>${quarterLabel}</strong></span>`;
+                    const drivesDiv = document.createElement('div');
+                    drivesDiv.className = 'drives-details hidden';
+                    if (quarter.drives && quarter.drives.length) {
+                        const drivesList = document.createElement('ul');
+                        drivesList.className = 'drives-list';
+                        quarter.drives.forEach(drive => {
+                            const driveLi = document.createElement('li');
+                            const scoreLabel = `Score: ${drive.score}`;
+                            const qbLabel = drive.qb ? `QB: ${drive.qb}` : '';
+                            driveLi.innerHTML = `<span class=\"drive-header\">${drive.description} &mdash; ${scoreLabel} ${qbLabel ? '&mdash; ' + qbLabel : ''}</span>`;
+                            // Expand/collapse play details
+                            const playsDiv = document.createElement('div');
+                            playsDiv.className = 'drive-plays-details hidden';
+                            if (drive.plays && drive.plays.length) {
+                                const playsList = document.createElement('ul');
+                                playsList.className = 'plays-list';
+                                drive.plays.forEach(play => {
+                                    const playLi = document.createElement('li');
+                                    playLi.textContent = `${play.description}`;
+                                    playsList.appendChild(playLi);
+                                });
+                                playsDiv.appendChild(playsList);
+                            }
+                            driveLi.appendChild(playsDiv);
+                            driveLi.addEventListener('click', () => {
+                                playsDiv.classList.toggle('hidden');
+                            });
+                            driveLi.addEventListener('keydown', (e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    playsDiv.classList.toggle('hidden');
+                                }
+                            });
+                            drivesList.appendChild(driveLi);
+                        });
+                        drivesDiv.appendChild(drivesList);
+                    }
+                    li.appendChild(drivesDiv);
+                    li.addEventListener('click', () => {
+                        drivesDiv.classList.toggle('hidden');
+                    });
+                    li.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            drivesDiv.classList.toggle('hidden');
+                        }
+                    });
                     detailsList.appendChild(li);
+                });
+            }
+            // Officials and weather drill-down
+            if (gameDetails.officials || gameDetails.weather) {
+                if (gameDetails.officials) {
+                    const officialsLi = document.createElement('li');
+                    officialsLi.className = 'officials-drilldown';
+                    officialsLi.tabIndex = 0;
+                    officialsLi.innerHTML = `<span class=\"officials-header\"><strong>Officials</strong></span>`;
+                    const officialsDiv = document.createElement('div');
+                    officialsDiv.className = 'officials-details hidden';
+                    const officialsList = document.createElement('ul');
+                    officialsList.className = 'officials-list';
+                    gameDetails.officials.forEach(off => {
+                        const offLi = document.createElement('li');
+                        offLi.textContent = `${off.name} (${off.role})`;
+                        officialsList.appendChild(offLi);
+                    });
+                    officialsDiv.appendChild(officialsList);
+                    officialsLi.appendChild(officialsDiv);
+                    officialsLi.addEventListener('click', () => {
+                        officialsDiv.classList.toggle('hidden');
+                    });
+                    officialsLi.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            officialsDiv.classList.toggle('hidden');
+                        }
+                    });
+                    detailsList.appendChild(officialsLi);
                 }
-            });
-            
+                if (gameDetails.weather) {
+                    const weatherLi = document.createElement('li');
+                    weatherLi.className = 'weather-drilldown';
+                    weatherLi.tabIndex = 0;
+                    weatherLi.innerHTML = `<span class=\"weather-header\"><strong>Weather</strong></span>`;
+                    const weatherDiv = document.createElement('div');
+                    weatherDiv.className = 'weather-details hidden';
+                    weatherDiv.textContent = gameDetails.weather;
+                    weatherLi.appendChild(weatherDiv);
+                    weatherLi.addEventListener('click', () => {
+                        weatherDiv.classList.toggle('hidden');
+                    });
+                    weatherLi.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            weatherDiv.classList.toggle('hidden');
+                        }
+                    });
+                    detailsList.appendChild(weatherLi);
+                }
+            }
+
             // Focus first detail
             if (detailsList.firstChild) {
                 this.focusListItem([...detailsList.children], 0);
             }
-            
         } catch (error) {
             this.showError('Failed to load game details: ' + error.message);
         }
-        
         this.hideLoading();
     }
 
@@ -395,58 +521,14 @@ class SportsApp {
         }
     }
 
-    showConfigModal() {
-        const configOptions = document.getElementById('config-options');
-        const availableDetails = ['name', 'status', 'competitors', 'score', 'time', 'venue'];
-        const currentConfig = this.config[this.currentLeague] || [];
-        
-        configOptions.innerHTML = '';
-        
-        availableDetails.forEach(detail => {
-            const div = document.createElement('div');
-            div.innerHTML = `
-                <label>
-                    <input type="checkbox" name="details" value="${detail}" 
-                           ${currentConfig.includes(detail) ? 'checked' : ''}>
-                    ${this.formatDetailLabel(detail)}
-                </label>
-            `;
-            configOptions.appendChild(div);
-        });
-        
-        document.getElementById('config-modal').classList.remove('hidden');
-        document.getElementById('save-config').focus();
-    }
-
-    saveConfig() {
-        const checkboxes = document.querySelectorAll('#config-options input[name="details"]:checked');
-        const selectedDetails = Array.from(checkboxes).map(cb => cb.value);
-        
-        this.config[this.currentLeague] = selectedDetails;
-        this.hideConfigModal();
-        
-        // Refresh game details if we're viewing them
-        if (this.currentView === 'game') {
-            this.loadGameDetails();
-        }
-    }
-
-    hideNewsModal() {
-        document.getElementById('news-modal').classList.add('hidden');
-    }
-
     hideStandingsModal() {
         document.getElementById('standings-modal').classList.add('hidden');
     }
 
-    hideConfigModal() {
-        document.getElementById('config-modal').classList.add('hidden');
-    }
 
     hideAllModals() {
         this.hideNewsModal();
         this.hideStandingsModal();
-        this.hideConfigModal();
     }
 
     hideAllSections() {

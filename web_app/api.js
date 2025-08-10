@@ -2,6 +2,71 @@
 // This module handles all ESPN API calls and data processing
 
 class ESPNApi {
+    // Fetch and process game details by gameId
+    async getGameDetailsById(gameId, configuredDetails) {
+        // Determine league from configuredDetails or fallback
+        let league = 'MLB';
+        if (configuredDetails && configuredDetails.league) {
+            league = configuredDetails.league;
+        }
+        let url, cacheKey;
+        if (league === 'NFL') {
+            url = `${this.baseUrl}/football/nfl/summary?event=${gameId}`;
+            cacheKey = `nfl-game-${gameId}`;
+        } else {
+            url = `${this.baseUrl}/baseball/mlb/summary?event=${gameId}`;
+            cacheKey = `mlb-game-${gameId}`;
+        }
+        const data = await this.fetchWithCache(url, cacheKey);
+        const details = {
+            name: data.header?.competitions?.[0]?.competitors?.map(c => c.team?.displayName).join(' vs ') || 'Game',
+            status: data.header?.competitions?.[0]?.status?.type?.description || '',
+            venue: data.header?.competitions?.[0]?.venue?.fullName || '',
+            innings: [],
+            drives: [],
+            officials: [],
+            weather: data.header?.competitions?.[0]?.weather?.displayValue || ''
+        };
+        if (league === 'MLB' && data.plays && Array.isArray(data.plays)) {
+            // Group plays by inning/half
+            const inningsMap = {};
+            data.plays.forEach(play => {
+                const inningNum = play.inning;
+                const half = play.halfInning; // 'top' or 'bottom'
+                if (!inningsMap[inningNum]) inningsMap[inningNum] = { number: inningNum };
+                if (!inningsMap[inningNum][half]) inningsMap[inningNum][half] = { batters: [], score: play.awayScore + '-' + play.homeScore };
+                inningsMap[inningNum][half].batters.push({ name: play.batter?.athlete?.displayName || '', result: play.result });
+                if (play.pitcher?.athlete?.displayName) {
+                    inningsMap[inningNum][half].pitcher = play.pitcher.athlete.displayName;
+                }
+            });
+            details.innings = Object.values(inningsMap);
+        }
+        if (league === 'NFL' && data.drives && Array.isArray(data.drives)) {
+            // Group drives by quarter
+            const quartersMap = {};
+            data.drives.forEach(drive => {
+                const quarterNum = drive.period;
+                if (!quartersMap[quarterNum]) quartersMap[quarterNum] = { number: quarterNum, drives: [] };
+                const driveObj = {
+                    description: drive.description || '',
+                    score: drive.result?.displayName || '',
+                    qb: drive.leader?.athlete?.displayName || '',
+                    plays: []
+                };
+                if (drive.plays && Array.isArray(drive.plays)) {
+                    driveObj.plays = drive.plays.map(play => ({ description: play.text || '' }));
+                }
+                quartersMap[quarterNum].drives.push(driveObj);
+            });
+            details.drives = Object.values(quartersMap);
+        }
+        // Parse officials
+        if (data.header?.competitions?.[0]?.officials) {
+            details.officials = data.header.competitions[0].officials.map(off => ({ name: off.displayName, role: off.role }));
+        }
+        return details;
+    }
     constructor() {
         this.baseUrl = 'https://site.api.espn.com/apis/site/v2/sports';
         this.cache = new Map();

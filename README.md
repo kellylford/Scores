@@ -1,9 +1,61 @@
-# Sports Scores GUI App (PyQt6)
+# Sports Scores Application - Refactor Branch
 
-## Overview
-This application provides a desktop GUI for browsing live sports scores using the ESPN API. Built with PyQt6, it features accessible navigation and configurable game details.
+This is the clean refactor branch containing only the essential files needed for the working sports scores application.
 
-## App Design
+## Purpose
+This branch serves as the starting point for the architecture refactoring outlined in `ARCHITECTURE_REFACTORING_PLAN.md`. It contains only the minimal set of files required to run the application, providing a clean foundation for restructuring.
+
+## What's Included
+- Essential Python files for the working application
+- Required data models and services  
+- Core dependencies and configuration
+- Architecture planning documents
+
+## What's Removed
+- All test files (`test_*.py`)
+- Sample data and exploration files (`*.json`, `api_exploration/`)
+- Web application files (`web_app/`)
+- Utility and debugging scripts
+- Most documentation (kept only essential files)
+- Build artifacts and PyInstaller specs
+
+## Files in This Branch
+
+### Core Application
+- `scores.py` - Main application entry point and UI
+- `espn_api.py` - ESPN API integration
+- `exceptions.py` - Custom error handling
+- `accessible_table.py` - Accessible table widgets
+- `main.py` - Alternative entry point
+
+### Data Layer
+- `models/game.py` - Game data model
+- `models/news.py` - News data model  
+- `models/standings.py` - Standings data model
+- `services/api_service.py` - API service abstraction
+
+### Configuration
+- `requirements.txt` - Python dependencies
+- `.gitignore` - Git ignore patterns
+- `LICENSE` - Software license
+
+### Documentation
+- `README.md` - This file
+- `DISTRIBUTION.md` - Files needed for distribution
+- `ARCHITECTURE_REFACTORING_PLAN.md` - Refactoring roadmap
+
+## Running the Application
+```bash
+pip install -r requirements.txt
+python scores.py
+```
+
+## Next Steps
+Follow the `ARCHITECTURE_REFACTORING_PLAN.md` to implement the modular architecture while keeping this working version as a reference.
+
+## Branches
+- `main` - Complete working application with all files
+- `refactor` - Clean starting point for architecture improvements
 
 ### Screens & Navigation
 1. **Home Screen (Leagues List):**
