@@ -40,6 +40,7 @@ A desktop application for browsing live sports scores with professional accessib
 ## 📚 **Documentation**
 - See [User Guide](https://github.com/kellylford/Scores/blob/main/USER_GUIDE.md) for complete instructions
 - Check [Quick Reference](https://github.com/kellylford/Scores/blob/main/QUICK_REFERENCE.md) for keyboard shortcuts
+- View [Technical Guide](https://github.com/kellylford/Scores/blob/main/TECHNICAL_GUIDE.md) for troubleshooting
 
 ## 🔧 **System Requirements**
 - Windows 10/11 (64-bit)
