@@ -76,12 +76,12 @@ GOAL LINE - Within 5 yards of scoring
 
 #### Example Drive Display
 ```
-DRIVE 3 - Chicago Bears (7 plays, 68 yards, 3:42)
-[1st & 10 from CHI 32] PASS: (+12 yards) Williams complete to Moore
-[1st & 10 from CHI 44] RUSH: (+3 yards) Swift up the middle  
-[2nd & 7 from CHI 47] PASS: (+8 yards) Williams to Allen
-[RED ZONE 1st & 10 from OPP 15] PASS: (+9 yards) Completion to tight end
-[GOAL LINE 2nd & 1 from OPP 6] RUSH: (+2 yards) Swift powers forward
+DRIVE 3 - Green Bay Packers (7 plays, 68 yards, 3:42)
+[1st & 10 from GB 32] PASS: (+12 yards) Love complete to Watson
+[1st & 10 from GB 44] RUSH: (+3 yards) Jones up the middle  
+[2nd & 7 from GB 47] PASS: (+8 yards) Love to Doubs
+[RED ZONE 1st & 10 from OPP 15] PASS: (+9 yards) Completion to Reed
+[GOAL LINE 2nd & 1 from OPP 6] RUSH: (+2 yards) Jones powers forward
 [GOAL LINE 3rd & Goal from OPP 4] PASS: (+4 yards) TOUCHDOWN! (14-7)
 ```
 
@@ -263,11 +263,11 @@ Each play now includes multiple data points:
 
 #### Example Enhanced Drive
 ```
-DRIVE 2 - Buffalo Bills (9 plays, 64 yards, 1:35)
-[1st & 10 from BUF 35] PASS: (+8 yards) Allen complete to Diggs
-[2nd & 2 from BUF 43] RUSH: (+15 yards) Cook breaks tackle
-[RED ZONE 1st & 10 from OPP 18] PASS: (+9 yards) Allen to Davis
-[RED ZONE 2nd & 1 from OPP 9] RUSH: (+3 yards) Cook powers forward  
+DRIVE 2 - Green Bay Packers (9 plays, 64 yards, 1:35)
+[1st & 10 from GB 35] PASS: (+8 yards) Love complete to Watson
+[2nd & 2 from GB 43] RUSH: (+15 yards) Jones breaks tackle
+[RED ZONE 1st & 10 from OPP 18] PASS: (+9 yards) Love to Doubs
+[RED ZONE 2nd & 1 from OPP 9] RUSH: (+3 yards) Jones powers forward  
 [GOAL LINE 3rd & Goal from OPP 6] PASS: (+6 yards) TOUCHDOWN! (14-7)
 ```
 

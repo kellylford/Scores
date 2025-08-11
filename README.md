@@ -159,14 +159,14 @@ The NFL drive display provides comprehensive context for each play:
 
 **Standard Display:**
 ```
-[1st & 10 from CHI 25] T.Bagent pass complete to receiver
+[1st & 10 from GB 25] Love pass complete to Watson
 ```
 
 **Enhanced Display:**
 ```
-[1st & 10 from CHI 25] PASS: (+8 yards) T.Bagent pass complete to receiver
-[RED ZONE 3rd & 2 from CHI 18] RUSH: (+1 yard) Running back up the middle  
-[GOAL LINE 4th & 1 from CHI 3] TOUCHDOWN: Pass complete for touchdown (7-14)
+[1st & 10 from GB 25] PASS: (+8 yards) Love complete to Watson
+[RED ZONE 3rd & 2 from GB 18] RUSH: (+1 yard) Jones up the middle  
+[GOAL LINE 4th & 1 from GB 3] TOUCHDOWN: Pass complete for touchdown (7-14)
 ```
 
 ### Key Features:
