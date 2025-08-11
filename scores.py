@@ -540,7 +540,7 @@ class GameDetailsView(BaseView):
             self._add_officials_list_to_layout(layout, field_data)
         elif field_name == "injuries" and isinstance(field_data, list):
             self._add_injuries_list_to_layout(layout, field_data)
-        elif field_name == "news" and isinstance(field_data, list):
+        elif field_name == "news" and isinstance(field_data, (list, dict)):
             self._add_news_list_to_layout(layout, field_data)
         else:
             # Fallback to formatted text
@@ -776,7 +776,11 @@ class GameDetailsView(BaseView):
                 self.details_list.addItem(item_text)
                 list_item_widget = self.details_list.item(self.details_list.count() - 1)
                 if list_item_widget:
-                    list_item_widget.setData(Qt.ItemDataRole.UserRole, {"field": field, "data": value})
+                    # For news field, pass full raw details to enable game-specific article detection
+                    if field == "news" and hasattr(self, 'current_raw_details'):
+                        list_item_widget.setData(Qt.ItemDataRole.UserRole, {"field": field, "data": self.current_raw_details})
+                    else:
+                        list_item_widget.setData(Qt.ItemDataRole.UserRole, {"field": field, "data": value})
             else:
                 try:
                     formatted_value = ApiService.format_complex_data(field, value)
@@ -2938,10 +2942,30 @@ class GameDetailsView(BaseView):
             layout.addWidget(QLabel("No news data available."))
             return
         
-        # Handle different news data formats
-        news_articles = data
-        if isinstance(data, dict) and "articles" in data:
-            news_articles = data["articles"]
+        # Handle different news data formats and enhance game-specific news
+        news_articles = []
+        
+        # Check if this is game details data that might have both 'article' and 'news'
+        if isinstance(data, dict):
+            if "articles" in data:
+                # Standard news format with articles array
+                news_articles = data["articles"]
+            elif "article" in data or "news" in data:
+                # This might be full game details - check for game-specific article first
+                game_article = data.get("article")
+                general_news = data.get("news", {}).get("articles", [])
+                
+                # Prioritize game-specific article, then add general news
+                if game_article and isinstance(game_article, dict):
+                    news_articles.append(game_article)
+                if general_news and isinstance(general_news, list):
+                    news_articles.extend(general_news)
+            else:
+                # Single article format
+                news_articles = [data]
+        elif isinstance(data, list):
+            # Direct list of articles
+            news_articles = data
         
         if not news_articles:
             layout.addWidget(QLabel("No news articles available."))
@@ -2952,11 +2976,15 @@ class GameDetailsView(BaseView):
         news_list.setAccessibleName("News Headlines List")
         news_list.setAccessibleDescription("List of news headlines - Enter or double-click opens in browser")
         
-        # Add just the headlines as list items (consistent formatting)
-        for news_item in news_articles:
+        # Add articles as list items, with special labeling for game-specific content
+        for i, news_item in enumerate(news_articles):
             news_data = NewsData(news_item)
             # Get just the headline for consistent list display
             headline = news_data.headline if hasattr(news_data, 'headline') else news_data.get_display_text()
+            
+            # Add indicator for game-specific article (first item if it came from 'article' field)
+            if i == 0 and isinstance(data, dict) and "article" in data and "news" in data:
+                headline = f"🎯 {headline}"  # Game-specific indicator
             
             item = QListWidgetItem(headline)
             item.setData(Qt.ItemDataRole.UserRole, news_data)
@@ -2966,14 +2994,20 @@ class GameDetailsView(BaseView):
         def open_news_item(item):
             news_data = item.data(Qt.ItemDataRole.UserRole)
             if isinstance(news_data, NewsData) and news_data.has_web_url():
-                webbrowser.open(news_data.web_url)
+                if news_data.web_url.startswith(("http://", "https://")):
+                    try:
+                        webbrowser.open(news_data.web_url)
+                    except Exception as e:
+                        QMessageBox.warning(None, "Browser Error", f"Could not open browser: {str(e)}")
+                else:
+                    QMessageBox.warning(None, "Invalid URL", "The URL for this story is invalid.")
             else:
-                QMessageBox.information(self, "No Link", "No web link available for this story.")
+                QMessageBox.information(None, "No Link", "No web link available for this story.")
         
         news_list.itemActivated.connect(open_news_item)
         news_list.itemDoubleClicked.connect(open_news_item)
         
-        layout.addWidget(QLabel("News Headlines (Enter or double-click to open in browser):"))
+        layout.addWidget(QLabel("News Headlines (🎯 = Game-specific, Enter or double-click to open in browser):"))
         layout.addWidget(news_list)
 
 class StandingsDetailDialog(QDialog):
