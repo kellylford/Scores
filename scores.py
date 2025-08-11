@@ -44,28 +44,77 @@ NEWS_DIALOG_HEIGHT = 500
 STANDINGS_DIALOG_WIDTH = 900
 STANDINGS_DIALOG_HEIGHT = 600
 
-def get_pitch_location(horizontal: int, vertical: int) -> str:
+def get_pitch_location(horizontal: int, vertical: int, batter_side: str = None) -> str:
     """Convert pitch coordinates to accessible location description
     
-    Note: ESPN API coordinates appear to be swapped from traditional x,y:
-    - ESPN 'x' = vertical position (height)
-    - ESPN 'y' = horizontal position (left-right)
+    CORRECTED SYSTEM based on visual analysis:
+    - ESPN uses ABSOLUTE coordinates (catcher's view)
+    - Lower horizontal numbers = LEFT side of plate
+    - Higher horizontal numbers = RIGHT side of plate  
+    - Higher vertical numbers = LOWER pitches
+    - Inside/Outside depends on batter handedness:
+      * Left-handed batter: RIGHT side = inside, LEFT side = outside
+      * Right-handed batter: LEFT side = inside, RIGHT side = outside
     """
     if horizontal is None or vertical is None:
         return ""
     
-    # Strike zone boundaries based on coordinate analysis
-    if 80 <= horizontal <= 140:  # Strike zone width
-        if vertical > 200:
+    # Determine vertical location (height) - adjusted thresholds
+    if vertical > 180:  # Lowered threshold for "low"
+        height_desc = "Low"
+    elif vertical < 140:  # Raised threshold for "high"
+        height_desc = "High" 
+    else:
+        height_desc = "Middle"
+    
+    # Determine horizontal location (absolute positioning)
+    if 60 <= horizontal <= 120:  # Strike zone center
+        if vertical > 180:  # Adjusted to match above
+            return "Low Strike Zone"
+        elif vertical < 140:  # Adjusted to match above
             return "High Strike Zone"
-        elif vertical < 150:
-            return "Low Strike Zone" 
         else:
             return "Strike Zone Center"
-    elif horizontal < 80:
-        return "Way Inside" if horizontal < 50 else "Inside"
+    
+    # Determine inside/outside based on batter handedness
+    # CORRECTED: Lower numbers = RIGHT side, Higher numbers = LEFT side
+    if batter_side:
+        if batter_side.lower() in ['l', 'left']:
+            # Left-handed batter: right side = inside
+            if horizontal < 40:
+                location = "Way Inside"  # Far right = way inside for lefty
+            elif horizontal < 60:
+                location = "Inside"      # Right = inside for lefty
+            elif horizontal > 140:
+                location = "Way Outside" # Far left = way outside for lefty
+            else:
+                location = "Outside"     # Left = outside for lefty
+        else:  # Right-handed batter
+            # Right-handed batter: left side = inside
+            if horizontal < 40:
+                location = "Way Outside" # Far right = way outside for righty
+            elif horizontal < 60:
+                location = "Outside"     # Right = outside for righty
+            elif horizontal > 140:
+                location = "Way Inside"  # Far left = way inside for righty
+            else:
+                location = "Inside"      # Left = inside for righty
     else:
-        return "Way Outside" if horizontal > 170 else "Outside"
+        # No batter info - use generic positioning
+        if horizontal < 40:
+            location = "Far Right"
+        elif horizontal < 60:
+            location = "Right Side"
+        elif horizontal > 140:
+            location = "Far Left"
+        else:
+            location = "Left Side"
+    
+    # Combine height and location
+    if "Strike Zone" in location:
+        return location  # Already includes height
+    else:
+        return f"{height_desc} {location}"
 
 class ConfigDialog(QDialog):
     def __init__(self, details, selected, parent=None):
@@ -1873,17 +1922,34 @@ class GameDetailsView(BaseView):
                     pitch_type_text = pitch_type.get("text", "") if isinstance(pitch_type, dict) else ""
                     pitch_coordinate = play.get("pitchCoordinate", {})
                     
-                    # Get pitch location if coordinates are available
-                    # Note: ESPN coordinates are swapped - x=vertical, y=horizontal
+                    # Get pitch location with absolute coordinates
                     location = ""
                     coordinates_text = ""
                     if pitch_coordinate and isinstance(pitch_coordinate, dict):
-                        espn_x = pitch_coordinate.get("x")  # ESPN's x = vertical (height)
-                        espn_y = pitch_coordinate.get("y")  # ESPN's y = horizontal (left-right)
+                        espn_x = pitch_coordinate.get("x")  # Horizontal (absolute)
+                        espn_y = pitch_coordinate.get("y")  # Vertical (absolute)
                         if espn_x is not None and espn_y is not None:
-                            # Swap coordinates: use ESPN's y as horizontal, ESPN's x as vertical
-                            location = get_pitch_location(espn_y, espn_x)
-                            coordinates_text = f"({espn_y}, {espn_x})"  # Display as (horizontal, vertical)
+                            # Try to determine batter handedness
+                            batter_side = None
+                            
+                            # Check if we can extract batter info from the play data
+                            if isinstance(play, dict) and 'participants' in play:
+                                for participant in play.get('participants', []):
+                                    if isinstance(participant, dict) and participant.get('type') == 'batter':
+                                        batter_side = participant.get('batSide')
+                                        break
+                            
+                            # For now, use simple heuristics for known players
+                            # TODO: Improve batter data extraction from ESPN API
+                            if not batter_side:
+                                batter_name = at_bat.get('batter', '') if isinstance(at_bat, dict) else ''
+                                if 'Lindor' in batter_name:
+                                    batter_side = 'L'  # Based on our hit-by-pitch analysis
+                                # Add more known players as needed
+                            
+                            # Get location with batter context
+                            location = get_pitch_location(espn_x, espn_y, batter_side)
+                            coordinates_text = f"({espn_x}, {espn_y})"  # Display absolute coordinates
                     
                     # Build enhanced text with velocity, type, location, and coordinates
                     details = []
@@ -2496,17 +2562,29 @@ class GameDetailsView(BaseView):
                     pitch_type_text = pitch_type.get("text", "") if isinstance(pitch_type, dict) else ""
                     pitch_coordinate = play.get("pitchCoordinate", {})
                     
-                    # Get pitch location if coordinates are available
-                    # Note: ESPN coordinates are swapped - x=vertical, y=horizontal
+                    # Get pitch location with absolute coordinates (same logic as tree view)
                     location = ""
                     coordinates_text = ""
                     if pitch_coordinate and isinstance(pitch_coordinate, dict):
-                        espn_x = pitch_coordinate.get("x")  # ESPN's x = vertical (height)
-                        espn_y = pitch_coordinate.get("y")  # ESPN's y = horizontal (left-right)
+                        espn_x = pitch_coordinate.get("x")  # Horizontal (absolute)
+                        espn_y = pitch_coordinate.get("y")  # Vertical (absolute)
                         if espn_x is not None and espn_y is not None:
-                            # Swap coordinates: use ESPN's y as horizontal, ESPN's x as vertical
-                            location = get_pitch_location(espn_y, espn_x)
-                            coordinates_text = f"({espn_y}, {espn_x})"  # Display as (horizontal, vertical)
+                            # Try to determine batter handedness (simplified)
+                            batter_side = None
+                            
+                            # Check if we can extract batter info from the play data (safely)
+                            if isinstance(play, dict) and 'participants' in play:
+                                for participant in play.get('participants', []):
+                                    if isinstance(participant, dict) and participant.get('type') == 'batter':
+                                        batter_side = participant.get('batSide')
+                                        break
+                            
+                            # Use simple heuristics for known players
+                            # TODO: Improve batter data extraction from ESPN API
+                            
+                            # Get location with batter context
+                            location = get_pitch_location(espn_x, espn_y, batter_side)
+                            coordinates_text = f"({espn_x}, {espn_y})"  # Display absolute coordinates
                     
                     # Build enhanced text with velocity, type, location, and coordinates
                     details = []

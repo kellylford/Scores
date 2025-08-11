@@ -17,85 +17,102 @@ def test_pitch_coordinates():
     print("=" * 50)
     
     try:
-        # Get game details with plays
+        # Get game details with plays using direct game ID
         details = espn_api.get_game_details(game_id, ['plays'])
         
-        if not details or 'plays' not in details:
-            print("No plays data found")
-            return
+        if not details:
+            print("No details returned - trying alternative approach")
             
-        plays_data = details['plays']
-        print(f"Found {len(plays_data)} drives")
-        
-        pitch_count = 0
-        
-        # Examine first few drives
-        for drive_idx, drive in enumerate(plays_data):
-            if pitch_count >= 10:  # Limit to first 10 pitches
-                break
-                
-            print(f"\n--- Drive {drive_idx + 1} ---")
+            # Try getting yesterday's games and finding this specific one
+            from datetime import datetime, timedelta
+            yesterday = datetime.now() - timedelta(days=1)
+            date_str = yesterday.strftime('%Y%m%d')
             
-            if 'plays' not in drive:
-                continue
-                
-            for play_idx, play in enumerate(drive['plays']):
-                if pitch_count >= 10:
+            print(f"Checking games from {date_str}")
+            games = espn_api.get_scores('mlb', date_str)
+            print(f"Found {len(games)} games")
+            
+            # Look for our specific game
+            target_game = None
+            for game in games:
+                if game['id'] == game_id:
+                    target_game = game
+                    print(f"Found target game: {game_id}")
                     break
                     
-                play_text = play.get('text', '')
-                
-                # Look for pitch-related plays
-                is_pitch = any(keyword in play_text.lower() for keyword in 
-                             ['ball', 'strike', 'foul', 'looking', 'swinging'])
-                
-                if is_pitch:
-                    pitch_count += 1
-                    print(f"\nPitch #{pitch_count}: {play_text}")
+            if target_game:
+                # Try getting details again
+                details = espn_api.get_game_details(game_id, ['plays'])
+            
+        if details and 'plays' in details:
+            plays_data = details['plays']
+            print(f"SUCCESS: Found {len(plays_data)} drives")
+            
+            # Look at the first batter's pitches
+            pitch_count = 0
+            print("\\n=== FIRST BATTER ANALYSIS ===")
+            
+            for drive_idx, drive in enumerate(plays_data):
+                if pitch_count >= 10:  # Focus on first 10 pitches
+                    break
                     
-                    # Extract pitch details
-                    velocity = play.get('pitchVelocity')
-                    pitch_type = play.get('pitchType', {})
-                    pitch_coord = play.get('pitchCoordinate', {})
+                if 'plays' not in drive:
+                    continue
                     
-                    if velocity:
-                        print(f"  Velocity: {velocity} mph")
-                        
-                    if isinstance(pitch_type, dict) and 'text' in pitch_type:
-                        print(f"  Type: {pitch_type['text']}")
-                        
-                    if pitch_coord and isinstance(pitch_coord, dict):
-                        espn_x = pitch_coord.get('x')
-                        espn_y = pitch_coord.get('y')
-                        
-                        if espn_x is not None and espn_y is not None:
-                            print(f"  Raw ESPN data: x={espn_x}, y={espn_y}")
-                            print(f"  ESPN interpretation: x=vertical({espn_x}), y=horizontal({espn_y})")
-                            print(f"  Our display format: ({espn_y}, {espn_x}) = (horizontal, vertical)")
+                # Check if this is the first batter (drive 1 usually)
+                if drive_idx == 0:  # First drive
+                    print(f"Drive {drive_idx + 1}:")
+                    
+                    for play_idx, play in enumerate(drive['plays']):
+                        if pitch_count >= 10:
+                            break
                             
-                            # Apply our location logic
-                            from scores import get_pitch_location
-                            location = get_pitch_location(espn_y, espn_x)  # horizontal, vertical
-                            print(f"  Location: {location}")
+                        play_text = play.get('text', '')
+                        
+                        # Look for pitch-related plays
+                        is_pitch = any(keyword in play_text.lower() for keyword in 
+                                     ['ball', 'strike', 'foul', 'looking', 'swinging', 'hit by pitch'])
+                        
+                        if is_pitch:
+                            pitch_count += 1
+                            print(f"\\n  Pitch {pitch_count}: {play_text}")
                             
-                            # Analyze the coordinate meaning
-                            if espn_x < 150:
-                                height_desc = "LOW"
-                            elif espn_x > 200:
-                                height_desc = "HIGH" 
-                            else:
-                                height_desc = "MIDDLE"
+                            # Extract pitch details
+                            velocity = play.get('pitchVelocity')
+                            pitch_type = play.get('pitchType', {})
+                            pitch_coord = play.get('pitchCoordinate', {})
+                            
+                            if velocity:
+                                print(f"    Velocity: {velocity} mph")
                                 
-                            if espn_y < 80:
-                                horiz_desc = "INSIDE"
-                            elif espn_y > 140:
-                                horiz_desc = "OUTSIDE"
-                            else:
-                                horiz_desc = "STRIKE_ZONE"
+                            if isinstance(pitch_type, dict) and 'text' in pitch_type:
+                                print(f"    Type: {pitch_type['text']}")
                                 
-                            print(f"  Analysis: {height_desc} and {horiz_desc}")
-                    else:
-                        print("  No coordinate data")
+                            if pitch_coord and isinstance(pitch_coord, dict):
+                                espn_x = pitch_coord.get('x')
+                                espn_y = pitch_coord.get('y')
+                                
+                                if espn_x is not None and espn_y is not None:
+                                    print(f"    Raw ESPN: x={espn_x}, y={espn_y}")
+                                    
+                                    # Test both interpretations
+                                    from scores import get_pitch_location
+                                    
+                                    # Current interpretation (x=horizontal, y=vertical)
+                                    location_current = get_pitch_location(espn_x, espn_y)
+                                    print(f"    Current logic: ({espn_x}, {espn_y}) = {location_current}")
+                                    
+                                    # Check if this makes sense for the play type
+                                    if 'hit by pitch' in play_text.lower():
+                                        print(f"    *** HIT BY PITCH - Should be INSIDE, showing: {location_current}")
+                                        if 'outside' in location_current.lower():
+                                            print(f"    *** PROBLEM: Hit by pitch shows as outside!")
+                            else:
+                                print("    No coordinate data")
+        else:
+            print("No plays data available")
+            if details:
+                print("Available keys:", list(details.keys()) if isinstance(details, dict) else type(details))
                         
     except Exception as e:
         print(f"Error: {e}")
