@@ -44,23 +44,28 @@ NEWS_DIALOG_HEIGHT = 500
 STANDINGS_DIALOG_WIDTH = 900
 STANDINGS_DIALOG_HEIGHT = 600
 
-def get_pitch_location(x: int, y: int) -> str:
-    """Convert pitch coordinates to accessible location description"""
-    if x is None or y is None:
+def get_pitch_location(horizontal: int, vertical: int) -> str:
+    """Convert pitch coordinates to accessible location description
+    
+    Note: ESPN API coordinates appear to be swapped from traditional x,y:
+    - ESPN 'x' = vertical position (height)
+    - ESPN 'y' = horizontal position (left-right)
+    """
+    if horizontal is None or vertical is None:
         return ""
     
     # Strike zone boundaries based on coordinate analysis
-    if 80 <= x <= 140:  # Strike zone width
-        if y > 200:
+    if 80 <= horizontal <= 140:  # Strike zone width
+        if vertical > 200:
             return "High Strike Zone"
-        elif y < 150:
+        elif vertical < 150:
             return "Low Strike Zone" 
         else:
             return "Strike Zone Center"
-    elif x < 80:
-        return "Way Inside" if x < 50 else "Inside"
+    elif horizontal < 80:
+        return "Way Inside" if horizontal < 50 else "Inside"
     else:
-        return "Way Outside" if x > 170 else "Outside"
+        return "Way Outside" if horizontal > 170 else "Outside"
 
 class ConfigDialog(QDialog):
     def __init__(self, details, selected, parent=None):
@@ -1869,14 +1874,16 @@ class GameDetailsView(BaseView):
                     pitch_coordinate = play.get("pitchCoordinate", {})
                     
                     # Get pitch location if coordinates are available
+                    # Note: ESPN coordinates are swapped - x=vertical, y=horizontal
                     location = ""
                     coordinates_text = ""
                     if pitch_coordinate and isinstance(pitch_coordinate, dict):
-                        x = pitch_coordinate.get("x")
-                        y = pitch_coordinate.get("y")
-                        if x is not None and y is not None:
-                            location = get_pitch_location(x, y)
-                            coordinates_text = f"({x}, {y})"
+                        espn_x = pitch_coordinate.get("x")  # ESPN's x = vertical (height)
+                        espn_y = pitch_coordinate.get("y")  # ESPN's y = horizontal (left-right)
+                        if espn_x is not None and espn_y is not None:
+                            # Swap coordinates: use ESPN's y as horizontal, ESPN's x as vertical
+                            location = get_pitch_location(espn_y, espn_x)
+                            coordinates_text = f"({espn_y}, {espn_x})"  # Display as (horizontal, vertical)
                     
                     # Build enhanced text with velocity, type, location, and coordinates
                     details = []
@@ -2490,14 +2497,16 @@ class GameDetailsView(BaseView):
                     pitch_coordinate = play.get("pitchCoordinate", {})
                     
                     # Get pitch location if coordinates are available
+                    # Note: ESPN coordinates are swapped - x=vertical, y=horizontal
                     location = ""
                     coordinates_text = ""
                     if pitch_coordinate and isinstance(pitch_coordinate, dict):
-                        x = pitch_coordinate.get("x")
-                        y = pitch_coordinate.get("y")
-                        if x is not None and y is not None:
-                            location = get_pitch_location(x, y)
-                            coordinates_text = f"({x}, {y})"
+                        espn_x = pitch_coordinate.get("x")  # ESPN's x = vertical (height)
+                        espn_y = pitch_coordinate.get("y")  # ESPN's y = horizontal (left-right)
+                        if espn_x is not None and espn_y is not None:
+                            # Swap coordinates: use ESPN's y as horizontal, ESPN's x as vertical
+                            location = get_pitch_location(espn_y, espn_x)
+                            coordinates_text = f"({espn_y}, {espn_x})"  # Display as (horizontal, vertical)
                     
                     # Build enhanced text with velocity, type, location, and coordinates
                     details = []
