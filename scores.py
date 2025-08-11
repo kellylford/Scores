@@ -44,6 +44,24 @@ NEWS_DIALOG_HEIGHT = 500
 STANDINGS_DIALOG_WIDTH = 900
 STANDINGS_DIALOG_HEIGHT = 600
 
+def get_pitch_location(x: int, y: int) -> str:
+    """Convert pitch coordinates to accessible location description"""
+    if x is None or y is None:
+        return ""
+    
+    # Strike zone boundaries based on coordinate analysis
+    if 80 <= x <= 140:  # Strike zone width
+        if y > 200:
+            return "High Strike Zone"
+        elif y < 150:
+            return "Low Strike Zone" 
+        else:
+            return "Strike Zone Center"
+    elif x < 80:
+        return "Way Inside" if x < 50 else "Inside"
+    else:
+        return "Way Outside" if x > 170 else "Outside"
+
 class ConfigDialog(QDialog):
     def __init__(self, details, selected, parent=None):
         super().__init__(parent)
@@ -1844,14 +1862,30 @@ class GameDetailsView(BaseView):
                     velocity = play.get("pitchVelocity")
                     pitch_type = play.get("pitchType", {})
                     pitch_type_text = pitch_type.get("text", "") if isinstance(pitch_type, dict) else ""
+                    pitch_coordinate = play.get("pitchCoordinate", {})
                     
-                    # Add velocity and pitch type if available
-                    if velocity and pitch_type_text:
-                        enhanced_text = f"{play_text} ({velocity} mph {pitch_type_text})"
-                    elif velocity:
-                        enhanced_text = f"{play_text} ({velocity} mph)"
-                    elif pitch_type_text:
-                        enhanced_text = f"{play_text} ({pitch_type_text})"
+                    # Get pitch location if coordinates are available
+                    location = ""
+                    if pitch_coordinate and isinstance(pitch_coordinate, dict):
+                        x = pitch_coordinate.get("x")
+                        y = pitch_coordinate.get("y")
+                        location = get_pitch_location(x, y)
+                    
+                    # Build enhanced text with velocity, type, and location
+                    details = []
+                    if velocity:
+                        details.append(f"{velocity} mph")
+                    if pitch_type_text:
+                        details.append(pitch_type_text)
+                    
+                    if details:
+                        detail_text = " ".join(details)
+                        if location:
+                            enhanced_text = f"{play_text} ({detail_text}) - {location}"
+                        else:
+                            enhanced_text = f"{play_text} ({detail_text})"
+                    elif location:
+                        enhanced_text = f"{play_text} - {location}"
                     
                     pitch_item = QTreeWidgetItem([f"  {enhanced_text}"])
                     at_bat_item.addChild(pitch_item)
@@ -2440,14 +2474,30 @@ class GameDetailsView(BaseView):
                     velocity = play.get("pitchVelocity")
                     pitch_type = play.get("pitchType", {})
                     pitch_type_text = pitch_type.get("text", "") if isinstance(pitch_type, dict) else ""
+                    pitch_coordinate = play.get("pitchCoordinate", {})
                     
-                    # Add velocity and pitch type if available
-                    if velocity and pitch_type_text:
-                        enhanced_text = f"{play_text} ({velocity} mph {pitch_type_text})"
-                    elif velocity:
-                        enhanced_text = f"{play_text} ({velocity} mph)"
-                    elif pitch_type_text:
-                        enhanced_text = f"{play_text} ({pitch_type_text})"
+                    # Get pitch location if coordinates are available
+                    location = ""
+                    if pitch_coordinate and isinstance(pitch_coordinate, dict):
+                        x = pitch_coordinate.get("x")
+                        y = pitch_coordinate.get("y")
+                        location = get_pitch_location(x, y)
+                    
+                    # Build enhanced text with velocity, type, and location
+                    details = []
+                    if velocity:
+                        details.append(f"{velocity} mph")
+                    if pitch_type_text:
+                        details.append(pitch_type_text)
+                    
+                    if details:
+                        detail_text = " ".join(details)
+                        if location:
+                            enhanced_text = f"{play_text} ({detail_text}) - {location}"
+                        else:
+                            enhanced_text = f"{play_text} ({detail_text})"
+                    elif location:
+                        enhanced_text = f"{play_text} - {location}"
                     
                     pitch_plays.append(enhanced_text)
             
