@@ -1870,12 +1870,15 @@ class GameDetailsView(BaseView):
                     
                     # Get pitch location if coordinates are available
                     location = ""
+                    coordinates_text = ""
                     if pitch_coordinate and isinstance(pitch_coordinate, dict):
                         x = pitch_coordinate.get("x")
                         y = pitch_coordinate.get("y")
-                        location = get_pitch_location(x, y)
+                        if x is not None and y is not None:
+                            location = get_pitch_location(x, y)
+                            coordinates_text = f"({x}, {y})"
                     
-                    # Build enhanced text with velocity, type, and location
+                    # Build enhanced text with velocity, type, location, and coordinates
                     details = []
                     if velocity:
                         details.append(f"{velocity} mph")
@@ -1884,12 +1887,18 @@ class GameDetailsView(BaseView):
                     
                     if details:
                         detail_text = " ".join(details)
-                        if location:
+                        if location and coordinates_text:
+                            enhanced_text = f"{play_text} ({detail_text}) - {location} {coordinates_text}"
+                        elif location:
                             enhanced_text = f"{play_text} ({detail_text}) - {location}"
                         else:
                             enhanced_text = f"{play_text} ({detail_text})"
+                    elif location and coordinates_text:
+                        enhanced_text = f"{play_text} - {location} {coordinates_text}"
                     elif location:
                         enhanced_text = f"{play_text} - {location}"
+                    else:
+                        enhanced_text = play_text
                     
                     pitch_item = QTreeWidgetItem([f"  {enhanced_text}"])
                     at_bat_item.addChild(pitch_item)
@@ -2482,12 +2491,15 @@ class GameDetailsView(BaseView):
                     
                     # Get pitch location if coordinates are available
                     location = ""
+                    coordinates_text = ""
                     if pitch_coordinate and isinstance(pitch_coordinate, dict):
                         x = pitch_coordinate.get("x")
                         y = pitch_coordinate.get("y")
-                        location = get_pitch_location(x, y)
+                        if x is not None and y is not None:
+                            location = get_pitch_location(x, y)
+                            coordinates_text = f"({x}, {y})"
                     
-                    # Build enhanced text with velocity, type, and location
+                    # Build enhanced text with velocity, type, location, and coordinates
                     details = []
                     if velocity:
                         details.append(f"{velocity} mph")
@@ -2496,12 +2508,18 @@ class GameDetailsView(BaseView):
                     
                     if details:
                         detail_text = " ".join(details)
-                        if location:
+                        if location and coordinates_text:
+                            enhanced_text = f"{play_text} ({detail_text}) - {location} {coordinates_text}"
+                        elif location:
                             enhanced_text = f"{play_text} ({detail_text}) - {location}"
                         else:
                             enhanced_text = f"{play_text} ({detail_text})"
+                    elif location and coordinates_text:
+                        enhanced_text = f"{play_text} - {location} {coordinates_text}"
                     elif location:
                         enhanced_text = f"{play_text} - {location}"
+                    else:
+                        enhanced_text = play_text
                     
                     pitch_plays.append(enhanced_text)
             
