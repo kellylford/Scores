@@ -2,22 +2,22 @@
 
 A comprehensive sports scores application with enhanced accessibility features and detailed game analysis.
 
-## ✨ **NEW FEATURE HIGHLIGHT - Enhanced NFL Drive Display**
-Experience the flow of the game with our revolutionary NFL drive display! Each play now shows:
-- **Yardage information**: See actual yards gained or lost `(+8 yards)` or `(-3 yards)`
-- **Play type labels**: Instant recognition with `PASS:`, `RUSH:`, `SACK:` prefixes
-- **Situational context**: Automatic `RED ZONE`, `GOAL LINE`, and `4TH DOWN` highlighting
-- **Complete accessibility**: All enhancements work perfectly with screen readers
+## Enhanced NFL Drive Display
+The application now includes detailed NFL drive analysis with contextual play information:
+- **Yardage information**: Displays actual yards gained or lost for each play
+- **Play type identification**: Clear labeling of pass, rush, and special teams plays
+- **Situational context**: Automatic highlighting of red zone, goal line, and critical down situations
+- **Improved organization**: Special teams plays properly separated from offensive drives
 
-This transforms how you follow football games - you can feel the momentum shifts and critical moments!
+This provides comprehensive context for following game flow and understanding play impact.
 
 ## Purpose
 A fully accessible sports application providing real-time scores, detailed game information, and comprehensive play-by-play analysis for multiple sports leagues.
 
 ## Key Features
 - **Multi-Sport Support**: NFL, MLB, NBA, and more
-- **Enhanced NFL Drives**: Revolutionary play-by-play with context
-- **Accessibility First**: Screen reader compatible, keyboard navigation
+- **Enhanced NFL Drives**: Detailed play-by-play with statistical context
+- **Complete Accessibility**: Screen reader compatible with full keyboard navigation
 - **Live Updates**: Real-time scores and game status
 - **Detailed Analysis**: Player stats, standings, injury reports
 - **News Integration**: Latest headlines and stories
@@ -152,17 +152,17 @@ pip install -r requirements.txt
 python scores.py
 ```
 
-## 🏈 NFL Drive Display Features
+## NFL Drive Display Features
 
-### What Makes It Special
-The NFL drive display revolutionizes how you follow football games by showing the flow and momentum:
+### Enhanced Play Information
+The NFL drive display provides comprehensive context for each play:
 
-**Before Enhancement:**
+**Standard Display:**
 ```
 [1st & 10 from CHI 25] T.Bagent pass complete to receiver
 ```
 
-**After Enhancement:**
+**Enhanced Display:**
 ```
 [1st & 10 from CHI 25] PASS: (+8 yards) T.Bagent pass complete to receiver
 [RED ZONE 3rd & 2 from CHI 18] RUSH: (+1 yard) Running back up the middle  
@@ -170,17 +170,16 @@ The NFL drive display revolutionizes how you follow football games by showing th
 ```
 
 ### Key Features:
-- **Yardage Display**: See exactly how many yards each play gained or lost
-- **Play Type Labels**: Instant recognition of PASS, RUSH, SACK, PUNT, etc.
-- **Situational Context**: Automatic highlighting of RED ZONE, GOAL LINE, 4TH DOWN situations
-- **Special Teams**: Kickoffs, punts, and field goals properly separated
-- **Momentum Tracking**: Feel the flow of drives and game-changing moments
+- **Yardage Display**: Shows exact yards gained or lost on each play
+- **Play Type Labels**: Clear identification of pass, rush, sack, punt, etc.
+- **Situational Context**: Highlights red zone, goal line, and fourth down situations
+- **Special Teams**: Kickoffs, punts, and field goals properly organized
+- **Game Flow**: Complete context for understanding drive momentum
 
-### Accessibility
-- All features work with screen readers
-- Text-based enhancements (no visual-only indicators)
-- Full keyboard navigation
-- Contextual information read aloud
+### Implementation Notes
+- Text-based enhancements for full screen reader compatibility
+- Keyboard navigation maintained throughout
+- Information provided without relying on visual indicators
 
 ## Technical Documentation
 

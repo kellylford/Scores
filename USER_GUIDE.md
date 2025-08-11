@@ -1,15 +1,12 @@
 # Sports Scores Application - User Guide
 
-**Version:** 1.0.0 - Enhanced Edition  
+**Version:** 1.0.0  
 **Last Updated:** August 10, 2025  
 **Platform:** Windows Desktop (PyQt6)
 
-## ✨ **NEW FEATURE SPOTLIGHT - Revolutionary NFL Drive Display!**
+## Enhanced NFL Drive Display
 
-Experience football like never before with our enhanced drive display that shows the flow and momentum of every play:
-
-**🏈 BEFORE:** Basic play descriptions
-**🏆 AFTER:** Rich contextual analysis with yardage, play types, and situational awareness!
+The NFL drive display now provides detailed contextual information for each play, including yardage gained or lost, play types, and field position awareness:
 
 ```
 [RED ZONE 3rd & 2 from OPP 18] PASS: (+15 yards) TOUCHDOWN! (14-7)
@@ -18,7 +15,7 @@ Experience football like never before with our enhanced drive display that shows
 
 ## 📋 Table of Contents
 1. [Getting Started](#getting-started)
-2. [🏈 NEW! Enhanced NFL Features](#-new-enhanced-nfl-features)
+2. [Enhanced NFL Features](#enhanced-nfl-features)
 3. [General Navigation](#general-navigation)
 4. [Keyboard Shortcuts & Hotkeys](#keyboard-shortcuts--hotkeys)
 5. [Main Features](#main-features)
@@ -46,24 +43,23 @@ Home (Leagues) → League (Games List) → Game Details → Specific Views (Play
 
 ---
 
-## 🏈 **NEW! Enhanced NFL Features**
+## Enhanced NFL Features
 
-### **Game-Changing Drive Display**
-Our revolutionary NFL experience transforms how you follow football games by showing context, momentum, and the flow of every drive.
+### Detailed Drive Display
+The NFL experience includes comprehensive drive information that provides context for each play's impact on the game.
 
-#### **What You'll See**
-Instead of basic play descriptions, every NFL play now includes:
+#### Play Information Elements
 
-**1. Yardage Information:**
+**Yardage Analysis:**
 ```
-PASS: (+8 yards) - Successful gain
-RUSH: (-2 yards) - Loss of yards  
+PASS: (+8 yards) - Yards gained on the play
+RUSH: (-2 yards) - Yards lost  
 SACK: (-7 yards) - Quarterback sack
 ```
 
-**2. Play Type Labels:**
+**Play Type Identification:**
 ```
-PASS: - Passing plays (complete/incomplete/interception)
+PASS: - Passing plays (complete, incomplete, interception)
 RUSH: - Running plays
 SACK: - Quarterback sacks
 PUNT: - Punting situations
@@ -71,15 +67,14 @@ FIELD GOAL: - Kicking plays
 KICKOFF: - Special teams kickoffs
 ```
 
-**3. Situational Context:**
+**Field Position Context:**
 ```
-RED ZONE - Team within 20 yards of goal line
-GOAL LINE - Team within 5 yards of scoring
-4TH DOWN - Critical fourth down situations
+RED ZONE - Within 20 yards of goal line
+GOAL LINE - Within 5 yards of scoring
+4TH DOWN - Fourth down situations
 ```
 
-#### **Real Game Example**
-Here's how a scoring drive now appears:
+#### Example Drive Display
 ```
 DRIVE 3 - Chicago Bears (7 plays, 68 yards, 3:42)
 [1st & 10 from CHI 32] PASS: (+12 yards) Williams complete to Moore
@@ -90,24 +85,19 @@ DRIVE 3 - Chicago Bears (7 plays, 68 yards, 3:42)
 [GOAL LINE 3rd & Goal from OPP 4] PASS: (+4 yards) TOUCHDOWN! (14-7)
 ```
 
-#### **Why This Matters**
-- **Feel the momentum:** See when drives stall vs. when they build steam
-- **Understand field position:** RED ZONE and GOAL LINE alerts show critical moments
-- **Track efficiency:** Yardage shows which plays actually move the ball
-- **Special teams clarity:** Kickoffs no longer mixed up with offensive drives
+#### Key Improvements
+- **Play Context:** Field position and down/distance clearly indicated
+- **Statistical Information:** Actual yardage gained or lost on each play
+- **Play Type Clarity:** Immediate identification of play types
+- **Special Teams Separation:** Kickoffs and punts properly distinguished from offensive drives
+- **Critical Situations:** Field position alerts for scoring opportunities
 
-#### **Accessibility Excellence**
-- All enhancements work perfectly with screen readers
-- Text-based indicators (no visual-only symbols)
-- Logical reading order for complex drive information
-- Full keyboard navigation maintained
-
-### **How to Experience Enhanced NFL**
-1. **Start app:** `python scores.py`
-2. **Select NFL:** Choose from league list
-3. **Pick a game:** Any active or completed game
-4. **View drives:** Scroll to the "Drives" section
-5. **Experience the magic:** See every play with full context!
+### Using Enhanced NFL Display
+1. Start the application
+2. Select NFL from league list
+3. Choose any active or completed game
+4. Navigate to the "Drives" section
+5. Review drive-by-drive breakdown with detailed play information
 
 ---
 
@@ -238,40 +228,40 @@ MLB League → Game → Plays → Inning 1 → Individual Plays → Pitch Detail
 
 ## Football (NFL) Features
 
-### 🏆 **ENHANCED Drive-by-Drive Experience**
-Our revolutionary NFL display completely transforms how you follow football games!
+### Enhanced Drive Display
+The NFL section provides comprehensive drive information with detailed play context.
 
-#### **Enhanced Drive Display**
-1. **Access:** From game details, look for "Drives" section
-2. **Structure:** Organized by quarters, then drives with full context
-3. **Enhanced Content:** Each drive now shows:
+#### Drive Organization
+1. **Access:** From game details, navigate to "Drives" section
+2. **Structure:** Organized by quarters, then individual drives
+3. **Content:** Each drive includes:
    - Starting and ending field position
    - Drive summary (time, plays, yards)  
    - Drive outcome (touchdown, field goal, punt, etc.)
-   - **NEW:** Individual plays with rich contextual information
+   - Individual play details with enhanced information
 
-#### **Revolutionary Play Details**
-Every play now includes multiple layers of information:
+#### Detailed Play Information
+Each play now includes multiple data points:
 
 **Yardage Analysis:**
-- `(+8 yards)` - Successful gains clearly marked
-- `(-3 yards)` - Losses immediately visible
+- `(+8 yards)` - Yards gained on successful plays
+- `(-3 yards)` - Yards lost on unsuccessful plays
 - `(+0 yards)` - No gain situations
 
-**Play Type Recognition:**
+**Play Type Classification:**
 - `PASS:` - All passing plays (complete, incomplete, interception)
-- `RUSH:` - Running plays up the middle, outside, etc.
+- `RUSH:` - Running plays
 - `SACK:` - Quarterback sacks with yardage lost
 - `PUNT:` - Punting situations
 - `FIELD GOAL:` - Kicking attempts with distance
-- `KICKOFF:` - Special teams plays (now properly separated!)
+- `KICKOFF:` - Special teams plays (properly separated from drives)
 
-**Situational Awareness:**
-- `RED ZONE` - Critical scoring opportunities (within 20 yards)
-- `GOAL LINE` - Immediate scoring threats (within 5 yards)  
-- `4TH DOWN` - Make-or-break conversion attempts
+**Situational Context:**
+- `RED ZONE` - Scoring opportunities within 20 yards
+- `GOAL LINE` - Immediate scoring threats within 5 yards  
+- `4TH DOWN` - Critical conversion attempts
 
-#### **Example Enhanced Drive**
+#### Example Enhanced Drive
 ```
 DRIVE 2 - Buffalo Bills (9 plays, 64 yards, 1:35)
 [1st & 10 from BUF 35] PASS: (+8 yards) Allen complete to Diggs
@@ -281,14 +271,13 @@ DRIVE 2 - Buffalo Bills (9 plays, 64 yards, 1:35)
 [GOAL LINE 3rd & Goal from OPP 6] PASS: (+6 yards) TOUCHDOWN! (14-7)
 ```
 
-#### **Why This Changes Everything**
-- **Momentum Tracking:** See exactly when drives build steam or stall
-- **Strategic Understanding:** RED ZONE alerts show critical moments
-- **Play Efficiency:** Yardage shows which plays actually move the ball
-- **Game Flow:** Feel the rhythm and pace of the entire game
-- **Special Teams Clarity:** Kickoffs and punts properly distinguished
+#### Information Benefits
+- **Game Flow Understanding:** See drive momentum and efficiency
+- **Strategic Context:** Field position awareness for critical moments
+- **Play Impact:** Statistical significance of each play
+- **Special Teams Clarity:** Proper separation of kickoffs and punts from offensive drives
 
-### Classic NFL Information Still Available
+### Traditional NFL Information
 - **Team Statistics:** Total yards, time of possession
 - **Scoring Summary:** All touchdowns, field goals, safeties  
 - **Key Players:** Leading rushers, passers, receivers
