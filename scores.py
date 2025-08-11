@@ -1466,21 +1466,62 @@ class GameDetailsView(BaseView):
                         down = start.get("down", 0)
                         distance = start.get("distance", 0)
                         possession_text = start.get("possessionText", "")
+                        yards_to_endzone = start.get("yardsToEndzone", 0)
+                        
+                        # Get additional NFL-specific data
+                        stat_yardage = play.get("statYardage", 0)
+                        play_type = play.get("type", {})
+                        play_type_text = play_type.get("text", "")
+                        
+                        # Build enhanced play description
+                        enhanced_text = play_text
+                        
+                        # Add yardage information if available
+                        if stat_yardage != 0:
+                            yardage_display = f"(+{stat_yardage} yards)" if stat_yardage > 0 else f"({stat_yardage} yards)"
+                            enhanced_text = f"{yardage_display} {enhanced_text}"
+                        
+                        # Add play type for clarity (accessible text)
+                        if play_type_text and play_type_text.lower() not in enhanced_text.lower():
+                            if "pass" in play_type_text.lower():
+                                enhanced_text = f"PASS: {enhanced_text}"
+                            elif "rush" in play_type_text.lower():
+                                enhanced_text = f"RUSH: {enhanced_text}"
+                            elif "sack" in play_type_text.lower():
+                                enhanced_text = f"SACK: {enhanced_text}"
+                            elif "penalty" in play_type_text.lower():
+                                enhanced_text = f"PENALTY: {enhanced_text}"
+                            elif "punt" in play_type_text.lower():
+                                enhanced_text = f"PUNT: {enhanced_text}"
+                            elif "field goal" in play_type_text.lower():
+                                enhanced_text = f"FIELD GOAL: {enhanced_text}"
+                        
+                        # Add situational context
+                        situation_prefix = ""
+                        if yards_to_endzone <= 5:
+                            situation_prefix = "GOAL LINE "
+                        elif yards_to_endzone <= 20:
+                            situation_prefix = "RED ZONE "
+                        elif down == 4:
+                            situation_prefix = "4TH DOWN "
                         
                         # Use start data for down/distance display (not end!)
                         if down > 0:  # Regular downs
                             if possession_text:
-                                down_distance_prefix = f"[{down} & {distance} from {possession_text}] "
+                                if situation_prefix:
+                                    down_distance_prefix = f"[{situation_prefix}{down} & {distance} from {possession_text}] "
+                                else:
+                                    down_distance_prefix = f"[{down} & {distance} from {possession_text}] "
                             else:
-                                down_distance_prefix = f"[{down} & {distance}] "
+                                down_distance_prefix = f"[{situation_prefix}{down} & {distance}] "
                         
                         # Add extra context for key plays
                         if play.get("scoringPlay"):
                             away_score = play.get("awayScore", 0)
                             home_score = play.get("homeScore", 0)
-                            play_text = f"🏈 SCORE: {down_distance_prefix}{play_text} ({away_score}-{home_score})"
+                            play_text = f"TOUCHDOWN: {down_distance_prefix}{enhanced_text} ({away_score}-{home_score})"
                         else:
-                            play_text = f"{down_distance_prefix}{play_text}"
+                            play_text = f"{down_distance_prefix}{enhanced_text}"
                         
                         # Add clock context
                         clock = play.get("clock", {})
@@ -1494,6 +1535,12 @@ class GameDetailsView(BaseView):
                         # Highlight scoring plays
                         if play.get("scoringPlay"):
                             play_item.setBackground(0, QColor(255, 255, 150))  # Light yellow
+                        # Highlight goal line plays
+                        elif yards_to_endzone <= 5:
+                            play_item.setBackground(0, QColor(255, 240, 240))  # Light red
+                        # Highlight red zone plays  
+                        elif yards_to_endzone <= 20:
+                            play_item.setBackground(0, QColor(255, 250, 240))  # Light orange
                         
                         drive_item.addChild(play_item)
         
@@ -2755,14 +2802,59 @@ class GameDetailsView(BaseView):
                     down = start.get("down", 0)
                     distance = start.get("distance", 0)
                     possession_text = start.get("possessionText", "")
+                    yards_to_endzone = start.get("yardsToEndzone", 0)
+                    
+                    # Get additional NFL-specific data
+                    stat_yardage = play.get("statYardage", 0)
+                    play_type_obj = play.get("type", {})
+                    play_type_name = play_type_obj.get("text", "")
+                    
+                    # Build enhanced play description
+                    enhanced_text = play_text
+                    
+                    # Add yardage information if available
+                    if stat_yardage != 0:
+                        yardage_display = f"(+{stat_yardage} yards)" if stat_yardage > 0 else f"({stat_yardage} yards)"
+                        enhanced_text = f"{yardage_display} {enhanced_text}"
+                    
+                    # Add play type for clarity (accessible text)
+                    if play_type_name and play_type_name.lower() not in enhanced_text.lower():
+                        if "pass" in play_type_name.lower():
+                            enhanced_text = f"PASS: {enhanced_text}"
+                        elif "rush" in play_type_name.lower():
+                            enhanced_text = f"RUSH: {enhanced_text}"
+                        elif "sack" in play_type_name.lower():
+                            enhanced_text = f"SACK: {enhanced_text}"
+                        elif "penalty" in play_type_name.lower():
+                            enhanced_text = f"PENALTY: {enhanced_text}"
+                        elif "punt" in play_type_name.lower():
+                            enhanced_text = f"PUNT: {enhanced_text}"
+                        elif "field goal" in play_type_name.lower():
+                            enhanced_text = f"FIELD GOAL: {enhanced_text}"
+                    
+                    # Add situational context
+                    situation_prefix = ""
+                    situation_class = ""
+                    if yards_to_endzone <= 5:
+                        situation_prefix = "GOAL LINE "
+                        situation_class = "goal-line"
+                    elif yards_to_endzone <= 20:
+                        situation_prefix = "RED ZONE "
+                        situation_class = "red-zone"
+                    elif down == 4:
+                        situation_prefix = "4TH DOWN "
+                        situation_class = "fourth-down"
                     
                     # Use start data for down/distance display (not end!)
                     down_distance_prefix = ""
                     if down > 0:  # Regular downs
                         if possession_text:
-                            down_distance_prefix = f"[{down} & {distance} from {possession_text}] "
+                            if situation_prefix:
+                                down_distance_prefix = f"[{situation_prefix}{down} & {distance} from {possession_text}] "
+                            else:
+                                down_distance_prefix = f"[{down} & {distance} from {possession_text}] "
                         else:
-                            down_distance_prefix = f"[{down} & {distance}] "
+                            down_distance_prefix = f"[{situation_prefix}{down} & {distance}] "
                     
                     # Check for scoring play
                     scoring_class = ""
@@ -2770,9 +2862,9 @@ class GameDetailsView(BaseView):
                         scoring_class = "scoring"
                         away_score = play.get("awayScore", 0)
                         home_score = play.get("homeScore", 0)
-                        play_text = f"🏈 SCORE: {down_distance_prefix}{play_text} ({away_score}-{home_score})"
+                        play_text = f"TOUCHDOWN: {down_distance_prefix}{enhanced_text} ({away_score}-{home_score})"
                     else:
-                        play_text = f"{down_distance_prefix}{play_text}"
+                        play_text = f"{down_distance_prefix}{enhanced_text}"
                     
                     # Add clock context
                     clock = play.get("clock", {})
@@ -2781,7 +2873,9 @@ class GameDetailsView(BaseView):
                         if clock_display:
                             play_text = f"[{clock_display}] {play_text}"
                     
-                    html += f'<li class="play-item {scoring_class}">{play_text}</li>'
+                    # Combine CSS classes
+                    css_classes = f"play-item {scoring_class} {situation_class}".strip()
+                    html += f'<li class="{css_classes}">{play_text}</li>'
                 
                 html += '</ul>'
                 html += '</div>'
