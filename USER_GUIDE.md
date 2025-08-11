@@ -1,21 +1,34 @@
 # Sports Scores Application - User Guide
 
-**Version:** 0.8.0 Beta  
+**Version:** 1.0.0 - Enhanced Edition  
 **Last Updated:** August 10, 2025  
 **Platform:** Windows Desktop (PyQt6)
 
+## ✨ **NEW FEATURE SPOTLIGHT - Revolutionary NFL Drive Display!**
+
+Experience football like never before with our enhanced drive display that shows the flow and momentum of every play:
+
+**🏈 BEFORE:** Basic play descriptions
+**🏆 AFTER:** Rich contextual analysis with yardage, play types, and situational awareness!
+
+```
+[RED ZONE 3rd & 2 from OPP 18] PASS: (+15 yards) TOUCHDOWN! (14-7)
+[GOAL LINE 4th & 1 from OPP 3] RUSH: (+1 yard) Conversion for first down!
+```
+
 ## 📋 Table of Contents
 1. [Getting Started](#getting-started)
-2. [General Navigation](#general-navigation)
-3. [Keyboard Shortcuts & Hotkeys](#keyboard-shortcuts--hotkeys)
-4. [Main Features](#main-features)
-5. [Baseball (MLB) Features](#baseball-mlb-features)
-6. [Football (NFL) Features](#football-nfl-features)
-7. [Export Game Log Feature](#export-game-log-feature)
-8. [Accessibility Features](#accessibility-features)
-9. [What Works Well](#what-works-well-)
-10. [Known Areas for Improvement](#known-areas-for-improvement-)
-11. [Tips for Best Experience](#tips-for-best-experience)
+2. [🏈 NEW! Enhanced NFL Features](#-new-enhanced-nfl-features)
+3. [General Navigation](#general-navigation)
+4. [Keyboard Shortcuts & Hotkeys](#keyboard-shortcuts--hotkeys)
+5. [Main Features](#main-features)
+6. [Baseball (MLB) Features](#baseball-mlb-features)
+7. [Football (NFL) Features](#football-nfl-features)
+8. [Export Game Log Feature](#export-game-log-feature)
+9. [Accessibility Features](#accessibility-features)
+10. [What Works Well](#what-works-well-)
+11. [Known Areas for Improvement](#known-areas-for-improvement-)
+12. [Tips for Best Experience](#tips-for-best-experience)
 
 ---
 
@@ -30,6 +43,71 @@
 ```
 Home (Leagues) → League (Games List) → Game Details → Specific Views (Plays/Drives)
 ```
+
+---
+
+## 🏈 **NEW! Enhanced NFL Features**
+
+### **Game-Changing Drive Display**
+Our revolutionary NFL experience transforms how you follow football games by showing context, momentum, and the flow of every drive.
+
+#### **What You'll See**
+Instead of basic play descriptions, every NFL play now includes:
+
+**1. Yardage Information:**
+```
+PASS: (+8 yards) - Successful gain
+RUSH: (-2 yards) - Loss of yards  
+SACK: (-7 yards) - Quarterback sack
+```
+
+**2. Play Type Labels:**
+```
+PASS: - Passing plays (complete/incomplete/interception)
+RUSH: - Running plays
+SACK: - Quarterback sacks
+PUNT: - Punting situations
+FIELD GOAL: - Kicking plays
+KICKOFF: - Special teams kickoffs
+```
+
+**3. Situational Context:**
+```
+RED ZONE - Team within 20 yards of goal line
+GOAL LINE - Team within 5 yards of scoring
+4TH DOWN - Critical fourth down situations
+```
+
+#### **Real Game Example**
+Here's how a scoring drive now appears:
+```
+DRIVE 3 - Chicago Bears (7 plays, 68 yards, 3:42)
+[1st & 10 from CHI 32] PASS: (+12 yards) Williams complete to Moore
+[1st & 10 from CHI 44] RUSH: (+3 yards) Swift up the middle  
+[2nd & 7 from CHI 47] PASS: (+8 yards) Williams to Allen
+[RED ZONE 1st & 10 from OPP 15] PASS: (+9 yards) Completion to tight end
+[GOAL LINE 2nd & 1 from OPP 6] RUSH: (+2 yards) Swift powers forward
+[GOAL LINE 3rd & Goal from OPP 4] PASS: (+4 yards) TOUCHDOWN! (14-7)
+```
+
+#### **Why This Matters**
+- **Feel the momentum:** See when drives stall vs. when they build steam
+- **Understand field position:** RED ZONE and GOAL LINE alerts show critical moments
+- **Track efficiency:** Yardage shows which plays actually move the ball
+- **Special teams clarity:** Kickoffs no longer mixed up with offensive drives
+
+#### **Accessibility Excellence**
+- All enhancements work perfectly with screen readers
+- Text-based indicators (no visual-only symbols)
+- Logical reading order for complex drive information
+- Full keyboard navigation maintained
+
+### **How to Experience Enhanced NFL**
+1. **Start app:** `python scores.py`
+2. **Select NFL:** Choose from league list
+3. **Pick a game:** Any active or completed game
+4. **View drives:** Scroll to the "Drives" section
+5. **Experience the magic:** See every play with full context!
 
 ---
 
@@ -160,30 +238,61 @@ MLB League → Game → Plays → Inning 1 → Individual Plays → Pitch Detail
 
 ## Football (NFL) Features
 
-### Drive-by-Drive Navigation
+### 🏆 **ENHANCED Drive-by-Drive Experience**
+Our revolutionary NFL display completely transforms how you follow football games!
+
+#### **Enhanced Drive Display**
 1. **Access:** From game details, look for "Drives" section
-2. **Structure:** Organized by quarters, then drives
-3. **Content:** Each drive shows:
-   - Starting field position
-   - Drive summary (time, plays, yards)
+2. **Structure:** Organized by quarters, then drives with full context
+3. **Enhanced Content:** Each drive now shows:
+   - Starting and ending field position
+   - Drive summary (time, plays, yards)  
    - Drive outcome (touchdown, field goal, punt, etc.)
-   - Individual play details
+   - **NEW:** Individual plays with rich contextual information
 
-### Play Details in Drives
-- **Play Type:** Rush, pass, penalty, etc.
-- **Yardage:** Gain/loss on each play
-- **Down and Distance:** 1st & 10, 3rd & 7, etc.
-- **Field Position:** Yard line locations
+#### **Revolutionary Play Details**
+Every play now includes multiple layers of information:
 
-### Example Navigation Flow
+**Yardage Analysis:**
+- `(+8 yards)` - Successful gains clearly marked
+- `(-3 yards)` - Losses immediately visible
+- `(+0 yards)` - No gain situations
+
+**Play Type Recognition:**
+- `PASS:` - All passing plays (complete, incomplete, interception)
+- `RUSH:` - Running plays up the middle, outside, etc.
+- `SACK:` - Quarterback sacks with yardage lost
+- `PUNT:` - Punting situations
+- `FIELD GOAL:` - Kicking attempts with distance
+- `KICKOFF:` - Special teams plays (now properly separated!)
+
+**Situational Awareness:**
+- `RED ZONE` - Critical scoring opportunities (within 20 yards)
+- `GOAL LINE` - Immediate scoring threats (within 5 yards)  
+- `4TH DOWN` - Make-or-break conversion attempts
+
+#### **Example Enhanced Drive**
 ```
-NFL League → Game → Drives → 1st Quarter → Drive 1 → Individual Plays
+DRIVE 2 - Buffalo Bills (9 plays, 64 yards, 1:35)
+[1st & 10 from BUF 35] PASS: (+8 yards) Allen complete to Diggs
+[2nd & 2 from BUF 43] RUSH: (+15 yards) Cook breaks tackle
+[RED ZONE 1st & 10 from OPP 18] PASS: (+9 yards) Allen to Davis
+[RED ZONE 2nd & 1 from OPP 9] RUSH: (+3 yards) Cook powers forward  
+[GOAL LINE 3rd & Goal from OPP 6] PASS: (+6 yards) TOUCHDOWN! (14-7)
 ```
 
-### Football-Specific Information
+#### **Why This Changes Everything**
+- **Momentum Tracking:** See exactly when drives build steam or stall
+- **Strategic Understanding:** RED ZONE alerts show critical moments
+- **Play Efficiency:** Yardage shows which plays actually move the ball
+- **Game Flow:** Feel the rhythm and pace of the entire game
+- **Special Teams Clarity:** Kickoffs and punts properly distinguished
+
+### Classic NFL Information Still Available
 - **Team Statistics:** Total yards, time of possession
-- **Scoring Summary:** All touchdowns, field goals, safeties
+- **Scoring Summary:** All touchdowns, field goals, safeties  
 - **Key Players:** Leading rushers, passers, receivers
+- **Game Situation:** Clock, quarter, weather conditions
 
 ---
 

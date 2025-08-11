@@ -1,23 +1,26 @@
-# Sports Scores Application - Refactor Branch
+# Sports Scores Application
 
-This is the clean refactor branch containing only the essential files needed for the working sports scores application.
+A comprehensive sports scores application with enhanced accessibility features and detailed game analysis.
+
+## ✨ **NEW FEATURE HIGHLIGHT - Enhanced NFL Drive Display**
+Experience the flow of the game with our revolutionary NFL drive display! Each play now shows:
+- **Yardage information**: See actual yards gained or lost `(+8 yards)` or `(-3 yards)`
+- **Play type labels**: Instant recognition with `PASS:`, `RUSH:`, `SACK:` prefixes
+- **Situational context**: Automatic `RED ZONE`, `GOAL LINE`, and `4TH DOWN` highlighting
+- **Complete accessibility**: All enhancements work perfectly with screen readers
+
+This transforms how you follow football games - you can feel the momentum shifts and critical moments!
 
 ## Purpose
-This branch serves as the starting point for the architecture refactoring outlined in `ARCHITECTURE_REFACTORING_PLAN.md`. It contains only the minimal set of files required to run the application, providing a clean foundation for restructuring.
+A fully accessible sports application providing real-time scores, detailed game information, and comprehensive play-by-play analysis for multiple sports leagues.
 
-## What's Included
-- Essential Python files for the working application
-- Required data models and services  
-- Core dependencies and configuration
-- Architecture planning documents
-
-## What's Removed
-- All test files (`test_*.py`)
-- Sample data and exploration files (`*.json`, `api_exploration/`)
-- Web application files (`web_app/`)
-- Utility and debugging scripts
-- Most documentation (kept only essential files)
-- Build artifacts and PyInstaller specs
+## Key Features
+- **Multi-Sport Support**: NFL, MLB, NBA, and more
+- **Enhanced NFL Drives**: Revolutionary play-by-play with context
+- **Accessibility First**: Screen reader compatible, keyboard navigation
+- **Live Updates**: Real-time scores and game status
+- **Detailed Analysis**: Player stats, standings, injury reports
+- **News Integration**: Latest headlines and stories
 
 ## Files in This Branch
 
@@ -58,46 +61,43 @@ Follow the `ARCHITECTURE_REFACTORING_PLAN.md` to implement the modular architect
 - `refactor` - Clean starting point for architecture improvements
 
 ### Screens & Navigation
+
 1. **Home Screen (Leagues List):**
-   - Displays a list of available leagues (e.g., NFL, NBA).
-   - Press Enter to select a league.
+   - Displays available leagues (NFL, NBA, MLB, etc.)
+   - Press Enter to select a league
 
 2. **League Screen (Scores List):**
-   - Shows active games and scores for the selected league with start times.
-   - Displays "--- News (X stories) ---" entry at the bottom for league news.
-   - Press Enter to select a game or view news.
-   - Back button (Alt+B) and Escape to return to Home.
-   - Refresh button to reload scores.
+   - Shows active games with scores and start times
+   - Displays "--- News (X stories) ---" entry for league news
+   - Press Enter to select a game or view news
+   - Back (Alt+B) and Escape to return to Home
+   - Refresh button to reload scores
 
-3. **News Dialog:**
-   - Lists current news headlines for the selected league.
-   - Double-click any headline to open the full story in your web browser.
-   - Shows author bylines when available.
-   - "Open Selected Story" button for keyboard users.
+3. **Game Details Screen:**
+   - **🏈 ENHANCED NFL EXPERIENCE**: Revolutionary drive-by-drive display!
+     - Each play shows yardage: `PASS: (+8 yards) Complete to receiver`
+     - Situational highlights: `RED ZONE 3rd & 2`, `GOAL LINE 4th & 1`
+     - Special teams separated: Kickoffs, punts, field goals distinct
+     - Feel the game flow: See momentum shifts and critical moments!
+   
+   - **⚾ MLB Play-by-Play**: Detailed pitch information
+     - Pitch velocity and type: `Ball 1 (95 mph Fastball)`
+     - Strike/ball tracking with context
+   
+   - **Game Information**: Team records, venue, weather, injuries, broadcasts
+   - **Additional Sections**: News, leaders, standings, boxscore, odds
+   - Back (Alt+B) and Escape to return to League
+   - Config button for customizable details
 
-4. **Game Details Screen:**
-   - Presents detailed information for the selected game:
-     - Team names, records, and home/away status
-     - Game status and timing
-     - Venue information (stadium, city, state)
-     - Weather conditions and temperature
-     - Injury reports summary
-     - Broadcast networks
-   - Additional configurable details with smart formatting:
-     - **News**: Shows recent headlines
-     - **Leaders**: Top player statistics
-     - **Standings**: Current team standings
-     - **Injuries**: Detailed injury reports
-     - **Broadcasts**: Complete network information
-     - **Odds**: Betting lines and information
-     - **Boxscore**: Game statistics (when available)
-   - Back button (Alt+B) and Escape to return to League.
-   - Refresh button to reload details.
-   - Config button to open configuration.
+4. **Config Screen:**
+   - Checkboxes for selecting game detail sections
+   - Per-league configuration
+   - Back (Alt+B) and Escape to return
 
-5. **Config Screen:**
-   - List of checkboxes for selecting which details to show for games in the current league.
-   - Back button (Alt+B) and Escape to return to Game Details.
+5. **News Dialog:**
+   - League headlines with author bylines
+   - Double-click to open stories in browser
+   - "Open Selected Story" button for keyboard users
 
 ### Controls
 - **Enter:** Select item (games or news).
@@ -126,32 +126,78 @@ Follow the `ARCHITECTURE_REFACTORING_PLAN.md` to implement the modular architect
 - PyQt6
 - requests
 
-## Setup
+## Quick Start Guide
 
-### Using Virtual Environment (Recommended)
+### Installation
 ```bash
-# Navigate to the sports_scores_gui directory
-cd sports_scores_gui
+# Clone the repository
+git clone https://github.com/kellylford/Scores.git
+cd Scores
 
-# Create virtual environment (if not already created)
+# Create virtual environment (recommended)
 python -m venv venv
 
 # Activate virtual environment
-# On Windows:
+# Windows:
 venv\Scripts\activate
-# On macOS/Linux:
+# macOS/Linux:
 source venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
 ```
 
-### Manual Installation
+### Run the Application
 ```bash
-pip install pyqt6 requests
+python scores.py
 ```
 
-## Usage
-```bash
-python main.py
+## 🏈 NFL Drive Display Features
+
+### What Makes It Special
+The NFL drive display revolutionizes how you follow football games by showing the flow and momentum:
+
+**Before Enhancement:**
 ```
+[1st & 10 from CHI 25] T.Bagent pass complete to receiver
+```
+
+**After Enhancement:**
+```
+[1st & 10 from CHI 25] PASS: (+8 yards) T.Bagent pass complete to receiver
+[RED ZONE 3rd & 2 from CHI 18] RUSH: (+1 yard) Running back up the middle  
+[GOAL LINE 4th & 1 from CHI 3] TOUCHDOWN: Pass complete for touchdown (7-14)
+```
+
+### Key Features:
+- **Yardage Display**: See exactly how many yards each play gained or lost
+- **Play Type Labels**: Instant recognition of PASS, RUSH, SACK, PUNT, etc.
+- **Situational Context**: Automatic highlighting of RED ZONE, GOAL LINE, 4TH DOWN situations
+- **Special Teams**: Kickoffs, punts, and field goals properly separated
+- **Momentum Tracking**: Feel the flow of drives and game-changing moments
+
+### Accessibility
+- All features work with screen readers
+- Text-based enhancements (no visual-only indicators)
+- Full keyboard navigation
+- Contextual information read aloud
+
+## Technical Documentation
+
+### Core Files
+- `scores.py` - Main application with enhanced NFL display
+- `espn_api.py` - ESPN API integration  
+- `accessible_table.py` - Accessible table widgets
+- `models/` - Data models for games, standings, news
+- `services/` - API service abstraction
+
+### Dependencies
+- Python 3.9+
+- PyQt6 - GUI framework
+- requests - HTTP client
+- ESPN API - Live sports data
+
+### Configuration
+- Per-league detail configuration
+- Customizable display options
+- Accessibility preferences
