@@ -1461,21 +1461,14 @@ class GameDetailsView(BaseView):
                         # Add down and distance information for NFL plays
                         down_distance_prefix = ""
                         start = play.get("start", {})
+                        
+                        # For display, we want to show the situation at the START of the play
                         down = start.get("down", 0)
                         distance = start.get("distance", 0)
                         possession_text = start.get("possessionText", "")
                         
-                        # Use pre-formatted down/distance text if available
-                        end = play.get("end", {})
-                        short_down_text = end.get("shortDownDistanceText", "")
-                        
-                        if short_down_text:
-                            # Add field position context
-                            if possession_text:
-                                down_distance_prefix = f"[{short_down_text} from {possession_text}] "
-                            else:
-                                down_distance_prefix = f"[{short_down_text}] "
-                        elif down > 0:  # Regular downs
+                        # Use start data for down/distance display (not end!)
+                        if down > 0:  # Regular downs
                             if possession_text:
                                 down_distance_prefix = f"[{down} & {distance} from {possession_text}] "
                             else:
@@ -2763,23 +2756,13 @@ class GameDetailsView(BaseView):
                     distance = start.get("distance", 0)
                     possession_text = start.get("possessionText", "")
                     
-                    # Use pre-formatted down/distance text if available
-                    end = play.get("end", {})
-                    short_down_text = end.get("shortDownDistanceText", "")
-                    
-                    if short_down_text:
-                        # Add field position context
-                        if possession_text:
-                            down_distance_prefix = f"[{short_down_text} from {possession_text}] "
-                        else:
-                            down_distance_prefix = f"[{short_down_text}] "
-                    elif down > 0:  # Regular downs
+                    # Use start data for down/distance display (not end!)
+                    down_distance_prefix = ""
+                    if down > 0:  # Regular downs
                         if possession_text:
                             down_distance_prefix = f"[{down} & {distance} from {possession_text}] "
                         else:
                             down_distance_prefix = f"[{down} & {distance}] "
-                    else:
-                        down_distance_prefix = ""
                     
                     # Check for scoring play
                     scoring_class = ""
