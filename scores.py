@@ -1390,11 +1390,32 @@ class GameDetailsView(BaseView):
                 quarter_num = period_info.get("number", "?")
                 quarter = f"Quarter {quarter_num}"
             
+            # Separate kickoffs from regular drive plays
+            drive_plays = []
+            kickoff_plays = []
+            
+            for play in plays:
+                play_type = play.get("type", {})
+                play_type_text = play_type.get("text", "").lower()
+                
+                if "kickoff" in play_type_text:
+                    kickoff_plays.append(play)
+                else:
+                    drive_plays.append(play)
+            
             # Group by quarter
             if quarter not in quarter_groups:
                 quarter_groups[quarter] = []
             
-            quarter_groups[quarter].append((drive_label, drive, team_name, description))
+            # Add kickoffs as separate entries
+            for kickoff in kickoff_plays:
+                quarter_groups[quarter].append(("Kickoff", {"plays": [kickoff]}, "Special Teams", "Kickoff", True))
+            
+            # Add regular drive if it has non-kickoff plays
+            if drive_plays:
+                modified_drive = drive.copy()
+                modified_drive["plays"] = drive_plays
+                quarter_groups[quarter].append((drive_label, modified_drive, team_name, description, False))
         
         # Build tree structure by quarter
         for quarter in sorted(quarter_groups.keys()):
@@ -1403,55 +1424,85 @@ class GameDetailsView(BaseView):
             drives_tree.addTopLevelItem(quarter_item)
             
             drives_in_quarter = quarter_groups[quarter]
-            for drive_label, drive, team_name, description in drives_in_quarter:
-                # Create drive summary node
-                drive_summary = f"{team_name}: {description}"
-                drive_item = QTreeWidgetItem([drive_summary])
-                drive_item.setExpanded(False)  # Collapsed by default
-                quarter_item.addChild(drive_item)
-                
-                # Add individual plays under the drive
-                plays = drive.get("plays", [])
-                for play in plays:
-                    play_text = play.get("text", "Unknown play")
+            for drive_label, drive, team_name, description, is_kickoff in drives_in_quarter:
+                if is_kickoff:
+                    # Create kickoff item directly under quarter
+                    kickoff_item = QTreeWidgetItem(["⚡ Kickoff"])
+                    kickoff_item.setBackground(0, QColor(240, 240, 255))  # Light blue
+                    kickoff_item.setExpanded(False)
+                    quarter_item.addChild(kickoff_item)
                     
-                    # Add down and distance information for NFL plays
-                    down_distance_prefix = ""
-                    start = play.get("start", {})
-                    down = start.get("down", 0)
-                    distance = start.get("distance", 0)
+                    # Add the kickoff play
+                    plays = drive.get("plays", [])
+                    for play in plays:
+                        play_text = play.get("text", "Unknown play")
+                        
+                        # Add clock context
+                        clock = play.get("clock", {})
+                        if clock:
+                            clock_display = clock.get("displayValue", "")
+                            if clock_display:
+                                play_text = f"[{clock_display}] {play_text}"
+                        
+                        play_item = QTreeWidgetItem([play_text])
+                        kickoff_item.addChild(play_item)
+                else:
+                    # Create drive summary node
+                    drive_summary = f"{team_name}: {description}"
+                    drive_item = QTreeWidgetItem([drive_summary])
+                    drive_item.setExpanded(False)  # Collapsed by default
+                    quarter_item.addChild(drive_item)
                     
-                    # Use pre-formatted down/distance text if available
-                    end = play.get("end", {})
-                    short_down_text = end.get("shortDownDistanceText", "")
-                    
-                    if short_down_text:
-                        down_distance_prefix = f"[{short_down_text}] "
-                    elif down > 0:  # Regular downs (not kickoffs, etc.)
-                        down_distance_prefix = f"[{down} & {distance}] "
-                    
-                    # Add extra context for key plays
-                    if play.get("scoringPlay"):
-                        away_score = play.get("awayScore", 0)
-                        home_score = play.get("homeScore", 0)
-                        play_text = f"🏈 SCORE: {down_distance_prefix}{play_text} ({away_score}-{home_score})"
-                    else:
-                        play_text = f"{down_distance_prefix}{play_text}"
-                    
-                    # Add clock context
-                    clock = play.get("clock", {})
-                    if clock:
-                        clock_display = clock.get("displayValue", "")
-                        if clock_display:
-                            play_text = f"[{clock_display}] {play_text}"
-                    
-                    play_item = QTreeWidgetItem([play_text])
-                    
-                    # Highlight scoring plays
-                    if play.get("scoringPlay"):
-                        play_item.setBackground(0, QColor(255, 255, 150))  # Light yellow
-                    
-                    drive_item.addChild(play_item)
+                    # Add individual plays under the drive (already filtered to exclude kickoffs)
+                    plays = drive.get("plays", [])
+                    for play in plays:
+                        play_text = play.get("text", "Unknown play")
+                        
+                        # Add down and distance information for NFL plays
+                        down_distance_prefix = ""
+                        start = play.get("start", {})
+                        down = start.get("down", 0)
+                        distance = start.get("distance", 0)
+                        possession_text = start.get("possessionText", "")
+                        
+                        # Use pre-formatted down/distance text if available
+                        end = play.get("end", {})
+                        short_down_text = end.get("shortDownDistanceText", "")
+                        
+                        if short_down_text:
+                            # Add field position context
+                            if possession_text:
+                                down_distance_prefix = f"[{short_down_text} from {possession_text}] "
+                            else:
+                                down_distance_prefix = f"[{short_down_text}] "
+                        elif down > 0:  # Regular downs
+                            if possession_text:
+                                down_distance_prefix = f"[{down} & {distance} from {possession_text}] "
+                            else:
+                                down_distance_prefix = f"[{down} & {distance}] "
+                        
+                        # Add extra context for key plays
+                        if play.get("scoringPlay"):
+                            away_score = play.get("awayScore", 0)
+                            home_score = play.get("homeScore", 0)
+                            play_text = f"🏈 SCORE: {down_distance_prefix}{play_text} ({away_score}-{home_score})"
+                        else:
+                            play_text = f"{down_distance_prefix}{play_text}"
+                        
+                        # Add clock context
+                        clock = play.get("clock", {})
+                        if clock:
+                            clock_display = clock.get("displayValue", "")
+                            if clock_display:
+                                play_text = f"[{clock_display}] {play_text}"
+                        
+                        play_item = QTreeWidgetItem([play_text])
+                        
+                        # Highlight scoring plays
+                        if play.get("scoringPlay"):
+                            play_item.setBackground(0, QColor(255, 255, 150))  # Light yellow
+                        
+                        drive_item.addChild(play_item)
         
         layout.addWidget(drives_tree)
     
@@ -2637,15 +2688,41 @@ class GameDetailsView(BaseView):
                 period_info = first_play.get("period", {})
                 quarter = period_info.get("displayValue", f"{period_info.get('number', 1)}Q")
             
+            # Separate kickoffs from regular drive plays
+            drive_plays = []
+            kickoff_plays = []
+            
+            for play in plays:
+                play_type = play.get("type", {})
+                play_type_text = play_type.get("text", "").lower()
+                
+                if "kickoff" in play_type_text:
+                    kickoff_plays.append(play)
+                else:
+                    drive_plays.append(play)
+            
             if quarter not in quarter_groups:
                 quarter_groups[quarter] = []
             
-            quarter_groups[quarter].append({
-                "label": drive_label,
-                "team": team_name,
-                "description": description,
-                "plays": plays
-            })
+            # Add kickoffs as separate entries
+            for kickoff in kickoff_plays:
+                quarter_groups[quarter].append({
+                    "label": "Kickoff",
+                    "team": "Special Teams",
+                    "description": "Kickoff",
+                    "plays": [kickoff],
+                    "is_kickoff": True
+                })
+            
+            # Add regular drive if it has non-kickoff plays
+            if drive_plays:
+                quarter_groups[quarter].append({
+                    "label": drive_label,
+                    "team": team_name,
+                    "description": description,
+                    "plays": drive_plays,
+                    "is_kickoff": False
+                })
         
         html = ""
         for quarter_name in sorted(quarter_groups.keys()):
@@ -2654,25 +2731,53 @@ class GameDetailsView(BaseView):
             
             for drive_info in quarter_groups[quarter_name]:
                 html += f'<div class="drive">'
-                html += f'<h3 class="drive-header">{drive_info["team"]}: {drive_info["description"]}</h3>'
+                
+                # Handle kickoffs differently
+                if drive_info.get("is_kickoff", False):
+                    html += f'<h3 class="drive-header kickoff-header">⚡ Kickoff</h3>'
+                else:
+                    html += f'<h3 class="drive-header">{drive_info["team"]}: {drive_info["description"]}</h3>'
+                
                 html += f'<ul class="play-list">'
                 
                 for play in drive_info["plays"]:
                     play_text = play.get("text", "Unknown play")
+                    play_type = play.get("type", {})
+                    play_type_text = play_type.get("text", "").lower()
                     
-                    # Add down and distance information
+                    # Handle kickoffs
+                    if "kickoff" in play_type_text or drive_info.get("is_kickoff", False):
+                        # Add clock context for kickoffs
+                        clock = play.get("clock", {})
+                        if clock:
+                            clock_display = clock.get("displayValue", "")
+                            if clock_display:
+                                play_text = f"[{clock_display}] {play_text}"
+                        
+                        html += f'<li class="play-item kickoff">{play_text}</li>'
+                        continue
+                    
+                    # Add down and distance information for regular plays
                     start = play.get("start", {})
                     down = start.get("down", 0)
                     distance = start.get("distance", 0)
+                    possession_text = start.get("possessionText", "")
                     
                     # Use pre-formatted down/distance text if available
                     end = play.get("end", {})
                     short_down_text = end.get("shortDownDistanceText", "")
                     
                     if short_down_text:
-                        down_distance_prefix = f"[{short_down_text}] "
-                    elif down > 0:  # Regular downs (not kickoffs, etc.)
-                        down_distance_prefix = f"[{down} & {distance}] "
+                        # Add field position context
+                        if possession_text:
+                            down_distance_prefix = f"[{short_down_text} from {possession_text}] "
+                        else:
+                            down_distance_prefix = f"[{short_down_text}] "
+                    elif down > 0:  # Regular downs
+                        if possession_text:
+                            down_distance_prefix = f"[{down} & {distance} from {possession_text}] "
+                        else:
+                            down_distance_prefix = f"[{down} & {distance}] "
                     else:
                         down_distance_prefix = ""
                     
