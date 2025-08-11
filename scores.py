@@ -317,12 +317,6 @@ class LeagueView(BaseView):
             self.news_headlines = ApiService.get_news(self.league)
             if not scores_data:
                 self.scores_list.addItem("No games found for this date.")
-                # Add Kitchen Sink demo for MLB when no games found
-                if self.league.lower() == "mlb":
-                    self.scores_list.addItem("--- Demo Game (Kitchen Sink) ---")
-                    demo_item = self.scores_list.item(self.scores_list.count()-1)
-                    if demo_item:
-                        demo_item.setData(Qt.ItemDataRole.UserRole, "DEMO_KITCHEN_SINK")
             else:
                 for game_raw in scores_data:
                     game = GameData(game_raw)
@@ -331,12 +325,6 @@ class LeagueView(BaseView):
                     list_item = self.scores_list.item(self.scores_list.count()-1)
                     if list_item:
                         list_item.setData(Qt.ItemDataRole.UserRole, game_raw.get("id"))
-                # Also add demo option when there are games
-                if self.league.lower() == "mlb":
-                    self.scores_list.addItem("--- Demo Game (Kitchen Sink) ---")
-                    demo_item = self.scores_list.item(self.scores_list.count()-1)
-                    if demo_item:
-                        demo_item.setData(Qt.ItemDataRole.UserRole, "DEMO_KITCHEN_SINK")
             if self.news_headlines:
                 self.scores_list.addItem("--- News Headlines ---")
                 news_item = self.scores_list.item(self.scores_list.count()-1)
@@ -644,34 +632,8 @@ class GameDetailsView(BaseView):
         self.details_list.clear()
         
         try:
-            # Check for demo mode - use saved data for Kitchen Sink demonstration
-            if self.game_id == "DEMO_KITCHEN_SINK" and self.league.lower() == "mlb":
-                raw_details = self._load_demo_kitchen_sink_data()
-                if raw_details:
-                    details = ApiService.extract_meaningful_game_info(raw_details)
-                else:
-                    # Fallback demo data
-                    details = {
-                        'teams': [
-                            {'name': 'Pittsburgh Pirates', 'home_away': 'away', 'record': '62-59'},
-                            {'name': 'Cincinnati Reds', 'home_away': 'home', 'record': '58-63'}
-                        ],
-                        'status': 'Final',
-                        'scores': ['3', '2'],
-                        'venue': 'Great American Ball Park',
-                        'venue_city': 'Cincinnati',
-                        'venue_state': 'OH'
-                    }
-                    raw_details = {
-                        'rosters': [{'team': {'displayName': 'Demo Team'}, 'roster': []}],
-                        'article': {'headline': 'Demo Kitchen Sink Game'},
-                        'seasonseries': [{'summary': 'Demo series data'}],
-                        'againstTheSpread': [{'displayName': 'Demo Team', 'record': 'Demo ATS'}],
-                        'pickcenter': [{'provider': {'name': 'Demo Expert'}, 'details': 'Demo pick'}]
-                    }
-            else:
-                raw_details = ApiService.get_game_details(self.league, self.game_id)
-                details = ApiService.extract_meaningful_game_info(raw_details)
+            raw_details = ApiService.get_game_details(self.league, self.game_id)
+            details = ApiService.extract_meaningful_game_info(raw_details)
             
             # Store raw details for export functionality
             self.current_raw_details = raw_details
@@ -684,21 +646,6 @@ class GameDetailsView(BaseView):
             
         except Exception as e:
             self._show_api_error(f"Failed to load game details: {str(e)}")
-    
-    def _load_demo_kitchen_sink_data(self):
-        """Load saved Kitchen Sink data for demonstration"""
-        import json
-        import os
-        
-        try:
-            json_file = os.path.join(os.path.dirname(__file__), "api_exploration", "game_details_401696639.json")
-            if os.path.exists(json_file):
-                with open(json_file, 'r') as f:
-                    return json.load(f)
-        except Exception as e:
-            print(f"Error loading demo data: {e}")
-        
-        return None
     
     def _add_basic_game_info(self, details: Dict, raw_details: Dict = None):
         """Add basic game information to the details list"""
