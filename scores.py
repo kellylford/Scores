@@ -1,3 +1,4 @@
+
 import sys
 import webbrowser
 from datetime import datetime, timedelta
@@ -476,14 +477,23 @@ class GameDetailsView(BaseView):
     
     def _show_detail_dialog(self, field_name: str, field_data: Any):
         """Show detailed data in a dialog"""
-        if field_name == "standings" and isinstance(field_data, list):
-            # Use special standings dialog with keyboard navigation
-            dlg = StandingsDetailDialog(field_data, self.league, self)
-            dlg.exec()
-            return
-        elif field_name == "kitchensink":
-            # Use special Kitchen Sink dialog
-            dlg = KitchenSinkDialog(field_data, self)
+        if field_name == "standings":
+            # Convert game details standings format to list format if needed
+            if isinstance(field_data, dict) and "groups" in field_data:
+                # Game details format - convert to list format
+                standings_list = []
+                for group in field_data.get("groups", []):
+                    standings = group.get("standings", {})
+                    entries = standings.get("entries", [])
+                    for entry in entries:
+                        standings_list.append(entry)
+                dlg = StandingsDetailDialog(standings_list, self.league, self)
+            elif isinstance(field_data, list):
+                # Already in list format (from main standings)
+                dlg = StandingsDetailDialog(field_data, self.league, self)
+            else:
+                QMessageBox.information(self, "Standings", "No standings data available.")
+                return
             dlg.exec()
             return
         
@@ -727,21 +737,14 @@ class GameDetailsView(BaseView):
         if raw_details.get("plays") is not None and "plays" not in all_available_fields:
             all_available_fields.append("plays")
         
-        # Always add Kitchen Sink for ALL MLB games (for testing)
-        if self.league.lower() == "mlb":
-            all_available_fields.append("kitchensink")
-        
         if all_available_fields:
             self.details_list.addItem("--- Additional Details ---")
             for field in all_available_fields:
-                if field == "kitchensink":
-                    self._add_kitchen_sink_item(raw_details)
+                value = raw_details.get(field, "N/A")
+                if value == "N/A" or not value:
+                    self.details_list.addItem(f"{field}: No data available")
                 else:
-                    value = raw_details.get(field, "N/A")
-                    if value == "N/A" or not value:
-                        self.details_list.addItem(f"{field}: No data available")
-                    else:
-                        self._add_configurable_field(field, value)
+                    self._add_configurable_field(field, value)
     
     def _add_configurable_field(self, field: str, value: Any):
         """Add a configurable field to the details list"""
@@ -779,7 +782,12 @@ class GameDetailsView(BaseView):
     def _check_field_has_data(self, field: str, value: Any) -> bool:
         """Check if a field has navigable data"""
         if field == "standings" and isinstance(value, (list, dict)):
-            return len(value) > 0 if isinstance(value, list) else bool(value.get("entries"))
+            if isinstance(value, list):
+                return len(value) > 0
+            elif isinstance(value, dict):
+                # Check for game details standings format (groups with standings.entries)
+                groups = value.get("groups", [])
+                return any(group.get("standings", {}).get("entries") for group in groups)
         elif field == "leaders" and isinstance(value, dict):
             return len(value) > 0
         elif field == "boxscore" and isinstance(value, dict):
@@ -796,20 +804,6 @@ class GameDetailsView(BaseView):
         elif field == "news" and isinstance(value, (list, dict)):
             return len(value) > 0 if isinstance(value, list) else bool(value.get("articles"))
         return False
-    
-    def _has_kitchen_sink_data(self, raw_details: Dict) -> bool:
-        """Check if game has additional Kitchen Sink data available"""
-        kitchen_sink_fields = ["rosters", "seasonseries", "article", "againstTheSpread", 
-                              "pickcenter", "winprobability", "videos"]
-        return any(raw_details.get(field) for field in kitchen_sink_fields)
-    
-    def _add_kitchen_sink_item(self, raw_details: Dict):
-        """Add Kitchen Sink item to the details list"""
-        item_text = "Kitchen Sink (Additional MLB Data)"
-        self.details_list.addItem(item_text)
-        list_item_widget = self.details_list.item(self.details_list.count() - 1)
-        if list_item_widget:
-            list_item_widget.setData(Qt.ItemDataRole.UserRole, {"field": "kitchensink", "data": raw_details})
     
     def refresh(self):
         """Refresh the game details"""
