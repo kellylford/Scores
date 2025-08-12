@@ -112,31 +112,68 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python extract_brewers_mets_pitches_fixed.py YYYY-MM-DD")
         sys.exit(1)
+    
     date_str = sys.argv[1]
     try:
         date_obj = datetime.strptime(date_str, "%Y-%m-%d")
     except Exception:
         print("Invalid date format. Use YYYY-MM-DD.")
         sys.exit(1)
+    
     api = ApiService()
     print(f"Fetching MLB games for {date_str}...")
-    games = api.get_games('MLB', date_str)
+    
+    # Use get_scores which returns games for a given date
+    games = api.get_scores('MLB', date_obj)
+    
     if not games:
         print(f"No MLB games found for {date_str}.")
         sys.exit(0)
+    
+    print(f"Found {len(games)} MLB games for {date_str}")
+    
     for game in games:
         game_id = game.get('id')
-        teams = f"{game.get('awayTeam', {}).get('displayName', 'Away')} vs {game.get('homeTeam', {}).get('displayName', 'Home')}"
-        print(f"Processing game {game_id}: {teams}")
-        game_details = api.get_game_details('MLB', game_id)
-        pitches = extract_pitch_data(game_details, game_id, date_str, teams)
-        if pitches:
-            csv_filename = f"mlb_pitches_{game_id}_{date_str}.csv"
-            fieldnames = pitches[0].keys()
-            with open(csv_filename, 'w', newline='', encoding='utf-8') as csvfile:
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-                writer.writeheader()
-                writer.writerows(pitches)
-            print(f"  Exported {len(pitches)} pitches to {csv_filename}")
+        game_name = game.get('name', 'Unknown Game')
+        
+        # Extract team names from the teams list if available
+        teams = game.get('teams', [])
+        if len(teams) >= 2:
+            team_names = f"{teams[0].get('name', 'Team1')} vs {teams[1].get('name', 'Team2')}"
+            # Create filename-safe team abbreviations
+            team1_abbrev = teams[0].get('abbreviation', teams[0].get('name', 'Team1')[:3])
+            team2_abbrev = teams[1].get('abbreviation', teams[1].get('name', 'Team2')[:3])
+            filename_teams = f"{team1_abbrev}_vs_{team2_abbrev}"
         else:
-            print(f"  No pitch data found for game {game_id}.")
+            team_names = game_name
+            filename_teams = "unknown_teams"
+        
+        print(f"Processing game {game_id}: {team_names}")
+        
+        try:
+            game_details = api.get_game_details('MLB', game_id)
+            pitches = extract_pitch_data(game_details, game_id, date_str, team_names)
+            
+            if pitches:
+                # Include both team names and game ID in filename
+                csv_filename = f"mlb_pitches_{filename_teams}_{game_id}_{date_str}.csv"
+                fieldnames = pitches[0].keys()
+                
+                with open(csv_filename, 'w', newline='', encoding='utf-8') as csvfile:
+                    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(pitches)
+                
+                print(f"  ✓ Exported {len(pitches)} pitches to {csv_filename}")
+                
+                # Show summary for this game
+                with_coords = sum(1 for p in pitches if p['coordinate_x'] is not None)
+                print(f"    - Pitches with coordinates: {with_coords}/{len(pitches)}")
+                
+            else:
+                print(f"  ⚠ No pitch data found for game {game_id}")
+                
+        except Exception as e:
+            print(f"  ❌ Error processing game {game_id}: {str(e)}")
+    
+    print(f"\nCompleted processing all games for {date_str}")

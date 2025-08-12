@@ -1,0 +1,787 @@
+game_id,game_date,teams,inning,inning_half,batter,pitcher,coordinate_x,coordinate_y,velocity_mph,pitch_type,batter_side,balls_before,strikes_before
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,1,Top,,,109.0,162.0,91,Four-seam FB,R,0,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,1,Top,,,93.0,155.0,92,Four-seam FB,R,0,2
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,1,Top,,,116.0,142.0,90,Cutter,R,1,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,1,Top,,,88.0,182.0,93,Four-seam FB,R,2,2
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,1,Bottom,,,105.0,181.0,95,Four-seam FB,L,0,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,1,Bottom,,,121.0,184.0,94,Four-seam FB,L,0,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,1,Bottom,,,140.0,165.0,96,Four-seam FB,L,3,2
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,2,Top,,,132.0,152.0,92,Four-seam FB,R,3,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,2,Top,,,108.0,164.0,92,Four-seam FB,R,0,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,2,Top,,,99.0,171.0,92,Four-seam FB,R,0,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,2,Bottom,,,85.0,162.0,94,Four-seam FB,L,0,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,2,Bottom,,,94.0,173.0,95,Four-seam FB,R,2,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,2,Bottom,,,124.0,150.0,94,Four-seam FB,L,2,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,3,Top,,,129.0,170.0,92,Four-seam FB,R,3,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,3,Top,,,81.0,174.0,89,Cutter,R,0,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,3,Bottom,,,143.0,179.0,78,Curve,L,0,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,3,Bottom,,,115.0,175.0,96,Four-seam FB,R,0,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,4,Top,,,122.0,198.0,86,Changeup,R,1,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,4,Top,,,105.0,183.0,92,Four-seam FB,R,3,2
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,4,Bottom,,,104.0,191.0,86,Slider,R,0,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,4,Bottom,,,125.0,191.0,96,Four-seam FB,R,0,2
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,4,Bottom,,,99.0,188.0,95,Four-seam FB,L,2,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,5,Top,,,118.0,172.0,91,Four-seam FB,R,0,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,5,Top,,,120.0,192.0,92,Four-seam FB,R,0,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,5,Bottom,,,137.0,169.0,86,Splitter,L,0,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,5,Bottom,,,120.0,182.0,93,Four-seam FB,L,2,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,5,Bottom,,,98.0,142.0,84,Slider,R,0,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,5,Bottom,,,101.0,147.0,78,Curve,L,0,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,5,Bottom,,,103.0,182.0,94,Four-seam FB,R,0,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,6,Top,,,99.0,154.0,91,Four-seam FB,R,1,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,6,Top,,,98.0,157.0,96,Sinker,R,1,2
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,6,Top,,,131.0,195.0,96,Sinker,R,0,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,6,Bottom,,,92.0,186.0,83,Slider,R,0,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,6,Bottom,,,134.0,178.0,92,Four-seam FB,L,0,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,7,Top,,,119.0,170.0,92,Sinker,R,0,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,7,Top,,,126.0,149.0,92,Sinker,R,0,2
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,7,Bottom,,,106.0,155.0,95,Four-seam FB,L,1,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,7,Bottom,,,95.0,191.0,82,Slider,R,1,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,8,Top,,,105.0,164.0,87,Sinker,R,0,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,8,Bottom,,,101.0,179.0,77,Curve,R,0,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,8,Bottom,,,115.0,186.0,90,Sinker,R,0,2
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,8,Bottom,,,90.0,165.0,90,Sinker,R,0,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,8,Bottom,,,110.0,177.0,86,Slider,L,0,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,8,Bottom,,,143.0,168.0,76,Curve,L,0,2
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,8,Bottom,,,113.0,168.0,93,Sinker,L,0,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,9,Bottom,,,147.0,164.0,85,Slider,L,1,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,9,Bottom,,,144.0,150.0,92,Sinker,L,3,1
+401696664,2025-08-09,Arizona Diamondbacks vs Colorado Rockies,9,Bottom,,,133.0,160.0,93,Sinker,L,3,2
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,1,Top,,,88.0,151.0,94,Sinker,L,0,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,1,Top,,,102.0,191.0,94,Sinker,R,0,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,1,Top,,,93.0,156.0,95,Sinker,R,0,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,2,Top,,,133.0,151.0,88,Cutter,R,0,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,2,Top,,,82.0,164.0,92,Cutter,R,0,2
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,2,Top,,,150.0,176.0,93,Sinker,L,3,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,2,Top,,,103.0,181.0,83,Sweeper,R,0,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,2,Bottom,,,94.0,186.0,90,Slider,L,1,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,2,Bottom,,,134.0,198.0,96,Four-seam FB,L,1,2
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,3,Top,,,149.0,173.0,80,Sweeper,L,0,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,3,Bottom,,,125.0,192.0,98,Sinker,L,0,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,4,Top,,,141.0,158.0,89,Cutter,L,2,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,4,Top,,,131.0,192.0,91,Sinker,L,2,2
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,4,Top,,,148.0,185.0,89,Cutter,L,0,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,4,Top,,,144.0,180.0,82,Sweeper,L,0,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,4,Bottom,,,107.0,183.0,83,Curve,R,1,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,4,Bottom,,,97.0,178.0,89,Slider,L,0,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,4,Bottom,,,91.0,194.0,96,Sinker,R,0,2
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,4,Bottom,,,118.0,197.0,90,Changeup,R,0,2
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,5,Top,,,124.0,163.0,90,Sinker,R,0,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,5,Top,,,89.0,200.0,89,Cutter,R,1,2
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,5,Top,,,91.0,192.0,90,Cutter,R,1,2
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,5,Top,,,98.0,173.0,89,Cutter,R,0,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,5,Top,,,119.0,180.0,90,Cutter,L,3,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,5,Top,,,142.0,152.0,89,Cutter,R,2,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,5,Top,,,119.0,181.0,82,Sweeper,R,3,2
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,5,Bottom,,,94.0,179.0,85,Curve,R,0,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,5,Bottom,,,108.0,183.0,85,Curve,R,0,2
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,5,Bottom,,,82.0,177.0,87,Curve,R,3,2
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,5,Bottom,,,139.0,175.0,90,Slider,L,1,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,5,Bottom,,,120.0,185.0,87,Slider,R,0,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,6,Top,,,146.0,177.0,90,Sinker,R,0,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,6,Top,,,97.0,182.0,91,Sinker,L,0,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,6,Bottom,,,121.0,182.0,88,Four-seam FB,L,1,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,6,Bottom,,,93.0,147.0,80,Cutter,R,0,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,7,Top,,,103.0,194.0,90,Sinker,R,0,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,7,Top,,,85.0,176.0,90,Four-seam FB,R,0,2
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,7,Top,,,88.0,193.0,81,Sweeper,L,3,2
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,7,Top,,,100.0,195.0,89,Four-seam FB,R,1,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,8,Top,,,111.0,158.0,92,Four-seam FB,R,1,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,8,Top,,,95.0,178.0,93,Four-seam FB,R,1,2
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,8,Top,,,125.0,169.0,93,Four-seam FB,R,1,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,8,Top,,,124.0,191.0,94,Four-seam FB,R,3,2
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,8,Top,,,127.0,194.0,95,Four-seam FB,R,3,2
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,8,Top,,,112.0,188.0,95,Four-seam FB,R,0,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,8,Bottom,,,130.0,187.0,94,Sinker,R,0,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,8,Bottom,,,100.0,184.0,89,Slider,R,0,2
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,9,Top,,,85.0,173.0,96,Four-seam FB,R,1,1
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,9,Top,,,83.0,184.0,95,Four-seam FB,R,1,2
+401696656,2025-08-09,Atlanta Braves vs Miami Marlins,9,Top,,,98.0,183.0,95,Four-seam FB,R,3,2
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,1,Top,,,106.0,178.0,94,Four-seam FB,L,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,1,Top,,,88.0,172.0,97,Sinker,R,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,1,Bottom,,,127.0,154.0,90,Cutter,L,1,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,1,Bottom,,,107.0,181.0,91,Cutter,L,1,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,2,Top,,,124.0,164.0,91,Cutter,L,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,2,Top,,,95.0,191.0,81,Curve,L,1,2
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,2,Top,,,84.0,155.0,95,Sinker,R,1,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,2,Bottom,,,103.0,195.0,87,Changeup,L,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,2,Bottom,,,115.0,191.0,83,Sweeper,R,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,2,Bottom,,,97.0,173.0,90,Cutter,R,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,3,Top,,,106.0,175.0,92,Cutter,L,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,3,Top,,,99.0,164.0,92,Cutter,R,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,3,Top,,,126.0,174.0,95,Sinker,L,1,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,3,Top,,,139.0,163.0,82,Curve,L,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,3,Bottom,,,145.0,184.0,91,Cutter,L,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,3,Bottom,,,122.0,154.0,82,Curve,L,1,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,4,Top,,,143.0,177.0,93,Four-seam FB,L,1,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,4,Top,,,130.0,183.0,95,Sinker,L,3,2
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,4,Bottom,,,95.0,167.0,92,Sinker,R,2,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,4,Bottom,,,133.0,159.0,93,Sinker,R,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,5,Top,,,125.0,189.0,95,Sinker,L,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,5,Top,,,98.0,191.0,96,Sinker,L,1,2
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,5,Top,,,96.0,150.0,96,Sinker,R,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,5,Bottom,,,131.0,143.0,88,Cutter,L,3,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,5,Bottom,,,102.0,186.0,92,Sinker,R,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,6,Top,,,116.0,174.0,80,Curve,R,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,6,Top,,,94.0,187.0,94,Sinker,L,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,6,Top,,,114.0,161.0,80,Curve,L,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,6,Top,,,139.0,170.0,81,Curve,L,0,2
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,6,Top,,,141.0,144.0,91,Cutter,L,1,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,6,Bottom,,,111.0,202.0,89,Cutter,L,3,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,6,Bottom,,,111.0,148.0,88,Cutter,R,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,7,Top,,,127.0,178.0,92,Four-seam FB,L,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,7,Top,,,97.0,194.0,94,Four-seam FB,L,2,2
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,7,Top,,,134.0,197.0,84,Curve,L,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,7,Top,,,132.0,148.0,83,Curve,R,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,7,Top,,,100.0,159.0,95,Four-seam FB,R,0,2
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,7,Top,,,105.0,181.0,95,Four-seam FB,L,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,7,Bottom,,,106.0,189.0,84,Slider,R,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,7,Bottom,,,87.0,191.0,96,Four-seam FB,L,3,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,7,Bottom,,,98.0,157.0,87,Changeup,L,0,2
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,7,Bottom,,,98.0,186.0,97,Sinker,R,0,2
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,7,Bottom,,,121.0,162.0,85,Changeup,L,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,7,Bottom,,,125.0,170.0,85,Changeup,L,1,2
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,8,Top,,,156.0,181.0,92,Four-seam FB,R,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,8,Top,,,136.0,166.0,93,Four-seam FB,R,0,2
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,8,Top,,,133.0,177.0,93,Four-seam FB,R,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,8,Bottom,,,126.0,157.0,92,Sinker,R,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,8,Bottom,,,103.0,148.0,87,Slider,R,1,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,8,Bottom,,,125.0,166.0,94,Sinker,R,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,9,Top,,,94.0,191.0,85,Slider,L,0,1
+401766608,2025-08-09,Atlanta Braves vs Miami Marlins,9,Top,,,116.0,177.0,86,Slider,L,0,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,1,Top,,,141.0,148.0,86,Cutter,R,2,2
+401696657,2025-08-09,Baltimore Orioles vs Athletics,1,Top,,,125.0,174.0,93,Four-seam FB,L,1,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,1,Top,,,86.0,148.0,86,Cutter,R,0,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,1,Top,,,151.0,160.0,93,Four-seam FB,R,0,2
+401696657,2025-08-09,Baltimore Orioles vs Athletics,1,Bottom,,,110.0,175.0,95,Four-seam FB,R,0,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,1,Bottom,,,120.0,179.0,97,Four-seam FB,R,0,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,1,Bottom,,,105.0,171.0,96,Four-seam FB,R,3,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,1,Bottom,,,109.0,146.0,86,Sweeper,R,3,2
+401696657,2025-08-09,Baltimore Orioles vs Athletics,2,Top,,,131.0,155.0,74,Curve,R,1,2
+401696657,2025-08-09,Baltimore Orioles vs Athletics,2,Top,,,122.0,156.0,82,Cutter,R,1,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,2,Bottom,,,144.0,192.0,95,Four-seam FB,R,0,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,2,Bottom,,,131.0,143.0,93,Cutter,L,2,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,2,Bottom,,,142.0,172.0,84,Sweeper,L,2,2
+401696657,2025-08-09,Baltimore Orioles vs Athletics,2,Bottom,,,91.0,161.0,96,Four-seam FB,L,0,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,3,Top,,,129.0,167.0,92,Four-seam FB,L,0,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,3,Top,,,89.0,166.0,82,Cutter,R,0,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,3,Top,,,121.0,196.0,86,Splitter,L,1,2
+401696657,2025-08-09,Baltimore Orioles vs Athletics,3,Top,,,111.0,178.0,93,Four-seam FB,L,0,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,3,Top,,,93.0,158.0,82,Cutter,R,2,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,3,Bottom,,,108.0,185.0,96,Four-seam FB,R,2,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,4,Top,,,126.0,159.0,93,Four-seam FB,L,0,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,4,Top,,,108.0,149.0,86,Slider,R,0,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,4,Bottom,,,126.0,157.0,85,Sweeper,L,0,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,4,Bottom,,,113.0,153.0,97,Four-seam FB,R,0,2
+401696657,2025-08-09,Baltimore Orioles vs Athletics,5,Top,,,143.0,155.0,96,Four-seam FB,L,0,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,5,Top,,,138.0,162.0,96,Four-seam FB,L,0,2
+401696657,2025-08-09,Baltimore Orioles vs Athletics,5,Top,,,130.0,185.0,96,Four-seam FB,L,3,2
+401696657,2025-08-09,Baltimore Orioles vs Athletics,5,Bottom,,,103.0,153.0,95,Four-seam FB,R,0,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,5,Bottom,,,105.0,199.0,89,Changeup,L,1,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,5,Bottom,,,117.0,177.0,84,Sweeper,L,1,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,6,Top,,,148.0,197.0,95,Four-seam FB,L,0,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,6,Top,,,126.0,147.0,84,Curve,L,0,2
+401696657,2025-08-09,Baltimore Orioles vs Athletics,7,Top,,,127.0,149.0,96,Sinker,R,0,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,7,Bottom,,,115.0,183.0,95,Four-seam FB,R,0,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,7,Bottom,,,99.0,169.0,89,Slider,R,0,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,7,Bottom,,,107.0,183.0,96,Four-seam FB,R,0,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,8,Top,,,128.0,183.0,87,Slider,L,0,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,8,Top,,,108.0,161.0,86,Slider,L,0,2
+401696657,2025-08-09,Baltimore Orioles vs Athletics,8,Top,,,99.0,149.0,95,Sinker,R,3,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,8,Bottom,,,144.0,181.0,96,Four-seam FB,L,2,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,8,Bottom,,,133.0,168.0,87,Slider,R,1,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,9,Top,,,128.0,154.0,96,Sinker,L,0,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,9,Top,,,145.0,165.0,87,Slider,L,0,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,9,Top,,,96.0,186.0,95,Sinker,R,0,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,9,Bottom,,,89.0,165.0,94,Four-seam FB,R,0,1
+401696657,2025-08-09,Baltimore Orioles vs Athletics,9,Bottom,,,118.0,171.0,84,Changeup,R,1,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,1,Top,,,118.0,177.0,92,Four-seam FB,L,0,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,1,Top,,,112.0,186.0,96,Four-seam FB,L,0,2
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,1,Top,,,97.0,195.0,78,Curve,L,0,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,1,Top,,,97.0,173.0,78,Curve,L,0,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,1,Top,,,95.0,180.0,95,Four-seam FB,L,2,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,1,Top,,,90.0,193.0,86,Slider,R,0,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,1,Bottom,,,141.0,184.0,90,Four-seam FB,R,1,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,2,Top,,,143.0,175.0,77,Curve,L,1,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,2,Bottom,,,116.0,173.0,91,Four-seam FB,L,2,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,2,Bottom,,,120.0,154.0,76,Curve,R,1,2
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,3,Top,,,143.0,184.0,78,Curve,L,1,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,3,Top,,,111.0,190.0,93,Four-seam FB,L,1,2
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,3,Top,,,104.0,165.0,78,Curve,L,2,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,3,Top,,,135.0,173.0,94,Four-seam FB,L,1,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,3,Top,,,93.0,183.0,78,Curve,L,3,2
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,3,Top,,,104.0,188.0,93,Four-seam FB,L,2,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,3,Top,,,89.0,186.0,87,Slider,R,0,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,3,Bottom,,,138.0,176.0,91,Four-seam FB,R,0,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,3,Bottom,,,121.0,187.0,90,Four-seam FB,R,1,2
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,3,Bottom,,,96.0,159.0,77,Curve,R,1,2
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,4,Top,,,130.0,160.0,77,Curve,L,2,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,4,Top,,,121.0,185.0,92,Four-seam FB,L,0,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,4,Top,,,102.0,177.0,78,Curve,L,0,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,4,Top,,,125.0,151.0,79,Curve,L,3,2
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,4,Top,,,126.0,170.0,88,Sinker,L,0,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,4,Top,,,121.0,165.0,89,Sinker,R,0,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,4,Bottom,,,88.0,162.0,75,Curve,R,0,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,4,Bottom,,,97.0,185.0,90,Four-seam FB,R,3,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,4,Bottom,,,105.0,182.0,88,Four-seam FB,L,3,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,4,Bottom,,,89.0,169.0,75,Curve,R,0,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,5,Top,,,97.0,149.0,88,Four-seam FB,L,2,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,5,Top,,,131.0,153.0,89,Sinker,L,0,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,5,Bottom,,,100.0,162.0,84,Slider,R,0,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,5,Bottom,,,94.0,155.0,76,Curve,R,0,2
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,5,Bottom,,,121.0,174.0,89,Four-seam FB,R,3,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,5,Bottom,,,108.0,191.0,76,Curve,R,2,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,5,Bottom,,,104.0,139.0,76,Curve,R,0,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,6,Top,,,99.0,181.0,91,Four-seam FB,R,2,2
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,6,Bottom,,,121.0,188.0,92,Four-seam FB,R,1,2
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,6,Bottom,,,119.0,174.0,92,Four-seam FB,L,0,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,7,Top,,,114.0,175.0,90,Four-seam FB,R,0,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,7,Top,,,101.0,158.0,91,Four-seam FB,R,3,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,7,Bottom,,,91.0,170.0,86,Slider,R,0,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,8,Top,,,142.0,168.0,94,Four-seam FB,L,0,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,8,Bottom,,,105.0,171.0,88,Slider,R,1,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,9,Top,,,110.0,187.0,93,Four-seam FB,L,0,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,9,Top,,,114.0,162.0,78,Slurve,L,0,2
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,9,Top,,,98.0,193.0,94,Four-seam FB,L,0,1
+401696659,2025-08-09,Chicago White Sox vs Cleveland Guardians,9,Bottom,,,115.0,182.0,94,Four-seam FB,R,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,1,Top,,,104.0,181.0,94,Sinker,R,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,1,Top,,,87.0,187.0,81,Curve,R,1,2
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,1,Top,,,128.0,187.0,81,Curve,L,1,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,1,Top,,,139.0,179.0,81,Curve,L,3,2
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,1,Bottom,,,87.0,173.0,86,Slider,R,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,1,Bottom,,,97.0,190.0,86,Slider,R,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,1,Bottom,,,91.0,165.0,85,Changeup,R,0,2
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,1,Bottom,,,94.0,186.0,89,Slider,R,2,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,2,Top,,,133.0,191.0,93,Sinker,R,1,2
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,2,Top,,,99.0,180.0,93,Sinker,R,1,2
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,2,Bottom,,,97.0,153.0,95,Four-seam FB,R,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,2,Bottom,,,89.0,166.0,94,Four-seam FB,R,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,2,Bottom,,,100.0,153.0,85,Curve,R,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,2,Bottom,,,92.0,191.0,88,Slider,R,2,2
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,3,Top,,,101.0,169.0,86,Cutter,L,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,3,Top,,,100.0,196.0,81,Curve,R,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,3,Bottom,,,103.0,177.0,85,Slider,R,2,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,3,Bottom,,,96.0,153.0,85,Slider,R,3,2
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,3,Bottom,,,84.0,155.0,89,Slider,R,1,2
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,3,Bottom,,,142.0,192.0,95,Four-seam FB,R,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,4,Top,,,122.0,183.0,93,Sinker,R,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,4,Top,,,136.0,184.0,80,Curve,R,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,4,Top,,,98.0,198.0,94,Sinker,R,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,4,Top,,,119.0,193.0,94,Sinker,R,1,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,4,Bottom,,,128.0,167.0,94,Four-seam FB,R,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,4,Bottom,,,122.0,156.0,86,Slider,R,3,2
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,4,Bottom,,,86.0,190.0,86,Changeup,R,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,4,Bottom,,,121.0,194.0,85,Changeup,R,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,5,Top,,,95.0,187.0,86,Cutter,L,1,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,5,Top,,,85.0,180.0,80,Curve,R,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,5,Top,,,85.0,166.0,94,Sinker,R,1,2
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,5,Top,,,114.0,158.0,93,Four-seam FB,R,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,5,Top,,,100.0,184.0,94,Four-seam FB,L,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,5,Bottom,,,118.0,154.0,86,Slider,L,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,6,Top,,,89.0,187.0,85,Slider,R,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,6,Top,,,138.0,163.0,87,Splitter,L,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,6,Bottom,,,141.0,150.0,83,Sweeper,R,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,6,Bottom,,,92.0,177.0,96,Four-seam FB,R,3,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,6,Bottom,,,92.0,154.0,90,Cutter,R,3,2
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,6,Bottom,,,142.0,182.0,83,Sweeper,L,1,2
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,6,Bottom,,,96.0,187.0,85,Sweeper,R,1,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,7,Top,,,103.0,158.0,88,Cutter,R,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,7,Bottom,,,100.0,147.0,87,Slider,R,1,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,7,Bottom,,,128.0,195.0,88,Changeup,R,1,2
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,7,Bottom,,,98.0,178.0,87,Slider,R,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,7,Bottom,,,135.0,201.0,87,Slider,L,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,8,Top,,,132.0,182.0,83,Changeup,R,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,8,Top,,,95.0,185.0,93,Four-seam FB,R,3,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,8,Bottom,,,127.0,195.0,82,Sweeper,R,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,8,Bottom,,,125.0,195.0,96,Sinker,R,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,9,Top,,,106.0,183.0,94,Four-seam FB,L,3,2
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,9,Top,,,116.0,204.0,94,Four-seam FB,L,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,9,Bottom,,,124.0,178.0,92,Cutter,R,0,1
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,9,Bottom,,,89.0,190.0,82,Slider,R,0,2
+401696653,2025-08-09,Detroit Tigers vs Los Angeles Angels,9,Bottom,,,97.0,185.0,94,Cutter,R,1,2
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,1,Top,,,112.0,178.0,97,Four-seam FB,R,0,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,1,Bottom,,,114.0,149.0,94,Sinker,R,2,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,2,Top,,,139.0,185.0,95,Four-seam FB,R,1,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,2,Top,,,124.0,195.0,95,Four-seam FB,R,3,2
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,2,Bottom,,,89.0,177.0,92,Sinker,R,0,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,2,Bottom,,,145.0,147.0,72,Sweeper,R,0,2
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,2,Bottom,,,90.0,166.0,93,Sinker,R,1,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,3,Top,,,102.0,165.0,96,Four-seam FB,R,0,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,3,Top,,,137.0,151.0,95,Four-seam FB,R,2,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,3,Top,,,132.0,152.0,97,Four-seam FB,R,1,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,3,Bottom,,,131.0,144.0,91,Four-seam FB,L,0,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,3,Bottom,,,136.0,149.0,93,Sinker,R,0,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,4,Top,,,95.0,182.0,80,Curve,R,0,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,4,Top,,,94.0,193.0,86,Changeup,R,2,2
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,4,Top,,,107.0,188.0,79,Curve,R,0,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,4,Top,,,118.0,199.0,95,Four-seam FB,R,2,2
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,4,Bottom,,,101.0,192.0,92,Sinker,L,2,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,4,Bottom,,,96.0,186.0,93,Sinker,R,0,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,4,Bottom,,,90.0,174.0,85,Slider,R,0,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,4,Bottom,,,94.0,196.0,91,Sinker,R,0,2
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,4,Bottom,,,123.0,167.0,71,Curve,L,0,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,4,Bottom,,,91.0,180.0,71,Curve,L,1,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,5,Top,,,101.0,163.0,77,Curve,R,0,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,5,Bottom,,,96.0,175.0,73,Curve,L,1,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,6,Top,,,90.0,167.0,97,Sinker,R,0,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,6,Top,,,117.0,184.0,83,Sweeper,R,0,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,6,Bottom,,,97.0,162.0,87,Slider,R,0,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,6,Bottom,,,108.0,150.0,95,Four-seam FB,R,0,2
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,6,Bottom,,,126.0,166.0,95,Four-seam FB,L,2,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,6,Bottom,,,147.0,160.0,95,Four-seam FB,L,1,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,6,Bottom,,,153.0,180.0,99,Sinker,L,3,2
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,6,Bottom,,,97.0,193.0,87,Sweeper,R,0,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,6,Bottom,,,133.0,193.0,98,Sinker,R,1,2
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,6,Bottom,,,133.0,195.0,98,Four-seam FB,R,1,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,6,Bottom,,,96.0,161.0,88,Slider,R,0,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,7,Top,,,85.0,185.0,95,Four-seam FB,R,0,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,7,Bottom,,,98.0,173.0,83,Curve,L,1,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,7,Bottom,,,117.0,162.0,83,Curve,L,1,2
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,7,Bottom,,,125.0,155.0,83,Curve,L,1,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,7,Bottom,,,86.0,155.0,89,Slider,R,0,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,7,Bottom,,,135.0,155.0,83,Curve,R,2,2
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,8,Top,,,119.0,156.0,93,Four-seam FB,R,2,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,8,Top,,,137.0,179.0,87,Slider,R,2,2
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,8,Top,,,108.0,169.0,79,Curve,R,0,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,8,Bottom,,,113.0,164.0,95,Sinker,R,0,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,9,Top,,,132.0,169.0,93,Four-seam FB,R,0,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,9,Top,,,104.0,178.0,94,Four-seam FB,R,1,2
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,9,Top,,,135.0,164.0,87,Slider,L,1,1
+401696666,2025-08-09,Los Angeles Dodgers vs Toronto Blue Jays,9,Top,,,151.0,173.0,93,Four-seam FB,L,1,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,1,Top,,,147.0,160.0,91,Four-seam FB,L,1,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,1,Top,,,87.0,189.0,81,Splitter,L,1,2
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,1,Bottom,,,89.0,177.0,92,Cutter,L,2,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,1,Bottom,,,125.0,170.0,96,Sinker,L,0,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,1,Bottom,,,132.0,170.0,86,Sweeper,R,1,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,2,Top,,,105.0,160.0,74,Curve,R,0,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,2,Top,,,102.0,167.0,94,Four-seam FB,R,0,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,2,Top,,,101.0,190.0,83,Splitter,L,0,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,2,Top,,,84.0,168.0,82,Splitter,L,3,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,2,Bottom,,,110.0,140.0,95,Sinker,L,3,2
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,2,Bottom,,,96.0,173.0,96,Four-seam FB,L,3,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,2,Bottom,,,92.0,186.0,84,Sweeper,L,0,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,2,Bottom,,,118.0,180.0,95,Sinker,R,1,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,2,Bottom,,,122.0,197.0,96,Sinker,R,1,2
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,3,Top,,,150.0,170.0,82,Splitter,L,0,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,3,Top,,,145.0,181.0,92,Four-seam FB,L,1,2
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,3,Top,,,144.0,176.0,86,Slider,R,1,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,3,Top,,,115.0,193.0,95,Four-seam FB,L,0,2
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,3,Bottom,,,102.0,186.0,85,Sweeper,R,1,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,3,Bottom,,,120.0,142.0,92,Cutter,L,0,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,3,Bottom,,,111.0,181.0,95,Sinker,R,0,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,4,Top,,,149.0,186.0,91,Four-seam FB,L,1,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,4,Top,,,110.0,145.0,80,Curve,L,0,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,4,Bottom,,,113.0,155.0,93,Sinker,L,0,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,5,Top,,,138.0,152.0,98,Sinker,R,0,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,5,Top,,,83.0,178.0,83,Curve,L,0,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,5,Top,,,130.0,150.0,97,Sinker,L,2,2
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,5,Bottom,,,128.0,198.0,98,Sinker,R,0,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,6,Top,,,140.0,147.0,84,Sweeper,R,1,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,6,Bottom,,,140.0,187.0,82,Sinker,L,2,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,6,Bottom,,,97.0,158.0,83,Sinker,R,0,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,6,Bottom,,,153.0,168.0,83,Sinker,L,2,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,7,Top,,,127.0,167.0,94,Sinker,R,0,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,7,Top,,,143.0,181.0,95,Sinker,L,3,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,7,Top,,,134.0,154.0,97,Sinker,R,0,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,7,Bottom,,,105.0,197.0,98,Four-seam FB,R,1,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,7,Bottom,,,130.0,183.0,99,Four-seam FB,R,0,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,8,Top,,,143.0,167.0,99,Sinker,L,0,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,8,Top,,,141.0,192.0,88,Slider,L,1,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,8,Bottom,,,91.0,179.0,93,Sinker,R,3,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,8,Bottom,,,131.0,196.0,85,Slider,L,0,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,9,Top,,,139.0,180.0,99,Four-seam FB,R,1,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,9,Top,,,127.0,148.0,88,Knuckle Curve,R,2,2
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,9,Top,,,122.0,149.0,98,Four-seam FB,L,0,1
+401696661,2025-08-09,Milwaukee Brewers vs New York Mets,9,Top,,,138.0,175.0,88,Knuckle Curve,L,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,1,Top,,,90.0,167.0,91,Four-seam FB,R,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,1,Top,,,91.0,183.0,84,Slider,R,0,2
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,1,Top,,,87.0,157.0,93,Four-seam FB,R,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,1,Bottom,,,144.0,155.0,90,Four-seam FB,R,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,2,Top,,,96.0,188.0,91,Four-seam FB,R,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,2,Top,,,109.0,165.0,76,Curve,R,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,2,Top,,,92.0,156.0,83,Slider,R,0,2
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,2,Top,,,144.0,166.0,91,Four-seam FB,L,3,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,2,Bottom,,,98.0,182.0,86,Cutter,L,2,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,2,Bottom,,,138.0,164.0,90,Cutter,R,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,2,Bottom,,,128.0,192.0,82,Slider,R,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,3,Top,,,110.0,176.0,91,Sinker,R,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,3,Top,,,124.0,198.0,91,Sinker,R,0,2
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,3,Top,,,86.0,145.0,84,Slider,L,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,3,Bottom,,,136.0,142.0,79,Changeup,R,1,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,3,Bottom,,,91.0,151.0,91,Four-seam FB,R,2,2
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,3,Bottom,,,81.0,157.0,92,Four-seam FB,R,3,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,4,Top,,,138.0,146.0,74,Curve,L,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,4,Bottom,,,101.0,171.0,84,Slider,R,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,5,Top,,,141.0,201.0,81,Changeup,R,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,5,Top,,,145.0,166.0,81,Changeup,R,2,2
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,5,Top,,,116.0,177.0,82,Slider,R,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,5,Bottom,,,112.0,154.0,77,Curve,R,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,5,Bottom,,,125.0,184.0,92,Four-seam FB,R,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,5,Bottom,,,132.0,181.0,81,Changeup,R,1,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,6,Top,,,115.0,158.0,90,Four-seam FB,R,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,6,Top,,,139.0,153.0,91,Four-seam FB,L,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,6,Bottom,,,102.0,154.0,87,Cutter,R,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,6,Bottom,,,146.0,179.0,97,Sinker,R,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,6,Bottom,,,145.0,169.0,97,Sinker,R,2,2
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,7,Top,,,105.0,186.0,83,Slider,R,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,7,Top,,,148.0,160.0,93,Four-seam FB,L,3,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,7,Top,,,124.0,181.0,92,Four-seam FB,R,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,7,Bottom,,,98.0,173.0,97,Four-seam FB,R,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,7,Bottom,,,84.0,164.0,97,Four-seam FB,R,2,2
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,8,Top,,,128.0,182.0,83,Sweeper,L,1,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,8,Top,,,121.0,155.0,91,Cutter,L,1,2
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,8,Top,,,115.0,169.0,96,Sinker,R,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,8,Top,,,106.0,167.0,84,Sweeper,L,1,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,8,Bottom,,,105.0,188.0,97,Four-seam FB,L,1,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,8,Bottom,,,127.0,177.0,98,Four-seam FB,L,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,8,Bottom,,,97.0,165.0,85,Slider,L,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,9,Top,,,138.0,150.0,88,Cutter,L,1,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,9,Top,,,145.0,197.0,89,Sinker,R,1,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,9,Bottom,,,87.0,173.0,95,Four-seam FB,L,0,1
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,9,Bottom,,,132.0,176.0,96,Four-seam FB,L,1,2
+401696660,2025-08-09,Minnesota Twins vs Kansas City Royals,9,Bottom,,,120.0,199.0,96,Four-seam FB,R,3,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,1,Top,,,132.0,171.0,96,Four-seam FB,R,2,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,1,Top,,,117.0,160.0,88,Slider,R,2,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,1,Top,,,102.0,168.0,91,Changeup,R,1,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,1,Top,,,117.0,150.0,91,Changeup,R,1,2
+401696655,2025-08-09,New York Yankees vs Houston Astros,1,Bottom,,,146.0,195.0,94,Sinker,R,1,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,1,Bottom,,,146.0,181.0,95,Sinker,L,1,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,1,Bottom,,,137.0,156.0,93,Sinker,R,3,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,1,Bottom,,,131.0,183.0,95,Sinker,L,1,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,1,Bottom,,,131.0,182.0,93,Sinker,R,0,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,2,Top,,,95.0,156.0,95,Four-seam FB,R,0,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,2,Top,,,98.0,165.0,87,Slider,R,0,2
+401696655,2025-08-09,New York Yankees vs Houston Astros,2,Top,,,125.0,174.0,97,Four-seam FB,R,0,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,2,Top,,,128.0,148.0,97,Four-seam FB,L,0,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,2,Bottom,,,88.0,188.0,77,Curve,R,1,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,3,Top,,,99.0,151.0,86,Slider,R,1,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,3,Top,,,104.0,193.0,96,Four-seam FB,R,2,2
+401696655,2025-08-09,New York Yankees vs Houston Astros,3,Top,,,99.0,178.0,92,Changeup,R,0,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,3,Bottom,,,98.0,153.0,94,Sinker,R,0,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,4,Top,,,119.0,160.0,86,Slider,L,1,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,4,Top,,,127.0,193.0,92,Changeup,R,0,2
+401696655,2025-08-09,New York Yankees vs Houston Astros,4,Top,,,118.0,160.0,88,Slider,R,0,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,4,Top,,,79.0,149.0,96,Four-seam FB,R,2,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,4,Bottom,,,143.0,196.0,93,Sinker,R,0,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,4,Bottom,,,104.0,175.0,95,Sinker,L,0,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,5,Top,,,150.0,149.0,93,Four-seam FB,L,0,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,5,Top,,,123.0,171.0,94,Four-seam FB,R,3,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,5,Top,,,123.0,158.0,95,Four-seam FB,R,0,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,5,Top,,,114.0,163.0,96,Four-seam FB,L,0,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,5,Bottom,,,113.0,179.0,93,Sinker,R,0,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,5,Bottom,,,132.0,153.0,93,Sinker,L,0,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,5,Bottom,,,142.0,190.0,80,Curve,L,1,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,5,Bottom,,,131.0,176.0,93,Sinker,R,0,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,6,Top,,,125.0,170.0,91,Changeup,R,0,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,6,Top,,,135.0,151.0,85,Slider,R,0,2
+401696655,2025-08-09,New York Yankees vs Houston Astros,6,Top,,,112.0,172.0,93,Sinker,R,0,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,6,Bottom,,,115.0,170.0,96,Sinker,L,1,2
+401696655,2025-08-09,New York Yankees vs Houston Astros,7,Top,,,97.0,184.0,95,Four-seam FB,R,0,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,7,Bottom,,,132.0,146.0,82,Sweeper,R,0,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,8,Top,,,92.0,185.0,99,Cutter,L,1,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,8,Top,,,128.0,180.0,89,Slider,L,1,2
+401696655,2025-08-09,New York Yankees vs Houston Astros,8,Top,,,110.0,190.0,88,Slider,R,1,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,8,Top,,,119.0,142.0,99,Cutter,L,0,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,8,Top,,,105.0,191.0,78,Curve,L,0,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,8,Bottom,,,81.0,154.0,90,Four-seam FB,R,0,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,8,Bottom,,,133.0,179.0,92,Four-seam FB,L,1,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,9,Top,,,101.0,165.0,79,Curve,R,0,1
+401696655,2025-08-09,New York Yankees vs Houston Astros,9,Top,,,87.0,159.0,79,Curve,R,1,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,1,Top,,,107.0,172.0,91,Slider,R,0,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,1,Top,,,114.0,148.0,91,Slider,L,3,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,1,Top,,,106.0,154.0,83,Curve,L,3,2
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,1,Top,,,104.0,189.0,93,Slider,R,0,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,1,Bottom,,,93.0,185.0,90,Cutter,L,2,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,1,Bottom,,,139.0,203.0,93,Sinker,L,1,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,2,Top,,,95.0,160.0,82,Curve,L,0,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,2,Top,,,107.0,185.0,97,Sinker,R,0,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,2,Top,,,116.0,172.0,85,Curve,R,0,2
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,2,Top,,,123.0,161.0,90,Slider,R,0,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,2,Bottom,,,125.0,161.0,90,Cutter,R,0,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,2,Bottom,,,112.0,177.0,85,Slider,R,1,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,2,Bottom,,,151.0,145.0,91,Four-seam FB,R,1,2
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,2,Bottom,,,97.0,188.0,92,Sinker,R,0,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,3,Top,,,103.0,172.0,96,Four-seam FB,R,1,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,3,Bottom,,,123.0,142.0,79,Curve,R,0,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,3,Bottom,,,145.0,169.0,89,Cutter,L,1,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,3,Bottom,,,139.0,187.0,88,Cutter,L,2,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,3,Bottom,,,125.0,192.0,92,Sinker,L,2,2
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,3,Bottom,,,104.0,189.0,78,Changeup,L,2,2
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,3,Bottom,,,149.0,179.0,93,Four-seam FB,L,2,2
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,4,Top,,,142.0,176.0,89,Slider,L,0,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,4,Top,,,126.0,168.0,83,Curve,R,0,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,4,Top,,,135.0,162.0,84,Sweeper,R,0,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,4,Top,,,92.0,175.0,97,Four-seam FB,R,0,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,4,Bottom,,,140.0,169.0,89,Cutter,R,1,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,4,Bottom,,,103.0,166.0,92,Sinker,R,1,2
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,4,Bottom,,,107.0,197.0,89,Cutter,R,1,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,5,Top,,,89.0,180.0,84,Curve,L,0,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,5,Top,,,136.0,185.0,98,Four-seam FB,L,2,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,5,Top,,,91.0,169.0,97,Four-seam FB,L,2,2
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,5,Bottom,,,123.0,177.0,78,Curve,R,0,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,5,Bottom,,,104.0,167.0,79,Curve,L,0,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,5,Bottom,,,117.0,169.0,77,Changeup,R,0,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,5,Bottom,,,132.0,181.0,85,Slider,R,0,2
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,6,Top,,,125.0,155.0,96,Sinker,R,0,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,6,Top,,,91.0,188.0,86,Slider,R,0,2
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,6,Top,,,139.0,165.0,85,Slider,L,0,2
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,6,Top,,,88.0,159.0,98,Four-seam FB,R,0,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,7,Top,,,133.0,175.0,96,Sinker,R,0,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,7,Top,,,144.0,175.0,88,Slider,L,1,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,7,Bottom,,,92.0,188.0,92,Sinker,R,1,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,7,Bottom,,,92.0,175.0,93,Sinker,R,2,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,8,Top,,,136.0,196.0,93,Four-seam FB,L,0,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,8,Top,,,135.0,202.0,93,Four-seam FB,L,1,2
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,8,Bottom,,,93.0,184.0,95,Four-seam FB,R,0,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,8,Bottom,,,96.0,182.0,97,Four-seam FB,R,0,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,8,Bottom,,,123.0,186.0,96,Four-seam FB,L,1,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,9,Top,,,88.0,181.0,95,Four-seam FB,R,0,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,9,Top,,,152.0,189.0,96,Four-seam FB,L,0,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,9,Bottom,,,111.0,164.0,82,Splitter,L,1,1
+401696654,2025-08-09,Pittsburgh Pirates vs Cincinnati Reds,9,Bottom,,,138.0,183.0,86,Cutter,R,1,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,1,Top,,,108.0,163.0,93,Sinker,L,1,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,1,Top,,,148.0,174.0,81,Sweeper,L,1,2
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,1,Top,,,96.0,178.0,93,Four-seam FB,R,2,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,1,Top,,,90.0,165.0,93,Sinker,L,0,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,1,Top,,,127.0,160.0,93,Sinker,R,0,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,1,Bottom,,,99.0,174.0,92,Four-seam FB,R,1,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,1,Bottom,,,129.0,193.0,92,Four-seam FB,L,0,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,2,Top,,,92.0,160.0,90,Sinker,L,0,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,2,Top,,,106.0,186.0,93,Four-seam FB,L,1,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,2,Top,,,131.0,188.0,92,Sinker,R,1,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,2,Top,,,115.0,171.0,86,Changeup,L,1,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,2,Top,,,92.0,173.0,91,Sinker,L,3,2
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,2,Bottom,,,102.0,197.0,80,Changeup,R,0,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,2,Bottom,,,115.0,153.0,77,Curve,L,1,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,2,Bottom,,,95.0,155.0,84,Slider,R,0,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,2,Bottom,,,111.0,189.0,81,Changeup,R,1,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,3,Top,,,88.0,181.0,81,Sweeper,R,0,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,3,Top,,,120.0,180.0,88,Slider,L,0,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,3,Bottom,,,78.0,180.0,81,Changeup,R,1,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,3,Bottom,,,105.0,195.0,92,Four-seam FB,L,0,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,3,Bottom,,,78.0,167.0,84,Slider,R,1,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,3,Bottom,,,142.0,158.0,93,Four-seam FB,L,0,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,4,Top,,,104.0,166.0,94,Sinker,R,0,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,4,Top,,,122.0,171.0,96,Sinker,L,0,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,4,Top,,,111.0,196.0,90,Changeup,L,2,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,4,Bottom,,,101.0,142.0,84,Slider,R,1,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,4,Bottom,,,126.0,177.0,92,Four-seam FB,R,0,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,5,Top,,,82.0,175.0,89,Slider,R,0,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,5,Top,,,139.0,182.0,97,Four-seam FB,L,1,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,5,Top,,,126.0,162.0,89,Slider,L,0,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,5,Top,,,115.0,163.0,83,Splitter,L,0,2
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,5,Bottom,,,131.0,167.0,80,Changeup,R,2,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,5,Bottom,,,129.0,180.0,92,Four-seam FB,L,0,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,5,Bottom,,,102.0,191.0,81,Changeup,R,2,2
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,5,Bottom,,,131.0,180.0,94,Four-seam FB,R,1,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,5,Bottom,,,107.0,185.0,91,Four-seam FB,L,3,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,5,Bottom,,,143.0,189.0,92,Four-seam FB,R,1,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,5,Bottom,,,120.0,180.0,94,Sinker,L,0,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,5,Bottom,,,114.0,173.0,95,Sinker,L,0,2
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,6,Top,,,126.0,164.0,97,Four-seam FB,L,1,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,6,Top,,,138.0,176.0,98,Four-seam FB,R,0,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,6,Bottom,,,107.0,188.0,79,Curve,R,1,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,6,Bottom,,,121.0,146.0,95,Sinker,R,0,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,6,Bottom,,,134.0,191.0,95,Sinker,L,1,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,7,Top,,,96.0,178.0,98,Sinker,L,3,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,7,Bottom,,,142.0,182.0,94,Sinker,L,1,2
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,7,Bottom,,,107.0,167.0,97,Sinker,R,1,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,7,Bottom,,,129.0,181.0,97,Sinker,R,0,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,7,Bottom,,,105.0,146.0,99,Sinker,R,0,2
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,8,Top,,,132.0,160.0,99,Four-seam FB,L,0,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,8,Top,,,141.0,158.0,87,Slider,L,0,2
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,8,Bottom,,,108.0,145.0,94,Four-seam FB,L,0,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,8,Bottom,,,108.0,160.0,99,Sinker,L,2,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,9,Top,,,101.0,189.0,97,Sinker,R,1,2
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,9,Top,,,119.0,177.0,97,Four-seam FB,R,0,1
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,9,Top,,,125.0,194.0,98,Four-seam FB,R,3,2
+401696663,2025-08-09,San Diego Padres vs Boston Red Sox,9,Top,,,124.0,193.0,92,Changeup,L,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,1,Top,,,102.0,200.0,92,Sinker,R,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,1,Top,,,129.0,170.0,90,Four-seam FB,R,1,2
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,1,Bottom,,,86.0,172.0,101,Four-seam FB,R,2,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,1,Bottom,,,140.0,173.0,100,Four-seam FB,L,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,1,Bottom,,,139.0,171.0,91,Slider,L,1,2
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,1,Bottom,,,83.0,175.0,100,Four-seam FB,R,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,2,Top,,,117.0,190.0,89,Cutter,L,1,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,2,Top,,,84.0,186.0,95,Sinker,R,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,2,Bottom,,,116.0,164.0,90,Slider,L,1,2
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,2,Bottom,,,136.0,186.0,91,Slider,L,2,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,2,Bottom,,,139.0,171.0,92,Slider,L,1,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,3,Top,,,87.0,180.0,88,Cutter,L,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,3,Top,,,135.0,152.0,82,Curve,L,1,2
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,3,Top,,,98.0,168.0,92,Sinker,R,3,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,3,Top,,,139.0,174.0,81,Curve,L,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,3,Bottom,,,91.0,162.0,91,Slider,R,1,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,3,Bottom,,,123.0,157.0,90,Slider,L,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,4,Top,,,100.0,173.0,91,Sinker,L,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,4,Top,,,83.0,178.0,88,Cutter,R,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,4,Top,,,94.0,164.0,92,Sinker,R,1,2
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,4,Top,,,139.0,186.0,88,Changeup,L,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,4,Top,,,89.0,184.0,93,Sinker,L,0,2
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,4,Bottom,,,100.0,156.0,90,Slider,L,3,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,4,Bottom,,,110.0,174.0,91,Slider,R,2,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,5,Top,,,91.0,189.0,92,Sinker,L,1,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,5,Bottom,,,103.0,156.0,98,Four-seam FB,R,2,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,5,Bottom,,,148.0,169.0,98,Four-seam FB,L,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,6,Top,,,112.0,147.0,87,Cutter,R,2,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,6,Top,,,134.0,192.0,94,Four-seam FB,R,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,6,Top,,,105.0,165.0,81,Slurve,R,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,6,Bottom,,,140.0,168.0,75,Curve,L,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,6,Bottom,,,121.0,188.0,76,Curve,L,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,6,Bottom,,,146.0,165.0,91,Sinker,R,1,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,6,Bottom,,,97.0,176.0,77,Curve,L,2,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,7,Top,,,95.0,171.0,93,Four-seam FB,R,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,7,Top,,,87.0,165.0,95,Sinker,L,0,2
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,7,Top,,,108.0,183.0,95,Sinker,L,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,8,Top,,,89.0,105.0,96,Sinker,R,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,8,Top,,,86.0,161.0,97,Sinker,R,1,2
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,8,Top,,,133.0,183.0,95,Four-seam FB,L,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,8,Bottom,,,128.0,185.0,92,Four-seam FB,L,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,8,Bottom,,,150.0,198.0,93,Four-seam FB,L,2,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,8,Bottom,,,131.0,144.0,87,Cutter,R,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,8,Bottom,,,145.0,198.0,93,Four-seam FB,R,2,2
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,8,Bottom,,,136.0,200.0,88,Cutter,R,3,2
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,8,Bottom,,,102.0,158.0,83,Changeup,R,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,8,Bottom,,,127.0,155.0,90,Cutter,R,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,9,Top,,,95.0,185.0,84,Slider,R,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,9,Top,,,132.0,177.0,85,Slider,L,1,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,9,Top,,,84.0,182.0,99,Four-seam FB,R,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,9,Top,,,147.0,173.0,84,Slider,R,1,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,9,Top,,,87.0,191.0,98,Four-seam FB,R,3,2
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,9,Top,,,152.0,166.0,85,Slider,L,0,1
+401696665,2025-08-09,Seattle Mariners vs Tampa Bay Rays,9,Top,,,131.0,162.0,85,Slider,L,0,2
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,1,Top,,,129.0,181.0,94,Sinker,L,0,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,1,Top,,,98.0,186.0,80,Changeup,R,1,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,1,Bottom,,,116.0,176.0,93,Sinker,R,2,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,1,Bottom,,,117.0,155.0,95,Four-seam FB,L,0,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,2,Bottom,,,109.0,195.0,96,Sinker,L,0,2
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,3,Top,,,127.0,170.0,82,Changeup,R,0,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,3,Top,,,91.0,155.0,90,Sinker,R,0,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,3,Top,,,115.0,178.0,92,Sinker,R,1,2
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,3,Bottom,,,134.0,163.0,97,Four-seam FB,L,0,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,3,Bottom,,,102.0,168.0,95,Four-seam FB,R,1,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,3,Bottom,,,99.0,189.0,96,Four-seam FB,R,2,2
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,3,Bottom,,,149.0,170.0,94,Four-seam FB,L,0,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,3,Bottom,,,137.0,182.0,94,Four-seam FB,L,0,2
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,3,Bottom,,,102.0,152.0,86,Changeup,R,1,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,4,Top,,,137.0,175.0,91,Sinker,R,0,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,4,Top,,,123.0,187.0,81,Changeup,R,3,2
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,5,Top,,,105.0,174.0,95,Sinker,R,0,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,5,Top,,,105.0,163.0,95,Sinker,R,2,2
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,5,Top,,,116.0,161.0,95,Sinker,L,1,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,5,Top,,,105.0,194.0,95,Sinker,L,1,2
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,5,Bottom,,,133.0,155.0,85,Slider,L,2,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,5,Bottom,,,107.0,184.0,94,Four-seam FB,R,0,2
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,6,Top,,,125.0,166.0,85,Slider,L,0,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,6,Top,,,105.0,182.0,95,Four-seam FB,R,0,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,6,Top,,,95.0,197.0,97,Four-seam FB,R,3,2
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,6,Bottom,,,119.0,190.0,93,Four-seam FB,L,1,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,6,Bottom,,,115.0,189.0,86,Slider,R,0,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,6,Bottom,,,93.0,150.0,94,Four-seam FB,R,0,2
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,7,Top,,,133.0,148.0,96,Sinker,R,0,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,7,Bottom,,,129.0,179.0,84,Changeup,R,0,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,7,Bottom,,,142.0,175.0,93,Four-seam FB,L,2,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,7,Bottom,,,140.0,188.0,85,Slider,L,2,2
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,8,Top,,,86.0,154.0,93,Four-seam FB,R,1,2
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,8,Top,,,99.0,163.0,86,Slider,R,0,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,8,Bottom,,,104.0,160.0,93,Four-seam FB,L,1,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,8,Bottom,,,132.0,177.0,95,Four-seam FB,R,0,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,8,Bottom,,,89.0,148.0,96,Sinker,R,0,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,8,Bottom,,,103.0,147.0,98,Sinker,R,0,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,9,Top,,,144.0,181.0,85,Slider,L,0,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,9,Top,,,124.0,181.0,92,Four-seam FB,L,0,2
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,9,Bottom,,,146.0,159.0,97,Sinker,L,0,1
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,9,Bottom,,,143.0,176.0,99,Sinker,L,0,2
+401696667,2025-08-09,San Francisco Giants vs Washington Nationals,9,Bottom,,,120.0,197.0,98,Sinker,R,1,2
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,1,Top,,,146.0,152.0,93,Four-seam FB,L,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,1,Top,,,116.0,165.0,94,Four-seam FB,R,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,1,Top,,,156.0,173.0,94,Sinker,R,0,2
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,1,Top,,,120.0,157.0,93,Four-seam FB,L,3,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,1,Bottom,,,114.0,163.0,94,Four-seam FB,L,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,1,Bottom,,,123.0,197.0,81,Curve,L,0,2
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,1,Bottom,,,97.0,144.0,94,Four-seam FB,R,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,1,Bottom,,,135.0,172.0,93,Sinker,R,0,2
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,1,Bottom,,,153.0,177.0,92,Sinker,R,1,2
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,2,Top,,,105.0,167.0,86,Slider,R,1,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,2,Top,,,136.0,139.0,93,Four-seam FB,R,3,2
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,2,Top,,,124.0,163.0,89,Slider,R,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,2,Top,,,146.0,171.0,95,Four-seam FB,R,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,2,Top,,,117.0,162.0,86,Slider,L,1,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,2,Bottom,,,98.0,176.0,93,Four-seam FB,R,3,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,2,Bottom,,,105.0,189.0,95,Four-seam FB,L,0,2
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,3,Top,,,133.0,144.0,81,Curve,L,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,3,Top,,,138.0,197.0,94,Four-seam FB,R,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,3,Top,,,136.0,147.0,82,Curve,R,0,2
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,3,Top,,,102.0,195.0,96,Four-seam FB,R,1,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,3,Top,,,119.0,167.0,82,Curve,L,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,3,Bottom,,,131.0,146.0,79,Curve,L,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,3,Bottom,,,150.0,181.0,92,Sinker,R,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,3,Bottom,,,143.0,153.0,82,Sweeper,R,3,2
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,4,Top,,,116.0,148.0,87,Slider,R,1,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,4,Top,,,144.0,145.0,94,Four-seam FB,L,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,4,Top,,,92.0,189.0,80,Curve,L,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,4,Bottom,,,128.0,167.0,79,Curve,L,1,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,4,Bottom,,,94.0,171.0,93,Four-seam FB,R,3,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,4,Bottom,,,90.0,167.0,93,Sinker,R,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,4,Bottom,,,101.0,161.0,83,Sweeper,R,1,2
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,5,Top,,,104.0,160.0,95,Four-seam FB,R,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,5,Top,,,101.0,159.0,95,Four-seam FB,R,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,6,Bottom,,,93.0,164.0,93,Four-seam FB,L,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,6,Bottom,,,133.0,178.0,91,Sinker,R,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,6,Bottom,,,86.0,160.0,92,Four-seam FB,R,2,2
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,6,Bottom,,,90.0,175.0,92,Sinker,R,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,7,Top,,,146.0,155.0,95,Four-seam FB,L,2,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,7,Top,,,94.0,179.0,87,Slider,R,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,7,Bottom,,,92.0,171.0,78,Sweeper,L,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,7,Bottom,,,132.0,183.0,89,Slider,R,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,7,Bottom,,,97.0,175.0,93,Four-seam FB,R,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,7,Bottom,,,142.0,152.0,93,Four-seam FB,R,2,2
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,8,Top,,,97.0,172.0,86,Slider,R,2,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,8,Top,,,91.0,192.0,95,Sinker,R,3,2
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,8,Top,,,125.0,161.0,87,Slider,L,1,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,8,Bottom,,,111.0,159.0,77,Sweeper,L,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,8,Bottom,,,131.0,185.0,91,Sinker,L,0,2
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,8,Bottom,,,140.0,187.0,93,Sinker,L,3,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,8,Bottom,,,112.0,180.0,77,Sweeper,R,1,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,8,Bottom,,,102.0,172.0,77,Sweeper,R,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,8,Bottom,,,144.0,198.0,92,Sinker,R,0,2
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,9,Top,,,145.0,167.0,90,Cutter,L,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,9,Top,,,130.0,167.0,94,Sinker,R,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,9,Top,,,83.0,166.0,95,Four-seam FB,R,1,2
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,9,Bottom,,,90.0,168.0,91,Four-seam FB,L,0,2
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,9,Bottom,,,111.0,174.0,93,Four-seam FB,R,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,9,Bottom,,,120.0,155.0,93,Four-seam FB,R,0,2
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,9,Bottom,,,138.0,162.0,92,Four-seam FB,R,0,1
+401696658,2025-08-09,St. Louis Cardinals vs Chicago Cubs,9,Bottom,,,115.0,182.0,93,Four-seam FB,L,0,2
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,1,Top,,,109.0,207.0,91,Slider,L,0,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,1,Top,,,142.0,188.0,92,Slider,L,1,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,1,Bottom,,,151.0,182.0,96,Four-seam FB,R,1,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,1,Bottom,,,104.0,184.0,85,Slider,R,0,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,2,Top,,,118.0,185.0,82,Curve,L,1,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,3,Top,,,120.0,166.0,97,Four-seam FB,L,0,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,3,Bottom,,,126.0,198.0,93,Sinker,R,0,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,3,Bottom,,,89.0,194.0,84,Sweeper,R,0,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,4,Top,,,146.0,163.0,98,Four-seam FB,L,3,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,4,Top,,,146.0,166.0,97,Four-seam FB,L,0,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,4,Bottom,,,118.0,193.0,83,Sweeper,R,0,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,4,Bottom,,,86.0,172.0,85,Sweeper,R,1,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,4,Bottom,,,110.0,142.0,95,Sinker,R,2,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,4,Bottom,,,97.0,180.0,84,Sweeper,R,0,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,4,Bottom,,,88.0,189.0,85,Sweeper,R,0,2
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,5,Top,,,141.0,165.0,96,Four-seam FB,L,0,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,5,Top,,,88.0,196.0,90,Slider,R,0,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,5,Top,,,132.0,171.0,98,Four-seam FB,L,1,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,5,Bottom,,,127.0,180.0,95,Four-seam FB,R,1,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,7,Top,,,141.0,170.0,92,Slider,L,0,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,7,Top,,,115.0,180.0,91,Slider,R,2,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,7,Top,,,109.0,173.0,85,Cutter,R,1,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,7,Bottom,,,95.0,162.0,80,Sweeper,R,0,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,8,Bottom,,,135.0,165.0,92,Four-seam FB,L,1,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,8,Bottom,,,103.0,199.0,81,Slider,R,0,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,9,Top,,,80.0,165.0,93,Four-seam FB,R,1,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,9,Top,,,118.0,176.0,93,Four-seam FB,L,0,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,9,Top,,,141.0,173.0,93,Four-seam FB,L,2,2
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,9,Top,,,97.0,174.0,93,Four-seam FB,R,1,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,9,Top,,,138.0,174.0,93,Four-seam FB,R,3,2
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,9,Bottom,,,112.0,167.0,97,Splitter,R,0,1
+401696662,2025-08-09,Texas Rangers vs Philadelphia Phillies,9,Bottom,,,140.0,169.0,97,Splitter,L,1,1

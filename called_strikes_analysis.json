@@ -1,0 +1,24 @@
+{
+  "total_called_strikes": 786,
+  "x_coordinate_stats": {
+    "mean": 115.3,
+    "median": 115.0,
+    "min": 78.0,
+    "max": 156.0,
+    "count": 786
+  },
+  "y_coordinate_stats": {
+    "mean": 172.76,
+    "median": 174.0,
+    "min": 105.0,
+    "max": 207.0,
+    "count": 786
+  },
+  "zone_distribution": {
+    "way_inside": 0,
+    "inside": 214,
+    "strike_zone": 570,
+    "outside": 2,
+    "way_outside": 0
+  }
+}
