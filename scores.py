@@ -14,10 +14,10 @@ from PyQt6.QtWidgets import (
     QHBoxLayout, QCheckBox, QDialog, QMessageBox, QTextEdit, QScrollArea,
     QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget, QStackedWidget,
     QListWidgetItem, QTreeWidget, QTreeWidgetItem, QSpinBox, QComboBox,
-    QSizePolicy
+    QSizePolicy, QMenu
 )
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QAction
 
 # New separated modules
 from exceptions import ApiError, DataModelError
@@ -26,6 +26,14 @@ from models.game import GameData
 from models.news import NewsData
 from models.standings import StandingsData
 from accessible_table import AccessibleTable, StandingsTable, LeadersTable, BoxscoreTable, InjuryTable
+
+# Audio system for pitch mapping
+try:
+    from simple_audio_mapper import SimpleAudioPitchMapper as AudioPitchMapper
+    AUDIO_AVAILABLE = True
+except ImportError:
+    AUDIO_AVAILABLE = False
+    AudioPitchMapper = None
 
 # Constants
 DETAIL_FIELDS = ["boxscore", "plays", "drives", "leaders", "standings", "odds", "injuries", "broadcasts", "news", "gameInfo"]
@@ -115,6 +123,44 @@ def get_pitch_location(horizontal: int, vertical: int, batter_side: str = None) 
         return location  # Already includes height
     else:
         return f"{height_desc} {location}"
+
+class AudioOnFocusAction(QAction):
+    """Custom QAction that plays audio when highlighted in menu (for strike zone exploration)"""
+    
+    def __init__(self, text, parent, audio_callback, zone_id):
+        super().__init__(text, parent)
+        self.audio_callback = audio_callback
+        self.zone_id = zone_id
+
+class StrikeZoneMenu(QMenu):
+    """Custom QMenu that plays audio when actions are highlighted"""
+    
+    def __init__(self, title, parent, audio_callback):
+        super().__init__(title, parent)
+        self.audio_callback = audio_callback
+        self._last_highlighted = None
+        self.setToolTipsVisible(True)
+        
+    def mouseMoveEvent(self, event):
+        super().mouseMoveEvent(event)
+        # Get the action under the mouse
+        action = self.actionAt(event.pos())
+        if action and hasattr(action, 'zone_id') and action != self._last_highlighted:
+            self._last_highlighted = action
+            # Play audio for this zone with a small delay to avoid rapid-fire
+            QTimer.singleShot(100, lambda: self.audio_callback(action.zone_id))
+    
+    def keyPressEvent(self, event):
+        super().keyPressEvent(event)
+        # Handle arrow key navigation
+        if event.key() in [Qt.Key.Key_Up, Qt.Key.Key_Down]:
+            QTimer.singleShot(50, self._play_highlighted_action_audio)
+    
+    def _play_highlighted_action_audio(self):
+        """Play audio for currently highlighted action"""
+        highlighted = self.activeAction()
+        if highlighted and hasattr(highlighted, 'zone_id'):
+            self.audio_callback(highlighted.zone_id)
 
 class ConfigDialog(QDialog):
     def __init__(self, details, selected, parent=None):
@@ -516,6 +562,18 @@ class GameDetailsView(BaseView):
         self.game_id = game_id
         self.config = parent.config if parent else {}
         self.raw_game_data = None  # Store raw data for drill-down access
+        
+        # Initialize audio pitch mapper
+        self.audio_mapper = None
+        if AUDIO_AVAILABLE:
+            try:
+                self.audio_mapper = AudioPitchMapper(self)
+                self.audio_mapper.audio_generated.connect(self._on_audio_feedback)
+                self.audio_mapper.audio_error.connect(self._on_audio_error)
+            except Exception as e:
+                print(f"Audio initialization failed: {e}")
+                self.audio_mapper = None
+        
         self.setup_ui()
     
     def setup_ui(self):
@@ -529,6 +587,17 @@ class GameDetailsView(BaseView):
         
         self._add_nav_buttons()
         self.load_game_details()
+    
+    def _on_audio_feedback(self, message):
+        """Handle audio generation feedback"""
+        # Provide accessible feedback about audio generation
+        if hasattr(self, 'details_list'):
+            self.details_list.setAccessibleDescription(f"Audio: {message}")
+    
+    def _on_audio_error(self, error_message):
+        """Handle audio errors"""
+        print(f"Audio error: {error_message}")
+        # Could show a non-intrusive error message if needed
     
     def _on_detail_item_selected(self, item):
         """Handle selection of detailed data items"""
@@ -1298,7 +1367,17 @@ class GameDetailsView(BaseView):
         export_btn.clicked.connect(self._export_game_log)
         export_btn.setMaximumWidth(150)
         header_layout.addWidget(export_btn)
-        header_layout.addStretch()  # Push button to the left
+        
+        # Add Pitch Audio button for baseball games
+        if sport_type == 'baseball':
+            pitch_audio_btn = QPushButton("Pitch Audio")
+            pitch_audio_btn.setAccessibleName("Pitch Audio Button")
+            pitch_audio_btn.setAccessibleDescription("Play audio for the currently selected pitch (Alt+P)")
+            pitch_audio_btn.clicked.connect(lambda: self._play_current_pitch_audio(plays_tree))
+            pitch_audio_btn.setMaximumWidth(120)
+            header_layout.addWidget(pitch_audio_btn)
+        
+        header_layout.addStretch()  # Push buttons to the left
         
         layout.addLayout(header_layout)
         
@@ -1321,6 +1400,48 @@ class GameDetailsView(BaseView):
         
         plays_tree.itemExpanded.connect(on_item_expanded)
         plays_tree.itemCollapsed.connect(on_item_collapsed)
+        
+        # Add context menu for pitch audio options
+        def show_context_menu(position):
+            current_item = plays_tree.itemAt(position)
+            if current_item:
+                self._show_pitch_context_menu(current_item, plays_tree.mapToGlobal(position))
+        
+        def on_key_press(event):
+            current_item = plays_tree.currentItem()
+            
+            if event.key() == Qt.Key.Key_F10 and event.modifiers() == Qt.KeyboardModifier.ShiftModifier:
+                # Shift+F10 for context menu (works on any item)
+                if current_item:
+                    item_rect = plays_tree.visualItemRect(current_item)
+                    self._show_pitch_context_menu(current_item, plays_tree.mapToGlobal(item_rect.center()))
+                    event.accept()
+                    return
+            elif event.key() == Qt.Key.Key_P and event.modifiers() == Qt.KeyboardModifier.AltModifier:
+                # Alt+P for pitch audio (only works on actual pitches)
+                if current_item and self._is_pitch_item(current_item):
+                    self._play_pitch_audio(current_item)
+                    event.accept()
+                    return
+            elif event.key() == Qt.Key.Key_S and event.modifiers() == Qt.KeyboardModifier.AltModifier:
+                # Alt+S for pitch sequence (works on pitches and at-bat items)
+                if current_item:
+                    is_pitch = self._is_pitch_item(current_item)
+                    is_at_bat = current_item.parent() is None  # Top-level item
+                    if is_pitch or is_at_bat:
+                        self._play_pitch_sequence(current_item)
+                        event.accept()
+                        return
+            # Fall back to default behavior
+            plays_tree.__class__.keyPressEvent(plays_tree, event)
+        
+        # Enable context menu
+        plays_tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        plays_tree.customContextMenuRequested.connect(show_context_menu)
+        plays_tree.keyPressEvent = on_key_press
+        
+        # Store reference for strike zone audio context
+        self.current_tree_widget = plays_tree
         
         if sport_type == "MLB":
             self._build_baseball_tree(plays_tree, data)
@@ -1974,6 +2095,17 @@ class GameDetailsView(BaseView):
                         enhanced_text = play_text
                     
                     pitch_item = QTreeWidgetItem([f"  {enhanced_text}"])
+                    
+                    # Store pitch data for audio playback
+                    pitch_data = {
+                        'x': espn_x,
+                        'y': espn_y,
+                        'velocity': velocity,
+                        'pitch_type': pitch_type_text,
+                        'batter_hand': batter_side,
+                        'is_pitch': True
+                    }
+                    pitch_item.setData(0, Qt.ItemDataRole.UserRole, pitch_data)
                     at_bat_item.addChild(pitch_item)
                 else:
                     # Other play details (substitutions, etc.)
@@ -2033,6 +2165,267 @@ class GameDetailsView(BaseView):
                 play_item.setText(0, f"🏈 {enhanced_text} ({away_score}-{home_score})")
             
             parent_item.addChild(play_item)
+
+    def _is_pitch_item(self, tree_item):
+        """Check if the tree item represents a pitch (for audio playback)"""
+        if not tree_item:
+            return False
+            
+        # Check if item text contains pitch-related keywords
+        item_text = tree_item.text(0).lower()
+        
+        # Look for pitch indicators
+        pitch_indicators = [
+            "ball", "strike", "foul", "looking", "swinging",
+            "fastball", "slider", "curveball", "changeup", "sinker", "cutter",
+            "mph", "hit by pitch"
+        ]
+        
+        # Also check for coordinate patterns (x, y)
+        has_coordinates = "(" in item_text and ")" in item_text and "," in item_text
+        
+        return any(indicator in item_text for indicator in pitch_indicators) or has_coordinates
+    
+    def _play_pitch_audio(self, tree_item):
+        """Extract pitch data from tree item and play spatial audio"""
+        if not self.audio_mapper:
+            return
+            
+        try:
+            # Try to get stored pitch data first
+            pitch_data = tree_item.data(0, Qt.ItemDataRole.UserRole)
+            
+            if pitch_data and isinstance(pitch_data, dict) and pitch_data.get('is_pitch'):
+                # Use stored data
+                x = pitch_data.get('x')
+                y = pitch_data.get('y') 
+                velocity = pitch_data.get('velocity')
+                pitch_type = pitch_data.get('pitch_type')
+                batter_hand = pitch_data.get('batter_hand')
+            else:
+                # Fall back to text parsing
+                item_text = tree_item.text(0)
+                parsed_data = self._extract_pitch_data_from_text(item_text)
+                
+                if not parsed_data:
+                    self._on_audio_error("Could not parse pitch data from selected item")
+                    return
+                    
+                x = parsed_data.get('x')
+                y = parsed_data.get('y') 
+                velocity = parsed_data.get('velocity')
+                pitch_type = parsed_data.get('pitch_type')
+                batter_hand = parsed_data.get('batter_hand')
+            
+            if x is not None and y is not None:
+                # Generate and play spatial audio
+                self.audio_mapper.generate_pitch_audio(
+                    x, y, velocity, pitch_type, batter_hand
+                )
+                
+                # Provide accessible feedback
+                location_desc = self.audio_mapper._get_location_description(x, y, batter_hand)
+                feedback = f"Playing audio for pitch at ({x}, {y}) - {location_desc}"
+                self._on_audio_feedback(feedback)
+            else:
+                self._on_audio_error("Could not extract coordinates from pitch data")
+                
+        except Exception as e:
+            self._on_audio_error(f"Failed to play pitch audio: {str(e)}")
+    
+    def _extract_pitch_data_from_text(self, item_text):
+        """Extract pitch data from enhanced tree item text"""
+        import re
+        
+        pitch_data = {}
+        
+        # Extract coordinates (x, y) 
+        coord_pattern = r'\((\d+),\s*(\d+)\)'
+        coord_match = re.search(coord_pattern, item_text)
+        if coord_match:
+            pitch_data['x'] = int(coord_match.group(1))
+            pitch_data['y'] = int(coord_match.group(2))
+        
+        # Extract velocity
+        velocity_pattern = r'(\d+)\s*mph'
+        velocity_match = re.search(velocity_pattern, item_text, re.IGNORECASE)
+        if velocity_match:
+            pitch_data['velocity'] = int(velocity_match.group(1))
+        
+        # Extract pitch type
+        pitch_types = [
+            'four-seam fastball', 'fastball', 'slider', 'curveball', 'changeup', 
+            'sinker', 'cutter', 'knuckleball', 'splitter', 'curve'
+        ]
+        
+        for pitch_type in pitch_types:
+            if pitch_type.lower() in item_text.lower():
+                pitch_data['pitch_type'] = pitch_type
+                break
+        
+        # Try to determine batter handedness from context
+        # This is a simplified approach - in a full implementation, 
+        # we'd track the current batter's handedness more systematically
+        
+        # For now, use heuristics based on location description
+        if 'inside' in item_text.lower() and 'way' in item_text.lower():
+            # Could indicate handedness based on coordinate ranges
+            x = pitch_data.get('x', 127)
+            if x < 100:  # Low X values
+                pitch_data['batter_hand'] = 'R'  # Inside to right-handed batter
+            else:
+                pitch_data['batter_hand'] = 'L'  # Inside to left-handed batter
+        else:
+            # Default assumption
+            pitch_data['batter_hand'] = 'R'
+        
+        return pitch_data
+    
+    def _show_pitch_context_menu(self, tree_item, global_position):
+        """Show context menu for pitch-related audio options"""
+        if not self.audio_mapper:
+            return
+            
+        menu = QMenu(self)
+        menu.setAccessibleName("Pitch Audio Options")
+        
+        # Check if this is a pitch item or player/at-bat item
+        is_pitch = self._is_pitch_item(tree_item)
+        is_at_bat = tree_item.parent() is None  # Top-level item (at-bat)
+        
+        # Option 1: Play current pitch audio (only for actual pitches)
+        if is_pitch:
+            play_action = QAction("Play Pitch Audio", self)
+            play_action.setShortcut("Alt+P")
+            play_action.setStatusTip("Play spatial audio for the current pitch location")
+            play_action.triggered.connect(lambda: self._play_pitch_audio(tree_item))
+            menu.addAction(play_action)
+        
+        # Option 2: Play pitch sequence (works for both pitches and at-bat items)
+        if is_pitch or is_at_bat:
+            sequence_action = QAction("Play Pitch Sequence", self)
+            sequence_action.setShortcut("Alt+S")
+            sequence_action.setStatusTip("Play audio for all pitches in this at-bat from first to last")
+            sequence_action.triggered.connect(lambda: self._play_pitch_sequence(tree_item))
+            menu.addAction(sequence_action)
+        
+        # Option 3: Explore Strike Zone (always available)
+        if menu.actions():  # Only add separator if we have other actions
+            menu.addSeparator()
+            
+        explore_menu = StrikeZoneMenu("Explore Strike Zone", self, self._play_strike_zone_audio)
+        explore_menu.setAccessibleName("Strike Zone Exploration")
+        
+        # Create 3x3 grid of strike zone positions
+        zone_positions = [
+            ("High Left", "high_left"),
+            ("High Center", "high_center"), 
+            ("High Right", "high_right"),
+            ("Center Left", "center_left"),
+            ("Center Center", "center_center"),
+            ("Center Right", "center_right"),
+            ("Low Left", "low_left"),
+            ("Low Center", "low_center"),
+            ("Low Right", "low_right")
+        ]
+        
+        for display_name, zone_id in zone_positions:
+            zone_action = AudioOnFocusAction(display_name, self, self._play_strike_zone_audio, zone_id)
+            zone_action.zone_id = zone_id  # Add zone_id as attribute for the menu to access
+            zone_action.setStatusTip(f"Play audio for {display_name.lower()} strike zone")
+            zone_action.triggered.connect(lambda checked, z=zone_id: self._play_strike_zone_audio(z))
+            explore_menu.addAction(zone_action)
+        
+        menu.addMenu(explore_menu)
+        
+        # Show menu
+        menu.exec(global_position)
+    
+    def _play_pitch_sequence(self, tree_item):
+        """Play audio sequence for all pitches in the current batter's at-bat"""
+        if not self.audio_mapper:
+            return
+            
+        try:
+            # Find the parent at-bat item
+            at_bat_item = tree_item.parent() if tree_item.parent() else tree_item
+            
+            # Collect all pitch items from this at-bat
+            pitch_items = []
+            for i in range(at_bat_item.childCount()):
+                child_item = at_bat_item.child(i)
+                if self._is_pitch_item(child_item):
+                    pitch_items.append(child_item)
+            
+            if not pitch_items:
+                self._on_audio_error("No pitches found in this at-bat")
+                return
+            
+            # Get batter name for feedback
+            batter_info = at_bat_item.text(0)
+            batter_name = batter_info.split(':')[0] if ':' in batter_info else "Batter"
+            
+            self._on_audio_feedback(f"Playing pitch sequence for {batter_name} ({len(pitch_items)} pitches)")
+            
+            # Play sequence with timing
+            self._play_pitch_sequence_with_timing(pitch_items, 0)
+            
+        except Exception as e:
+            self._on_audio_error(f"Failed to play pitch sequence: {str(e)}")
+    
+    def _play_pitch_sequence_with_timing(self, pitch_items, index):
+        """Play pitch sequence with appropriate timing between pitches"""
+        if index >= len(pitch_items):
+            self._on_audio_feedback("Pitch sequence complete")
+            return
+        
+        # Play current pitch
+        current_pitch = pitch_items[index]
+        self._play_pitch_audio(current_pitch)
+        
+        # Schedule next pitch with reduced delay
+        delay_ms = 800  # Reduced from 1200ms to 800ms (0.8 seconds between pitches)
+        QTimer.singleShot(delay_ms, lambda: self._play_pitch_sequence_with_timing(pitch_items, index + 1))
+
+    def _play_strike_zone_audio(self, zone_position):
+        """Play audio for a specific strike zone position"""
+        if not self.audio_mapper:
+            return
+            
+        try:
+            # Try to determine batter handedness from current context
+            batter_hand = 'R'  # Default to right-handed
+            
+            # Try to get from currently selected item
+            current_item = self.current_tree_widget.currentItem() if hasattr(self, 'current_tree_widget') else None
+            if current_item:
+                # Navigate to at-bat level to get batter info
+                at_bat_item = current_item.parent() if current_item.parent() else current_item
+                batter_info = at_bat_item.text(0)
+                
+                # Simple heuristic based on known players
+                if 'Lindor' in batter_info:
+                    batter_hand = 'L'
+                # Add more known players as needed
+            
+            # Generate audio for the strike zone position
+            self.audio_mapper.generate_strike_zone_audio(zone_position, batter_hand)
+            
+            # Provide feedback
+            zone_name = zone_position.replace('_', ' ').title()
+            self._on_audio_feedback(f"Strike zone: {zone_name}")
+            
+        except Exception as e:
+            self._on_audio_error(f"Failed to play strike zone audio: {str(e)}")
+
+    def _play_current_pitch_audio(self, plays_tree):
+        """Play audio for the currently selected pitch"""
+        current_item = plays_tree.currentItem()
+        if current_item and self._is_pitch_item(current_item):
+            self._play_pitch_audio(current_item)
+        else:
+            # Provide feedback if no pitch is selected
+            QMessageBox.information(None, "Pitch Audio", "Please select a pitch to play audio.")
 
     def _export_game_log(self):
         """Export complete game log as HTML file"""
