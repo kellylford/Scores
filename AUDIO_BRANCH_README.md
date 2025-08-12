@@ -1,4 +1,11 @@
-# Audio Feature Branch - README
+# Audio Featur## 📊 **ESPN Coordinate System Analysis**
+Based on analysis of 99 called strikes and 213 called balls from real game data:
+
+### **Coordinate Mapping** ⚠️ **Y-Axis is Inverted!**
+- **Left/Right (X-axis)**: Lower numbers = Left side, Higher numbers = Right side
+- **Up/Down (Y-axis)**: Lower numbers = Higher on screen, Higher numbers = Lower ⚠️
+- **ESPN Visual Grid**: Shows 9-square strike zone grid that matches our audio exploration
+- **📖 See `PITCH_COORDINATE_SYSTEM_GUIDE.md` for complete explanation**h - README
 
 
 ## 🎵 **Audio Pitch Map Feature Development**
@@ -29,6 +36,8 @@ Based on analysis of 99 called strikes and 213 called balls from real game data:
 
 ### **Development Documentation**
 - `AUDIO_PITCH_MAP_DEVELOPMENT.md` - Complete feature specifications and implementation plan
+- `PITCH_COORDINATE_SYSTEM_GUIDE.md` - **Comprehensive guide to ESPN's coordinate system**
+- `ESPN_COORDINATE_ANALYSIS.md` - Real-world validation data and technical analysis
 - Audio mapping strategies and technical research
 - User interface design and accessibility considerations
 
