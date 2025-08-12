@@ -54,62 +54,17 @@ STANDINGS_DIALOG_WIDTH = 900
 STANDINGS_DIALOG_HEIGHT = 600
 
 def get_pitch_location(horizontal: int, vertical: int, batter_side: str = None) -> str:
-    """Convert pitch coordinates to accessible location description
+    """Return raw pitch coordinates without interpretation
     
-    CORRECTED SYSTEM based on ESPN's 3x3 grid (catcher's perspective):
-    - ESPN uses ABSOLUTE coordinates (catcher's view)
-    - Lower horizontal numbers = LEFT side of plate (X=80 is left edge)
-    - Higher horizontal numbers = RIGHT side of plate  
-    - Higher vertical numbers = LOWER pitches
-    - No handedness adjustment - pure catcher's perspective positioning
+    Simply returns the coordinate data from ESPN without attempting to interpret
+    the location. This preserves the original data while removing complex 
+    interpretation logic that needs further investigation.
     """
     if horizontal is None or vertical is None:
         return ""
     
-    # Determine vertical location (height) - adjusted thresholds
-    if vertical > 180:  # Lowered threshold for "low"
-        height_desc = "Low"
-    elif vertical < 140:  # Raised threshold for "high"
-        height_desc = "High" 
-    else:
-        height_desc = "Middle"
-    
-    # Determine horizontal location (absolute positioning)
-    # CORRECTED: Based on ESPN coordinate system from catcher's perspective
-    # Lower X values = LEFT side, Higher X values = RIGHT side
-    # X=80 is left edge of strike zone, X=86 is center of "lower left" box (box 7)
-    # ESPN's 3x3 grid: Box 1=upper left, Box 9=lower right, Box 7=lower left
-    
-    # Strike zone boundaries based on ESPN's actual grid system
-    # If X=80 is left edge and X=86 is in "lower left" box (outside strike zone)
-    # Strike zone should be more centered, not starting at X=80
-    if 100 <= horizontal <= 180:  # More centered strike zone definition
-        if vertical > 180:  # Adjusted to match above
-            return "Low Strike Zone"
-        elif vertical < 140:  # Adjusted to match above
-            return "High Strike Zone"
-        else:
-            return "Strike Zone Center"
-    
-    # No batter handedness adjustment - pure catcher's perspective
-    # Lower numbers = LEFT side, Higher numbers = RIGHT side
-    # X=86 (center of box 7) should be "Left Side"
-    if horizontal < 50:
-        location = "Far Left"
-    elif horizontal < 100:  # X=86 should definitely be "Left Side"
-        location = "Left Side"
-    elif horizontal > 240:
-        location = "Far Right"
-    elif horizontal > 200:
-        location = "Right Side"
-    else:
-        location = "Strike Zone"  # This should have been caught above, but safety net
-    
-    # Combine height and location
-    if "Strike Zone" in location:
-        return location  # Already includes height
-    else:
-        return f"{height_desc} {location}"
+    # Return raw coordinates without interpretation
+    return f"({horizontal}, {vertical})"
 
 class AudioOnFocusAction(QAction):
     """Custom QAction that plays audio when highlighted in menu (for strike zone exploration)"""
