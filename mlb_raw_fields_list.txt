@@ -1,0 +1,125 @@
+# MLB Raw Data Fields (Sample from ESPN JSON)
+
+## Top-level fields
+- game_id
+- missing_fields
+- game_name
+- raw_game
+- raw_details
+
+## raw_game
+- id
+- name
+- start_time
+- status
+- teams[]
+  - name
+  - abbreviation
+  - score
+  - home_away
+
+## raw_details
+- notes[]
+- boxscore
+  - teams[]
+    - team
+      - id
+      - uid
+      - slug
+      - location
+      - name
+      - abbreviation
+      - displayName
+      - shortDisplayName
+      - color
+      - alternateColor
+      - logo
+    - statistics[]
+      - name
+      - displayName
+      - stats[]
+        - name
+        - displayName
+        - shortDisplayName
+        - description
+        - abbreviation
+        - value
+        - displayValue
+
+# Example Stat Names (batting, pitching, etc.)
+- gamesPlayed
+- teamGamesPlayed
+- hitByPitch
+- groundBalls
+- strikeouts
+- RBIs
+- sacHits
+- hits
+- stolenBases
+- walks
+- catcherInterference
+- runs
+- GIDPs
+- sacFlies
+- atBats
+- homeRuns
+- grandSlamHomeRuns
+- runnersLeftOnBase
+- triples
+- gameWinningRBIs
+- intentionalWalks
+- doubles
+- flyBalls
+- caughtStealing
+- pitches
+- gamesStarted
+- pinchAtBats
+- pinchHits
+- playerRating
+- isQualified
+- isQualifiedSteals
+- totalBases
+- plateAppearances
+- projectedHomeRuns
+- extraBaseHits
+- runsCreated
+- avg
+- pinchAvg
+- slugAvg
+- secondaryAvg
+- onBasePct
+- OPS
+- groundToFlyRatio
+- runsCreatedPer27Outs
+- batterRating
+- atBatsPerHomeRun
+- stolenBasePct
+- pitchesPerPlateAppearance
+- isolatedPower
+- walkToStrikeoutRatio
+- walksPerPlateAppearance
+- secondaryAvgMinusBA
+- runsProduced
+- runsRatio
+- patienceRatio
+- BIPA
+- MLBRating
+- offWARBR
+- WARBR
+
+# ...and many more for pitching, fielding, etc.
+
+## Other possible nested fields (not fully shown in sample)
+- venue
+- weather
+- officials[]
+- broadcasts[]
+- leaders[]
+- news[]
+- odds[]
+- injuries[]
+- plays[]
+- win_probability
+
+# This is a partial list. The full JSON may contain additional nested fields and arrays.
+# Please review and let me know which fields you want included in your output.

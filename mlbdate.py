@@ -156,6 +156,54 @@ def extract_all_game_details(date_str):
                     away_team_hits = hits
                     away_team_errors = errors
                     away_team_runs = runs
+        # Parse embedded JSON fields for missing data
+        def parse_json_field(field):
+            try:
+                return json.loads(field) if field else {}
+            except Exception:
+                return {}
+        header_json = parse_json_field(json.dumps(header, separators=(',', ':')))
+        game_info_json = parse_json_field(json.dumps(game_info, separators=(',', ':')))
+        venue_json = parse_json_field(json.dumps(venue, separators=(',', ':')))
+        # Team records from header_json or game_info_json
+        def get_team_record(team_abbr, json_obj):
+            records = json_obj.get('competitions', [{}])[0].get('competitors', [])
+            for comp in records:
+                team = comp.get('team', {})
+                if team.get('abbreviation', '') == team_abbr:
+                    recs = comp.get('record', [])
+                    for r in recs:
+                        if r.get('type') == 'total':
+                            return r.get('summary', '')
+            return ''
+        if not away_team_record:
+            away_team_record = get_team_record(team1.get('abbreviation', ''), header_json)
+        if not home_team_record:
+            home_team_record = get_team_record(team2.get('abbreviation', ''), header_json)
+        # Venue details from venue_json
+        if not venue_name:
+            venue_name = venue_json.get('fullName', '')
+        if not venue_capacity:
+            venue_capacity = venue_json.get('capacity', '')
+        if not venue_grass:
+            venue_grass = venue_json.get('grass', '')
+        if not venue_roof_type:
+            venue_roof_type = venue_json.get('roofType', '')
+        venue_city = venue_json.get('address', {}).get('city', '')
+        venue_state = venue_json.get('address', {}).get('state', '')
+        # Broadcasts from game_info_json
+        broadcasts_json = game_info_json.get('broadcasts', [])
+        for b in broadcasts_json:
+            network = b.get('network', '')
+            if isinstance(network, dict):
+                network = network.get('name', '') or str(network)
+            if network:
+                broadcast_networks.add(network)
+            market = b.get('market', '')
+            if isinstance(market, dict):
+                market = market.get('name', '') or str(market)
+            if market:
+                broadcast_networks.add(market)
         game_record = {
             'game_id': game_id,
             'game_date': date_str,
@@ -171,8 +219,8 @@ def extract_all_game_details(date_str):
             'home_team_score': team2.get('score', ''),
             'home_team_record': home_team_record,
             'venue_name': venue_name,
-            'venue_city': venue.get('address', {}).get('city', ''),
-            'venue_state': venue.get('address', {}).get('state', ''),
+            'venue_city': venue_city,
+            'venue_state': venue_state,
             'venue_capacity': venue_capacity,
             'venue_grass': venue_grass,
             'venue_roof_type': venue_roof_type,
@@ -188,7 +236,7 @@ def extract_all_game_details(date_str):
             'officials_count': len(officials),
             'home_plate_umpire': '',
             'broadcast_networks': ', '.join(broadcast_networks),
-            'broadcast_count': len(broadcasts),
+            'broadcast_count': len(broadcasts_json) if broadcasts_json else len(broadcasts),
             'news_articles_count': len(news),
             'latest_headline': news[0].get('headline', '') if news else '',
             'odds_available': len(odds) > 0,
@@ -207,6 +255,15 @@ def extract_all_game_details(date_str):
             'raw_game_info': json.dumps(game_info, separators=(',', ':')),
             'raw_venue_data': json.dumps(venue, separators=(',', ':')),
             'raw_weather_data': json.dumps(weather, separators=(',', ':')),
+            'raw_officials_data': json.dumps(officials, separators=(',', ':')),
+            'raw_boxscore_data': json.dumps(boxscore, separators=(',', ':')),
+            'raw_leaders_data': json.dumps(leaders, separators=(',', ':')),
+            'raw_broadcasts_data': json.dumps(broadcasts, separators=(',', ':')),
+            'raw_news_data': json.dumps(news, separators=(',', ':')),
+            'raw_odds_data': json.dumps(odds, separators=(',', ':')),
+            'raw_injuries_data': json.dumps(injuries, separators=(',', ':')),
+            'raw_plays_data': json.dumps(plays, separators=(',', ':')),
+            'raw_win_probability_data': json.dumps(win_probability, separators=(',', ':')),
             'away_team_hits': away_team_hits,
             'away_team_errors': away_team_errors,
             'away_team_runs': away_team_runs,
