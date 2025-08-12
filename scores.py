@@ -77,7 +77,8 @@ def get_pitch_location(horizontal: int, vertical: int, batter_side: str = None) 
         height_desc = "Middle"
     
     # Determine horizontal location (absolute positioning)
-    if 60 <= horizontal <= 120:  # Strike zone center
+    # CORRECTED: Based on coordinate analysis, strike zone is approximately X: 100-155
+    if 100 <= horizontal <= 155:  # Strike zone center
         if vertical > 180:  # Adjusted to match above
             return "Low Strike Zone"
         elif vertical < 140:  # Adjusted to match above
@@ -90,34 +91,37 @@ def get_pitch_location(horizontal: int, vertical: int, batter_side: str = None) 
     if batter_side:
         if batter_side.lower() in ['l', 'left']:
             # Left-handed batter: right side = inside
-            if horizontal < 40:
+            if horizontal < 50:
                 location = "Way Inside"  # Far right = way inside for lefty
-            elif horizontal < 60:
+            elif horizontal < 100:
                 location = "Inside"      # Right = inside for lefty
-            elif horizontal > 140:
+            elif horizontal > 205:
                 location = "Way Outside" # Far left = way outside for lefty
             else:
                 location = "Outside"     # Left = outside for lefty
         else:  # Right-handed batter
             # Right-handed batter: left side = inside
-            if horizontal < 40:
+            if horizontal < 50:
                 location = "Way Outside" # Far right = way outside for righty
-            elif horizontal < 60:
+            elif horizontal < 100:
                 location = "Outside"     # Right = outside for righty
-            elif horizontal > 140:
+            elif horizontal > 205:
                 location = "Way Inside"  # Far left = way inside for righty
             else:
                 location = "Inside"      # Left = inside for righty
     else:
         # No batter info - use generic positioning
-        if horizontal < 40:
+        # FIXED: Corrected thresholds based on actual coordinate analysis
+        if horizontal < 50:
             location = "Far Right"
-        elif horizontal < 60:
+        elif horizontal < 100:
             location = "Right Side"
-        elif horizontal > 140:
+        elif horizontal > 205:
             location = "Far Left"
-        else:
+        elif horizontal > 155:
             location = "Left Side"
+        else:
+            location = "Strike Zone"  # This should have been caught above, but safety net
     
     # Combine height and location
     if "Strike Zone" in location:
