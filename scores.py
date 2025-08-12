@@ -77,9 +77,13 @@ def get_pitch_location(horizontal: int, vertical: int, batter_side: str = None) 
     # Determine horizontal location (absolute positioning)
     # CORRECTED: Based on ESPN coordinate system from catcher's perspective
     # Lower X values = LEFT side, Higher X values = RIGHT side
-    # Left edge of strike zone is at X=80 (based on user analysis)
-    # If X=86 is "lower left" section, strike zone might be wider than initially thought
-    if 90 <= horizontal <= 170:  # Strike zone center (narrower definition)
+    # X=80 is left edge of strike zone, X=86 is center of "lower left" box (box 7)
+    # ESPN's 3x3 grid: Box 1=upper left, Box 9=lower right, Box 7=lower left
+    
+    # Strike zone boundaries based on ESPN's actual grid system
+    # If X=80 is left edge and X=86 is in "lower left" box (outside strike zone)
+    # Strike zone should be more centered, not starting at X=80
+    if 100 <= horizontal <= 180:  # More centered strike zone definition
         if vertical > 180:  # Adjusted to match above
             return "Low Strike Zone"
         elif vertical < 140:  # Adjusted to match above
@@ -89,13 +93,14 @@ def get_pitch_location(horizontal: int, vertical: int, batter_side: str = None) 
     
     # No batter handedness adjustment - pure catcher's perspective
     # Lower numbers = LEFT side, Higher numbers = RIGHT side
+    # X=86 (center of box 7) should be "Left Side"
     if horizontal < 50:
         location = "Far Left"
-    elif horizontal < 90:  # Include X=86 as "Left Side"
+    elif horizontal < 100:  # X=86 should definitely be "Left Side"
         location = "Left Side"
-    elif horizontal > 220:
+    elif horizontal > 240:
         location = "Far Right"
-    elif horizontal > 170:
+    elif horizontal > 200:
         location = "Right Side"
     else:
         location = "Strike Zone"  # This should have been caught above, but safety net
