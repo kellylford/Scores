@@ -89,12 +89,7 @@ Follow the `ARCHITECTURE_REFACTORING_PLAN.md` to implement the modular architect
    - Back (Alt+B) and Escape to return to League
    - Config button for customizable details
 
-4. **Config Screen:**
-   - Checkboxes for selecting game detail sections
-   - Per-league configuration
-   - Back (Alt+B) and Escape to return
-
-5. **News Dialog:**
+4. **News Dialog:**
    - League headlines with author bylines
    - Double-click to open stories in browser
    - "Open Selected Story" button for keyboard users
