@@ -18,6 +18,15 @@ def extract_all_game_details(date_str):
     all_game_details = []
     missing_fields_log = []
     print(f"Found {len(games)} games on {date_str}")
+    # Venue lookup table (example, expand as needed)
+    venue_lookup = {
+        "Great American Ball Park": {
+            "capacity": 42319,
+            "grass": True,
+            "roofType": "Open"
+        },
+        # Add more venues as needed
+    }
     for i, game in enumerate(games):
         print(f"Processing game {i+1}/{len(games)}: {game.get('name', 'Unknown')}")
         game_id = game.get('id')
@@ -31,19 +40,64 @@ def extract_all_game_details(date_str):
         teams = game.get('teams', [])
         team1 = teams[0] if len(teams) > 0 else {}
         team2 = teams[1] if len(teams) > 1 else {}
+        # Try to get team records from multiple sources
+        away_team_record = team1.get('record', '')
+        home_team_record = team2.get('record', '')
+        if not away_team_record and 'records' in detailed_game:
+            away_team_record = next((r.get('summary', '') for r in detailed_game['records'] if r.get('team', {}).get('abbreviation', '') == team1.get('abbreviation', '')), '')
+        if not home_team_record and 'records' in detailed_game:
+            home_team_record = next((r.get('summary', '') for r in detailed_game['records'] if r.get('team', {}).get('abbreviation', '') == team2.get('abbreviation', '')), '')
         game_status = game.get('status', '')
         start_time = game.get('start_time', '')
         header = detailed_game.get('header', {})
         game_info = detailed_game.get('gameInfo', {})
         venue = game_info.get('venue', {}) or detailed_game.get('venue', {})
-        # Weather fallback: check game_info['weather'], detailed_game['weather'], and scoreboard['weather']
+        # Venue fallback: lookup table if missing
+        venue_name = venue.get('fullName', venue.get('name', ''))
+        venue_capacity = venue.get('capacity', '')
+        venue_grass = venue.get('grass', '')
+        venue_roof_type = venue.get('roofType', '')
+        if venue_name in venue_lookup:
+            if not venue_capacity:
+                venue_capacity = venue_lookup[venue_name]['capacity']
+            if not venue_grass:
+                venue_grass = venue_lookup[venue_name]['grass']
+            if not venue_roof_type:
+                venue_roof_type = venue_lookup[venue_name]['roofType']
+        # Weather fallback: check all sources, fallback to external API if missing
         weather = game_info.get('weather', {}) or detailed_game.get('weather', {}) or game.get('weather', {})
+        temperature = weather.get('temperature', weather.get('temp', ''))
+        condition_description = weather.get('conditionDescription', weather.get('description', ''))
+        wind_direction = weather.get('wind', {}).get('direction', {}).get('description', '')
+        wind_speed = weather.get('wind', {}).get('speed', '')
+        humidity = weather.get('humidity', '')
+        if not temperature or not condition_description:
+            # Example: fallback to external weather API (pseudo-code, implement as needed)
+            # from services.weather_service import get_weather
+            # weather_external = get_weather(venue_name, date_str)
+            # temperature = temperature or weather_external.get('temperature', '')
+            # condition_description = condition_description or weather_external.get('description', '')
+            pass
         # Officials fallback: check game_info['officials'], detailed_game['officials']
         officials = game_info.get('officials', []) or detailed_game.get('officials', [])
         boxscore = detailed_game.get('boxscore', {})
         teams_boxscore = boxscore.get('teams', [])
         leaders = detailed_game.get('leaders', {})
         broadcasts = detailed_game.get('broadcasts', [])
+        # Broadcast fallback: aggregate from all sources
+        broadcast_networks = set()
+        for b in broadcasts:
+            network = b.get('network', '')
+            if isinstance(network, dict):
+                # If network is a dict, try to get a string value
+                network = network.get('name', '') or str(network)
+            if network:
+                broadcast_networks.add(network)
+            market = b.get('market', '')
+            if isinstance(market, dict):
+                market = market.get('name', '') or str(market)
+            if market:
+                broadcast_networks.add(market)
         news = detailed_game.get('news', {}).get('articles', [])
         odds = detailed_game.get('odds', [])
         injuries = detailed_game.get('injuries', [])
@@ -58,6 +112,50 @@ def extract_all_game_details(date_str):
         def check_missing(field, value):
             if value in ('', None, [], {}):
                 missing_fields.append(field)
+        # Game duration: try to estimate from play times if missing
+        game_duration = ''
+        first_pitch_time = ''
+        last_play_time = ''
+        if plays:
+            first_play = min(plays, key=lambda x: x.get('wallclock', ''))
+            last_play = max(plays, key=lambda x: x.get('wallclock', ''))
+            first_pitch_time = first_play.get('wallclock', '')
+            last_play_time = last_play.get('wallclock', '')
+            if first_pitch_time and last_play_time:
+                try:
+                    t1 = datetime.fromisoformat(first_pitch_time.replace('Z', '+00:00'))
+                    t2 = datetime.fromisoformat(last_play_time.replace('Z', '+00:00'))
+                    game_duration = str(t2 - t1)
+                except Exception:
+                    pass
+        # Win probability: fallback to last available, or estimate
+        final_win_probability = ''
+        if win_probability:
+            final_wp = win_probability[-1] if win_probability else {}
+            if isinstance(final_wp, dict):
+                final_win_probability = final_wp.get('homeWinPercentage', '')
+        # Team hits/errors/runs from boxscore
+        away_team_hits = ''
+        away_team_errors = ''
+        away_team_runs = ''
+        home_team_hits = ''
+        home_team_errors = ''
+        home_team_runs = ''
+        if teams_boxscore:
+            for team_box in teams_boxscore:
+                is_home = team_box.get('homeAway') == 'home'
+                team_stats = team_box.get('statistics', [])
+                hits = next((s.get('displayValue', '') for s in team_stats if s.get('name') == 'hits'), '')
+                errors = next((s.get('displayValue', '') for s in team_stats if s.get('name') == 'errors'), '')
+                runs = team_box.get('score', '')
+                if is_home:
+                    home_team_hits = hits
+                    home_team_errors = errors
+                    home_team_runs = runs
+                else:
+                    away_team_hits = hits
+                    away_team_errors = errors
+                    away_team_runs = runs
         game_record = {
             'game_id': game_id,
             'game_date': date_str,
@@ -67,29 +165,29 @@ def extract_all_game_details(date_str):
             'away_team_name': team1.get('name', ''),
             'away_team_abbreviation': team1.get('abbreviation', ''),
             'away_team_score': team1.get('score', ''),
-            'away_team_record': '',
+            'away_team_record': away_team_record,
             'home_team_name': team2.get('name', ''),
             'home_team_abbreviation': team2.get('abbreviation', ''),
             'home_team_score': team2.get('score', ''),
-            'home_team_record': '',
-            'venue_name': venue.get('fullName', venue.get('name', '')),
+            'home_team_record': home_team_record,
+            'venue_name': venue_name,
             'venue_city': venue.get('address', {}).get('city', ''),
             'venue_state': venue.get('address', {}).get('state', ''),
-            'venue_capacity': venue.get('capacity', ''),
-            'venue_grass': venue.get('grass', ''),
-            'venue_roof_type': venue.get('roofType', ''),
-            'temperature': weather.get('temperature', weather.get('temp', '')),
-            'condition_description': weather.get('conditionDescription', weather.get('description', '')),
-            'wind_direction': weather.get('wind', {}).get('direction', {}).get('description', ''),
-            'wind_speed': weather.get('wind', {}).get('speed', ''),
-            'humidity': weather.get('humidity', ''),
+            'venue_capacity': venue_capacity,
+            'venue_grass': venue_grass,
+            'venue_roof_type': venue_roof_type,
+            'temperature': temperature,
+            'condition_description': condition_description,
+            'wind_direction': wind_direction,
+            'wind_speed': wind_speed,
+            'humidity': humidity,
             'total_plays': total_plays,
             'total_pitches': total_pitches,
             'scoring_plays_count': len(scoring_plays),
             'innings_completed': max([p.get('period', {}).get('number', 0) for p in plays] + [0]),
             'officials_count': len(officials),
             'home_plate_umpire': '',
-            'broadcast_networks': ', '.join([b.get('network', '') for b in broadcasts]),
+            'broadcast_networks': ', '.join(broadcast_networks),
             'broadcast_count': len(broadcasts),
             'news_articles_count': len(news),
             'latest_headline': news[0].get('headline', '') if news else '',
@@ -97,10 +195,10 @@ def extract_all_game_details(date_str):
             'odds_count': len(odds),
             'injuries_count': len(injuries),
             'win_probability_available': len(win_probability) > 0,
-            'final_win_probability': '',
-            'game_duration': '',
-            'first_pitch_time': '',
-            'last_play_time': '',
+            'final_win_probability': final_win_probability,
+            'game_duration': game_duration,
+            'first_pitch_time': first_pitch_time,
+            'last_play_time': last_play_time,
             'attendance': game_info.get('attendance', ''),
             'game_number': header.get('gameNumber', ''),
             'series_summary': header.get('series', {}).get('summary', ''),
@@ -109,18 +207,13 @@ def extract_all_game_details(date_str):
             'raw_game_info': json.dumps(game_info, separators=(',', ':')),
             'raw_venue_data': json.dumps(venue, separators=(',', ':')),
             'raw_weather_data': json.dumps(weather, separators=(',', ':')),
+            'away_team_hits': away_team_hits,
+            'away_team_errors': away_team_errors,
+            'away_team_runs': away_team_runs,
+            'home_team_hits': home_team_hits,
+            'home_team_errors': home_team_errors,
+            'home_team_runs': home_team_runs,
         }
-        if teams_boxscore:
-            for team_box in teams_boxscore:
-                is_home = team_box.get('homeAway') == 'home'
-                team_stats = team_box.get('statistics', [])
-                hits = next((s.get('displayValue', '') for s in team_stats if s.get('name') == 'hits'), '')
-                errors = next((s.get('displayValue', '') for s in team_stats if s.get('name') == 'errors'), '')
-                runs = team_box.get('score', '')
-                prefix = 'home' if is_home else 'away'
-                game_record[f'{prefix}_team_hits'] = hits
-                game_record[f'{prefix}_team_errors'] = errors
-                game_record[f'{prefix}_team_runs'] = runs
         # Umpire fallback: try officials, then header['officials']
         home_plate_umpire = ''
         if officials:
@@ -134,15 +227,6 @@ def extract_all_game_details(date_str):
                 if 'Home Plate' in position:
                     home_plate_umpire = official.get('displayName', '')
         game_record['home_plate_umpire'] = home_plate_umpire
-        if plays:
-            first_play = min(plays, key=lambda x: x.get('wallclock', ''))
-            last_play = max(plays, key=lambda x: x.get('wallclock', ''))
-            game_record['first_pitch_time'] = first_play.get('wallclock', '')
-            game_record['last_play_time'] = last_play.get('wallclock', '')
-        if win_probability:
-            final_wp = win_probability[-1] if win_probability else {}
-            if isinstance(final_wp, dict):
-                game_record['final_win_probability'] = final_wp.get('homeWinPercentage', '')
         # Check for missing fields
         for k, v in game_record.items():
             check_missing(k, v)
