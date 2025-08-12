@@ -56,14 +56,12 @@ STANDINGS_DIALOG_HEIGHT = 600
 def get_pitch_location(horizontal: int, vertical: int, batter_side: str = None) -> str:
     """Convert pitch coordinates to accessible location description
     
-    CORRECTED SYSTEM based on visual analysis:
+    CORRECTED SYSTEM based on ESPN's 3x3 grid (catcher's perspective):
     - ESPN uses ABSOLUTE coordinates (catcher's view)
-    - Lower horizontal numbers = LEFT side of plate
+    - Lower horizontal numbers = LEFT side of plate (X=80 is left edge)
     - Higher horizontal numbers = RIGHT side of plate  
     - Higher vertical numbers = LOWER pitches
-    - Inside/Outside depends on batter handedness:
-      * Left-handed batter: RIGHT side = inside, LEFT side = outside
-      * Right-handed batter: LEFT side = inside, RIGHT side = outside
+    - No handedness adjustment - pure catcher's perspective positioning
     """
     if horizontal is None or vertical is None:
         return ""
@@ -77,8 +75,11 @@ def get_pitch_location(horizontal: int, vertical: int, batter_side: str = None) 
         height_desc = "Middle"
     
     # Determine horizontal location (absolute positioning)
-    # CORRECTED: Based on coordinate analysis, strike zone is approximately X: 100-155
-    if 100 <= horizontal <= 155:  # Strike zone center
+    # CORRECTED: Based on ESPN coordinate system from catcher's perspective
+    # Lower X values = LEFT side, Higher X values = RIGHT side
+    # Left edge of strike zone is at X=80 (based on user analysis)
+    # If X=86 is "lower left" section, strike zone might be wider than initially thought
+    if 90 <= horizontal <= 170:  # Strike zone center (narrower definition)
         if vertical > 180:  # Adjusted to match above
             return "Low Strike Zone"
         elif vertical < 140:  # Adjusted to match above
@@ -86,42 +87,18 @@ def get_pitch_location(horizontal: int, vertical: int, batter_side: str = None) 
         else:
             return "Strike Zone Center"
     
-    # Determine inside/outside based on batter handedness
-    # CORRECTED: Lower numbers = RIGHT side, Higher numbers = LEFT side
-    if batter_side:
-        if batter_side.lower() in ['l', 'left']:
-            # Left-handed batter: right side = inside
-            if horizontal < 50:
-                location = "Way Inside"  # Far right = way inside for lefty
-            elif horizontal < 100:
-                location = "Inside"      # Right = inside for lefty
-            elif horizontal > 205:
-                location = "Way Outside" # Far left = way outside for lefty
-            else:
-                location = "Outside"     # Left = outside for lefty
-        else:  # Right-handed batter
-            # Right-handed batter: left side = inside
-            if horizontal < 50:
-                location = "Way Outside" # Far right = way outside for righty
-            elif horizontal < 100:
-                location = "Outside"     # Right = outside for righty
-            elif horizontal > 205:
-                location = "Way Inside"  # Far left = way inside for righty
-            else:
-                location = "Inside"      # Left = inside for righty
+    # No batter handedness adjustment - pure catcher's perspective
+    # Lower numbers = LEFT side, Higher numbers = RIGHT side
+    if horizontal < 50:
+        location = "Far Left"
+    elif horizontal < 90:  # Include X=86 as "Left Side"
+        location = "Left Side"
+    elif horizontal > 220:
+        location = "Far Right"
+    elif horizontal > 170:
+        location = "Right Side"
     else:
-        # No batter info - use generic positioning
-        # FIXED: Corrected thresholds based on actual coordinate analysis
-        if horizontal < 50:
-            location = "Far Right"
-        elif horizontal < 100:
-            location = "Right Side"
-        elif horizontal > 205:
-            location = "Far Left"
-        elif horizontal > 155:
-            location = "Left Side"
-        else:
-            location = "Strike Zone"  # This should have been caught above, but safety net
+        location = "Strike Zone"  # This should have been caught above, but safety net
     
     # Combine height and location
     if "Strike Zone" in location:
