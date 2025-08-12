@@ -30,6 +30,7 @@ from accessible_table import AccessibleTable, StandingsTable, LeadersTable, Boxs
 # Audio system for pitch mapping
 try:
     from simple_audio_mapper import SimpleAudioPitchMapper as AudioPitchMapper
+    from pitch_exploration_dialog import PitchExplorationDialog
     AUDIO_AVAILABLE = True
 except ImportError:
     AUDIO_AVAILABLE = False
@@ -2309,34 +2310,15 @@ class GameDetailsView(BaseView):
             sequence_action.triggered.connect(lambda: self._play_pitch_sequence(tree_item))
             menu.addAction(sequence_action)
         
-        # Option 3: Explore Strike Zone (always available)
+        # Option 3: Comprehensive Pitch Exploration (always available)
         if menu.actions():  # Only add separator if we have other actions
             menu.addSeparator()
             
-        explore_menu = StrikeZoneMenu("Explore Strike Zone", self, self._play_strike_zone_audio)
-        explore_menu.setAccessibleName("Strike Zone Exploration")
-        
-        # Create 3x3 grid of strike zone positions
-        zone_positions = [
-            ("High Left", "high_left"),
-            ("High Center", "high_center"), 
-            ("High Right", "high_right"),
-            ("Center Left", "center_left"),
-            ("Center Center", "center_center"),
-            ("Center Right", "center_right"),
-            ("Low Left", "low_left"),
-            ("Low Center", "low_center"),
-            ("Low Right", "low_right")
-        ]
-        
-        for display_name, zone_id in zone_positions:
-            zone_action = AudioOnFocusAction(display_name, self, self._play_strike_zone_audio, zone_id)
-            zone_action.zone_id = zone_id  # Add zone_id as attribute for the menu to access
-            zone_action.setStatusTip(f"Play audio for {display_name.lower()} strike zone")
-            zone_action.triggered.connect(lambda checked, z=zone_id: self._play_strike_zone_audio(z))
-            explore_menu.addAction(zone_action)
-        
-        menu.addMenu(explore_menu)
+        explore_action = QAction("Open Pitch Explorer", self)
+        explore_action.setShortcut("Ctrl+E")
+        explore_action.setStatusTip("Open comprehensive pitch exploration with strike zone grid and game data")
+        explore_action.triggered.connect(lambda: self._open_pitch_explorer(tree_item))
+        menu.addAction(explore_action)
         
         # Show menu
         menu.exec(global_position)
@@ -2417,6 +2399,85 @@ class GameDetailsView(BaseView):
             
         except Exception as e:
             self._on_audio_error(f"Failed to play strike zone audio: {str(e)}")
+
+    def _open_pitch_explorer(self, tree_item):
+        """Open the comprehensive pitch exploration dialog"""
+        if not AUDIO_AVAILABLE:
+            QMessageBox.warning(self, "Audio Not Available", 
+                              "Audio system is not available. Cannot open pitch explorer.")
+            return
+        
+        try:
+            # Extract pitch data from current game/at-bat
+            game_pitches = self._extract_pitch_data_for_explorer(tree_item)
+            
+            # Open the pitch exploration dialog
+            dialog = PitchExplorationDialog(self, game_pitches)
+            
+            # Connect dialog signals to main app feedback
+            dialog.audio_feedback.connect(self._on_audio_feedback)
+            dialog.audio_error.connect(self._on_audio_error)
+            
+            # Show dialog
+            dialog.exec()
+            
+        except Exception as e:
+            self._on_audio_error(f"Failed to open pitch explorer: {str(e)}")
+    
+    def _extract_pitch_data_for_explorer(self, tree_item):
+        """Extract pitch data from the current game for the explorer"""
+        pitch_data = []
+        
+        try:
+            # If we have current plays data, extract pitches from it
+            if hasattr(self, 'current_plays_data') and self.current_plays_data:
+                for play in self.current_plays_data:
+                    # Look for pitch coordinate data
+                    pitch_coordinate = play.get("pitchCoordinate", {})
+                    if pitch_coordinate and isinstance(pitch_coordinate, dict):
+                        x = pitch_coordinate.get("x")
+                        y = pitch_coordinate.get("y")
+                        
+                        if x is not None and y is not None:
+                            # Extract additional pitch info from play text
+                            play_text = play.get("text", "")
+                            pitch_type = "Unknown"
+                            velocity = None
+                            result = "Unknown"
+                            
+                            # Try to parse pitch details from text
+                            if "Fastball" in play_text:
+                                pitch_type = "Fastball"
+                            elif "Slider" in play_text:
+                                pitch_type = "Slider"
+                            elif "Changeup" in play_text:
+                                pitch_type = "Changeup"
+                            elif "Curveball" in play_text:
+                                pitch_type = "Curveball"
+                            
+                            # Extract result
+                            if "Strike" in play_text:
+                                result = "Strike"
+                            elif "Ball" in play_text:
+                                result = "Ball"
+                            elif "Foul" in play_text:
+                                result = "Foul"
+                            elif "Hit" in play_text or "In Play" in play_text:
+                                result = "In Play"
+                            
+                            pitch_data.append({
+                                'x': x,
+                                'y': y,
+                                'type': pitch_type,
+                                'velocity': velocity,
+                                'result': result,
+                                'text': play_text
+                            })
+            
+        except Exception as e:
+            print(f"Error extracting pitch data: {e}")
+        
+        return pitch_data
 
     def _play_current_pitch_audio(self, plays_tree):
         """Play audio for the currently selected pitch"""

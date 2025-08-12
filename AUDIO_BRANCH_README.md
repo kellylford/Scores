@@ -1,15 +1,29 @@
 # Audio Feature Branch - README
 
+
 ## 🎵 **Audio Pitch Map Feature Development**
 
 This branch contains experimental development for revolutionary audio accessibility features that transform pitch coordinate data into spatial audio feedback.
 
 ## 🌟 **Feature Concept**
-Convert our validated pitch location data (85.4% accuracy) into multi-dimensional audio experience:
-- **Spatial Audio**: Inside/outside pitches mapped to left/right stereo
+Convert our validated pitch location data (74.7% strike zone accuracy) into multi-dimensional audio experience:
+- **Spatial Audio**: Inside/outside pitches mapped to left/right stereo with 3.75x multiplier
 - **Frequency Mapping**: High/low pitches mapped to tone frequency  
 - **Velocity Audio**: Pitch speed represented through sound timing
 - **Pitch Type Signatures**: Different sounds for fastballs, sliders, etc.
+
+## 📊 **ESPN Coordinate System Analysis**
+Based on analysis of 99 called strikes and 213 called balls from real game data:
+
+### **Coordinate Mapping**
+- **Left/Right (X-axis)**: Lower numbers = Left side, Higher numbers = Right side
+- **Up/Down (Y-axis)**: Lower numbers = Higher on screen, Higher numbers = Lower on screen ⚠️
+- **ESPN Visual Grid**: Shows 9-square strike zone grid that matches our audio exploration
+
+### **Real Strike Zone Boundaries** 
+- **Called Strikes**: X: 82-155, Y: 148-197 (compact 73×49 pixel zone)
+- **Called Balls**: X: -3-221, Y: 102-254 (wide 224×152 pixel area)
+- **Our Audio Grid**: X: 100-155, Y: 50-200 (captures 74.7% of real strikes)
 
 ## 📁 **Branch Contents**
 
@@ -19,9 +33,11 @@ Convert our validated pitch location data (85.4% accuracy) into multi-dimensiona
 - User interface design and accessibility considerations
 
 ### **Technical Foundation** 
-- All validated pitch location code from main branch
-- ESPN API coordinate system (X: 85-145 strike zone, Y: 150-195)
-- PyQt6 framework with existing audio capabilities
+- All validated pitch location code from main branch  
+- ESPN API coordinate system with validated strike zone mapping
+- **Audio System**: Complete stereo implementation with 3.75x L/R multiplier
+- **Strike Zone Grid**: 9-position exploration matching ESPN's visual display
+- PyQt6 framework with WAV generation and Windows audio integration
 
 ## 🛡️ **Safety Approach**
 This branch ensures we can experiment with audio features without disrupting the stable, functioning game functionality on main branch.
@@ -33,9 +49,18 @@ This branch ensures we can experiment with audio features without disrupting the
 4. **Phase 4**: 3D spatial audio and haptic feedback
 
 ## 🔧 **Current Status**
-- **Planning Phase**: Feature specifications complete
-- **Research Phase**: Audio library evaluation needed
-- **Prototyping**: Ready to begin technical implementation
+- **✅ COMPLETE**: Full spatial audio system implementation
+- **✅ COMPLETE**: Strike zone exploration with 9-position grid
+- **✅ COMPLETE**: Stereo positioning with 3.75x L/R multiplier optimization
+- **✅ COMPLETE**: Context menu integration and right-click support
+- **✅ COMPLETE**: Real-world validation (74.7% strike accuracy)
+
+## 🎛️ **Audio System Specifications**
+- **L/R Multiplier**: 3.75 (optimized for enhanced stereo separation)
+- **Strike Zone Grid**: 9 positions (3×3) matching ESPN visual layout
+- **Coordinate Validation**: 74.7% accuracy against real umpire calls
+- **Audio Fallback**: Simple beep system for systems without stereo WAV support
+- **Integration**: Seamless context menus in main application
 
 ## 🚀 **Potential Impact**
 This could be the **first-ever spatial audio pitch tracking system** for accessibility, potentially becoming an industry standard for accessible sports applications.

@@ -1,0 +1,222 @@
+[
+  {
+    "id": "401696684",
+    "name": "Philadelphia Phillies at Cincinnati Reds",
+    "start_time": "Final",
+    "status": "Final",
+    "teams": [
+      {
+        "name": "Cincinnati Reds",
+        "abbreviation": "CIN",
+        "score": "1",
+        "home_away": "home"
+      },
+      {
+        "name": "Philadelphia Phillies",
+        "abbreviation": "PHI",
+        "score": "4",
+        "home_away": "away"
+      }
+    ]
+  },
+  {
+    "id": "401696683",
+    "name": "Minnesota Twins at New York Yankees",
+    "start_time": "Final",
+    "status": "Final",
+    "teams": [
+      {
+        "name": "New York Yankees",
+        "abbreviation": "NYY",
+        "score": "6",
+        "home_away": "home"
+      },
+      {
+        "name": "Minnesota Twins",
+        "abbreviation": "MIN",
+        "score": "2",
+        "home_away": "away"
+      }
+    ]
+  },
+  {
+    "id": "401696688",
+    "name": "Detroit Tigers at Chicago White Sox",
+    "start_time": "Final",
+    "status": "Final",
+    "teams": [
+      {
+        "name": "Chicago White Sox",
+        "abbreviation": "CHW",
+        "score": "1",
+        "home_away": "home"
+      },
+      {
+        "name": "Detroit Tigers",
+        "abbreviation": "DET",
+        "score": "2",
+        "home_away": "away"
+      }
+    ]
+  },
+  {
+    "id": "401696689",
+    "name": "Pittsburgh Pirates at Milwaukee Brewers",
+    "start_time": "Final",
+    "status": "Final",
+    "teams": [
+      {
+        "name": "Milwaukee Brewers",
+        "abbreviation": "MIL",
+        "score": "7",
+        "home_away": "home"
+      },
+      {
+        "name": "Pittsburgh Pirates",
+        "abbreviation": "PIT",
+        "score": "1",
+        "home_away": "away"
+      }
+    ]
+  },
+  {
+    "id": "401696690",
+    "name": "Washington Nationals at Kansas City Royals",
+    "start_time": "Final",
+    "status": "Final",
+    "teams": [
+      {
+        "name": "Kansas City Royals",
+        "abbreviation": "KC",
+        "score": "7",
+        "home_away": "home"
+      },
+      {
+        "name": "Washington Nationals",
+        "abbreviation": "WSH",
+        "score": "4",
+        "home_away": "away"
+      }
+    ]
+  },
+  {
+    "id": "401696687",
+    "name": "Colorado Rockies at St. Louis Cardinals",
+    "start_time": "Final",
+    "status": "Final",
+    "teams": [
+      {
+        "name": "St. Louis Cardinals",
+        "abbreviation": "STL",
+        "score": "3",
+        "home_away": "home"
+      },
+      {
+        "name": "Colorado Rockies",
+        "abbreviation": "COL",
+        "score": "2",
+        "home_away": "away"
+      }
+    ]
+  },
+  {
+    "id": "401696685",
+    "name": "Arizona Diamondbacks at Texas Rangers",
+    "start_time": "Final/10",
+    "status": "Final",
+    "teams": [
+      {
+        "name": "Texas Rangers",
+        "abbreviation": "TEX",
+        "score": "7",
+        "home_away": "home"
+      },
+      {
+        "name": "Arizona Diamondbacks",
+        "abbreviation": "ARI",
+        "score": "6",
+        "home_away": "away"
+      }
+    ]
+  },
+  {
+    "id": "401696686",
+    "name": "Boston Red Sox at Houston Astros",
+    "start_time": "Final",
+    "status": "Final",
+    "teams": [
+      {
+        "name": "Houston Astros",
+        "abbreviation": "HOU",
+        "score": "7",
+        "home_away": "home"
+      },
+      {
+        "name": "Boston Red Sox",
+        "abbreviation": "BOS",
+        "score": "6",
+        "home_away": "away"
+      }
+    ]
+  },
+  {
+    "id": "401696691",
+    "name": "Los Angeles Dodgers at Los Angeles Angels",
+    "start_time": "Top 8th",
+    "status": "In Progress",
+    "teams": [
+      {
+        "name": "Los Angeles Angels",
+        "abbreviation": "LAA",
+        "score": "7",
+        "home_away": "home"
+      },
+      {
+        "name": "Los Angeles Dodgers",
+        "abbreviation": "LAD",
+        "score": "4",
+        "home_away": "away"
+      }
+    ]
+  },
+  {
+    "id": "401696692",
+    "name": "San Diego Padres at San Francisco Giants",
+    "start_time": "Bot 9th",
+    "status": "In Progress",
+    "teams": [
+      {
+        "name": "San Francisco Giants",
+        "abbreviation": "SF",
+        "score": "1",
+        "home_away": "home"
+      },
+      {
+        "name": "San Diego Padres",
+        "abbreviation": "SD",
+        "score": "4",
+        "home_away": "away"
+      }
+    ]
+  },
+  {
+    "id": "401764576",
+    "name": "Tampa Bay Rays at Athletics Athletics",
+    "start_time": "End 7th",
+    "status": "In Progress",
+    "teams": [
+      {
+        "name": "Athletics",
+        "abbreviation": "ATH",
+        "score": "4",
+        "home_away": "home"
+      },
+      {
+        "name": "Tampa Bay Rays",
+        "abbreviation": "TB",
+        "score": "6",
+        "home_away": "away"
+      }
+    ]
+  }
+]

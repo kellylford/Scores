@@ -30,7 +30,7 @@ class StereoAudioPitchMapper(QObject):
     audio_generated = pyqtSignal(str)
     audio_error = pyqtSignal(str)
     
-    def __init__(self, parent=None, lr_multiplier=2.15):
+    def __init__(self, parent=None, lr_multiplier=3.75):
         super().__init__(parent)
         self.enabled = True  # WAV generation always available
         self.temp_files = []  # Track temp files for cleanup

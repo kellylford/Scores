@@ -23,7 +23,8 @@ class StrikeZoneTestApp(QMainWindow):
         self.setGeometry(100, 100, 800, 600)
         
         # Audio system - use true stereo for better L/R multiplier testing
-        self.audio_mapper = StereoAudioPitchMapper()
+        # Use lr_multiplier=1.0 to disable built-in multiplier, we'll apply our own
+        self.audio_mapper = StereoAudioPitchMapper(lr_multiplier=1.0)
         
         # Current position (start in center)
         self.current_x = 127
@@ -35,7 +36,7 @@ class StrikeZoneTestApp(QMainWindow):
         self.step_size = 10
         
         # Left/Right balance multiplier - optimized value from testing
-        self.lr_multiplier = 2.15
+        self.lr_multiplier = 3.75
         
         self.setup_ui()
         self.update_display()
