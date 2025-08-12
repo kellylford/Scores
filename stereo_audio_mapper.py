@@ -201,17 +201,17 @@ class StereoAudioPitchMapper(QObject):
     def generate_strike_zone_audio(self, zone_position, batter_hand='R'):
         """Generate audio for specific strike zone positions"""
         
-        # Define the 9 strike zone positions
+        # Define the 9 strike zone positions with wider X range for better stereo separation
         zone_coords = {
-            'high_left': (85, 50),
-            'high_center': (127, 50),
-            'high_right': (170, 50),
-            'center_left': (85, 127),
-            'center_center': (127, 127),
-            'center_right': (170, 127),
-            'low_left': (85, 200),
-            'low_center': (127, 200),
-            'low_right': (170, 200)
+            'high_left': (50, 50),      # Further left for clear left audio
+            'high_center': (127, 50),   # Dead center
+            'high_right': (205, 50),    # Further right for clear right audio
+            'center_left': (50, 127),   # Further left for clear left audio
+            'center_center': (127, 127), # Dead center
+            'center_right': (205, 127), # Further right for clear right audio
+            'low_left': (50, 200),      # Further left for clear left audio
+            'low_center': (127, 200),   # Dead center
+            'low_right': (205, 200)     # Further right for clear right audio
         }
         
         if zone_position not in zone_coords:

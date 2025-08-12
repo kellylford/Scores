@@ -63,13 +63,13 @@ The spatial audio pitch mapping system has been enhanced with several new featur
 ## Technical Details
 
 ### Strike Zone Coordinates
-The 9 exploration zones use these coordinates:
+The 9 exploration zones use these coordinates for optimal stereo separation:
 - **High**: Y = 50 (top of zone)
 - **Center**: Y = 127 (middle of zone)
 - **Low**: Y = 200 (bottom of zone)
-- **Left**: X = 85 (left side)
+- **Left**: X = 50 (far left for clear left audio)
 - **Center**: X = 127 (middle)
-- **Right**: X = 170 (right side)
+- **Right**: X = 205 (far right for clear right audio)
 
 ### Audio Parameters
 - **Frequency Range**: 200Hz - 2000Hz

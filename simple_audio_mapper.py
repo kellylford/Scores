@@ -237,17 +237,17 @@ class SimpleAudioPitchMapper(QObject):
                 self.audio_error.emit(f"Stereo strike zone audio failed: {str(e)}")
                 # Fall through to simple beep version
         
-        # Define the 9 strike zone positions with coordinates
+        # Define the 9 strike zone positions with wider X range for better stereo separation
         zone_coords = {
-            'high_left': (85, 50),      # Top left
-            'high_center': (127, 50),   # Top center  
-            'high_right': (170, 50),    # Top right
-            'center_left': (85, 127),   # Middle left
+            'high_left': (50, 50),      # Further left for clear left audio
+            'high_center': (127, 50),   # Dead center  
+            'high_right': (205, 50),    # Further right for clear right audio
+            'center_left': (50, 127),   # Further left for clear left audio
             'center_center': (127, 127), # Dead center
-            'center_right': (170, 127), # Middle right
-            'low_left': (85, 200),      # Bottom left
-            'low_center': (127, 200),   # Bottom center
-            'low_right': (170, 200)     # Bottom right
+            'center_right': (205, 127), # Further right for clear right audio
+            'low_left': (50, 200),      # Further left for clear left audio
+            'low_center': (127, 200),   # Dead center
+            'low_right': (205, 200)     # Further right for clear right audio
         }
         
         if zone_position not in zone_coords:
