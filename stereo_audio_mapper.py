@@ -30,10 +30,11 @@ class StereoAudioPitchMapper(QObject):
     audio_generated = pyqtSignal(str)
     audio_error = pyqtSignal(str)
     
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, lr_multiplier=2.15):
         super().__init__(parent)
         self.enabled = True  # WAV generation always available
         self.temp_files = []  # Track temp files for cleanup
+        self.lr_multiplier = lr_multiplier  # Left/Right balance multiplier for enhanced stereo separation
         
     def generate_pitch_audio(self, x, y, velocity=None, pitch_type=None, batter_hand=None):
         """Generate true stereo audio for a pitch location"""
@@ -78,13 +79,17 @@ class StereoAudioPitchMapper(QObject):
         else:
             duration = 0.5  # Default duration
         
-        # Stereo balance (left/right)
+        # Stereo balance (left/right) with multiplier
         balance = x_norm  # 0.0 = full left, 0.5 = center, 1.0 = full right
+        
+        # Apply L/R multiplier for enhanced stereo separation
+        adjusted_balance = 0.5 + (balance - 0.5) * self.lr_multiplier
+        adjusted_balance = max(0.0, min(1.0, adjusted_balance))  # Clamp to valid range
         
         # Location description
         location_desc = self._get_location_description(x, y, batter_hand)
         
-        return frequency, duration, balance, location_desc
+        return frequency, duration, adjusted_balance, location_desc
     
     def _play_stereo_beep(self, frequency, duration, balance):
         """Generate and play a stereo WAV file with proper left/right balance"""
@@ -201,17 +206,17 @@ class StereoAudioPitchMapper(QObject):
     def generate_strike_zone_audio(self, zone_position, batter_hand='R'):
         """Generate audio for specific strike zone positions"""
         
-        # Define the 9 strike zone positions with wider X range for better stereo separation
+        # Define the 9 strike zone positions using actual strike zone boundaries
         zone_coords = {
-            'high_left': (50, 50),      # Further left for clear left audio
+            'high_left': (100, 50),     # Actual left edge of strike zone
             'high_center': (127, 50),   # Dead center
-            'high_right': (205, 50),    # Further right for clear right audio
-            'center_left': (50, 127),   # Further left for clear left audio
+            'high_right': (155, 50),    # Actual right edge of strike zone
+            'center_left': (100, 127),  # Actual left edge of strike zone
             'center_center': (127, 127), # Dead center
-            'center_right': (205, 127), # Further right for clear right audio
-            'low_left': (50, 200),      # Further left for clear left audio
+            'center_right': (155, 127), # Actual right edge of strike zone
+            'low_left': (100, 200),     # Actual left edge of strike zone
             'low_center': (127, 200),   # Dead center
-            'low_right': (205, 200)     # Further right for clear right audio
+            'low_right': (155, 200)     # Actual right edge of strike zone
         }
         
         if zone_position not in zone_coords:

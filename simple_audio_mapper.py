@@ -35,7 +35,8 @@ class SimpleAudioPitchMapper(QObject):
         if self.use_stereo:
             try:
                 from stereo_audio_mapper import StereoAudioPitchMapper
-                self.stereo_mapper = StereoAudioPitchMapper(parent)
+                # Use optimized L/R multiplier value from testing
+                self.stereo_mapper = StereoAudioPitchMapper(parent, lr_multiplier=2.15)
                 self.stereo_mapper.audio_generated.connect(self.audio_generated)
                 self.stereo_mapper.audio_error.connect(self.audio_error)
             except ImportError:
@@ -237,17 +238,17 @@ class SimpleAudioPitchMapper(QObject):
                 self.audio_error.emit(f"Stereo strike zone audio failed: {str(e)}")
                 # Fall through to simple beep version
         
-        # Define the 9 strike zone positions with wider X range for better stereo separation
+        # Define the 9 strike zone positions using actual strike zone boundaries
         zone_coords = {
-            'high_left': (50, 50),      # Further left for clear left audio
+            'high_left': (100, 50),     # Actual left edge of strike zone
             'high_center': (127, 50),   # Dead center  
-            'high_right': (205, 50),    # Further right for clear right audio
-            'center_left': (50, 127),   # Further left for clear left audio
+            'high_right': (155, 50),    # Actual right edge of strike zone
+            'center_left': (100, 127),  # Actual left edge of strike zone
             'center_center': (127, 127), # Dead center
-            'center_right': (205, 127), # Further right for clear right audio
-            'low_left': (50, 200),      # Further left for clear left audio
+            'center_right': (155, 127), # Actual right edge of strike zone
+            'low_left': (100, 200),     # Actual left edge of strike zone
             'low_center': (127, 200),   # Dead center
-            'low_right': (205, 200)     # Further right for clear right audio
+            'low_right': (155, 200)     # Actual right edge of strike zone
         }
         
         if zone_position not in zone_coords:
