@@ -1987,7 +1987,6 @@ class GameDetailsView(BaseView):
                     
                     # Get pitch location with absolute coordinates
                     location = ""
-                    coordinates_text = ""
                     if pitch_coordinate and isinstance(pitch_coordinate, dict):
                         espn_x = pitch_coordinate.get("x")  # Horizontal (absolute)
                         espn_y = pitch_coordinate.get("y")  # Vertical (absolute)
@@ -2010,11 +2009,11 @@ class GameDetailsView(BaseView):
                                     batter_side = 'L'  # Based on our hit-by-pitch analysis
                                 # Add more known players as needed
                             
-                            # Get location with batter context
+                            # Get location with batter context  
                             location = get_pitch_location(espn_x, espn_y, batter_side)
-                            coordinates_text = f"({espn_x}, {espn_y})"  # Display absolute coordinates
                     
-                    # Build enhanced text with velocity, type, location, and coordinates
+                    # Build enhanced text with velocity, type, and coordinates
+                    # Note: location now contains coordinates, so no need for separate coordinates_text
                     details = []
                     if velocity:
                         details.append(f"{velocity} mph")
@@ -2023,14 +2022,10 @@ class GameDetailsView(BaseView):
                     
                     if details:
                         detail_text = " ".join(details)
-                        if location and coordinates_text:
-                            enhanced_text = f"{play_text} ({detail_text}) - {location} {coordinates_text}"
-                        elif location:
+                        if location:
                             enhanced_text = f"{play_text} ({detail_text}) - {location}"
                         else:
                             enhanced_text = f"{play_text} ({detail_text})"
-                    elif location and coordinates_text:
-                        enhanced_text = f"{play_text} - {location} {coordinates_text}"
                     elif location:
                         enhanced_text = f"{play_text} - {location}"
                     else:
@@ -2959,7 +2954,6 @@ class GameDetailsView(BaseView):
                     
                     # Get pitch location with absolute coordinates (same logic as tree view)
                     location = ""
-                    coordinates_text = ""
                     if pitch_coordinate and isinstance(pitch_coordinate, dict):
                         espn_x = pitch_coordinate.get("x")  # Horizontal (absolute)
                         espn_y = pitch_coordinate.get("y")  # Vertical (absolute)
@@ -2979,9 +2973,9 @@ class GameDetailsView(BaseView):
                             
                             # Get location with batter context
                             location = get_pitch_location(espn_x, espn_y, batter_side)
-                            coordinates_text = f"({espn_x}, {espn_y})"  # Display absolute coordinates
                     
-                    # Build enhanced text with velocity, type, location, and coordinates
+                    # Build enhanced text with velocity, type, and coordinates
+                    # Note: location now contains coordinates, so no need for separate coordinates_text
                     details = []
                     if velocity:
                         details.append(f"{velocity} mph")
@@ -2990,14 +2984,10 @@ class GameDetailsView(BaseView):
                     
                     if details:
                         detail_text = " ".join(details)
-                        if location and coordinates_text:
-                            enhanced_text = f"{play_text} ({detail_text}) - {location} {coordinates_text}"
-                        elif location:
+                        if location:
                             enhanced_text = f"{play_text} ({detail_text}) - {location}"
                         else:
                             enhanced_text = f"{play_text} ({detail_text})"
-                    elif location and coordinates_text:
-                        enhanced_text = f"{play_text} - {location} {coordinates_text}"
                     elif location:
                         enhanced_text = f"{play_text} - {location}"
                     else:
