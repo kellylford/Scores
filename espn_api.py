@@ -613,7 +613,7 @@ def _parse_standings_from_teams_api(data, league_key):
             division = mlb_divisions.get(abbreviation, "League") if league_key == "MLB" else "League"
             
             # Get detailed team record by making individual API call
-            wins, losses, win_pct = _get_team_record(team_id, league_key)
+            wins, losses, win_pct, streak = _get_team_record(team_id, league_key)
             
             standings.append({
                 "team_name": team_name,
@@ -623,6 +623,7 @@ def _parse_standings_from_teams_api(data, league_key):
                 "win_percentage": win_pct,
                 "games_back": "N/A",  # We'll calculate this after sorting by division
                 "division": division,
+                "streak": streak,  # Add streak information
                 "logo": team.get("logos", [{}])[0].get("href", "") if team.get("logos") else ""
             })
         
@@ -661,13 +662,13 @@ def _parse_standings_from_teams_api(data, league_key):
     return standings
 
 def _get_team_record(team_id, league_key):
-    """Get individual team's win/loss record"""
+    """Get individual team's win/loss record with streak information"""
     if not team_id:
-        return 0, 0, "0.000"
+        return 0, 0, "0.000", ""
         
     league_path = LEAGUES.get(league_key)
     if not league_path:
-        return 0, 0, "0.000"
+        return 0, 0, "0.000", ""
     
     try:
         # Get detailed team information
@@ -675,7 +676,7 @@ def _get_team_record(team_id, league_key):
         resp = requests.get(team_url)
         
         if resp.status_code != 200:
-            return 0, 0, "0.000"
+            return 0, 0, "0.000", ""
         
         data = resp.json()
         team = data.get("team", {})
@@ -686,21 +687,36 @@ def _get_team_record(team_id, league_key):
         for item in items:
             if item.get("type") == "total":
                 summary = item.get("summary", "0-0")
+                stats = item.get("stats", [])
+                
+                # Extract basic record info
                 try:
                     # Parse summary like "54-61"
                     wins, losses = map(int, summary.split("-"))
                     total_games = wins + losses
                     win_pct = f"{wins/total_games:.3f}" if total_games > 0 else "0.000"
-                    return wins, losses, win_pct
                 except (ValueError, IndexError):
-                    pass
-                break
+                    wins, losses, win_pct = 0, 0, "0.000"
+                
+                # Extract streak information from stats
+                streak = ""
+                for stat in stats:
+                    if stat.get("name") == "streak":
+                        streak_value = stat.get("value", 0)
+                        if isinstance(streak_value, (int, float)) and streak_value != 0:
+                            if streak_value > 0:
+                                streak = f"W{int(streak_value)}"
+                            else:
+                                streak = f"L{int(abs(streak_value))}"
+                        break
+                
+                return wins, losses, win_pct, streak
         
-        return 0, 0, "0.000"
+        return 0, 0, "0.000", ""
         
     except Exception as e:
         print(f"Error getting team {team_id} record: {e}")
-        return 0, 0, "0.000"
+        return 0, 0, "0.000", ""
 
 def _parse_standings_from_api(data, league_key):
     """Parse standings from the dedicated standings API"""

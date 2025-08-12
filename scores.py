@@ -44,30 +44,77 @@ NEWS_DIALOG_HEIGHT = 500
 STANDINGS_DIALOG_WIDTH = 900
 STANDINGS_DIALOG_HEIGHT = 600
 
-def get_pitch_location(x: int, y: int) -> str:
-    """Convert pitch coordinates to accessible location description.
+def get_pitch_location(horizontal: int, vertical: int, batter_side: str = None) -> str:
+    """Convert pitch coordinates to accessible location description
     
-    Boundaries validated against actual called strikes/balls:
-    - 85.4% of called strikes captured in strike zone
-    - 96.6% of called balls correctly excluded
-    - Based on analysis of 48 called strikes and 89 called balls
+    CORRECTED SYSTEM based on visual analysis:
+    - ESPN uses ABSOLUTE coordinates (catcher's view)
+    - Lower horizontal numbers = LEFT side of plate
+    - Higher horizontal numbers = RIGHT side of plate  
+    - Higher vertical numbers = LOWER pitches
+    - Inside/Outside depends on batter handedness:
+      * Left-handed batter: RIGHT side = inside, LEFT side = outside
+      * Right-handed batter: LEFT side = inside, RIGHT side = outside
     """
-    if x is None or y is None:
+    if horizontal is None or vertical is None:
         return ""
     
-    # Refined strike zone mapping based on ESPN API coordinate validation
-    # Analysis showed called strikes range X: 83-150, Y: 148-197
-    if 85 <= x <= 145:  # Refined strike zone width (was 80-140)
-        if y > 195:
+    # Determine vertical location (height) - adjusted thresholds
+    if vertical > 180:  # Lowered threshold for "low"
+        height_desc = "Low"
+    elif vertical < 140:  # Raised threshold for "high"
+        height_desc = "High" 
+    else:
+        height_desc = "Middle"
+    
+    # Determine horizontal location (absolute positioning)
+    if 60 <= horizontal <= 120:  # Strike zone center
+        if vertical > 180:  # Adjusted to match above
+            return "Low Strike Zone"
+        elif vertical < 140:  # Adjusted to match above
             return "High Strike Zone"
-        elif y < 150:
-            return "Low Strike Zone" 
         else:
             return "Strike Zone Center"
-    elif x < 85:
-        return "Way Inside" if x < 50 else "Inside"
+    
+    # Determine inside/outside based on batter handedness
+    # CORRECTED: Lower numbers = RIGHT side, Higher numbers = LEFT side
+    if batter_side:
+        if batter_side.lower() in ['l', 'left']:
+            # Left-handed batter: right side = inside
+            if horizontal < 40:
+                location = "Way Inside"  # Far right = way inside for lefty
+            elif horizontal < 60:
+                location = "Inside"      # Right = inside for lefty
+            elif horizontal > 140:
+                location = "Way Outside" # Far left = way outside for lefty
+            else:
+                location = "Outside"     # Left = outside for lefty
+        else:  # Right-handed batter
+            # Right-handed batter: left side = inside
+            if horizontal < 40:
+                location = "Way Outside" # Far right = way outside for righty
+            elif horizontal < 60:
+                location = "Outside"     # Right = outside for righty
+            elif horizontal > 140:
+                location = "Way Inside"  # Far left = way inside for righty
+            else:
+                location = "Inside"      # Left = inside for righty
     else:
-        return "Way Outside" if x > 175 else "Outside"
+        # No batter info - use generic positioning
+        if horizontal < 40:
+            location = "Far Right"
+        elif horizontal < 60:
+            location = "Right Side"
+        elif horizontal > 140:
+            location = "Far Left"
+        else:
+            location = "Left Side"
+    
+    # Combine height and location
+    if "Strike Zone" in location:
+        return location  # Already includes height
+    else:
+        return f"{height_desc} {location}"
 
 class ConfigDialog(QDialog):
     def __init__(self, details, selected, parent=None):
@@ -547,7 +594,7 @@ class GameDetailsView(BaseView):
             self._add_officials_list_to_layout(layout, field_data)
         elif field_name == "injuries" and isinstance(field_data, list):
             self._add_injuries_list_to_layout(layout, field_data)
-        elif field_name == "news" and isinstance(field_data, list):
+        elif field_name == "news" and isinstance(field_data, (list, dict)):
             self._add_news_list_to_layout(layout, field_data)
         else:
             # Fallback to formatted text
@@ -783,7 +830,11 @@ class GameDetailsView(BaseView):
                 self.details_list.addItem(item_text)
                 list_item_widget = self.details_list.item(self.details_list.count() - 1)
                 if list_item_widget:
-                    list_item_widget.setData(Qt.ItemDataRole.UserRole, {"field": field, "data": value})
+                    # For news field, pass full raw details to enable game-specific article detection
+                    if field == "news" and hasattr(self, 'current_raw_details'):
+                        list_item_widget.setData(Qt.ItemDataRole.UserRole, {"field": field, "data": self.current_raw_details})
+                    else:
+                        list_item_widget.setData(Qt.ItemDataRole.UserRole, {"field": field, "data": value})
             else:
                 try:
                     formatted_value = ApiService.format_complex_data(field, value)
@@ -1871,14 +1922,36 @@ class GameDetailsView(BaseView):
                     pitch_type_text = pitch_type.get("text", "") if isinstance(pitch_type, dict) else ""
                     pitch_coordinate = play.get("pitchCoordinate", {})
                     
-                    # Get pitch location if coordinates are available
+                    # Get pitch location with absolute coordinates
                     location = ""
+                    coordinates_text = ""
                     if pitch_coordinate and isinstance(pitch_coordinate, dict):
-                        x = pitch_coordinate.get("x")
-                        y = pitch_coordinate.get("y")
-                        location = get_pitch_location(x, y)
+                        espn_x = pitch_coordinate.get("x")  # Horizontal (absolute)
+                        espn_y = pitch_coordinate.get("y")  # Vertical (absolute)
+                        if espn_x is not None and espn_y is not None:
+                            # Try to determine batter handedness
+                            batter_side = None
+                            
+                            # Check if we can extract batter info from the play data
+                            if isinstance(play, dict) and 'participants' in play:
+                                for participant in play.get('participants', []):
+                                    if isinstance(participant, dict) and participant.get('type') == 'batter':
+                                        batter_side = participant.get('batSide')
+                                        break
+                            
+                            # For now, use simple heuristics for known players
+                            # TODO: Improve batter data extraction from ESPN API
+                            if not batter_side:
+                                batter_name = at_bat.get('batter', '') if isinstance(at_bat, dict) else ''
+                                if 'Lindor' in batter_name:
+                                    batter_side = 'L'  # Based on our hit-by-pitch analysis
+                                # Add more known players as needed
+                            
+                            # Get location with batter context
+                            location = get_pitch_location(espn_x, espn_y, batter_side)
+                            coordinates_text = f"({espn_x}, {espn_y})"  # Display absolute coordinates
                     
-                    # Build enhanced text with velocity, type, and location
+                    # Build enhanced text with velocity, type, location, and coordinates
                     details = []
                     if velocity:
                         details.append(f"{velocity} mph")
@@ -1887,12 +1960,18 @@ class GameDetailsView(BaseView):
                     
                     if details:
                         detail_text = " ".join(details)
-                        if location:
+                        if location and coordinates_text:
+                            enhanced_text = f"{play_text} ({detail_text}) - {location} {coordinates_text}"
+                        elif location:
                             enhanced_text = f"{play_text} ({detail_text}) - {location}"
                         else:
                             enhanced_text = f"{play_text} ({detail_text})"
+                    elif location and coordinates_text:
+                        enhanced_text = f"{play_text} - {location} {coordinates_text}"
                     elif location:
                         enhanced_text = f"{play_text} - {location}"
+                    else:
+                        enhanced_text = play_text
                     
                     pitch_item = QTreeWidgetItem([f"  {enhanced_text}"])
                     at_bat_item.addChild(pitch_item)
@@ -2483,14 +2562,31 @@ class GameDetailsView(BaseView):
                     pitch_type_text = pitch_type.get("text", "") if isinstance(pitch_type, dict) else ""
                     pitch_coordinate = play.get("pitchCoordinate", {})
                     
-                    # Get pitch location if coordinates are available
+                    # Get pitch location with absolute coordinates (same logic as tree view)
                     location = ""
+                    coordinates_text = ""
                     if pitch_coordinate and isinstance(pitch_coordinate, dict):
-                        x = pitch_coordinate.get("x")
-                        y = pitch_coordinate.get("y")
-                        location = get_pitch_location(x, y)
+                        espn_x = pitch_coordinate.get("x")  # Horizontal (absolute)
+                        espn_y = pitch_coordinate.get("y")  # Vertical (absolute)
+                        if espn_x is not None and espn_y is not None:
+                            # Try to determine batter handedness (simplified)
+                            batter_side = None
+                            
+                            # Check if we can extract batter info from the play data (safely)
+                            if isinstance(play, dict) and 'participants' in play:
+                                for participant in play.get('participants', []):
+                                    if isinstance(participant, dict) and participant.get('type') == 'batter':
+                                        batter_side = participant.get('batSide')
+                                        break
+                            
+                            # Use simple heuristics for known players
+                            # TODO: Improve batter data extraction from ESPN API
+                            
+                            # Get location with batter context
+                            location = get_pitch_location(espn_x, espn_y, batter_side)
+                            coordinates_text = f"({espn_x}, {espn_y})"  # Display absolute coordinates
                     
-                    # Build enhanced text with velocity, type, and location
+                    # Build enhanced text with velocity, type, location, and coordinates
                     details = []
                     if velocity:
                         details.append(f"{velocity} mph")
@@ -2499,12 +2595,18 @@ class GameDetailsView(BaseView):
                     
                     if details:
                         detail_text = " ".join(details)
-                        if location:
+                        if location and coordinates_text:
+                            enhanced_text = f"{play_text} ({detail_text}) - {location} {coordinates_text}"
+                        elif location:
                             enhanced_text = f"{play_text} ({detail_text}) - {location}"
                         else:
                             enhanced_text = f"{play_text} ({detail_text})"
+                    elif location and coordinates_text:
+                        enhanced_text = f"{play_text} - {location} {coordinates_text}"
                     elif location:
                         enhanced_text = f"{play_text} - {location}"
+                    else:
+                        enhanced_text = play_text
                     
                     pitch_plays.append(enhanced_text)
             
@@ -2945,10 +3047,30 @@ class GameDetailsView(BaseView):
             layout.addWidget(QLabel("No news data available."))
             return
         
-        # Handle different news data formats
-        news_articles = data
-        if isinstance(data, dict) and "articles" in data:
-            news_articles = data["articles"]
+        # Handle different news data formats and enhance game-specific news
+        news_articles = []
+        
+        # Check if this is game details data that might have both 'article' and 'news'
+        if isinstance(data, dict):
+            if "articles" in data:
+                # Standard news format with articles array
+                news_articles = data["articles"]
+            elif "article" in data or "news" in data:
+                # This might be full game details - check for game-specific article first
+                game_article = data.get("article")
+                general_news = data.get("news", {}).get("articles", [])
+                
+                # Prioritize game-specific article, then add general news
+                if game_article and isinstance(game_article, dict):
+                    news_articles.append(game_article)
+                if general_news and isinstance(general_news, list):
+                    news_articles.extend(general_news)
+            else:
+                # Single article format
+                news_articles = [data]
+        elif isinstance(data, list):
+            # Direct list of articles
+            news_articles = data
         
         if not news_articles:
             layout.addWidget(QLabel("No news articles available."))
@@ -2959,11 +3081,15 @@ class GameDetailsView(BaseView):
         news_list.setAccessibleName("News Headlines List")
         news_list.setAccessibleDescription("List of news headlines - Enter or double-click opens in browser")
         
-        # Add just the headlines as list items (consistent formatting)
-        for news_item in news_articles:
+        # Add articles as list items, with special labeling for game-specific content
+        for i, news_item in enumerate(news_articles):
             news_data = NewsData(news_item)
             # Get just the headline for consistent list display
             headline = news_data.headline if hasattr(news_data, 'headline') else news_data.get_display_text()
+            
+            # Add indicator for game-specific article (first item if it came from 'article' field)
+            if i == 0 and isinstance(data, dict) and "article" in data and "news" in data:
+                headline = f"🎯 {headline}"  # Game-specific indicator
             
             item = QListWidgetItem(headline)
             item.setData(Qt.ItemDataRole.UserRole, news_data)
@@ -2973,14 +3099,20 @@ class GameDetailsView(BaseView):
         def open_news_item(item):
             news_data = item.data(Qt.ItemDataRole.UserRole)
             if isinstance(news_data, NewsData) and news_data.has_web_url():
-                webbrowser.open(news_data.web_url)
+                if news_data.web_url.startswith(("http://", "https://")):
+                    try:
+                        webbrowser.open(news_data.web_url)
+                    except Exception as e:
+                        QMessageBox.warning(None, "Browser Error", f"Could not open browser: {str(e)}")
+                else:
+                    QMessageBox.warning(None, "Invalid URL", "The URL for this story is invalid.")
             else:
-                QMessageBox.information(self, "No Link", "No web link available for this story.")
+                QMessageBox.information(None, "No Link", "No web link available for this story.")
         
         news_list.itemActivated.connect(open_news_item)
         news_list.itemDoubleClicked.connect(open_news_item)
         
-        layout.addWidget(QLabel("News Headlines (Enter or double-click to open in browser):"))
+        layout.addWidget(QLabel("News Headlines (🎯 = Game-specific, Enter or double-click to open in browser):"))
         layout.addWidget(news_list)
 
 class StandingsDetailDialog(QDialog):

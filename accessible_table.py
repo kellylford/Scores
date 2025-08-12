@@ -334,6 +334,43 @@ class StandingsTable(AccessibleTable):
             rows.append(row)
         
         self.populate_data(rows, set_focus)
+    
+    def _update_cell_accessibility(self, row: int, col: int):
+        """
+        Override accessibility for standings to use team name as context instead of position.
+        """
+        if row < 0 or row >= self.rowCount() or col < 0 or col >= self.columnCount():
+            return
+            
+        current_item = self.item(row, col)
+        if not current_item:
+            return
+            
+        # Get the current cell value
+        cell_value = current_item.text()
+        
+        # Get column header
+        header_item = self.horizontalHeaderItem(col)
+        column_name = header_item.text() if header_item else f"Column {col + 1}"
+        
+        # Get team name from column 1 (index 1) instead of position from column 0
+        team_context = ""
+        if self.columnCount() > 1:
+            team_col_item = self.item(row, 1)  # Team name is in column 1
+            if team_col_item:
+                team_context = team_col_item.text()
+        
+        # Build enhanced accessibility description
+        if team_context and col != 1:  # Don't include team context for the team column itself
+            accessibility_text = f"{team_context}, {column_name}, {cell_value}"
+        else:
+            accessibility_text = f"{column_name}, {cell_value}"
+            
+        # Update the accessibility using the most compatible method
+        current_item.setToolTip(accessibility_text)
+        current_item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, accessibility_text)
+        current_item.setData(Qt.ItemDataRole.AccessibleTextRole, accessibility_text)
+        current_item.setWhatsThis(accessibility_text)
 
 
 class LeadersTable(AccessibleTable):
