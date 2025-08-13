@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (
     QSizePolicy, QMenu
 )
 from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
-from PyQt6.QtGui import QColor, QAction
+from PyQt6.QtGui import QColor, QAction, QFont
 
 # New separated modules
 from exceptions import ApiError, DataModelError
@@ -452,7 +452,7 @@ class LeagueView(BaseView):
             QMessageBox.critical(self, "Error", f"Failed to show news: {str(e)}")
     
     def _show_standings_dialog(self):
-        """Show standings dialog with caching and background loading"""
+        """Show standings dialog with caching and fast background loading"""
         try:
             # Check cache first
             cache = DataCache()
@@ -463,16 +463,17 @@ class LeagueView(BaseView):
                 dialog = StandingsDialog(cached_data, self.league, self)
                 dialog.exec()
             else:
-                # Show loading message and load in background
+                # Load in background (now fast enough to not need loading dialog)
                 self.standings_loader = StandingsLoader(self.league)
                 self.standings_loader.data_loaded.connect(self._on_standings_data_loaded)
                 self.standings_loader.error_occurred.connect(self._on_standings_data_error)
                 self.standings_loader.start()
-                
-                # Show loading indication
-                QMessageBox.information(self, "Loading", "Loading standings data...")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to show standings: {str(e)}")
+    
+    def _on_standings_progress(self, message: str):
+        """Update standings loading progress (no longer used)"""
+        pass
     
     def _on_standings_data_loaded(self, standings_data):
         """Handle standings data loaded from background thread"""
@@ -481,7 +482,7 @@ class LeagueView(BaseView):
             cache = DataCache()
             cache.set_standings(self.league, standings_data)
             
-            # Show the dialog
+            # Show the dialog immediately (no loading dialog to close)
             dialog = StandingsDialog(standings_data, self.league, self)
             dialog.exec()
         except Exception as e:
@@ -4216,10 +4217,231 @@ class StandingsLoader(QThread):
             self.error_occurred.emit(f"Failed to load standings: {str(e)}")
 
 
+class GameDetailsDialog(QDialog):
+    """Dialog wrapper for GameDetailsView to show game details"""
+    
+    def __init__(self, game_id: str, league: str, parent=None):
+        super().__init__(parent)
+        self.game_id = game_id
+        self.league = league
+        
+        # Add config attribute that GameDetailsView expects
+        self.config = {league: ["standings", "leaders", "boxscore", "injuries", "news"]}
+        
+        self.setWindowTitle(f"Game Details - {league}")
+        self.setMinimumSize(800, 600)
+        self.resize(1000, 700)
+        
+        # Create layout
+        layout = QVBoxLayout()
+        
+        # Create game details view
+        self.game_details_view = GameDetailsView(self, league, game_id)
+        layout.addWidget(self.game_details_view)
+        
+        # Add close button
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        
+        close_btn = QPushButton("&Close")
+        close_btn.clicked.connect(self.accept)
+        button_layout.addWidget(close_btn)
+        
+        layout.addLayout(button_layout)
+        self.setLayout(layout)
+    
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.accept()
+            return
+        super().keyPressEvent(event)
+
+
+class TeamScheduleDialog(QDialog):
+    """Dialog showing a team's schedule with focus on today's game"""
+    
+    def __init__(self, team_data: Dict, league: str, parent=None):
+        super().__init__(parent)
+        self.team_data = team_data
+        self.league = league
+        self.team_name = team_data.get('team_name', 'Unknown Team')
+        self.team_id = team_data.get('team_id', '')
+        
+        self.setWindowTitle(f"{self.team_name} - Schedule")
+        self.setMinimumSize(800, 600)
+        self.resize(900, 700)
+        
+        self.setup_ui()
+        self.load_schedule()
+    
+    def setup_ui(self):
+        layout = QVBoxLayout()
+        
+        # Header with team info
+        header_layout = QHBoxLayout()
+        
+        team_info = QLabel(f"{self.team_name}")
+        font = QFont()
+        font.setPointSize(14)
+        font.setBold(True)
+        team_info.setFont(font)
+        header_layout.addWidget(team_info)
+        
+        # Add team record if available
+        wins = self.team_data.get('wins', '')
+        losses = self.team_data.get('losses', '')
+        if wins and losses:
+            record_label = QLabel(f"({wins}-{losses})")
+            record_label.setFont(font)
+            header_layout.addWidget(record_label)
+        
+        header_layout.addStretch()
+        layout.addLayout(header_layout)
+        
+        # Schedule list
+        self.schedule_list = QListWidget()
+        self.schedule_list.setAccessibleName(f"{self.team_name} Schedule")
+        self.schedule_list.itemActivated.connect(self.on_game_selected)
+        layout.addWidget(self.schedule_list)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        
+        refresh_btn = QPushButton("&Refresh")
+        refresh_btn.clicked.connect(self.load_schedule)
+        button_layout.addWidget(refresh_btn)
+        
+        button_layout.addStretch()
+        
+        close_btn = QPushButton("&Close")
+        close_btn.clicked.connect(self.accept)
+        button_layout.addWidget(close_btn)
+        
+        layout.addLayout(button_layout)
+        self.setLayout(layout)
+    
+    def load_schedule(self):
+        """Load team schedule data"""
+        self.schedule_list.clear()
+        
+        # Show loading message
+        self.loading_item = QListWidgetItem("Loading schedule...")
+        self.schedule_list.addItem(self.loading_item)
+        
+        # Start background loading
+        self.schedule_loader = TeamScheduleLoader(self.team_id, self.team_name, self.league)
+        self.schedule_loader.data_loaded.connect(self.on_schedule_loaded)
+        self.schedule_loader.error_occurred.connect(self.on_schedule_error)
+        self.schedule_loader.loading_progress.connect(self.on_loading_progress)
+        self.schedule_loader.start()
+
+    def on_loading_progress(self, message: str):
+        """Update loading progress message"""
+        if hasattr(self, 'loading_item') and self.loading_item:
+            self.loading_item.setText(message)
+
+    def on_schedule_loaded(self, schedule_data: List[Dict], team_name: str, league: str):
+        """Handle successful schedule loading"""
+        self.schedule_list.clear()
+        
+        if not schedule_data:
+            no_games_item = QListWidgetItem("No games found in schedule")
+            self.schedule_list.addItem(no_games_item)
+            return
+
+        today_item_index = -1
+        
+        for i, game in enumerate(schedule_data):
+            # Format game display
+            date_str = game.get('date_display', '')
+            opponent = game.get('opponent', 'Unknown')
+            home_away = game.get('home_away', '')
+            time_str = game.get('time', '')
+            status = game.get('status', '')
+            venue = game.get('venue', '')
+            
+            # Build game text
+            if status in ['Final', 'Cancelled', 'Postponed']:
+                home_score = game.get('home_score', '')
+                away_score = game.get('away_score', '')
+                if home_score and away_score:
+                    if home_away == 'vs':  # Home game
+                        game_text = f"{date_str}: {home_away} {opponent} - W {home_score}-{away_score}" if int(home_score) > int(away_score) else f"{date_str}: {home_away} {opponent} - L {home_score}-{away_score}"
+                    else:  # Away game  
+                        game_text = f"{date_str}: {home_away} {opponent} - W {away_score}-{home_score}" if int(away_score) > int(home_score) else f"{date_str}: {home_away} {opponent} - L {away_score}-{home_score}"
+                else:
+                    game_text = f"{date_str}: {home_away} {opponent} - {status}"
+            else:
+                game_text = f"{date_str}: {home_away} {opponent} - {time_str}"
+                if venue and venue != "TBD":
+                    game_text += f" ({venue})"
+            
+            item = QListWidgetItem(game_text)
+            item.setData(Qt.ItemDataRole.UserRole, game)
+            
+            # Highlight today's game
+            if game.get('is_today', False):
+                font = QFont()
+                font.setBold(True)
+                item.setFont(font)
+                item.setBackground(QColor(255, 255, 200))  # Light yellow background
+                today_item_index = i
+            
+            self.schedule_list.addItem(item)
+        
+        # Focus on today's game if found, otherwise focus on first upcoming game
+        if today_item_index >= 0:
+            self.schedule_list.setCurrentRow(today_item_index)
+        else:
+            # Find first future game
+            future_game_index = -1
+            for i, game in enumerate(schedule_data):
+                if game.get('status', '') not in ['Final', 'Cancelled', 'Postponed']:
+                    future_game_index = i
+                    break
+            
+            if future_game_index >= 0:
+                self.schedule_list.setCurrentRow(future_game_index)
+            else:
+                # No future games, focus on first item
+                self.schedule_list.setCurrentRow(0)
+        
+        # Set focus to the list
+        self.schedule_list.setFocus()
+    
+    def on_schedule_error(self, error_msg: str):
+        """Handle schedule loading error"""
+        self.schedule_list.clear()
+        error_item = QListWidgetItem(f"Error loading schedule: {error_msg}")
+        self.schedule_list.addItem(error_item)
+    
+    def on_game_selected(self, item):
+        """Handle game selection"""
+        game_data = item.data(Qt.ItemDataRole.UserRole)
+        if not game_data:
+            return
+        
+        game_id = game_data.get('game_id')
+        if game_id:
+            # Open game details in a new dialog
+            try:
+                detail_dialog = GameDetailsDialog(game_id, self.league, self)
+                detail_dialog.exec()
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to open game details: {str(e)}")
+    
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.accept()
+            return
+        super().keyPressEvent(event)
+
+
 class TeamScheduleLoader(QThread):
     """Background thread for loading team schedule data"""
     data_loaded = pyqtSignal(list, str, str)  # schedule_data, team_name, league
     error_occurred = pyqtSignal(str)
+    loading_progress = pyqtSignal(str)  # progress message
     
     def __init__(self, team_id: str, team_name: str, league: str):
         super().__init__()
@@ -4229,9 +4451,12 @@ class TeamScheduleLoader(QThread):
     
     def run(self):
         try:
-            # For now, we'll simulate schedule loading
-            # This would be replaced with actual API call
-            schedule_data = []
+            self.loading_progress.emit("Loading schedule...")
+            
+            # Load team schedule using the optimized API
+            schedule_data = ApiService.get_team_schedule(self.league, self.team_id)
+            
+            self.loading_progress.emit(f"Loaded {len(schedule_data)} games")
             self.data_loaded.emit(schedule_data, self.team_name, self.league)
         except Exception as e:
             self.error_occurred.emit(f"Failed to load schedule: {str(e)}")
@@ -4488,10 +4713,16 @@ class SimpleTeamsDialog(QDialog):
         self.tab_widget.addTab(widget, division_name)
     
     def on_team_selected(self, item):
-        """Handle team selection"""
+        """Handle team selection - open schedule view"""
         team_data = item.data(Qt.ItemDataRole.UserRole)
+        if not team_data:
+            return
+            
         team_name = team_data.get('team_name', 'Unknown Team')
-        QMessageBox.information(self, "Team", f"Selected: {team_name}\n\nSchedule and roster views would open here.")
+        
+        # Open schedule dialog
+        schedule_dialog = TeamScheduleDialog(team_data, self.league, self)
+        schedule_dialog.exec()
     
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:

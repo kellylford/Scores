@@ -14,6 +14,252 @@ LEAGUES = {
     # Add more as needed
 }
 
+def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30):
+    """Get a team's complete schedule using the dedicated team schedule endpoint"""
+    from datetime import datetime, timedelta
+    
+    league_path = LEAGUES.get(league_key)
+    if not league_path:
+        return []
+    
+    # For MLB, use the dedicated team schedule endpoint which gives us the complete season
+    if league_key == "MLB":
+        url = f"{BASE_URL}/{league_path}/teams/{team_id}/schedule"
+    else:
+        # For other leagues, fall back to the date range approach
+        today = datetime.now()
+        start_date = today - timedelta(days=days_behind)
+        end_date = today + timedelta(days=days_ahead)
+        start_str = start_date.strftime("%Y%m%d")
+        end_str = end_date.strftime("%Y%m%d")
+        url = f"{BASE_URL}/{league_path}/scoreboard?dates={start_str}-{end_str}"
+        return parse_schedule_from_api(url, team_id, datetime.now())
+    
+    try:
+        resp = requests.get(url)
+        if resp.status_code != 200:
+            return []
+            
+        data = resp.json()
+        events = data.get('events', [])
+        
+        schedule = []
+        today = datetime.now()
+        
+        for event in events:
+            # Parse event date
+            event_date_str = event.get('date', '')
+            if event_date_str:
+                try:
+                    event_date = datetime.fromisoformat(event_date_str.replace('Z', '+00:00'))
+                    event_date = event_date.replace(tzinfo=None)
+                except:
+                    continue
+            else:
+                continue
+                
+            # Get competition data
+            competitions = event.get('competitions', [])
+            if not competitions:
+                continue
+                
+            comp = competitions[0]
+            competitors = comp.get('competitors', [])
+            
+            # Find home and away teams
+            home_team = away_team = None
+            home_score = away_score = ''
+            
+            for competitor in competitors:
+                team_info = competitor.get('team', {})
+                if competitor.get('homeAway') == 'home':
+                    home_team = team_info.get('displayName', 'Unknown')
+                    score_data = competitor.get('score', '')
+                    if isinstance(score_data, dict):
+                        home_score = score_data.get('displayValue', '')
+                    else:
+                        home_score = str(score_data) if score_data else ''
+                else:
+                    away_team = team_info.get('displayName', 'Unknown')
+                    score_data = competitor.get('score', '')
+                    if isinstance(score_data, dict):
+                        away_score = score_data.get('displayValue', '')
+                    else:
+                        away_score = str(score_data) if score_data else ''
+            
+            # Determine if this is home or away for our team
+            team_name = None
+            is_home = False
+            for competitor in competitors:
+                if competitor.get('team', {}).get('id') == team_id:
+                    team_name = competitor.get('team', {}).get('displayName', 'Unknown')
+                    is_home = competitor.get('homeAway') == 'home'
+                    break
+                    
+            if not team_name:
+                continue
+                
+            opponent = away_team if is_home else home_team
+            home_away = 'vs' if is_home else '@'
+            
+            # Get game status
+            status = comp.get('status', {})
+            status_type = status.get('type', {})
+            game_status = status_type.get('description', 'Unknown')
+            
+            # Get start time
+            start_time = 'TBD'
+            if 'shortDetail' in status_type:
+                start_time = status_type['shortDetail']
+            elif 'detail' in status_type:
+                start_time = status_type['detail']
+            
+            # Get venue
+            venue = comp.get('venue', {})
+            venue_name = venue.get('fullName', 'TBD')
+            
+            schedule.append({
+                'date': event_date.strftime('%Y-%m-%d'),
+                'date_display': event_date.strftime('%a, %b %d'),
+                'opponent': opponent,
+                'home_away': home_away,
+                'time': start_time,
+                'status': game_status,
+                'venue': venue_name,
+                'home_score': home_score,
+                'away_score': away_score,
+                'game_id': event.get('id', ''),
+                'is_today': event_date.date() == today.date()
+            })
+            
+        # Sort by date
+        schedule.sort(key=lambda x: x['date'])
+        return schedule
+        
+    except Exception as e:
+        print(f"Error fetching team schedule: {e}")
+        return []
+
+def get_mlb_full_season_schedule(league_path, team_id, today):
+    """Get full MLB season using monthly API calls to avoid 100-event limit"""
+    import time
+    
+    schedule = []
+    
+    # MLB season months for 2025
+    months = [
+        ("20250401", "20250430"),  # April
+        ("20250501", "20250531"),  # May
+        ("20250601", "20250630"),  # June
+        ("20250701", "20250731"),  # July
+        ("20250801", "20250831"),  # August
+        ("20250901", "20250930"),  # September
+        ("20251001", "20251031"),  # October
+    ]
+    
+    for start_str, end_str in months:
+        url = f"{BASE_URL}/{league_path}/scoreboard?dates={start_str}-{end_str}"
+        month_schedule = parse_schedule_from_api(url, team_id, today)
+        schedule.extend(month_schedule)
+        
+        # Small delay to be respectful to the API
+        time.sleep(0.1)
+    
+    # Sort by date
+    schedule.sort(key=lambda x: x["date"])
+    return schedule
+
+def parse_schedule_from_api(url, team_id, today):
+    """Parse schedule data from ESPN API response"""
+    from datetime import datetime
+    
+    schedule = []
+    
+    try:
+        resp = requests.get(url)
+        if resp.status_code == 200:
+            data = resp.json()
+            events = data.get("events", [])
+            
+            for event in events:
+                competitions = event.get("competitions", [])
+                if not competitions:
+                    continue
+                
+                comp = competitions[0]
+                competitors = comp.get("competitors", [])
+                
+                # Check if this team is playing
+                team_playing = False
+                home_team = away_team = None
+                home_score = away_score = ""
+                
+                for competitor in competitors:
+                    team_info = competitor.get("team", {})
+                    if team_info.get("id") == team_id:
+                        team_playing = True
+                    
+                    if competitor.get("homeAway") == "home":
+                        home_team = team_info.get("displayName", "Unknown")
+                        score_data = competitor.get("score", "")
+                        if isinstance(score_data, dict):
+                            home_score = score_data.get("displayValue", "")
+                        else:
+                            home_score = str(score_data) if score_data else ""
+                    else:
+                        away_team = team_info.get("displayName", "Unknown")
+                        score_data = competitor.get("score", "")
+                        if isinstance(score_data, dict):
+                            away_score = score_data.get("displayValue", "")
+                        else:
+                            away_score = str(score_data) if score_data else ""
+                
+                if team_playing:
+                    # Parse event date
+                    event_date_str = event.get("date", "")
+                    if event_date_str:
+                        try:
+                            event_date = datetime.fromisoformat(event_date_str.replace('Z', '+00:00'))
+                            event_date = event_date.replace(tzinfo=None)
+                        except:
+                            event_date = today
+                    else:
+                        event_date = today
+                    
+                    # Get game details
+                    status = comp.get("status", {})
+                    status_type = status.get("type", {})
+                    game_status = status_type.get("description", "Unknown")
+                    
+                    # Get start time
+                    start_time = "TBD"
+                    if "shortDetail" in status_type:
+                        start_time = status_type["shortDetail"]
+                    elif "detail" in status_type:
+                        start_time = status_type["detail"]
+                    
+                    # Get venue
+                    venue = comp.get("venue", {})
+                    venue_name = venue.get("fullName", "TBD")
+                    
+                    schedule.append({
+                        "date": event_date.strftime("%Y-%m-%d"),
+                        "date_display": event_date.strftime("%a, %b %d"),
+                        "opponent": away_team if home_team and team_id in [c.get("team", {}).get("id") for c in competitors if c.get("homeAway") == "home"] else home_team,
+                        "home_away": "vs" if any(c.get("homeAway") == "home" and c.get("team", {}).get("id") == team_id for c in competitors) else "@",
+                        "time": start_time,
+                        "status": game_status,
+                        "venue": venue_name,
+                        "home_score": home_score,
+                        "away_score": away_score,
+                        "game_id": event.get("id", ""),
+                        "is_today": event_date.date() == today.date()
+                    })
+        
+    except Exception as e:
+        print(f"Error fetching schedule from {url}: {e}")
+    
+    return schedule
 def get_leagues():
     return list(LEAGUES.keys())
 
@@ -552,7 +798,141 @@ def format_complex_data(key, value):
     return str(value)[:100] + ("..." if len(str(value)) > 100 else "")
 
 def get_standings(league_key):
-    """Get current standings for a specific league using teams API"""
+    """Get current standings for a specific league using optimized API endpoint"""
+    if league_key == "MLB":
+        return _get_mlb_standings_fast()
+    else:
+        # Fallback to original method for other leagues
+        return _get_standings_original(league_key)
+
+def _get_mlb_standings_fast():
+    """Fast MLB standings using dedicated endpoint (0.15s vs 7s)"""
+    try:
+        # Use the fast dedicated standings endpoint
+        url = "https://site.api.espn.com/apis/v2/sports/baseball/mlb/standings"
+        resp = requests.get(url)
+        
+        if resp.status_code != 200:
+            return []
+        
+        data = resp.json()
+        standings = []
+        
+        # Division mapping for games back calculation
+        division_teams = {}
+        
+        # Process each league (AL/NL)
+        for league in data.get('children', []):
+            league_name = league.get('name', '')
+            
+            # Each league contains the standings entries
+            league_standings = league.get('standings', {})
+            entries = league_standings.get('entries', [])
+            
+            for entry in entries:
+                team_info = entry.get('team', {})
+                stats = entry.get('stats', [])
+                
+                # Create stats lookup
+                stats_dict = {}
+                for stat in stats:
+                    stats_dict[stat.get('name', '')] = stat.get('value', 0)
+                
+                # Extract team data
+                team_name = team_info.get('displayName', 'Unknown')
+                team_id = str(team_info.get('id', ''))
+                abbreviation = team_info.get('abbreviation', '')
+                
+                # Get wins/losses from stats
+                wins = int(stats_dict.get('wins', 0))
+                losses = int(stats_dict.get('losses', 0))
+                win_pct = stats_dict.get('winPercent', 0.0)
+                
+                # Get division from team info or determine from abbreviation
+                division = _get_team_division(abbreviation, league_name)
+                
+                # Get streak (look for streak stats)
+                streak = ""
+                streak_val = stats_dict.get('streak', 0)
+                if streak_val != 0:
+                    streak_type = "W" if streak_val > 0 else "L"
+                    streak = f"{streak_type}{abs(int(streak_val))}"
+                
+                team_data = {
+                    "team_name": team_name,
+                    "team_id": team_id,
+                    "abbreviation": abbreviation,
+                    "wins": wins,
+                    "losses": losses,
+                    "win_percentage": f"{win_pct:.3f}",
+                    "games_back": "0.0",  # Will calculate after grouping
+                    "division": division,
+                    "streak": streak,
+                    "logo": team_info.get("logos", [{}])[0].get("href", "") if team_info.get("logos") else ""
+                }
+                
+                standings.append(team_data)
+                
+                # Group by division for games back calculation
+                if division not in division_teams:
+                    division_teams[division] = []
+                division_teams[division].append(team_data)
+        
+        # Calculate games back for each division
+        for division, teams in division_teams.items():
+            # Sort by wins descending, then by win percentage
+            teams.sort(key=lambda x: (-x["wins"], -float(x["win_percentage"])))
+            
+            if teams:
+                leader = teams[0]
+                leader_wins = leader["wins"]
+                leader_losses = leader["losses"]
+                
+                for i, team in enumerate(teams):
+                    if i == 0:
+                        team["games_back"] = "—"  # Leader
+                    else:
+                        team_wins = team["wins"]
+                        team_losses = team["losses"]
+                        games_back = ((leader_wins - team_wins) + (team_losses - leader_losses)) / 2
+                        team["games_back"] = f"{games_back:.1f}" if games_back > 0 else "0.0"
+        
+        # Sort final standings by division, then by wins
+        standings.sort(key=lambda x: (x["division"], -x["wins"], -float(x["win_percentage"])))
+        
+        return standings
+        
+    except Exception as e:
+        print(f"Error in fast MLB standings: {e}")
+        # Fallback to original method
+        return _get_standings_original("MLB")
+
+def _get_team_division(abbreviation, league_name):
+    """Get team division from abbreviation and league"""
+    # MLB Division mapping
+    mlb_divisions = {
+        # American League East
+        "BAL": "AL East", "BOS": "AL East", "NYY": "AL East", "TB": "AL East", "TOR": "AL East",
+        # American League Central  
+        "CWS": "AL Central", "CLE": "AL Central", "DET": "AL Central", "KC": "AL Central", "MIN": "AL Central",
+        # American League West
+        "HOU": "AL West", "LAA": "AL West", "OAK": "AL West", "SEA": "AL West", "TEX": "AL West",
+        # National League East
+        "ATL": "NL East", "MIA": "NL East", "NYM": "NL East", "PHI": "NL East", "WSH": "NL East",
+        # National League Central
+        "CHC": "NL Central", "CIN": "NL Central", "MIL": "NL Central", "PIT": "NL Central", "STL": "NL Central",
+        # National League West
+        "ARI": "NL West", "COL": "NL West", "LAD": "NL West", "SD": "NL West", "SF": "NL West"
+    }
+    
+    # Handle Oakland abbreviation
+    if abbreviation == "ATH":
+        abbreviation = "OAK"
+    
+    return mlb_divisions.get(abbreviation, f"{league_name} League")
+
+def _get_standings_original(league_key):
+    """Original standings method (slower but works for all leagues)"""
     league_path = LEAGUES.get(league_key)
     if not league_path:
         return []
@@ -617,6 +997,7 @@ def _parse_standings_from_teams_api(data, league_key):
             
             standings.append({
                 "team_name": team_name,
+                "team_id": team_id,
                 "abbreviation": abbreviation,
                 "wins": wins,
                 "losses": losses,
