@@ -2122,16 +2122,20 @@ class GameDetailsView(BaseView):
                     if pitch_type_text:
                         details.append(pitch_type_text)
                     
-                    if details:
-                        detail_text = " ".join(details)
-                        if location:
-                            enhanced_text = f"{play_text} ({detail_text}) - {location}"
+                        # Show only raw coordinates if available
+                        coord_text = ""
+                        if espn_x is not None and espn_y is not None:
+                            coord_text = f"({espn_x}, {espn_y})"
+                        if details:
+                            detail_text = " ".join(details)
+                            if coord_text:
+                                enhanced_text = f"{play_text} ({detail_text}) - {coord_text}"
+                            else:
+                                enhanced_text = f"{play_text} ({detail_text})"
+                        elif coord_text:
+                            enhanced_text = f"{play_text} - {coord_text}"
                         else:
-                            enhanced_text = f"{play_text} ({detail_text})"
-                    elif location:
-                        enhanced_text = f"{play_text} - {location}"
-                    else:
-                        enhanced_text = play_text
+                            enhanced_text = play_text
                     
                     pitch_item = QTreeWidgetItem([f"  {enhanced_text}"])
                     
@@ -4797,7 +4801,7 @@ class SportsScoresApp(QWidget):
     
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Sports Scores (ESPN)")
+        self.setWindowTitle("Sports Scores")
         
         # Set proper window sizing behavior
         self.setMinimumSize(500, 300)  # Minimum usable size
