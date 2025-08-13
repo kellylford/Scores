@@ -1,5 +1,6 @@
 import sys
 import webbrowser
+import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Union
 # Add project root to sys.path if running as script
@@ -15,7 +16,7 @@ from PyQt6.QtWidgets import (
     QListWidgetItem, QTreeWidget, QTreeWidgetItem, QSpinBox, QComboBox,
     QSizePolicy, QMenu
 )
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
 from PyQt6.QtGui import QColor, QAction
 
 # New separated modules
@@ -404,6 +405,8 @@ class LeagueView(BaseView):
             self._show_news_dialog(); return
         if data == "__standings__":
             self._show_standings_dialog(); return
+        if data == "__teams__":
+            self._show_teams_dialog(); return
         if data and isinstance(data, str) and self.parent_app:
             self.parent_app.open_game_details(data)
 
@@ -429,10 +432,14 @@ class LeagueView(BaseView):
                 self.scores_list.addItem("--- News Headlines ---")
                 news_item = self.scores_list.item(self.scores_list.count()-1)
                 news_item.setData(Qt.ItemDataRole.UserRole, "__news__")  # type: ignore
-            if self.league == "MLB":
+            if self.league in ["MLB", "NFL"]:
                 self.scores_list.addItem("--- Standings ---")
                 standings_item = self.scores_list.item(self.scores_list.count()-1)
                 standings_item.setData(Qt.ItemDataRole.UserRole, "__standings__")  # type: ignore
+                
+                self.scores_list.addItem("--- Teams ---")
+                teams_item = self.scores_list.item(self.scores_list.count()-1)
+                teams_item.setData(Qt.ItemDataRole.UserRole, "__teams__")  # type: ignore
         except Exception as e:
             self._show_api_error(f"Failed to load scores: {str(e)}")
 
@@ -445,18 +452,73 @@ class LeagueView(BaseView):
             QMessageBox.critical(self, "Error", f"Failed to show news: {str(e)}")
     
     def _show_standings_dialog(self):
-        """Show standings dialog"""
+        """Show standings dialog with caching and background loading"""
         try:
-            standings_data = ApiService.get_standings(self.league)
-            if not standings_data:
-                QMessageBox.information(self, "Standings", 
-                                      f"No standings data available for {self.league}.")
-                return
+            # Check cache first
+            cache = DataCache()
+            cached_data = cache.get_standings(self.league)
             
+            if cached_data:
+                # Use cached data immediately
+                dialog = StandingsDialog(cached_data, self.league, self)
+                dialog.exec()
+            else:
+                # Show loading message and load in background
+                self.standings_loader = StandingsLoader(self.league)
+                self.standings_loader.data_loaded.connect(self._on_standings_data_loaded)
+                self.standings_loader.error_occurred.connect(self._on_standings_data_error)
+                self.standings_loader.start()
+                
+                # Show loading indication
+                QMessageBox.information(self, "Loading", "Loading standings data...")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to show standings: {str(e)}")
+    
+    def _on_standings_data_loaded(self, standings_data):
+        """Handle standings data loaded from background thread"""
+        try:
+            # Cache the data
+            cache = DataCache()
+            cache.set_standings(self.league, standings_data)
+            
+            # Show the dialog
             dialog = StandingsDialog(standings_data, self.league, self)
             dialog.exec()
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to show standings: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Failed to display standings: {str(e)}")
+    
+    def _on_standings_data_error(self, error_message):
+        """Handle standings data loading error"""
+        QMessageBox.warning(self, "Standings", error_message)
+    
+    def _show_teams_dialog(self):
+        """Show teams dialog with simple tabbed interface"""
+        try:
+            standings_data = ApiService.get_standings(self.league)
+            if not standings_data:
+                QMessageBox.information(self, "Teams", 
+                                      f"No teams data available for {self.league}.")
+                return
+            
+            # Filter data by league to avoid MLB/NFL mixing
+            filtered_data = [team for team in standings_data 
+                           if self._is_team_for_league(team, self.league)]
+            
+            dialog = SimpleTeamsDialog(filtered_data, self.league, self)
+            dialog.exec()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to show teams: {str(e)}")
+    
+    def _is_team_for_league(self, team_data: Dict, league: str) -> bool:
+        """Check if team belongs to the specified league"""
+        team_name = team_data.get('team_name', '')
+        logo_url = team_data.get('logo', '')
+        
+        if league == "MLB":
+            return '/mlb/' in logo_url
+        elif league == "NFL":
+            return '/nfl/' in logo_url
+        return True  # Default to include if uncertain
     
     def previous_day(self):
         """Navigate to previous day"""
@@ -4131,6 +4193,92 @@ class NewsDialog(QDialog):
         else:
             QMessageBox.information(self, "No Selection", "Select a story first.")
 
+
+# Background loading classes for performance optimization
+
+class StandingsLoader(QThread):
+    """Background thread for loading standings data"""
+    data_loaded = pyqtSignal(list)
+    error_occurred = pyqtSignal(str)
+    
+    def __init__(self, league: str):
+        super().__init__()
+        self.league = league
+    
+    def run(self):
+        try:
+            standings_data = ApiService.get_standings(self.league)
+            if standings_data:
+                self.data_loaded.emit(standings_data)
+            else:
+                self.error_occurred.emit(f"No standings data available for {self.league}")
+        except Exception as e:
+            self.error_occurred.emit(f"Failed to load standings: {str(e)}")
+
+
+class TeamScheduleLoader(QThread):
+    """Background thread for loading team schedule data"""
+    data_loaded = pyqtSignal(list, str, str)  # schedule_data, team_name, league
+    error_occurred = pyqtSignal(str)
+    
+    def __init__(self, team_id: str, team_name: str, league: str):
+        super().__init__()
+        self.team_id = team_id
+        self.team_name = team_name
+        self.league = league
+    
+    def run(self):
+        try:
+            # For now, we'll simulate schedule loading
+            # This would be replaced with actual API call
+            schedule_data = []
+            self.data_loaded.emit(schedule_data, self.team_name, self.league)
+        except Exception as e:
+            self.error_occurred.emit(f"Failed to load schedule: {str(e)}")
+
+
+# Caching system for improved performance
+class DataCache:
+    """Simple cache for standings and team data"""
+    _instance = None
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance.standings_cache = {}
+            cls._instance.schedule_cache = {}
+            cls._instance.cache_timeout = 300  # 5 minutes
+        return cls._instance
+    
+    def get_standings(self, league: str):
+        """Get cached standings data"""
+        key = f"standings_{league}"
+        if key in self.standings_cache:
+            data, timestamp = self.standings_cache[key]
+            if time.time() - timestamp < self.cache_timeout:
+                return data
+        return None
+    
+    def set_standings(self, league: str, data):
+        """Cache standings data"""
+        key = f"standings_{league}"
+        self.standings_cache[key] = (data, time.time())
+    
+    def get_schedule(self, team_id: str):
+        """Get cached schedule data"""
+        key = f"schedule_{team_id}"
+        if key in self.schedule_cache:
+            data, timestamp = self.schedule_cache[key]
+            if time.time() - timestamp < self.cache_timeout:
+                return data
+        return None
+    
+    def set_schedule(self, team_id: str, data):
+        """Cache schedule data"""
+        key = f"schedule_{team_id}"
+        self.schedule_cache[key] = (data, time.time())
+
+
 class StandingsDialog(QDialog):
     """Dialog for displaying team standings (invoked from league view)"""
     
@@ -4242,6 +4390,116 @@ class StandingsDialog(QDialog):
                     event.accept(); return
         super().keyPressEvent(event)
 
+
+class SimpleTeamsDialog(QDialog):
+    """Simple teams dialog with tabs for divisions"""
+    
+    def __init__(self, teams_data: List, league: str, parent=None):
+        super().__init__(parent)
+        self.teams_data = teams_data
+        self.league = league
+        self.setWindowTitle(f"{league} Teams")
+        self.resize(600, 400)
+        self.setup_ui()
+    
+    def setup_ui(self):
+        layout = QVBoxLayout()
+        
+        # Create tab widget
+        self.tab_widget = QTabWidget()
+        
+        # Group teams by division
+        divisions = {}
+        for team in self.teams_data:
+            div = team.get('division', 'Other')
+            if div == 'League':  # Skip generic league designation
+                continue
+            if div not in divisions:
+                divisions[div] = []
+            divisions[div].append(team)
+        
+        # Create tabs for each division
+        if self.league == "MLB":
+            division_order = ["AL East", "AL Central", "AL West", "NL East", "NL Central", "NL West"]
+        else:  # NFL
+            division_order = ["AFC East", "AFC North", "AFC South", "AFC West", 
+                            "NFC East", "NFC North", "NFC South", "NFC West"]
+        
+        # Add tabs in order
+        for div_name in division_order:
+            if div_name in divisions:
+                self.create_division_tab(div_name, divisions[div_name])
+        
+        # Add any remaining divisions not in the standard order
+        for div_name, teams in divisions.items():
+            if div_name not in division_order:
+                self.create_division_tab(div_name, teams)
+        
+        layout.addWidget(self.tab_widget)
+        
+        # Close button
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        layout.addWidget(close_btn)
+        
+        self.setLayout(layout)
+        
+        # Set focus on first tab
+        if self.tab_widget.count() > 0:
+            first_widget = self.tab_widget.widget(0)
+            if hasattr(first_widget, 'teams_list'):
+                first_widget.teams_list.setFocus()
+    
+    def create_division_tab(self, division_name: str, teams: List):
+        """Create a tab for a division with team list"""
+        widget = QWidget()
+        layout = QVBoxLayout()
+        
+        teams_list = QListWidget()
+        teams_list.setAccessibleName(f"{division_name} Teams")
+        
+        # Sort teams by wins (descending), then by name (ascending)
+        def sort_key(team):
+            wins = team.get('wins', 0)
+            name = team.get('team_name', 'Unknown Team')
+            # Return negative wins for descending order, then name for ascending
+            return (-wins, name)
+        
+        sorted_teams = sorted(teams, key=sort_key)
+        
+        # Add teams to list
+        for team in sorted_teams:
+            name = team.get('team_name', 'Unknown Team')
+            wins = team.get('wins', 0)
+            losses = team.get('losses', 0)
+            item_text = f"{name} ({wins}-{losses})"
+            
+            list_item = QListWidgetItem(item_text)
+            list_item.setData(Qt.ItemDataRole.UserRole, team)
+            teams_list.addItem(list_item)
+        
+        teams_list.itemActivated.connect(self.on_team_selected)
+        layout.addWidget(teams_list)
+        widget.setLayout(layout)
+        
+        # Store reference to list for focus management
+        widget.teams_list = teams_list
+        
+        self.tab_widget.addTab(widget, division_name)
+    
+    def on_team_selected(self, item):
+        """Handle team selection"""
+        team_data = item.data(Qt.ItemDataRole.UserRole)
+        team_name = team_data.get('team_name', 'Unknown Team')
+        QMessageBox.information(self, "Team", f"Selected: {team_name}\n\nSchedule and roster views would open here.")
+    
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.accept()
+            return
+        super().keyPressEvent(event)
+
+
 class SportsScoresApp(QWidget):
     """Main application class using QStackedWidget for better view management"""
     
@@ -4321,6 +4579,15 @@ class SportsScoresApp(QWidget):
             self._switch_to_view(gdv, "game", game_id)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open game details: {e}")
+    
+    def open_team_schedule(self, team_id: str, team_name: str, league: str):
+        """Open team schedule view"""
+        try:
+            QMessageBox.information(self, "Team Schedule", 
+                                  f"Schedule for {team_name} in {league} would be displayed here.\n"
+                                  f"Team ID: {team_id}")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to open team schedule: {e}")
 
     def go_back(self):
         if not self.view_stack:
@@ -4331,6 +4598,9 @@ class SportsScoresApp(QWidget):
             if vtype == "home":
                 self.show_home(); return
             if vtype == "league" and data:
+                self._show_league_view(data); return
+            if vtype == "teams" and data:
+                # Going back from team details -> league (simplified)
                 self._show_league_view(data); return
             if vtype == "game" and data:
                 # Going back from game details -> league
