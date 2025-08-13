@@ -432,7 +432,7 @@ class LeagueView(BaseView):
                 self.scores_list.addItem("--- News Headlines ---")
                 news_item = self.scores_list.item(self.scores_list.count()-1)
                 news_item.setData(Qt.ItemDataRole.UserRole, "__news__")  # type: ignore
-            if self.league in ["MLB", "NFL"]:
+            if self.league in ["MLB", "NFL", "NBA", "NCAAF"]:
                 self.scores_list.addItem("--- Standings ---")
                 standings_item = self.scores_list.item(self.scores_list.count()-1)
                 standings_item.setData(Qt.ItemDataRole.UserRole, "__standings__")  # type: ignore
@@ -3601,6 +3601,24 @@ class GameDetailsView(BaseView):
         
         layout.addWidget(QLabel("News Headlines (🎯 = Game-specific, Enter or double-click to open in browser):"))
         layout.addWidget(news_list)
+    
+    def keyPressEvent(self, event):
+        """Handle key press events, but let dialog handle Escape when in modal context"""
+        if event.key() == Qt.Key.Key_Escape:
+            # Check if we're in a dialog context
+            parent_widget = self.parent()
+            while parent_widget:
+                if isinstance(parent_widget, QDialog):
+                    # Let the dialog handle the escape key
+                    parent_widget.keyPressEvent(event)
+                    return
+                parent_widget = parent_widget.parent()
+            
+            # If not in dialog, use BaseView's escape handling
+            super().keyPressEvent(event)
+        else:
+            # For all other keys, use BaseView's handling
+            super().keyPressEvent(event)
 
 class StandingsDetailDialog(QDialog):
     """Dialog for displaying team standings from game details with keyboard navigation"""
@@ -4632,6 +4650,8 @@ class SimpleTeamsDialog(QDialog):
         
         # Create tab widget
         self.tab_widget = QTabWidget()
+        self.tab_widget.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.tab_widget.setUsesScrollButtons(False)  # Disable scroll buttons as requested
         
         # Group teams by division
         divisions = {}
@@ -4646,9 +4666,19 @@ class SimpleTeamsDialog(QDialog):
         # Create tabs for each division
         if self.league == "MLB":
             division_order = ["AL East", "AL Central", "AL West", "NL East", "NL Central", "NL West"]
-        else:  # NFL
+        elif self.league == "NFL":
             division_order = ["AFC East", "AFC North", "AFC South", "AFC West", 
                             "NFC East", "NFC North", "NFC South", "NFC West"]
+        elif self.league == "NBA":
+            division_order = ["Atlantic", "Central", "Southeast", "Northwest", "Pacific", "Southwest"]
+        elif self.league == "NCAAF":
+            # Use actual ESPN conference names
+            division_order = ["Southeastern Conference", "Big Ten Conference", "Big 12 Conference", 
+                            "Atlantic Coast Conference", "Pac-12 Conference", "American Conference", 
+                            "Conference USA", "Mid-American Conference", "Mountain West Conference", 
+                            "FBS Independents"]
+        else:
+            division_order = []
         
         # Add tabs in order
         for div_name in division_order:
@@ -4675,6 +4705,27 @@ class SimpleTeamsDialog(QDialog):
             if hasattr(first_widget, 'teams_list'):
                 first_widget.teams_list.setFocus()
     
+    def keyPressEvent(self, event):
+        """Handle key press events to keep focus in tab widget for left/right arrows"""
+        key = event.key()
+        
+        # Handle left/right arrows to stay in tab widget
+        if key in (Qt.Key.Key_Left, Qt.Key.Key_Right):
+            # Ensure focus stays on tab widget navigation
+            self.tab_widget.setFocus()
+            current_index = self.tab_widget.currentIndex()
+            
+            if key == Qt.Key.Key_Left:
+                new_index = current_index - 1 if current_index > 0 else self.tab_widget.count() - 1
+            else:  # Right arrow
+                new_index = current_index + 1 if current_index < self.tab_widget.count() - 1 else 0
+            
+            self.tab_widget.setCurrentIndex(new_index)
+            return
+        
+        # For all other keys, use default behavior
+        super().keyPressEvent(event)
+    
     def create_division_tab(self, division_name: str, teams: List):
         """Create a tab for a division with team list"""
         widget = QWidget()
@@ -4683,16 +4734,17 @@ class SimpleTeamsDialog(QDialog):
         teams_list = QListWidget()
         teams_list.setAccessibleName(f"{division_name} Teams")
         
-        # Sort teams by wins (descending), then by name (ascending)
+        # Sort teams by wins (descending), then by name (ascending) - ensure stable sort
         def sort_key(team):
             wins = team.get('wins', 0)
             name = team.get('team_name', 'Unknown Team')
-            # Return negative wins for descending order, then name for ascending
-            return (-wins, name)
+            team_id = team.get('team_id', '')  # Add team_id for stable sorting
+            # Return negative wins for descending order, then name for ascending, then ID for stability
+            return (-wins, name, team_id)
         
         sorted_teams = sorted(teams, key=sort_key)
         
-        # Add teams to list
+        # Add teams to list and ensure proper accessibility
         for team in sorted_teams:
             name = team.get('team_name', 'Unknown Team')
             wins = team.get('wins', 0)
@@ -4701,7 +4753,16 @@ class SimpleTeamsDialog(QDialog):
             
             list_item = QListWidgetItem(item_text)
             list_item.setData(Qt.ItemDataRole.UserRole, team)
+            # Set accessible text for each item
+            list_item.setData(Qt.ItemDataRole.AccessibleTextRole, item_text)
             teams_list.addItem(list_item)
+        
+        # Force Qt to update accessibility information
+        teams_list.setAccessibleDescription(f"List of {len(sorted_teams)} teams in {division_name}")
+        
+        # Ensure the list widget reports correct count to screen readers
+        teams_list.setAttribute(Qt.WidgetAttribute.WA_AcceptTouchEvents, False)  # Avoid touch interference
+        teams_list.setProperty("accessibleItemCount", len(sorted_teams))
         
         teams_list.itemActivated.connect(self.on_team_selected)
         layout.addWidget(teams_list)

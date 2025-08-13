@@ -22,9 +22,24 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30):
     if not league_path:
         return []
     
-    # For MLB, use the dedicated team schedule endpoint which gives us the complete season
-    if league_key == "MLB":
-        url = f"{BASE_URL}/{league_path}/teams/{team_id}/schedule"
+    # Use dedicated team schedule endpoints for major sports
+    if league_key in ["MLB", "NFL", "NBA", "NCAAF"]:
+        base_url = f"{BASE_URL}/{league_path}/teams/{team_id}/schedule"
+        
+        # Use appropriate season parameters for each sport
+        if league_key == "NFL":
+            # NFL: Use 2025 regular season (seasontype=2) instead of preseason
+            url = f"{base_url}?season=2025&seasontype=2"
+        elif league_key == "NBA":
+            # NBA: Use 2025-26 season (2026 = 2025-26 season)
+            url = f"{base_url}?season=2026"
+        elif league_key == "NCAAF":
+            # NCAAF: Use current season with seasontype=2 for regular season
+            from datetime import datetime
+            current_year = datetime.now().year
+            url = f"{base_url}?season={current_year}&seasontype=2"
+        else:  # MLB
+            url = base_url
     else:
         # For other leagues, fall back to the date range approach
         today = datetime.now()
@@ -42,6 +57,19 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30):
             
         data = resp.json()
         events = data.get('events', [])
+        
+        # NCAAF fallback: if current year has no games, try previous year with seasontype=2
+        if league_key == "NCAAF" and len(events) == 0:
+            from datetime import datetime
+            previous_year = datetime.now().year - 1
+            fallback_url = f"{BASE_URL}/{league_path}/teams/{team_id}/schedule?season={previous_year}&seasontype=2"
+            try:
+                fallback_resp = requests.get(fallback_url)
+                if fallback_resp.status_code == 200:
+                    fallback_data = fallback_resp.json()
+                    events = fallback_data.get('events', [])
+            except:
+                pass  # If fallback fails, continue with empty events
         
         schedule = []
         today = datetime.now()
@@ -801,6 +829,12 @@ def get_standings(league_key):
     """Get current standings for a specific league using optimized API endpoint"""
     if league_key == "MLB":
         return _get_mlb_standings_fast()
+    elif league_key == "NFL":
+        return _get_nfl_standings_fast()
+    elif league_key == "NBA":
+        return _get_nba_standings_fast()
+    elif league_key == "NCAAF":
+        return _get_ncaaf_standings_fast()
     else:
         # Fallback to original method for other leagues
         return _get_standings_original(league_key)
@@ -930,6 +964,382 @@ def _get_team_division(abbreviation, league_name):
         abbreviation = "OAK"
     
     return mlb_divisions.get(abbreviation, f"{league_name} League")
+
+def _get_nfl_standings_fast():
+    """Fast NFL standings using dedicated endpoint"""
+    try:
+        url = "https://site.api.espn.com/apis/v2/sports/football/nfl/standings"
+        resp = requests.get(url)
+        
+        if resp.status_code != 200:
+            return []
+        
+        data = resp.json()
+        standings = []
+        
+        # NFL divisions mapping
+        nfl_divisions = {
+            # AFC East
+            "BUF": "AFC East", "MIA": "AFC East", "NE": "AFC East", "NYJ": "AFC East",
+            # AFC North  
+            "BAL": "AFC North", "CIN": "AFC North", "CLE": "AFC North", "PIT": "AFC North",
+            # AFC South
+            "HOU": "AFC South", "IND": "AFC South", "JAX": "AFC South", "TEN": "AFC South",
+            # AFC West
+            "DEN": "AFC West", "KC": "AFC West", "LV": "AFC West", "LAC": "AFC West",
+            # NFC East
+            "DAL": "NFC East", "NYG": "NFC East", "PHI": "NFC East", "WSH": "NFC East",
+            # NFC North
+            "CHI": "NFC North", "DET": "NFC North", "GB": "NFC North", "MIN": "NFC North",
+            # NFC South
+            "ATL": "NFC South", "CAR": "NFC South", "NO": "NFC South", "TB": "NFC South",
+            # NFC West
+            "ARI": "NFC West", "LAR": "NFC West", "SF": "NFC West", "SEA": "NFC West"
+        }
+        
+        # Process each conference
+        division_teams = {}
+        for conference in data.get('children', []):
+            conf_standings = conference.get('standings', {})
+            entries = conf_standings.get('entries', [])
+            
+            for entry in entries:
+                team_info = entry.get('team', {})
+                stats = entry.get('stats', [])
+                
+                # Create stats lookup
+                stats_dict = {}
+                for stat in stats:
+                    stats_dict[stat.get('name', '')] = stat.get('value', 0)
+                
+                # Extract team data
+                team_name = team_info.get('displayName', 'Unknown')
+                team_id = str(team_info.get('id', ''))
+                abbreviation = team_info.get('abbreviation', '')
+                
+                # Get wins/losses from stats
+                wins = int(stats_dict.get('wins', 0))
+                losses = int(stats_dict.get('losses', 0))
+                ties = int(stats_dict.get('ties', 0))
+                win_pct = stats_dict.get('winPercent', 0.0)
+                
+                # Get division
+                division = nfl_divisions.get(abbreviation, "Unknown Division")
+                
+                # NFL record format includes ties
+                record_display = f"{wins}-{losses}"
+                if ties > 0:
+                    record_display += f"-{ties}"
+                
+                team_data = {
+                    "team_name": team_name,
+                    "team_id": team_id,
+                    "abbreviation": abbreviation,
+                    "wins": wins,
+                    "losses": losses,
+                    "ties": ties,
+                    "win_percentage": f"{win_pct:.3f}",
+                    "games_back": "0.0",
+                    "division": division,
+                    "streak": "",  # Can be enhanced later
+                    "logo": team_info.get("logos", [{}])[0].get("href", "") if team_info.get("logos") else "",
+                    "record_display": record_display
+                }
+                
+                standings.append(team_data)
+                
+                if division not in division_teams:
+                    division_teams[division] = []
+                division_teams[division].append(team_data)
+        
+        # Calculate games back for each division
+        for division, teams in division_teams.items():
+            teams.sort(key=lambda x: (-x["wins"], x["losses"]))
+            
+            if teams:
+                leader = teams[0]
+                leader_wins = leader["wins"]
+                leader_losses = leader["losses"]
+                
+                for i, team in enumerate(teams):
+                    if i == 0:
+                        team["games_back"] = "—"
+                    else:
+                        team_wins = team["wins"]
+                        team_losses = team["losses"]
+                        games_back = ((leader_wins - team_wins) + (team_losses - leader_losses)) / 2
+                        team["games_back"] = f"{games_back:.1f}" if games_back > 0 else "0.0"
+        
+        # Sort by division, then by wins
+        standings.sort(key=lambda x: (x["division"], -x["wins"], x["losses"]))
+        
+        return standings
+        
+    except Exception as e:
+        print(f"Error in fast NFL standings: {e}")
+        return _get_standings_original("NFL")
+
+def _get_nba_standings_fast():
+    """Fast NBA standings using dedicated endpoint"""
+    try:
+        # Use 2025-26 season (season=2026) for fresh standings with all teams at 0-0
+        url = "https://site.api.espn.com/apis/v2/sports/basketball/nba/standings?season=2026"
+        resp = requests.get(url)
+        
+        if resp.status_code != 200:
+            return []
+        
+        data = resp.json()
+        standings = []
+        
+        # NBA divisions mapping
+        nba_divisions = {
+            # Eastern Conference - Atlantic
+            "BOS": "Atlantic", "BKN": "Atlantic", "NYK": "Atlantic", "NY": "Atlantic", "PHI": "Atlantic", "TOR": "Atlantic",
+            # Eastern Conference - Central
+            "CHI": "Central", "CLE": "Central", "DET": "Central", "IND": "Central", "MIL": "Central",
+            # Eastern Conference - Southeast
+            "ATL": "Southeast", "CHA": "Southeast", "MIA": "Southeast", "ORL": "Southeast", "WSH": "Southeast",
+            # Western Conference - Northwest
+            "DEN": "Northwest", "MIN": "Northwest", "OKC": "Northwest", "POR": "Northwest", "UTA": "Northwest", "UTAH": "Northwest",
+            # Western Conference - Pacific
+            "GSW": "Pacific", "GS": "Pacific", "LAC": "Pacific", "LAL": "Pacific", "PHX": "Pacific", "SAC": "Pacific",
+            # Western Conference - Southwest
+            "DAL": "Southwest", "HOU": "Southwest", "MEM": "Southwest", "NO": "Southwest", "SA": "Southwest"
+        }
+        
+        # Process each conference
+        division_teams = {}
+        has_entries = False
+        
+        # Check if any conference has entries
+        for conference in data.get('children', []):
+            conf_standings = conference.get('standings', {})
+            if conf_standings.get('entries', []):
+                has_entries = True
+                break
+        
+        # If no entries (early season), create fresh 0-0 standings from teams endpoint
+        if not has_entries:
+            return _get_nba_fresh_standings()
+        
+        for conference in data.get('children', []):
+            conf_name = conference.get('name', '')
+            conf_standings = conference.get('standings', {})
+            entries = conf_standings.get('entries', [])
+            
+            for entry in entries:
+                team_info = entry.get('team', {})
+                stats = entry.get('stats', [])
+                
+                # Create stats lookup
+                stats_dict = {}
+                for stat in stats:
+                    stats_dict[stat.get('name', '')] = stat.get('value', 0)
+                
+                # Extract team data
+                team_name = team_info.get('displayName', 'Unknown')
+                team_id = str(team_info.get('id', ''))
+                abbreviation = team_info.get('abbreviation', '')
+                
+                # Get wins/losses from stats
+                wins = int(stats_dict.get('wins', 0))
+                losses = int(stats_dict.get('losses', 0))
+                win_pct = stats_dict.get('winPercent', 0.0)
+                
+                # Get division with conference prefix
+                base_division = nba_divisions.get(abbreviation, "Unknown")
+                division = f"{conf_name} {base_division}" if base_division != "Unknown" else conf_name
+                
+                team_data = {
+                    "team_name": team_name,
+                    "team_id": team_id,
+                    "abbreviation": abbreviation,
+                    "wins": wins,
+                    "losses": losses,
+                    "win_percentage": f"{win_pct:.3f}",
+                    "games_back": "0.0",
+                    "division": division,
+                    "streak": "",
+                    "logo": team_info.get("logos", [{}])[0].get("href", "") if team_info.get("logos") else ""
+                }
+                
+                standings.append(team_data)
+                
+                if division not in division_teams:
+                    division_teams[division] = []
+                division_teams[division].append(team_data)
+        
+        # Calculate games back for each division
+        for division, teams in division_teams.items():
+            teams.sort(key=lambda x: (-x["wins"], x["losses"]))
+            
+            if teams:
+                leader = teams[0]
+                leader_wins = leader["wins"]
+                leader_losses = leader["losses"]
+                
+                for i, team in enumerate(teams):
+                    if i == 0:
+                        team["games_back"] = "—"
+                    else:
+                        team_wins = team["wins"]
+                        team_losses = team["losses"]
+                        games_back = ((leader_wins - team_wins) + (team_losses - leader_losses)) / 2
+                        team["games_back"] = f"{games_back:.1f}" if games_back > 0 else "0.0"
+        
+        # Sort by division, then by wins
+        standings.sort(key=lambda x: (x["division"], -x["wins"], x["losses"]))
+        
+        return standings
+        
+    except Exception as e:
+        print(f"Error in fast NBA standings: {e}")
+        return _get_standings_original("NBA")
+
+def _get_nba_fresh_standings():
+    """Create fresh NBA standings with all teams at 0-0 for new season"""
+    try:
+        url = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams"
+        resp = requests.get(url)
+        
+        if resp.status_code != 200:
+            return []
+        
+        data = resp.json()
+        standings = []
+        
+        # NBA divisions mapping (same as main function)
+        nba_divisions = {
+            # Eastern Conference - Atlantic
+            "BOS": "Atlantic", "BKN": "Atlantic", "NYK": "Atlantic", "NY": "Atlantic", "PHI": "Atlantic", "TOR": "Atlantic",
+            # Eastern Conference - Central
+            "CHI": "Central", "CLE": "Central", "DET": "Central", "IND": "Central", "MIL": "Central",
+            # Eastern Conference - Southeast
+            "ATL": "Southeast", "CHA": "Southeast", "MIA": "Southeast", "ORL": "Southeast", "WSH": "Southeast",
+            # Western Conference - Northwest
+            "DEN": "Northwest", "MIN": "Northwest", "OKC": "Northwest", "POR": "Northwest", "UTA": "Northwest", "UTAH": "Northwest",
+            # Western Conference - Pacific
+            "GSW": "Pacific", "GS": "Pacific", "LAC": "Pacific", "LAL": "Pacific", "PHX": "Pacific", "SAC": "Pacific",
+            # Western Conference - Southwest
+            "DAL": "Southwest", "HOU": "Southwest", "MEM": "Southwest", "NO": "Southwest", "SA": "Southwest"
+        }
+        
+        # Conference mapping based on divisions
+        eastern_divisions = ["Atlantic", "Central", "Southeast"]
+        western_divisions = ["Northwest", "Pacific", "Southwest"]
+        
+        # Get teams from API
+        if 'sports' in data and data['sports']:
+            leagues = data['sports'][0].get('leagues', [])
+            if leagues:
+                teams = leagues[0].get('teams', [])
+                
+                for team in teams:
+                    team_info = team.get('team', {})
+                    
+                    team_name = team_info.get('displayName', 'Unknown')
+                    team_id = str(team_info.get('id', ''))
+                    abbreviation = team_info.get('abbreviation', '')
+                    
+                    # Get division
+                    base_division = nba_divisions.get(abbreviation, "Unknown")
+                    
+                    # Determine conference
+                    if base_division in eastern_divisions:
+                        conference = "Eastern Conference"
+                    elif base_division in western_divisions:
+                        conference = "Western Conference"
+                    else:
+                        conference = "Unknown Conference"
+                    
+                    division = f"{conference} {base_division}" if base_division != "Unknown" else conference
+                    
+                    # Create fresh team data with 0-0 record
+                    team_data = {
+                        "team_name": team_name,
+                        "team_id": team_id,
+                        "abbreviation": abbreviation,
+                        "wins": 0,
+                        "losses": 0,
+                        "win_percentage": "0.000",
+                        "games_back": "—",
+                        "division": division,
+                        "streak": "",
+                        "logo": team_info.get("logos", [{}])[0].get("href", "") if team_info.get("logos") else ""
+                    }
+                    
+                    standings.append(team_data)
+        
+        # Sort by division, then by team name (since all records are 0-0)
+        standings.sort(key=lambda x: (x["division"], x["team_name"]))
+        
+        return standings
+        
+    except Exception as e:
+        print(f"Error in fresh NBA standings: {e}")
+        return []
+
+def _get_ncaaf_standings_fast():
+    """Fast NCAAF standings using dedicated endpoint"""
+    try:
+        url = "https://site.api.espn.com/apis/v2/sports/football/college-football/standings"
+        resp = requests.get(url)
+        
+        if resp.status_code != 200:
+            return []
+        
+        data = resp.json()
+        standings = []
+        
+        # Process each conference/group
+        for conference in data.get('children', []):
+            conf_name = conference.get('name', 'Independent')
+            conf_standings = conference.get('standings', {})
+            entries = conf_standings.get('entries', [])
+            
+            for entry in entries:
+                team_info = entry.get('team', {})
+                stats = entry.get('stats', [])
+                
+                # Create stats lookup
+                stats_dict = {}
+                for stat in stats:
+                    stats_dict[stat.get('name', '')] = stat.get('value', 0)
+                
+                # Extract team data
+                team_name = team_info.get('displayName', 'Unknown')
+                team_id = str(team_info.get('id', ''))
+                abbreviation = team_info.get('abbreviation', '')
+                
+                # Get wins/losses from stats
+                wins = int(stats_dict.get('wins', 0))
+                losses = int(stats_dict.get('losses', 0))
+                win_pct = stats_dict.get('winPercent', 0.0)
+                
+                team_data = {
+                    "team_name": team_name,
+                    "team_id": team_id,
+                    "abbreviation": abbreviation,
+                    "wins": wins,
+                    "losses": losses,
+                    "win_percentage": f"{win_pct:.3f}",
+                    "games_back": "—",  # College football doesn't use games back
+                    "division": conf_name,  # Conference name as division
+                    "streak": "",
+                    "logo": team_info.get("logos", [{}])[0].get("href", "") if team_info.get("logos") else ""
+                }
+                
+                standings.append(team_data)
+        
+        # Sort by conference, then by wins
+        standings.sort(key=lambda x: (x["division"], -x["wins"], x["losses"]))
+        
+        return standings
+        
+    except Exception as e:
+        print(f"Error in fast NCAAF standings: {e}")
+        return _get_standings_original("NCAAF")
 
 def _get_standings_original(league_key):
     """Original standings method (slower but works for all leagues)"""
