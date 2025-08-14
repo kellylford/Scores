@@ -3648,7 +3648,7 @@ class StandingsDetailDialog(QDialog):
             has_divisions = len(self.standings_data.divisions) > 1 or any(
                 div != "League" for div in self.standings_data.divisions.keys()
             )
-            if has_divisions and self.league == "MLB":
+            if has_divisions and self.league in ["MLB", "NFL"]:
                 self._build_division_tabs(layout)
             else:
                 self.single_table = self._create_single_standings_table(self.standings_data.teams)
@@ -3663,7 +3663,15 @@ class StandingsDetailDialog(QDialog):
     
     def _build_division_tabs(self, layout: QVBoxLayout):
         self.tab_widget = QTabWidget()
-        division_order = ["AL East", "AL Central", "AL West", "NL East", "NL Central", "NL West", "League"]
+        
+        if self.league == "MLB":
+            division_order = ["AL East", "AL Central", "AL West", "NL East", "NL Central", "NL West", "League"]
+        elif self.league == "NFL":
+            division_order = ["AFC East", "AFC North", "AFC South", "AFC West", 
+                            "NFC East", "NFC North", "NFC South", "NFC West", "League"]
+        else:
+            division_order = ["League"]
+            
         ordered: List[tuple[str, List[Dict]]] = []
         for name in division_order:
             if name in self.standings_data.divisions:
@@ -4547,7 +4555,7 @@ class StandingsDialog(QDialog):
             has_divisions = len(self.standings_data.divisions) > 1 or any(
                 d != "League" for d in self.standings_data.divisions
             )
-            if has_divisions and self.league == "MLB":
+            if has_divisions and self.league in ["MLB", "NFL"]:
                 self._build_division_tabs(layout)
             else:
                 self.single_table = self._create_single_standings_table(self.standings_data.teams)
@@ -4561,7 +4569,15 @@ class StandingsDialog(QDialog):
     
     def _build_division_tabs(self, layout: QVBoxLayout):
         self.tab_widget = QTabWidget()
-        division_order = ["AL East", "AL Central", "AL West", "NL East", "NL Central", "NL West", "League"]
+        
+        if self.league == "MLB":
+            division_order = ["AL East", "AL Central", "AL West", "NL East", "NL Central", "NL West", "League"]
+        elif self.league == "NFL":
+            division_order = ["AFC East", "AFC North", "AFC South", "AFC West", 
+                            "NFC East", "NFC North", "NFC South", "NFC West", "League"]
+        else:
+            division_order = ["League"]
+            
         ordered: List[tuple[str, List[Dict]]] = []
         for name in division_order:
             if name in self.standings_data.divisions:
