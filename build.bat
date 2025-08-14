@@ -12,7 +12,7 @@ if exist "scores.spec" del "scores.spec"
 
 REM Build the executable using full paths
 echo Creating executable...
-"%VENV_PATH%\Scripts\python.exe" -m PyInstaller --onefile --windowed --name=Scores scores.py
+"%VENV_PATH%\Scripts\python.exe" -m PyInstaller --onefile --windowed --name=Scores main.py
 
 REM Check if build was successful
 if exist "dist\Scores.exe" (

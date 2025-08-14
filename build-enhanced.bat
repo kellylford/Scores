@@ -36,7 +36,7 @@ echo.
 echo =====================================
 echo Building executable...
 echo =====================================
-python -m PyInstaller --onefile --windowed --name=Scores scores.py
+python -m PyInstaller --onefile --windowed --name=Scores main.py
 
 REM Check if build was successful
 if exist "dist\Scores.exe" (

@@ -75,11 +75,46 @@ def determine_startup_params(args):
 if __name__ == "__main__":
     from PyQt6.QtWidgets import QApplication
     from scores import SportsScoresApp
-    
-    # Parse command line arguments
-    args = parse_command_line()
+
+    # Comprehensive fix: handle --help and all options before launching the app
+    import argparse
+    parser = argparse.ArgumentParser(
+        description="Sports Scores Application - View live scores, standings, and team information",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  scores                    Launch home screen
+  scores --mlb             Launch directly to MLB games
+  scores --nfl             Launch directly to NFL games  
+  scores --mlb-teams       Launch directly to MLB teams view
+  scores --nfl-standings   Launch directly to NFL standings view
+        """
+    )
+    sports_group = parser.add_mutually_exclusive_group()
+    sports_group.add_argument('--mlb', action='store_true', help='Launch to MLB games view')
+    sports_group.add_argument('--nfl', action='store_true', help='Launch to NFL games view') 
+    sports_group.add_argument('--nba', action='store_true', help='Launch to NBA games view')
+    sports_group.add_argument('--nhl', action='store_true', help='Launch to NHL games view')
+    sports_group.add_argument('--ncaaf', action='store_true', help='Launch to NCAA Football games view')
+    sports_group.add_argument('--mlb-teams', action='store_true', help='Launch to MLB teams view')
+    sports_group.add_argument('--nfl-teams', action='store_true', help='Launch to NFL teams view')
+    sports_group.add_argument('--nba-teams', action='store_true', help='Launch to NBA teams view')
+    sports_group.add_argument('--nhl-teams', action='store_true', help='Launch to NHL teams view')
+    sports_group.add_argument('--ncaaf-teams', action='store_true', help='Launch to NCAA Football teams view')
+    sports_group.add_argument('--mlb-standings', action='store_true', help='Launch to MLB standings view')
+    sports_group.add_argument('--nfl-standings', action='store_true', help='Launch to NFL standings view')
+    sports_group.add_argument('--nba-standings', action='store_true', help='Launch to NBA standings view')
+    sports_group.add_argument('--nhl-standings', action='store_true', help='Launch to NHL standings view')
+    sports_group.add_argument('--ncaaf-standings', action='store_true', help='Launch to NCAA Football standings view')
+
+    # If --help or -h is present, print help and exit before launching the app
+    if '--help' in sys.argv or '-h' in sys.argv:
+        parser.print_help()
+        sys.exit(0)
+
+    args = parser.parse_args()
     startup_params = determine_startup_params(args)
-    
+
     app = QApplication(sys.argv)
     window = SportsScoresApp(startup_params=startup_params)
     sys.exit(app.exec())

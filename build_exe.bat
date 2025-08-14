@@ -18,7 +18,7 @@ echo This may take a few minutes...
 echo.
 
 REM Build the executable using the spec file
-pyinstaller scores.spec
+pyinstaller Scores.spec
 
 if %ERRORLEVEL% equ 0 (
     echo.
