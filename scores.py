@@ -4742,8 +4742,8 @@ class SimpleTeamsDialog(QDialog):
         # Set focus on first tab
         if self.tab_widget.count() > 0:
             first_widget = self.tab_widget.widget(0)
-            if hasattr(first_widget, 'teams_list'):
-                first_widget.teams_list.setFocus()
+            if hasattr(first_widget, 'teams_table'):
+                first_widget.teams_table.setFocus()
     
     def keyPressEvent(self, event):
         """Handle key press events to keep focus in tab widget for left/right arrows"""
@@ -4767,12 +4767,21 @@ class SimpleTeamsDialog(QDialog):
         super().keyPressEvent(event)
     
     def create_division_tab(self, division_name: str, teams: List):
-        """Create a tab for a division with team list"""
+        """Create a tab for a division with team table"""
         widget = QWidget()
         layout = QVBoxLayout()
         
-        teams_list = QListWidget()
-        teams_list.setAccessibleName(f"{division_name} Teams")
+        # Create accessible table instead of list widget
+        teams_table = AccessibleTable(
+            parent=self,
+            accessible_name=f"{division_name} Teams Table",
+            accessible_description=f"Teams in {division_name} division with wins, losses, and other statistics"
+        )
+        
+        # Set up table headers
+        headers = ["Team", "Wins", "Losses", "Win %"]
+        teams_table.setColumnCount(len(headers))
+        teams_table.setHorizontalHeaderLabels(headers)
         
         # Sort teams by wins (descending), then by name (ascending) - ensure stable sort
         def sort_key(team):
@@ -4784,32 +4793,51 @@ class SimpleTeamsDialog(QDialog):
         
         sorted_teams = sorted(teams, key=sort_key)
         
-        # Add teams to list and ensure proper accessibility
-        for team in sorted_teams:
+        # Set table row count
+        teams_table.setRowCount(len(sorted_teams))
+        
+        # Populate table with team data
+        for row, team in enumerate(sorted_teams):
             name = team.get('team_name', 'Unknown Team')
             wins = team.get('wins', 0)
             losses = team.get('losses', 0)
-            item_text = f"{name} ({wins}-{losses})"
             
-            list_item = QListWidgetItem(item_text)
-            list_item.setData(Qt.ItemDataRole.UserRole, team)
-            # Set accessible text for each item
-            list_item.setData(Qt.ItemDataRole.AccessibleTextRole, item_text)
-            teams_list.addItem(list_item)
+            # Calculate win percentage
+            total_games = wins + losses
+            win_pct = wins / total_games if total_games > 0 else 0.0
+            
+            # Create table items
+            name_item = QTableWidgetItem(name)
+            wins_item = QTableWidgetItem(str(wins))
+            losses_item = QTableWidgetItem(str(losses))
+            win_pct_item = QTableWidgetItem(f"{win_pct:.3f}")
+            
+            # Store team data in the name item for potential future use
+            name_item.setData(Qt.ItemDataRole.UserRole, team)
+            
+            # Set items in table
+            teams_table.setItem(row, 0, name_item)
+            teams_table.setItem(row, 1, wins_item)
+            teams_table.setItem(row, 2, losses_item)
+            teams_table.setItem(row, 3, win_pct_item)
         
-        # Force Qt to update accessibility information
-        teams_list.setAccessibleDescription(f"List of {len(sorted_teams)} teams in {division_name}")
+        # Configure table appearance
+        header = teams_table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)  # Team name stretches
         
-        # Ensure the list widget reports correct count to screen readers
-        teams_list.setAttribute(Qt.WidgetAttribute.WA_AcceptTouchEvents, False)  # Avoid touch interference
-        teams_list.setProperty("accessibleItemCount", len(sorted_teams))
+        # Set focus to first cell when table is created
+        if teams_table.rowCount() > 0:
+            teams_table.setCurrentCell(0, 0)
         
-        teams_list.itemActivated.connect(self.on_team_selected)
-        layout.addWidget(teams_list)
+        # Connect table activation signal for team selection
+        teams_table.itemActivated.connect(self.on_team_selected)
+        
+        layout.addWidget(teams_table)
         widget.setLayout(layout)
         
-        # Store reference to list for focus management
-        widget.teams_list = teams_list
+        # Store reference to table for focus management
+        widget.teams_table = teams_table
         
         self.tab_widget.addTab(widget, division_name)
     
