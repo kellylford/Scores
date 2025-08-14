@@ -51,7 +51,8 @@ Scores is a desktop application that provides real-time access to:
 #### Advanced Features
 - **Standings**: View complete league standings organized by division
 - **News**: Access latest headlines and sports news
-- **Audio Pitch Mapping**: For baseball games, use Alt+P and Alt+S for audio feedback on pitch locations
+- **Audio Pitch Mapping**: For baseball games, use Alt+P (pitch) and Alt+S (pitch sequence) for audio feedback on pitch locations
+- **Baseball Pitch Details**: X-Y coordinates for where pitch crosses the plate with more coming
 - **Export Options**: Save game logs and detailed statistics
 
 ### 💻 System Requirements
