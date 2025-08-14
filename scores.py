@@ -1047,6 +1047,8 @@ class GameDetailsView(BaseView):
         if has_divisions and hasattr(self, 'league') and self.league == "MLB":
             # Create tabbed view for divisions
             tab_widget = QTabWidget()
+            tab_widget.setAccessibleName("Division Standings")
+            tab_widget.setAccessibleDescription("Baseball divisions, use arrow keys to navigate between divisions")
             
             # Sort divisions for consistent ordering
             division_order = ["AL East", "AL Central", "AL West", "NL East", "NL Central", "NL West", "League"]
@@ -3673,6 +3675,8 @@ class StandingsDetailDialog(QDialog):
     
     def _build_division_tabs(self, layout: QVBoxLayout):
         self.tab_widget = QTabWidget()
+        self.tab_widget.setAccessibleName("Division Standings")
+        self.tab_widget.setAccessibleDescription("Team standings by division, use arrow keys to navigate between divisions")
         
         if self.league == "MLB":
             division_order = ["AL East", "AL Central", "AL West", "NL East", "NL Central", "NL West", "League"]
@@ -3776,6 +3780,8 @@ class KitchenSinkDialog(QDialog):
         
         # Create tabs for different data types
         self.tab_widget = QTabWidget()
+        self.tab_widget.setAccessibleName("Kitchen Sink Data")
+        self.tab_widget.setAccessibleDescription("Additional baseball data features, use arrow keys to navigate between sections")
         
         # Add tabs for each available feature (only if data exists)
         self._add_rosters_tab()
@@ -4579,6 +4585,8 @@ class StandingsDialog(QDialog):
     
     def _build_division_tabs(self, layout: QVBoxLayout):
         self.tab_widget = QTabWidget()
+        self.tab_widget.setAccessibleName("Division Standings")
+        self.tab_widget.setAccessibleDescription("Team standings by division, use arrow keys to navigate between divisions")
         
         if self.league == "MLB":
             division_order = ["AL East", "AL Central", "AL West", "NL East", "NL Central", "NL West", "League"]
@@ -4680,6 +4688,8 @@ class SimpleTeamsDialog(QDialog):
         
         # Create tab widget
         self.tab_widget = QTabWidget()
+        self.tab_widget.setAccessibleName("Team Information")
+        self.tab_widget.setAccessibleDescription("Team information by division, use arrow keys to navigate between divisions")
         self.tab_widget.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.tab_widget.setUsesScrollButtons(False)  # Disable scroll buttons as requested
         
