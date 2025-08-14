@@ -114,9 +114,10 @@ class AccessibilityControlPanel(QWidget):
             "Column + Value only", 
             "Row + Value only",
             "Value only",
-            "Full context (Row header + Column header + Value)"
+            "Full context (Row header + Column header + Value)",
+            "Smart Navigation (Column header on row move, Row header on column move)"
         ])
-        self.nav_mode.setCurrentText("Full context (Row header + Column header + Value)")
+        self.nav_mode.setCurrentText("Smart Navigation (Column header on row move, Row header on column move)")
         self.nav_mode.currentTextChanged.connect(self.on_nav_mode_changed)
         form_layout.addRow("Navigation Mode:", self.nav_mode)
         
@@ -162,9 +163,17 @@ class AccessibilityControlPanel(QWidget):
         test_announce_btn.clicked.connect(self.test_announcements)
         button_layout.addWidget(test_announce_btn)
         
+        test_smart_nav_btn = QPushButton("Test Smart Navigation")
+        test_smart_nav_btn.clicked.connect(self.test_smart_navigation)
+        button_layout.addWidget(test_smart_nav_btn)
+        
         focus_first_btn = QPushButton("Focus First Cell")
         focus_first_btn.clicked.connect(self.focus_first_cell)
         button_layout.addWidget(focus_first_btn)
+        
+        history_btn = QPushButton("Show Navigation History")
+        history_btn.clicked.connect(self.show_navigation_history)
+        button_layout.addWidget(history_btn)
         
         layout.addLayout(button_layout)
         
@@ -207,11 +216,18 @@ class AccessibilityControlPanel(QWidget):
     def update_table_accessibility(self):
         """Update accessibility settings for all registered tables"""
         for table in self.test_tables:
+            # Skip SmartNavigationTable completely - it handles its own accessibility
+            if hasattr(table, '__class__') and table.__class__.__name__ == 'SmartNavigationTable':
+                continue
             if isinstance(table, QTableWidget):
                 self.update_qtable_accessibility(table)
                 
     def update_qtable_accessibility(self, table: QTableWidget):
         """Update accessibility for QTableWidget"""
+        # Skip accessibility updates for SmartNavigationTable - it handles its own
+        if isinstance(table, SmartNavigationTable):
+            return
+            
         nav_mode = self.nav_mode.currentText()
         include_row_nums = self.include_row_numbers.isChecked()
         use_tooltips = self.use_tooltips.isChecked()
@@ -246,6 +262,10 @@ class AccessibilityControlPanel(QWidget):
                             acc_text = f"Row {row + 1}, {cell_value}"
                     elif nav_mode == "Value only":
                         acc_text = cell_value
+                    elif nav_mode == "Smart Navigation (Column header on row move, Row header on column move)":
+                        # For smart navigation, don't set static accessibility text
+                        # The SmartNavigationTable will handle dynamic announcements
+                        acc_text = cell_value  # Just use the cell value as base
                     else:  # Full context
                         if row_header and col > 0:
                             acc_text = f"{row_header}, {column_header}, {cell_value}"
@@ -267,17 +287,44 @@ class AccessibilityControlPanel(QWidget):
         if self.test_tables:
             table = self.test_tables[0]  # Test first table
             if isinstance(table, QTableWidget) and table.rowCount() > 0:
+                nav_mode = self.nav_mode.currentText()
+                
                 # Move through a few cells to test navigation
                 table.setCurrentCell(0, 0)
                 self.results.log_result(f"Focused cell (0,0): {table.item(0, 0).text() if table.item(0, 0) else 'Empty'}")
                 
                 if table.columnCount() > 1:
                     table.setCurrentCell(0, 1)
-                    self.results.log_result(f"Moved to cell (0,1): {table.item(0, 1).text() if table.item(0, 1) else 'Empty'}")
+                    self.results.log_result(f"Moved horizontally to cell (0,1): {table.item(0, 1).text() if table.item(0, 1) else 'Empty'}")
                     
                 if table.rowCount() > 1:
                     table.setCurrentCell(1, 1)
-                    self.results.log_result(f"Moved to cell (1,1): {table.item(1, 1).text() if table.item(1, 1) else 'Empty'}")
+                    self.results.log_result(f"Moved vertically to cell (1,1): {table.item(1, 1).text() if table.item(1, 1) else 'Empty'}")
+                
+                # Test smart navigation specifically
+                if nav_mode == "Smart Navigation (Column header on row move, Row header on column move)":
+                    self.results.log_result("--- Testing Smart Navigation Pattern ---")
+                    
+                    # Start at (0,0)
+                    table.setCurrentCell(0, 0)
+                    self.results.log_result("Starting position: (0,0)")
+                    
+                    # Move horizontally (column navigation) - should announce row header
+                    if table.columnCount() > 2:
+                        table.setCurrentCell(0, 2)
+                        self.results.log_result("Column navigation test: moved from (0,0) to (0,2)")
+                    
+                    # Move vertically (row navigation) - should announce column header
+                    if table.rowCount() > 2:
+                        table.setCurrentCell(2, 2)
+                        self.results.log_result("Row navigation test: moved from (0,2) to (2,2)")
+                    
+                    # Move diagonally - should announce full context
+                    if table.rowCount() > 1 and table.columnCount() > 3:
+                        table.setCurrentCell(1, 3)
+                        self.results.log_result("Diagonal navigation test: moved from (2,2) to (1,3)")
+                    
+                    self.results.log_result("--- End Smart Navigation Test ---")
                     
     def test_announcements(self):
         """Test announcement behavior"""
@@ -287,6 +334,25 @@ class AccessibilityControlPanel(QWidget):
         self.results.log_result(f"Row numbers included: {self.include_row_numbers.isChecked()}")
         self.results.log_result(f"Using tooltips: {self.use_tooltips.isChecked()}")
         
+        # Check which table types are available
+        table_types = []
+        for table in self.test_tables:
+            table_type = table.__class__.__name__
+            table_types.append(table_type)
+        self.results.log_result(f"Available tables: {', '.join(table_types)}")
+        
+        # Provide specific guidance for smart navigation mode
+        if nav_mode == "Smart Navigation (Column header on row move, Row header on column move)":
+            self.results.log_result("--- Smart Navigation Mode Guide ---")
+            self.results.log_result("• Moving horizontally (left/right arrows): Announces row header + cell value")
+            self.results.log_result("• Moving vertically (up/down arrows): Announces column header + cell value")
+            self.results.log_result("• Important: Must use 'Smart Navigation Table' tab for this to work!")
+            self.results.log_result("• Other table types will use static accessibility text")
+            self.results.log_result("--- End Guide ---")
+        else:
+            self.results.log_result(f"Using static accessibility mode: {nav_mode}")
+            self.results.log_result("Note: For dynamic smart navigation, switch to 'Smart Navigation' mode")
+        
     def focus_first_cell(self):
         """Focus the first cell of the first table"""
         if self.test_tables:
@@ -295,6 +361,312 @@ class AccessibilityControlPanel(QWidget):
                 table.setFocus()
                 table.setCurrentCell(0, 0)
                 self.results.log_result("Focused first cell of first table")
+                
+    def test_smart_navigation(self):
+        """Test smart navigation behavior specifically"""
+        self.results.log_result("=== COMPREHENSIVE SMART NAVIGATION TEST ===")
+        
+        # Find a smart navigation table
+        smart_table = None
+        for table in self.test_tables:
+            if hasattr(table, '__class__') and table.__class__.__name__ == 'SmartNavigationTable':
+                smart_table = table
+                break
+        
+        if not smart_table:
+            self.results.log_result("No Smart Navigation Table found. Please switch to the Smart Navigation Table tab.")
+            return
+            
+        if smart_table.rowCount() < 3 or smart_table.columnCount() < 4:
+            self.results.log_result("Table too small for comprehensive smart navigation testing.")
+            return
+        
+        # Set to smart navigation mode
+        current_mode = self.nav_mode.currentText()
+        self.nav_mode.setCurrentText("Smart Navigation (Column header on row move, Row header on column move)")
+        
+        self.results.log_result("Testing Smart Navigation Pattern:")
+        self.results.log_result("Expected behavior:")
+        self.results.log_result("• ROW NAVIGATION (vertical moves): Column header + Value")
+        self.results.log_result("• COLUMN NAVIGATION (horizontal moves): Row header + Value")
+        self.results.log_result("• DIAGONAL NAVIGATION: Full context (Row header + Column header + Value)")
+        self.results.log_result("")
+        
+        # Test sequence
+        smart_table.setFocus()
+        
+        # 1. Start position
+        smart_table.setCurrentCell(0, 0)
+        self.results.log_result("1. Starting at (0,0)")
+        
+        # 2. Horizontal move (column navigation) - should announce row header + value
+        smart_table.setCurrentCell(0, 2)
+        self.results.log_result("2. COLUMN NAVIGATION: (0,0) → (0,2) - Should announce: Row header + Value")
+        
+        # 3. Vertical move (row navigation) - should announce column header + value
+        smart_table.setCurrentCell(2, 2)
+        self.results.log_result("3. ROW NAVIGATION: (0,2) → (2,2) - Should announce: Column header + Value")
+        
+        # 4. Another horizontal move
+        smart_table.setCurrentCell(2, 3)
+        self.results.log_result("4. COLUMN NAVIGATION: (2,2) → (2,3) - Should announce: Row header + Value")
+        
+        # 5. Diagonal move
+        smart_table.setCurrentCell(1, 1)
+        self.results.log_result("5. DIAGONAL NAVIGATION: (2,3) → (1,1) - Should announce: Full context")
+        
+        # 6. Another vertical move
+        smart_table.setCurrentCell(0, 1)
+        self.results.log_result("6. ROW NAVIGATION: (1,1) → (0,1) - Should announce: Column header + Value")
+        
+        # 7. Test edge cases
+        smart_table.setCurrentCell(0, 0)
+        self.results.log_result("7. DIAGONAL NAVIGATION: (0,1) → (0,0) - Moving to first column")
+        
+        # 8. Move within first column (row headers)
+        smart_table.setCurrentCell(1, 0)
+        self.results.log_result("8. ROW NAVIGATION: (0,0) → (1,0) - Moving within first column (row headers)")
+        
+        self.results.log_result("")
+        self.results.log_result("Check the announcements above to verify smart navigation behavior.")
+        self.results.log_result("Key: Column navigation should emphasize ROW context, Row navigation should emphasize COLUMN context")
+        
+        # Display navigation history if available
+        if hasattr(smart_table, 'navigation_history') and smart_table.navigation_history:
+            self.results.log_result("")
+            self.results.log_result("--- Navigation History ---")
+            for i, move in enumerate(smart_table.navigation_history[-5:], 1):  # Show last 5 moves
+                self.results.log_result(f"{i}. {move['from']} → {move['to']} ({move['type']}): {move['announcement']}")
+        
+        self.results.log_result("=== END COMPREHENSIVE SMART NAVIGATION TEST ===")
+        
+        # Restore original mode
+        self.nav_mode.setCurrentText(current_mode)
+        
+    def show_navigation_history(self):
+        """Show navigation history from smart tables"""
+        self.results.log_result("=== NAVIGATION HISTORY ===")
+        
+        # Find smart navigation tables and show their history
+        found_history = False
+        for i, table in enumerate(self.test_tables):
+            if hasattr(table, 'navigation_history') and table.navigation_history:
+                found_history = True
+                self.results.log_result(f"Table {i+1} navigation history:")
+                for j, move in enumerate(table.navigation_history, 1):
+                    self.results.log_result(
+                        f"  {j}. {move['from']} → {move['to']} ({move['type']}): {move['announcement']}"
+                    )
+                self.results.log_result("")
+        
+        if not found_history:
+            self.results.log_result("No navigation history found. Navigate through smart tables first.")
+        
+        self.results.log_result("=== END NAVIGATION HISTORY ===")
+
+
+class SmartNavigationTable(QTableWidget):
+    """Custom QTableWidget with smart navigation announcements"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.last_position = (0, 0)  # Track last position for direction detection
+        self.control_panel = None
+        self.navigation_history = []  # Track recent navigation for better context
+        
+    def set_control_panel(self, control_panel):
+        """Set reference to control panel for accessing settings"""
+        self.control_panel = control_panel
+        
+    def keyPressEvent(self, event):
+        """Override keyboard events to provide smart navigation"""
+        # Only intercept arrow keys for smart navigation
+        from PyQt6.QtCore import Qt
+        
+        if event.key() in [Qt.Key.Key_Up, Qt.Key.Key_Down, Qt.Key.Key_Left, Qt.Key.Key_Right]:
+            old_row = self.currentRow()
+            old_col = self.currentColumn()
+            
+            # Let the parent handle the navigation first
+            super().keyPressEvent(event)
+            
+            # Provide smart announcement after navigation
+            new_row = self.currentRow()
+            new_col = self.currentColumn()
+            
+            # Check if position actually changed and we're in smart mode
+            if ((old_row != new_row or old_col != new_col) and
+                self.control_panel and 
+                self.control_panel.nav_mode.currentText() == "Smart Navigation (Column header on row move, Row header on column move)"):
+                
+                self.announce_smart_navigation(old_row, old_col, new_row, new_col)
+        else:
+            # For non-arrow keys, just pass through
+            super().keyPressEvent(event)
+    
+    def announce_smart_navigation(self, old_row, old_col, new_row, new_col):
+        """Provide smart navigation announcements based on movement direction"""
+        # Determine navigation direction
+        moved_row = new_row != old_row
+        moved_col = new_col != old_col
+        
+        # Get cell information
+        item = self.item(new_row, new_col)
+        if not item:
+            return
+            
+        cell_value = item.text()
+        column_header = self.horizontalHeaderItem(new_col).text() if self.horizontalHeaderItem(new_col) else f"Column {new_col + 1}"
+        
+        # Get row header (first column value as row context)
+        row_header = ""
+        if new_col > 0 and self.item(new_row, 0):
+            row_header = self.item(new_row, 0).text()
+        elif new_col == 0:
+            row_header = cell_value  # First column is the row header itself
+        
+        # Build smart announcement based on navigation direction - CLEAN AND SIMPLE
+        smart_text = ""
+        navigation_type = ""
+        
+        if moved_row and not moved_col:
+            # Moving vertically (row navigation) - announce ONLY column header + value
+            smart_text = f"{column_header}: {cell_value}"
+            navigation_type = "ROW navigation (vertical)"
+        elif moved_col and not moved_row:
+            # Moving horizontally (column navigation) - announce ONLY row header + value
+            if row_header and new_col > 0:
+                smart_text = f"{row_header}: {cell_value}"
+            else:
+                smart_text = f"Row {new_row + 1}: {cell_value}"
+            navigation_type = "COLUMN navigation (horizontal)"
+        else:
+            # Diagonal move - minimal context
+            smart_text = cell_value
+            navigation_type = "diagonal"
+        
+        # COMPLETELY CLEAR existing accessibility and set ONLY our text
+        item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, smart_text)
+        item.setData(Qt.ItemDataRole.AccessibleTextRole, smart_text)
+        item.setToolTip(smart_text)
+        item.setWhatsThis(smart_text)
+        
+        # Log the smart navigation behavior
+        if self.control_panel and hasattr(self.control_panel, 'results'):
+            self.control_panel.results.log_result(
+                f"🎯 SMART NAV ({navigation_type}): {smart_text}"
+            )
+            
+        # Add to navigation history for debugging
+        self.navigation_history.append({
+            'from': (old_row, old_col),
+            'to': (new_row, new_col),
+            'type': navigation_type,
+            'announcement': smart_text
+        })
+        # Keep only last 10 moves
+        if len(self.navigation_history) > 10:
+            self.navigation_history.pop(0)
+        
+        # Update last position
+        self.last_position = (new_row, new_col)
+        
+    def setCurrentCell(self, row: int, column: int):
+        """Override to provide smart navigation announcements for programmatic moves"""
+        old_row, old_col = self.last_position
+        super().setCurrentCell(row, column)
+        
+        # Check if position actually changed and we're in smart mode
+        if ((old_row != row or old_col != column) and
+            self.control_panel and 
+            self.control_panel.nav_mode.currentText() == "Smart Navigation (Column header on row move, Row header on column move)"):
+            
+            self.announce_smart_navigation(old_row, old_col, row, column)
+
+
+class SmartNavigationTableDemo(QWidget):
+    """Demo of smart navigation table with context-aware announcements"""
+    
+    def __init__(self, control_panel: AccessibilityControlPanel):
+        super().__init__()
+        self.control_panel = control_panel
+        self.setup_ui()
+        
+    def setup_ui(self):
+        layout = QVBoxLayout()
+        
+        # Title
+        title = QLabel("Smart Navigation Table")
+        title.setStyleSheet("font-size: 12px; font-weight: bold; margin: 5px;")
+        layout.addWidget(title)
+        
+        # Description
+        desc = QLabel(
+            "Smart Navigation provides context-aware announcements:\n"
+            "• COLUMN NAVIGATION (horizontal moves): Announces Row Header + Cell Value\n"
+            "• ROW NAVIGATION (vertical moves): Announces Column Header + Cell Value\n"
+            "• DIAGONAL NAVIGATION: Announces Row Header + Column Header + Cell Value\n\n"
+            "This matches how users think: when moving across columns, they need row context; "
+            "when moving down rows, they need column context."
+        )
+        desc.setStyleSheet("color: #666; margin: 5px; font-style: italic;")
+        desc.setWordWrap(True)
+        layout.addWidget(desc)
+        
+        # Create table
+        self.table = SmartNavigationTable()
+        self.table.set_control_panel(self.control_panel)
+        self.setup_sample_data()
+        self.setup_accessibility()
+        
+        layout.addWidget(self.table)
+        
+        # Register with control panel
+        self.control_panel.register_table(self.table)
+        
+        self.setLayout(layout)
+        
+    def setup_sample_data(self):
+        """Setup sample sports data"""
+        headers = ["Player", "Pos", "AB", "H", "RBI", "BA"]
+        data = [
+            ["TJ Friedl", "CF", "4", "1", "0", ".251"],
+            ["Jonathan India", "2B", "3", "2", "1", ".267"],
+            ["Tyler Stephenson", "C", "4", "0", "0", ".189"],
+            ["Spencer Steer", "3B", "4", "1", "2", ".233"],
+            ["Jake Meyers", "RF", "3", "0", "0", ".245"]
+        ]
+        
+        self.table.setRowCount(len(data))
+        self.table.setColumnCount(len(headers))
+        self.table.setHorizontalHeaderLabels(headers)
+        
+        for row, row_data in enumerate(data):
+            for col, value in enumerate(row_data):
+                item = QTableWidgetItem(str(value))
+                self.table.setItem(row, col, item)
+                
+        # Adjust column widths
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.resizeColumnsToContents()
+        
+    def setup_accessibility(self):
+        """Setup accessibility features"""
+        self.table.setAccessibleName("Smart Navigation Player Statistics Table")
+        self.table.setAccessibleDescription(
+            "Baseball player statistics with smart navigation. "
+            "Column headers announced when moving between rows, "
+            "row headers announced when moving between columns. "
+            "Use arrow keys to navigate between cells."
+        )
+        
+        # Enable focus and keyboard navigation
+        self.table.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.table.setTabKeyNavigation(False)  # We'll handle tab manually
+        
+        # Selection behavior
+        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectItems)
+        self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
 
 
 class StandardQTableDemo(QWidget):
@@ -716,7 +1088,12 @@ class AccessibleTableExplorer(QMainWindow):
         desc_label = QLabel(
             "This application allows testing and comparison of different PyQt6 table approaches "
             "for accessibility. Use the control panel to adjust settings and test navigation "
-            "behavior with screen readers."
+            "behavior with screen readers.\n\n"
+            "🎯 NEW: Enhanced 'Smart Navigation Table' with context-aware announcements:\n"
+            "• Column navigation (horizontal moves): Announces Row Header + Cell Value\n"
+            "• Row navigation (vertical moves): Announces Column Header + Cell Value\n"
+            "• Diagonal navigation: Announces full context\n\n"
+            "ℹ️ Note: PyQt6-WebEngine message is informational only - all core testing features work without it."
         )
         desc_label.setStyleSheet("color: #666; margin: 5px; padding: 5px;")
         desc_label.setWordWrap(True)
@@ -740,6 +1117,7 @@ class AccessibleTableExplorer(QMainWindow):
         
         # Create demo tabs
         self.tab_widget.addTab(StandardQTableDemo(self.control_panel), "Standard QTableWidget")
+        self.tab_widget.addTab(SmartNavigationTableDemo(self.control_panel), "Smart Navigation Table")
         
         if ACCESSIBLE_TABLE_AVAILABLE:
             self.tab_widget.addTab(AccessibleTableDemo(self.control_panel), "Custom AccessibleTable")
