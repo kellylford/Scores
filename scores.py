@@ -1,3 +1,13 @@
+"""
+Scores - Sports Analysis Application
+Version: 0.5.0-preview
+A comprehensive sports analysis application supporting MLB and NFL
+"""
+
+__version__ = "0.5.0-preview"
+__author__ = "Kelly Ford"
+__description__ = "Sports Analysis Application with ESPN API integration"
+
 import sys
 import webbrowser
 import time
