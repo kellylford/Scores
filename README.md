@@ -34,9 +34,6 @@ Experience baseball like never before with spatial audio mapping that converts p
 - **Play type identification** for passes, rushes, and special teams
 - **Drive momentum tracking** to follow game flow
 
-## Purpose
-A fully accessible sports application providing real-time scores, detailed game information, and comprehensive play-by-play analysis with innovative audio features for enhanced understanding of baseball pitch patterns.
-
 ## Quick Start
 
 ### Installation
