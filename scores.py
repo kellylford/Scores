@@ -4835,7 +4835,7 @@ class SimpleTeamsDialog(QDialog):
 class SportsScoresApp(QWidget):
     """Main application class using QStackedWidget for better view management"""
     
-    def __init__(self):
+    def __init__(self, startup_params=None):
         super().__init__()
         self.setWindowTitle("Sports Scores")
         
@@ -4855,6 +4855,7 @@ class SportsScoresApp(QWidget):
         # Application state
         self.config = {}
         self.view_stack = []  # Stack for navigation history
+        self.startup_params = startup_params
         
         # Initialize configuration
         self._init_config()
@@ -4862,8 +4863,8 @@ class SportsScoresApp(QWidget):
         # Setup UI with stacked widget
         self.setup_ui()
         
-        # Show home view initially
-        self.show_home()
+        # Handle startup navigation
+        self._handle_startup_navigation()
         self.show()
     
     def _init_config(self):
@@ -4920,6 +4921,109 @@ class SportsScoresApp(QWidget):
                                   f"Team ID: {team_id}")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open team schedule: {e}")
+
+    def open_teams_directly(self, league: str):
+        """Open teams view directly for a specific league"""
+        try:
+            # Set current league and navigate to teams
+            self.current_league = league
+            self._show_teams_dialog_directly(league)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to open teams for {league}: {e}")
+
+    def open_standings_directly(self, league: str):
+        """Open standings view directly for a specific league"""
+        try:
+            # Set current league and navigate to standings  
+            self.current_league = league
+            self._show_standings_dialog_directly(league)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to open standings for {league}: {e}")
+
+    def _show_teams_dialog_directly(self, league: str):
+        """Show teams dialog directly without being in a league view"""
+        try:
+            standings_data = ApiService.get_standings(league)
+            if not standings_data:
+                QMessageBox.information(self, "Teams", 
+                                      f"No teams data available for {league}.")
+                return
+            
+            # Filter data by league to avoid mixing
+            filtered_data = [team for team in standings_data 
+                           if self._is_team_for_league(team, league)]
+            
+            dialog = SimpleTeamsDialog(filtered_data, league, self)
+            dialog.exec()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to show teams: {str(e)}")
+
+    def _show_standings_dialog_directly(self, league: str):
+        """Show standings dialog directly without being in a league view"""
+        try:
+            standings_data = ApiService.get_standings(league)
+            if not standings_data:
+                QMessageBox.information(self, "Standings", 
+                                      f"No standings data available for {league}.")
+                return
+            
+            dialog = StandingsDialog(standings_data, league, self)
+            dialog.exec()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to show standings: {str(e)}")
+
+    def _is_team_for_league(self, team_data: Dict, league: str) -> bool:
+        """Check if team belongs to the specified league"""
+        # This is a helper method that should already exist in LeagueView
+        # We'll implement a simple version here
+        try:
+            # Look for league indicators in team data
+            team_league = team_data.get('league', {}).get('abbreviation', '').upper()
+            if team_league == league:
+                return True
+            
+            # Fallback: check parent group info
+            parent = team_data.get('parent', {})
+            if parent:
+                parent_name = parent.get('name', '').upper()
+                return league in parent_name
+            
+            return True  # Default to include if we can't determine
+        except:
+            return True  # Default to include on error
+
+    def _handle_startup_navigation(self):
+        """Handle navigation based on startup parameters"""
+        if not self.startup_params:
+            # Default: show home view
+            self.show_home()
+            return
+        
+        action = self.startup_params.get('action')
+        league = self.startup_params.get('league')
+        
+        if not action or not league:
+            self.show_home()
+            return
+        
+        try:
+            if action == 'league':
+                # Navigate directly to league games view
+                self.open_league(league)
+            elif action == 'teams':
+                # Show home first, then open teams dialog
+                self.show_home()
+                QTimer.singleShot(100, lambda: self.open_teams_directly(league))
+            elif action == 'standings':
+                # Show home first, then open standings dialog
+                self.show_home()
+                QTimer.singleShot(100, lambda: self.open_standings_directly(league))
+            else:
+                self.show_home()
+        except Exception as e:
+            QMessageBox.critical(self, "Startup Error", 
+                               f"Failed to navigate to {action} for {league}: {str(e)}")
+            self.show_home()
 
     def go_back(self):
         if not self.view_stack:
