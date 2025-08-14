@@ -11,7 +11,10 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Import and run the main application
-from scores import main
-
 if __name__ == "__main__":
-    main()
+    from PyQt6.QtWidgets import QApplication
+    from scores import SportsScoresApp
+    
+    app = QApplication(sys.argv)
+    window = SportsScoresApp()
+    sys.exit(app.exec())
