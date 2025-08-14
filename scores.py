@@ -4742,8 +4742,8 @@ class SimpleTeamsDialog(QDialog):
         # Set focus on first tab
         if self.tab_widget.count() > 0:
             first_widget = self.tab_widget.widget(0)
-            if hasattr(first_widget, 'teams_list'):
-                first_widget.teams_list.setFocus()
+            if hasattr(first_widget, 'teams_table'):
+                first_widget.teams_table.setFocus()
     
     def keyPressEvent(self, event):
         """Handle key press events to keep focus in tab widget for left/right arrows"""
@@ -4767,12 +4767,21 @@ class SimpleTeamsDialog(QDialog):
         super().keyPressEvent(event)
     
     def create_division_tab(self, division_name: str, teams: List):
-        """Create a tab for a division with team list"""
+        """Create a tab for a division with team table"""
         widget = QWidget()
         layout = QVBoxLayout()
         
-        teams_list = QListWidget()
-        teams_list.setAccessibleName(f"{division_name} Teams")
+        # Create accessible table instead of list widget
+        teams_table = AccessibleTable(
+            parent=self,
+            accessible_name=f"{division_name} Teams Table",
+            accessible_description=f"Teams in {division_name} division with wins, losses, and other statistics"
+        )
+        
+        # Set up table headers
+        headers = ["Team", "Wins", "Losses", "Win %"]
+        teams_table.setColumnCount(len(headers))
+        teams_table.setHorizontalHeaderLabels(headers)
         
         # Sort teams by wins (descending), then by name (ascending) - ensure stable sort
         def sort_key(team):
@@ -4784,32 +4793,51 @@ class SimpleTeamsDialog(QDialog):
         
         sorted_teams = sorted(teams, key=sort_key)
         
-        # Add teams to list and ensure proper accessibility
-        for team in sorted_teams:
+        # Set table row count
+        teams_table.setRowCount(len(sorted_teams))
+        
+        # Populate table with team data
+        for row, team in enumerate(sorted_teams):
             name = team.get('team_name', 'Unknown Team')
             wins = team.get('wins', 0)
             losses = team.get('losses', 0)
-            item_text = f"{name} ({wins}-{losses})"
             
-            list_item = QListWidgetItem(item_text)
-            list_item.setData(Qt.ItemDataRole.UserRole, team)
-            # Set accessible text for each item
-            list_item.setData(Qt.ItemDataRole.AccessibleTextRole, item_text)
-            teams_list.addItem(list_item)
+            # Calculate win percentage
+            total_games = wins + losses
+            win_pct = wins / total_games if total_games > 0 else 0.0
+            
+            # Create table items
+            name_item = QTableWidgetItem(name)
+            wins_item = QTableWidgetItem(str(wins))
+            losses_item = QTableWidgetItem(str(losses))
+            win_pct_item = QTableWidgetItem(f"{win_pct:.3f}")
+            
+            # Store team data in the name item for potential future use
+            name_item.setData(Qt.ItemDataRole.UserRole, team)
+            
+            # Set items in table
+            teams_table.setItem(row, 0, name_item)
+            teams_table.setItem(row, 1, wins_item)
+            teams_table.setItem(row, 2, losses_item)
+            teams_table.setItem(row, 3, win_pct_item)
         
-        # Force Qt to update accessibility information
-        teams_list.setAccessibleDescription(f"List of {len(sorted_teams)} teams in {division_name}")
+        # Configure table appearance
+        header = teams_table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)  # Team name stretches
         
-        # Ensure the list widget reports correct count to screen readers
-        teams_list.setAttribute(Qt.WidgetAttribute.WA_AcceptTouchEvents, False)  # Avoid touch interference
-        teams_list.setProperty("accessibleItemCount", len(sorted_teams))
+        # Set focus to first cell when table is created
+        if teams_table.rowCount() > 0:
+            teams_table.setCurrentCell(0, 0)
         
-        teams_list.itemActivated.connect(self.on_team_selected)
-        layout.addWidget(teams_list)
+        # Connect table activation signal for team selection
+        teams_table.itemActivated.connect(self.on_team_selected)
+        
+        layout.addWidget(teams_table)
         widget.setLayout(layout)
         
-        # Store reference to list for focus management
-        widget.teams_list = teams_list
+        # Store reference to table for focus management
+        widget.teams_table = teams_table
         
         self.tab_widget.addTab(widget, division_name)
     
@@ -4835,7 +4863,7 @@ class SimpleTeamsDialog(QDialog):
 class SportsScoresApp(QWidget):
     """Main application class using QStackedWidget for better view management"""
     
-    def __init__(self):
+    def __init__(self, startup_params=None):
         super().__init__()
         self.setWindowTitle("Sports Scores")
         
@@ -4855,6 +4883,7 @@ class SportsScoresApp(QWidget):
         # Application state
         self.config = {}
         self.view_stack = []  # Stack for navigation history
+        self.startup_params = startup_params
         
         # Initialize configuration
         self._init_config()
@@ -4862,8 +4891,8 @@ class SportsScoresApp(QWidget):
         # Setup UI with stacked widget
         self.setup_ui()
         
-        # Show home view initially
-        self.show_home()
+        # Handle startup navigation
+        self._handle_startup_navigation()
         self.show()
     
     def _init_config(self):
@@ -4920,6 +4949,109 @@ class SportsScoresApp(QWidget):
                                   f"Team ID: {team_id}")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open team schedule: {e}")
+
+    def open_teams_directly(self, league: str):
+        """Open teams view directly for a specific league"""
+        try:
+            # Set current league and navigate to teams
+            self.current_league = league
+            self._show_teams_dialog_directly(league)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to open teams for {league}: {e}")
+
+    def open_standings_directly(self, league: str):
+        """Open standings view directly for a specific league"""
+        try:
+            # Set current league and navigate to standings  
+            self.current_league = league
+            self._show_standings_dialog_directly(league)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to open standings for {league}: {e}")
+
+    def _show_teams_dialog_directly(self, league: str):
+        """Show teams dialog directly without being in a league view"""
+        try:
+            standings_data = ApiService.get_standings(league)
+            if not standings_data:
+                QMessageBox.information(self, "Teams", 
+                                      f"No teams data available for {league}.")
+                return
+            
+            # Filter data by league to avoid mixing
+            filtered_data = [team for team in standings_data 
+                           if self._is_team_for_league(team, league)]
+            
+            dialog = SimpleTeamsDialog(filtered_data, league, self)
+            dialog.exec()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to show teams: {str(e)}")
+
+    def _show_standings_dialog_directly(self, league: str):
+        """Show standings dialog directly without being in a league view"""
+        try:
+            standings_data = ApiService.get_standings(league)
+            if not standings_data:
+                QMessageBox.information(self, "Standings", 
+                                      f"No standings data available for {league}.")
+                return
+            
+            dialog = StandingsDialog(standings_data, league, self)
+            dialog.exec()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to show standings: {str(e)}")
+
+    def _is_team_for_league(self, team_data: Dict, league: str) -> bool:
+        """Check if team belongs to the specified league"""
+        # This is a helper method that should already exist in LeagueView
+        # We'll implement a simple version here
+        try:
+            # Look for league indicators in team data
+            team_league = team_data.get('league', {}).get('abbreviation', '').upper()
+            if team_league == league:
+                return True
+            
+            # Fallback: check parent group info
+            parent = team_data.get('parent', {})
+            if parent:
+                parent_name = parent.get('name', '').upper()
+                return league in parent_name
+            
+            return True  # Default to include if we can't determine
+        except:
+            return True  # Default to include on error
+
+    def _handle_startup_navigation(self):
+        """Handle navigation based on startup parameters"""
+        if not self.startup_params:
+            # Default: show home view
+            self.show_home()
+            return
+        
+        action = self.startup_params.get('action')
+        league = self.startup_params.get('league')
+        
+        if not action or not league:
+            self.show_home()
+            return
+        
+        try:
+            if action == 'league':
+                # Navigate directly to league games view
+                self.open_league(league)
+            elif action == 'teams':
+                # Show home first, then open teams dialog
+                self.show_home()
+                QTimer.singleShot(100, lambda: self.open_teams_directly(league))
+            elif action == 'standings':
+                # Show home first, then open standings dialog
+                self.show_home()
+                QTimer.singleShot(100, lambda: self.open_standings_directly(league))
+            else:
+                self.show_home()
+        except Exception as e:
+            QMessageBox.critical(self, "Startup Error", 
+                               f"Failed to navigate to {action} for {league}: {str(e)}")
+            self.show_home()
 
     def go_back(self):
         if not self.view_stack:
