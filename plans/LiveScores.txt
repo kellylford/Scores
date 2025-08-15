@@ -16,5 +16,10 @@ When focus is on the game in this view, pressing m will toggle monitoring of the
 Notes:
 Actively explore ESPN APIs for what's possible here. We may need to try during different time periods. As of this writing a baseball game between the Cubs and Pirates is active.
 
+Infrastructure:
+This feature should be built in a separate branch called LiveScores based off of main. It should not touch code in main i.e. no integration until approved.
+
+
+Consider building a test app to explore various notification mechanisms if needed.
 
 
