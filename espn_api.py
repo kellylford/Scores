@@ -419,7 +419,7 @@ def extract_meaningful_game_info(details):
             }
             teams.append(team_info)
             if score:
-                scores.append(f"{team.get('abbreviation', team.get('displayName', 'Unknown'))}: {score}")
+                scores.append(f"{team.get('displayName', team.get('abbreviation', 'Unknown'))}: {score}")
         info['teams'] = teams
         info['scores'] = scores
         
