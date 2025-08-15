@@ -29,6 +29,18 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
 from PyQt6.QtGui import QColor, QAction, QFont
 
+# Windows UIA notification support
+try:
+    import platform
+    if platform.system() == "Windows":
+        import ctypes
+        from ctypes import wintypes
+        WINDOWS_UIA_AVAILABLE = True
+    else:
+        WINDOWS_UIA_AVAILABLE = False
+except ImportError:
+    WINDOWS_UIA_AVAILABLE = False
+
 # New separated modules
 from exceptions import ApiError, DataModelError
 from services.api_service import ApiService
@@ -36,6 +48,7 @@ from models.game import GameData
 from models.news import NewsData
 from models.standings import StandingsData
 from accessible_table import AccessibleTable, StandingsTable, LeadersTable, BoxscoreTable, InjuryTable
+from windows_notifications import WindowsNotificationHelper
 
 # Audio system for pitch mapping
 try:
@@ -419,6 +432,10 @@ class LiveScoresView(BaseView):
         self.monitored_games = set()  # Track games being monitored for notifications
         self.game_data = {}  # Store complete game data for notifications
         self.current_time = datetime.now()
+        
+        # Initialize Windows UIA notification helper
+        self.notification_helper = WindowsNotificationHelper()
+        
         self.setup_ui()
         
         # Setup auto-refresh timer for live updates
@@ -484,10 +501,13 @@ class LiveScoresView(BaseView):
     def _announce_monitoring(self, monitoring: bool, game_data: dict):
         """Announce monitoring status change for accessibility"""
         game_name = game_data.get("name", "Selected game")
+        
+        # Use Windows UIA notifications for better accessibility
+        self.notification_helper.notify_monitoring_change(game_name, monitoring)
+        
+        # Also update the UI
         status = "now monitoring" if monitoring else "no longer monitoring"
         message = f"{status} {game_name} for score updates"
-        
-        # For now, we'll use a simple status update - UIA notifications can be added later
         self.time_label.setText(f"Live Scores - {message}")
         QTimer.singleShot(3000, self._update_time_label)  # Reset after 3 seconds
     
@@ -617,8 +637,10 @@ class LiveScoresView(BaseView):
             team2_name = teams[1].get("name", "Team 2")
             score_text = f"{team1_name} {new_scores[0]} - {team2_name} {new_scores[1]}"
             
-            # For now, update the time label with the notification
-            # Later this can be enhanced with Windows UIA notifications
+            # Use Windows UIA notifications for accessibility
+            self.notification_helper.notify_score_change(game_name, score_text)
+            
+            # Also update the UI
             self.time_label.setText(f"SCORE UPDATE: {game_name} - {score_text}")
             QTimer.singleShot(5000, self._update_time_label)  # Reset after 5 seconds
     
