@@ -8,6 +8,7 @@ class SportsApp {
         this.currentDate = new Date();
         this.currentGameId = null;
         this.stack = [];
+        this.liveScoresRefreshInterval = null;
         this.config = {
             'MLB': ['name', 'status', 'competitors'],
             'NFL': ['name', 'status', 'competitors'],
@@ -104,6 +105,9 @@ class SportsApp {
         this.currentView = 'home';
         this.stack = [];
         
+        // Stop live scores auto-refresh when going home
+        this.stopLiveScoresRefresh();
+        
         this.hideAllSections();
         document.getElementById('home-section').classList.remove('hidden');
         
@@ -111,6 +115,20 @@ class SportsApp {
         const leagues = await ESPNApi.getLeagues();
         const leagueList = document.getElementById('league-list');
         leagueList.innerHTML = '';
+        
+        // Add Live Scores as first option
+        const liveScoresLi = document.createElement('li');
+        liveScoresLi.textContent = 'Live Scores';
+        liveScoresLi.tabIndex = 0;
+        liveScoresLi.classList.add('live-scores-option');
+        liveScoresLi.addEventListener('click', () => this.showLiveScores());
+        liveScoresLi.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                this.showLiveScores();
+            }
+        });
+        leagueList.appendChild(liveScoresLi);
         
         leagues.forEach(league => {
             const li = document.createElement('li');
@@ -126,7 +144,7 @@ class SportsApp {
             leagueList.appendChild(li);
         });
         
-        // Focus first league
+        // Focus first item (Live Scores)
         if (leagueList.firstChild) {
             this.focusListItem([...leagueList.children], 0);
         }
@@ -139,11 +157,35 @@ class SportsApp {
         this.currentLeague = league;
         this.currentDate = new Date(); // Reset to today
         
+        // Stop live scores auto-refresh when leaving live scores
+        this.stopLiveScoresRefresh();
+        
         this.hideAllSections();
         document.getElementById('league-section').classList.remove('hidden');
         document.getElementById('league-title').textContent = `${league} Scores`;
         
+        // Show date navigation for regular leagues
+        document.querySelector('.date-navigation').style.display = 'flex';
+        
         await this.loadScores();
+        this.hideLoading();
+    }
+
+    async showLiveScores() {
+        this.currentView = 'live-scores';
+        this.currentLeague = null; // Not league-specific
+        
+        this.hideAllSections();
+        document.getElementById('league-section').classList.remove('hidden');
+        document.getElementById('league-title').textContent = 'Live Scores';
+        
+        // Hide date navigation for live scores
+        document.querySelector('.date-navigation').style.display = 'none';
+        
+        // Start auto-refresh for live scores (every 30 seconds)
+        this.startLiveScoresRefresh();
+        
+        await this.loadLiveScores();
         this.hideLoading();
     }
 
@@ -225,6 +267,65 @@ class SportsApp {
             
         } catch (error) {
             this.showError('Failed to load scores: ' + error.message);
+        }
+        
+        this.hideLoading();
+    }
+
+    async loadLiveScores() {
+        this.showLoading();
+        
+        try {
+            // Get live games across all sports
+            const liveGames = await ESPNApi.getLiveGames();
+            const scoresList = document.getElementById('scores-list');
+            scoresList.innerHTML = '';
+            
+            if (!liveGames || liveGames.length === 0) {
+                const li = document.createElement('li');
+                li.textContent = 'No live games currently in progress';
+                li.classList.add('no-games');
+                scoresList.appendChild(li);
+            } else {
+                liveGames.forEach(game => {
+                    const li = document.createElement('li');
+                    li.textContent = this.formatLiveGameDisplay(game);
+                    li.tabIndex = 0;
+                    li.dataset.gameId = game.id;
+                    li.dataset.league = game.league;
+                    
+                    // Add monitoring toggle functionality
+                    li.addEventListener('keydown', (e) => {
+                        if (e.key === 'm' || e.key === 'M') {
+                            e.preventDefault();
+                            this.toggleGameMonitoring(game.id, li);
+                        } else if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            this.showGameDetails(game.id);
+                        }
+                    });
+                    
+                    li.addEventListener('click', () => this.showGameDetails(game.id));
+                    
+                    // Check if game is being monitored
+                    if (this.isGameMonitored(game.id)) {
+                        li.classList.add('monitored');
+                        li.setAttribute('aria-label', `${li.textContent} - Monitoring enabled. Press M to disable.`);
+                    } else {
+                        li.setAttribute('aria-label', `${li.textContent} - Press M to monitor this game.`);
+                    }
+                    
+                    scoresList.appendChild(li);
+                });
+            }
+            
+            // Focus first item
+            if (scoresList.firstChild) {
+                this.focusListItem([...scoresList.children], 0);
+            }
+            
+        } catch (error) {
+            this.showError('Failed to load live scores: ' + error.message);
         }
         
         this.hideLoading();
@@ -450,7 +551,11 @@ class SportsApp {
     }
 
     refreshScores() {
-        this.loadScores();
+        if (this.currentView === 'live-scores') {
+            this.loadLiveScores();
+        } else {
+            this.loadScores();
+        }
     }
 
     refreshGameDetails() {
@@ -529,6 +634,116 @@ class SportsApp {
     hideAllModals() {
         this.hideNewsModal();
         this.hideStandingsModal();
+    }
+
+    formatLiveGameDisplay(game) {
+        let display = `${game.league}: ${game.name || 'Game'}`;
+        
+        // Add scores if available
+        if (game.awayTeam && game.homeTeam) {
+            if (game.awayTeam.score !== undefined && game.homeTeam.score !== undefined) {
+                display += ` (${game.awayTeam.abbreviation} ${game.awayTeam.score} - ${game.homeTeam.abbreviation} ${game.homeTeam.score})`;
+            }
+        }
+        
+        // Add status/time for live games
+        if (game.status && game.status.displayClock) {
+            display += ` - ${game.status.displayClock}`;
+        } else if (game.status && game.status.type) {
+            display += ` - ${game.status.type}`;
+        }
+        
+        // Add most recent play if available
+        if (game.lastPlay) {
+            display += ` | ${game.lastPlay}`;
+        }
+        
+        return display;
+    }
+
+    toggleGameMonitoring(gameId, gameElement) {
+        const isCurrentlyMonitored = this.isGameMonitored(gameId);
+        
+        if (isCurrentlyMonitored) {
+            this.removeGameFromMonitoring(gameId);
+            gameElement.classList.remove('monitored');
+            gameElement.setAttribute('aria-label', `${gameElement.textContent} - Press M to monitor this game.`);
+            this.announceToScreenReader('Monitoring disabled for this game');
+        } else {
+            this.addGameToMonitoring(gameId);
+            gameElement.classList.add('monitored');
+            gameElement.setAttribute('aria-label', `${gameElement.textContent} - Monitoring enabled. Press M to disable.`);
+            this.announceToScreenReader('Monitoring enabled for this game');
+        }
+    }
+
+    isGameMonitored(gameId) {
+        const monitoredGames = JSON.parse(localStorage.getItem('monitoredGames') || '[]');
+        return monitoredGames.includes(gameId);
+    }
+
+    addGameToMonitoring(gameId) {
+        const monitoredGames = JSON.parse(localStorage.getItem('monitoredGames') || '[]');
+        if (!monitoredGames.includes(gameId)) {
+            monitoredGames.push(gameId);
+            localStorage.setItem('monitoredGames', JSON.stringify(monitoredGames));
+        }
+    }
+
+    removeGameFromMonitoring(gameId) {
+        const monitoredGames = JSON.parse(localStorage.getItem('monitoredGames') || '[]');
+        const updatedGames = monitoredGames.filter(id => id !== gameId);
+        localStorage.setItem('monitoredGames', JSON.stringify(updatedGames));
+    }
+
+    announceToScreenReader(message) {
+        // Create ARIA-live announcement for screen readers
+        const announcement = document.createElement('div');
+        announcement.setAttribute('aria-live', 'polite');
+        announcement.setAttribute('aria-atomic', 'true');
+        announcement.className = 'sr-only';
+        announcement.textContent = message;
+        
+        document.body.appendChild(announcement);
+        
+        // Remove after announcement
+        setTimeout(() => {
+            if (document.body.contains(announcement)) {
+                document.body.removeChild(announcement);
+            }
+        }, 1000);
+    }
+
+    startLiveScoresRefresh() {
+        // Clear any existing interval
+        this.stopLiveScoresRefresh();
+        
+        // Set up auto-refresh every 30 seconds for live scores
+        this.liveScoresRefreshInterval = setInterval(() => {
+            if (this.currentView === 'live-scores') {
+                console.log('Auto-refreshing live scores...');
+                this.loadLiveScores();
+                
+                // Check for score changes and notify monitored games
+                this.checkForScoreUpdatesAndNotify();
+            }
+        }, 30000); // 30 seconds
+    }
+
+    stopLiveScoresRefresh() {
+        if (this.liveScoresRefreshInterval) {
+            clearInterval(this.liveScoresRefreshInterval);
+            this.liveScoresRefreshInterval = null;
+        }
+    }
+
+    async checkForScoreUpdatesAndNotify() {
+        // This would be called after loading live scores to check for changes
+        // For now, we'll just announce that scores were updated for monitored games
+        const monitoredGames = JSON.parse(localStorage.getItem('monitoredGames') || '[]');
+        if (monitoredGames.length > 0) {
+            this.announceToScreenReader(`Live scores updated for ${monitoredGames.length} monitored games`);
+        }
     }
 
     hideAllSections() {
