@@ -5,6 +5,41 @@ All notable changes to the Scores application will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.51.0-preview] - 2025-08-15
+
+### Added
+- **Season Selection**: Enhanced team schedule dialogs with season dropdown for viewing historical data
+- **Command Line Interface**: Comprehensive CLI options for direct navigation to specific sport sections
+  - Game views: `--mlb`, `--nfl`, `--nba`, `--nhl`, `--ncaaf`
+  - Teams views: `--mlb-teams`, `--nfl-teams`, etc.
+  - Standings views: `--mlb-standings`, `--nfl-standings`, etc.
+- **Accessibility Improvements**: 
+  - Replaced QListWidget with AccessibleTable in teams dialogs for better screen reader support
+  - Enhanced focus management in team schedule dialogs
+  - Added proper accessible names and descriptions to UI components
+- **Smart Navigation**: Enhanced team schedule dialogs now focus on today's games or next upcoming games
+- **Visual Enhancements**: Today's games are highlighted with bold text and light yellow background
+
+### Fixed
+- **Team Name Display**: Fixed team names to show proper team nicknames instead of abbreviations
+- **Date Display**: Enhanced date formatting for historical seasons to include year
+- **Cache Management**: Cleaned up Python cache files from repository
+- **Tab Accessibility**: Added setAccessibleName and setAccessibleDescription to all QTabWidget instances
+
+### Changed
+- **Schedule Loading**: Improved team schedule loading with background threading for better performance
+- **Season Handling**: Enhanced season availability ranges for different sports leagues
+- **UI Focus**: Improved focus management in schedule dialogs to highlight relevant games
+
+### Technical Details
+- **Enhanced CLI Support**: Full argument parsing with help documentation
+- **Improved Data Display**: Better handling of historical vs current season data
+- **Accessibility Standards**: Compliance improvements for screen reader compatibility
+
+### Build Artifacts
+- Same as 0.5.0: `dist/Scores.exe` - Standalone Windows executable
+- Enhanced command line capabilities for power users
+
 ## [0.5.0-preview] - 2025-08-13
 
 ### Added
