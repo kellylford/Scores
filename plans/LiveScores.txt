@@ -1,0 +1,20 @@
+Objective: To provide a single view, much like the scores level for each sport, of all games going on live
+
+Design:
+
+Entry Point: Live scores should be another entry off the opening screen of the scores app positioned as the first entry above all sports. When activated the user goes to a list just like other individual sports but it shows the game entries for anything ESPN reports as happening now.
+
+Activating any game takes you to the details for that game.
+
+If it is available, after the current score we show, the most recent play should be summarized. For example ball 3 to <batter name>
+
+Accessibility:
+Web has a concept known as ARIA-Live which allows updates to be communicated to assistive technology no matter if that item has focus or not. Windows has their standard notification infrastructure along with assistive technology-specific notifications known as UIA notifications. We should try and leverage this technology to provide live updating of scores.
+
+When focus is on the game in this view, pressing m will toggle monitoring of the game. Monitoring on means the user will get notifications about changes.
+
+Notes:
+Actively explore ESPN APIs for what's possible here. We may need to try during different time periods. As of this writing a baseball game between the Cubs and Pirates is active.
+
+
+
