@@ -17,7 +17,7 @@ class GameData:
         if self.teams:
             display_parts = []
             for t in self.teams:
-                abbrev = t.get("abbreviation") or t.get("name", "?")
+                abbrev = t.get("name") or t.get("abbreviation", "?")
                 score = t.get("score")
                 display_parts.append(f"{abbrev}{' ' + score if score else ''}")
             parts.append(" vs ".join(display_parts))
