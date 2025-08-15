@@ -147,17 +147,6 @@ class ESPNApi {
         }
     }
 
-    // Get live games across all sports
-    static async getLiveGames() {
-        try {
-            const api = window.espnApi || new ESPNApi();
-            return await api.getAllLiveGames();
-        } catch (error) {
-            console.error('Error getting live games:', error);
-            return [];
-        }
-    }
-
     // Generic fetch with caching and error handling
     async fetchWithCache(url, cacheKey, forceRefresh = false) {
         const now = Date.now();
@@ -198,47 +187,6 @@ class ESPNApi {
             
             throw error;
         }
-    }
-
-    // Get live games across all sports
-    async getAllLiveGames() {
-        const leagues = ['MLB', 'NFL', 'NBA', 'NHL'];
-        const liveGames = [];
-        
-        for (const league of leagues) {
-            try {
-                let scores = [];
-                switch(league) {
-                    case 'MLB':
-                        scores = await this.getMLBScores();
-                        break;
-                    case 'NFL':
-                        scores = await this.getNFLScores();
-                        break;
-                    case 'NBA':
-                        scores = await this.getNBAScores();
-                        break;
-                    case 'NHL':
-                        scores = await this.getNHLScores();
-                        break;
-                }
-                
-                // Filter for live games only
-                const liveInLeague = scores.filter(game => 
-                    game.status && game.status.type === 'live'
-                ).map(game => ({
-                    ...game,
-                    league: league
-                }));
-                
-                liveGames.push(...liveInLeague);
-            } catch (error) {
-                console.error(`Error fetching live games for ${league}:`, error);
-                // Continue with other leagues even if one fails
-            }
-        }
-        
-        return liveGames;
     }
 
     // Get MLB standings
@@ -307,7 +255,7 @@ class ESPNApi {
                     const awayTeam = competitors.find(c => c.homeAway === 'away');
                     const homeTeam = competitors.find(c => c.homeAway === 'home');
                     
-                    const game = {
+                    games.push({
                         id: event.id,
                         name: event.name,
                         shortName: event.shortName,
@@ -330,49 +278,12 @@ class ESPNApi {
                             logo: homeTeam.team.logo
                         },
                         startTime: new Date(event.date)
-                    };
-                    
-                    // Add last play information if available
-                    if (competition.situation && competition.situation.lastPlay) {
-                        game.lastPlay = competition.situation.lastPlay.text;
-                    } else if (competition.notes && competition.notes.length > 0) {
-                        // Use notes as fallback for play information
-                        game.lastPlay = competition.notes[0].headline || competition.notes[0].description;
-                    }
-                    
-                    games.push(game);
+                    });
                 }
             });
         }
         
         return games;
-    }
-
-    // Get NFL scores
-    async getNFLScores() {
-        const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
-        const url = `${this.baseUrl}/football/nfl/scoreboard?dates=${today}`;
-        const data = await this.fetchWithCache(url, `nfl-scores-${today}`);
-        
-        return this.processScoresData(data);
-    }
-
-    // Get NBA scores
-    async getNBAScores() {
-        const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
-        const url = `${this.baseUrl}/basketball/nba/scoreboard?dates=${today}`;
-        const data = await this.fetchWithCache(url, `nba-scores-${today}`);
-        
-        return this.processScoresData(data);
-    }
-
-    // Get NHL scores
-    async getNHLScores() {
-        const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
-        const url = `${this.baseUrl}/hockey/nhl/scoreboard?dates=${today}`;
-        const data = await this.fetchWithCache(url, `nhl-scores-${today}`);
-        
-        return this.processScoresData(data);
     }
 
     // Get MLB teams list
