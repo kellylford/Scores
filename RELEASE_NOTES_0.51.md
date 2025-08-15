@@ -22,7 +22,7 @@ Scores.exe --mlb-teams        # View MLB teams immediately
 - **Smart Season Detection**: Automatic handling of current vs historical seasons
 - **Enhanced Date Display**: Year included for historical data clarity
 
-#### ♿ Accessibility Enhancements
+#### Accessibility Enhancements
 - **Screen Reader Support**: Improved compatibility with assistive technologies
 - **Enhanced Focus Management**: Smart navigation that highlights today's games
 - **Accessible Tables**: Better structured data presentation for screen readers
@@ -57,16 +57,10 @@ Scores.exe --mlb-teams        # View MLB teams immediately
 2. **Select Season**: Use the season dropdown to browse historical data
 3. **Smart Focus**: Notice how today's games are automatically highlighted
 
-#### Accessibility Features
-1. **Screen Readers**: All content now properly announced by screen readers
-2. **Keyboard Navigation**: Tab through all elements with proper focus indicators
-3. **High Contrast**: Better visibility for users with visual impairments
-
 ### 🎯 Who Benefits from This Release?
 
 - **Power Users**: Command line options for rapid navigation
 - **Accessibility Users**: Comprehensive screen reader and keyboard support  
-- **Sports Historians**: Season selection for browsing past seasons
 - **Casual Users**: Improved visual highlighting and smart focus
 
 ### 🔄 Upgrading from v0.5.0
