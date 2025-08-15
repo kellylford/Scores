@@ -28,7 +28,20 @@ class SportsApp {
     setupEventListeners() {
         // Navigation buttons
         document.getElementById('back-to-home').addEventListener('click', () => this.showHome());
-        document.getElementById('back-to-scores').addEventListener('click', () => this.showLeague(this.currentLeague));
+        document.getElementById('back-to-scores').addEventListener('click', () => {
+            // Check the navigation stack to determine where to go back
+            if (this.stack.length > 0) {
+                const previousContext = this.stack.pop();
+                if (previousContext.view === 'live-scores') {
+                    this.showLiveScores();
+                } else if (previousContext.view === 'league') {
+                    this.showLeague(previousContext.league);
+                }
+            } else {
+                // Fallback
+                this.showHome();
+            }
+        });
         document.getElementById('refresh-scores').addEventListener('click', () => this.refreshScores());
         document.getElementById('refresh-game').addEventListener('click', () => this.refreshGameDetails());
         
@@ -349,9 +362,16 @@ class SportsApp {
     }
 
     async showGameDetails(gameId) {
+        const previousView = this.currentView;
         this.currentView = 'game';
         this.currentGameId = gameId;
-        this.stack.push({ view: 'league', league: this.currentLeague });
+        
+        // Store the previous view context for proper back navigation
+        if (previousView === 'live-scores') {
+            this.stack.push({ view: 'live-scores' });
+        } else {
+            this.stack.push({ view: 'league', league: this.currentLeague });
+        }
         
         this.hideAllSections();
         document.getElementById('game-section').classList.remove('hidden');
