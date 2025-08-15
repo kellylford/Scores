@@ -22,6 +22,10 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
     if not league_path:
         return []
     
+    # Determine if we're viewing a historical season (not current year)
+    current_year = datetime.now().year
+    is_historical_season = season is not None and season != current_year
+    
     # Use dedicated team schedule endpoints for major sports
     if league_key in ["MLB", "NFL", "NBA", "NCAAF"]:
         base_url = f"{BASE_URL}/{league_path}/teams/{team_id}/schedule"
@@ -53,7 +57,7 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
         start_str = start_date.strftime("%Y%m%d")
         end_str = end_date.strftime("%Y%m%d")
         url = f"{BASE_URL}/{league_path}/scoreboard?dates={start_str}-{end_str}"
-        return parse_schedule_from_api(url, team_id, datetime.now())
+        return parse_schedule_from_api(url, team_id, datetime.now(), season)
     
     try:
         resp = requests.get(url)
@@ -151,9 +155,15 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
             venue = comp.get('venue', {})
             venue_name = venue.get('fullName', 'TBD')
             
+            # Determine date display format - include year for historical seasons
+            if is_historical_season:
+                date_display = event_date.strftime('%a, %b %d, %Y')
+            else:
+                date_display = event_date.strftime('%a, %b %d')
+            
             schedule.append({
                 'date': event_date.strftime('%Y-%m-%d'),
-                'date_display': event_date.strftime('%a, %b %d'),
+                'date_display': date_display,
                 'opponent': opponent,
                 'home_away': home_away,
                 'time': start_time,
@@ -202,9 +212,13 @@ def get_mlb_full_season_schedule(league_path, team_id, today):
     schedule.sort(key=lambda x: x["date"])
     return schedule
 
-def parse_schedule_from_api(url, team_id, today):
+def parse_schedule_from_api(url, team_id, today, season=None):
     """Parse schedule data from ESPN API response"""
     from datetime import datetime
+    
+    # Determine if this is a historical season
+    current_year = datetime.now().year
+    is_historical_season = season is not None and season != current_year
     
     schedule = []
     
@@ -275,9 +289,15 @@ def parse_schedule_from_api(url, team_id, today):
                     venue = comp.get("venue", {})
                     venue_name = venue.get("fullName", "TBD")
                     
+                    # Determine date display format - include year for historical seasons
+                    if is_historical_season:
+                        date_display = event_date.strftime("%a, %b %d, %Y")
+                    else:
+                        date_display = event_date.strftime("%a, %b %d")
+                    
                     schedule.append({
                         "date": event_date.strftime("%Y-%m-%d"),
-                        "date_display": event_date.strftime("%a, %b %d"),
+                        "date_display": date_display,
                         "opponent": away_team if home_team and team_id in [c.get("team", {}).get("id") for c in competitors if c.get("homeAway") == "home"] else home_team,
                         "home_away": "vs" if any(c.get("homeAway") == "home" and c.get("team", {}).get("id") == team_id for c in competitors) else "@",
                         "time": start_time,
@@ -297,29 +317,36 @@ def get_leagues():
     return list(LEAGUES.keys())
 
 def get_available_seasons(league_key):
-    """Get available seasons for a league"""
+    """Get available seasons for a league
+    
+    Based on ESPN API historical data availability:
+    - MLB: Comprehensive data from 2001 onward
+    - NFL: Comprehensive data from 2001 onward  
+    - NBA: Comprehensive data from 2000 onward
+    - NCAAF: Comprehensive data from 2005 onward
+    """
     from datetime import datetime
     current_year = datetime.now().year
     
     if league_key == "NFL":
         # NFL seasons typically go from year to year+1 (2024 season = 2024-2025)
-        # Return last 5 seasons
-        return [(year, f"{year} Season") for year in range(current_year, current_year - 5, -1)]
+        # ESPN has comprehensive data from 2001 onward
+        return [(year, f"{year} Season") for year in range(current_year, 2000, -1)]
     elif league_key == "NBA":
         # NBA seasons are year+1 format (2025-26 season = 2026)
-        # Return last 5 seasons
-        return [(year, f"{year-1}-{str(year)[2:]} Season") for year in range(current_year + 1, current_year - 4, -1)]
+        # ESPN has comprehensive data from 2000-01 season onward
+        return [(year, f"{year-1}-{str(year)[2:]} Season") for year in range(current_year + 1, 2000, -1)]
     elif league_key == "NCAAF":
         # NCAAF seasons are by year
-        # Return last 5 seasons
-        return [(year, f"{year} Season") for year in range(current_year, current_year - 5, -1)]
+        # ESPN has comprehensive data from 2005 onward
+        return [(year, f"{year} Season") for year in range(current_year, 2004, -1)]
     elif league_key == "MLB":
         # MLB seasons are by year  
-        # Return last 5 seasons
-        return [(year, f"{year} Season") for year in range(current_year, current_year - 5, -1)]
+        # ESPN has comprehensive data from 2001 onward
+        return [(year, f"{year} Season") for year in range(current_year, 2000, -1)]
     else:
-        # For other leagues, return current year only
-        return [(current_year, f"{current_year} Season")]
+        # For other leagues, return last 10 years as a reasonable default
+        return [(year, f"{year} Season") for year in range(current_year, current_year - 10, -1)]
 
 def get_scores(league_key, date=None):
     league_path = LEAGUES.get(league_key)
