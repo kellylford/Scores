@@ -334,7 +334,17 @@ class HomeView(BaseView):
         
         self.league_list = QListWidget()
         self.league_list.setAccessibleName("League Selection List")
-        self.league_list.setAccessibleDescription("List of available sports leagues")
+        self.league_list.setAccessibleDescription("List of available sports leagues and live scores")
+        
+        # Add Live Scores as the first item
+        live_scores_item = QListWidgetItem("🔴 Live Scores - All Sports")
+        live_scores_item.setData(Qt.ItemDataRole.UserRole, "__live_scores__")
+        self.league_list.addItem(live_scores_item)
+        
+        # Add separator
+        separator_item = QListWidgetItem("─" * 30)
+        separator_item.setFlags(Qt.ItemFlag.NoItemFlags)  # Make it non-selectable
+        self.league_list.addItem(separator_item)
         
         # Load leagues with error handling
         leagues = ApiService.get_leagues()
@@ -353,7 +363,14 @@ class HomeView(BaseView):
     
     def _on_league_selected(self, item):
         league = item.text()
-        if self.parent_app:
+        user_data = item.data(Qt.ItemDataRole.UserRole)
+        
+        if user_data == "__live_scores__":
+            # Open Live Scores view
+            if self.parent_app:
+                self.parent_app.open_live_scores()
+        elif self.parent_app:
+            # Regular league selection
             self.parent_app.open_league(league)
     
     def _add_nav_buttons(self):
@@ -373,6 +390,17 @@ class HomeView(BaseView):
     def refresh(self):
         """Refresh the league list"""
         self.league_list.clear()
+        
+        # Add Live Scores as the first item
+        live_scores_item = QListWidgetItem("🔴 Live Scores - All Sports")
+        live_scores_item.setData(Qt.ItemDataRole.UserRole, "__live_scores__")
+        self.league_list.addItem(live_scores_item)
+        
+        # Add separator
+        separator_item = QListWidgetItem("─" * 30)
+        separator_item.setFlags(Qt.ItemFlag.NoItemFlags)  # Make it non-selectable
+        self.league_list.addItem(separator_item)
+        
         leagues = ApiService.get_leagues()
         if not leagues:
             self._show_api_error("Failed to load leagues")
@@ -382,6 +410,245 @@ class HomeView(BaseView):
             self.league_list.addItem(league)
         
         self.set_focus_and_select_first(self.league_list)
+
+class LiveScoresView(BaseView):
+    """View showing live games from all sports"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.monitored_games = set()  # Track games being monitored for notifications
+        self.game_data = {}  # Store complete game data for notifications
+        self.current_time = datetime.now()
+        self.setup_ui()
+        
+        # Setup auto-refresh timer for live updates
+        self.refresh_timer = QTimer()
+        self.refresh_timer.timeout.connect(self.refresh_live_scores)
+        self.refresh_timer.start(30000)  # Refresh every 30 seconds
+    
+    def setup_ui(self):
+        # Header with current time
+        self.time_label = QLabel()
+        self.layout.addWidget(self.time_label)
+        
+        self.layout.addWidget(QLabel("Live Scores - All Sports:"))
+        
+        # Instructions for monitoring
+        info_label = QLabel("Press 'M' on any game to toggle monitoring for notifications")
+        info_label.setStyleSheet("color: #666; font-style: italic;")
+        self.layout.addWidget(info_label)
+        
+        self.live_scores_list = QListWidget()
+        self.live_scores_list.setAccessibleName("Live Scores List")
+        self.live_scores_list.setAccessibleDescription("List of currently live games from all sports. Press M to monitor a game for notifications.")
+        self.live_scores_list.itemActivated.connect(self._on_game_selected)
+        self.layout.addWidget(self.live_scores_list)
+        
+        self._add_nav_buttons()
+        self.load_live_scores()
+    
+    def keyPressEvent(self, event):
+        """Handle key press events"""
+        if event.key() == Qt.Key.Key_M:
+            self._toggle_monitoring()
+        elif event.key() == Qt.Key.Key_F5:
+            self.refresh_live_scores()
+        else:
+            super().keyPressEvent(event)
+    
+    def _toggle_monitoring(self):
+        """Toggle monitoring for the currently selected game"""
+        current_item = self.live_scores_list.currentItem()
+        if not current_item:
+            return
+            
+        game_id = current_item.data(Qt.ItemDataRole.UserRole)
+        if not game_id or not isinstance(game_id, str):
+            return
+        
+        if game_id in self.monitored_games:
+            self.monitored_games.remove(game_id)
+            # Update display to remove monitoring indicator
+            text = current_item.text()
+            if text.startswith("🔔 "):
+                current_item.setText(text[2:])
+            self._announce_monitoring(False, self.game_data.get(game_id, {}))
+        else:
+            self.monitored_games.add(game_id)
+            # Update display to show monitoring indicator
+            text = current_item.text()
+            if not text.startswith("🔔 "):
+                current_item.setText("🔔 " + text)
+            self._announce_monitoring(True, self.game_data.get(game_id, {}))
+    
+    def _announce_monitoring(self, monitoring: bool, game_data: dict):
+        """Announce monitoring status change for accessibility"""
+        game_name = game_data.get("name", "Selected game")
+        status = "now monitoring" if monitoring else "no longer monitoring"
+        message = f"{status} {game_name} for score updates"
+        
+        # For now, we'll use a simple status update - UIA notifications can be added later
+        self.time_label.setText(f"Live Scores - {message}")
+        QTimer.singleShot(3000, self._update_time_label)  # Reset after 3 seconds
+    
+    def _update_time_label(self):
+        """Update the time label with current time"""
+        self.current_time = datetime.now()
+        time_str = self.current_time.strftime("%I:%M %p")
+        self.time_label.setText(f"Live Scores - Last updated: {time_str}")
+    
+    def _on_game_selected(self, item):
+        """Handle game selection - open game details"""
+        game_data = item.data(Qt.ItemDataRole.UserRole)
+        if game_data and isinstance(game_data, dict):
+            game_id = game_data.get("id")
+            league = game_data.get("league")
+            if game_id and league and self.parent_app:
+                # Set the current league for proper navigation
+                self.parent_app.current_league = league
+                self.parent_app.open_game_details(game_id)
+    
+    def load_live_scores(self):
+        """Load live scores from all sports"""
+        self.live_scores_list.clear()
+        self.game_data.clear()
+        self._update_time_label()
+        
+        try:
+            live_games = ApiService.get_live_scores_all_sports()
+            
+            if not live_games:
+                self.live_scores_list.addItem("No live games currently in progress.")
+                return
+            
+            # Group games by league for better organization
+            games_by_league = {}
+            for game in live_games:
+                league = game.get("league", "Unknown")
+                if league not in games_by_league:
+                    games_by_league[league] = []
+                games_by_league[league].append(game)
+            
+            # Add games to list, organized by league
+            for league in sorted(games_by_league.keys()):
+                if len(games_by_league) > 1:  # Only show league headers if multiple leagues
+                    # Add league header
+                    league_item = QListWidgetItem(f"--- {league} ---")
+                    league_item.setBackground(QColor(240, 240, 240))
+                    self.live_scores_list.addItem(league_item)
+                
+                for game in games_by_league[league]:
+                    game_id = game.get("id", "")
+                    game_name = game.get("name", "Unknown Game")
+                    status = game.get("status", "")
+                    teams = game.get("teams", [])
+                    recent_play = game.get("recent_play", "")
+                    
+                    # Build display text
+                    display_text = f"{game_name}"
+                    if teams and len(teams) >= 2:
+                        team1, team2 = teams[0], teams[1]
+                        score1 = team1.get("score", "")
+                        score2 = team2.get("score", "")
+                        if score1 and score2:
+                            display_text += f" - {score1}-{score2}"
+                    
+                    if status:
+                        display_text += f" ({status})"
+                    
+                    if recent_play:
+                        display_text += f" | {recent_play[:50]}"  # Truncate long plays
+                    
+                    # Add monitoring indicator if this game is monitored
+                    if game_id in self.monitored_games:
+                        display_text = "🔔 " + display_text
+                    
+                    item = QListWidgetItem(display_text)
+                    item.setData(Qt.ItemDataRole.UserRole, game)  # Store full game data
+                    self.live_scores_list.addItem(item)
+                    
+                    # Store game data for monitoring
+                    if game_id:
+                        self.game_data[game_id] = game
+                        
+        except Exception as e:
+            self._show_api_error(f"Failed to load live scores: {str(e)}")
+    
+    def refresh_live_scores(self):
+        """Refresh live scores and check for changes in monitored games"""
+        old_scores = {}
+        
+        # Capture current scores for monitored games
+        for game_id in self.monitored_games:
+            if game_id in self.game_data:
+                game = self.game_data[game_id]
+                teams = game.get("teams", [])
+                if len(teams) >= 2:
+                    old_scores[game_id] = (
+                        teams[0].get("score", ""),
+                        teams[1].get("score", "")
+                    )
+        
+        # Reload the scores
+        self.load_live_scores()
+        
+        # Check for score changes in monitored games
+        for game_id in self.monitored_games:
+            if game_id in self.game_data and game_id in old_scores:
+                game = self.game_data[game_id]
+                teams = game.get("teams", [])
+                if len(teams) >= 2:
+                    new_scores = (
+                        teams[0].get("score", ""),
+                        teams[1].get("score", "")
+                    )
+                    old_score = old_scores[game_id]
+                    
+                    if new_scores != old_score:
+                        self._notify_score_change(game, old_score, new_scores)
+    
+    def _notify_score_change(self, game, old_scores, new_scores):
+        """Notify about score changes in monitored games"""
+        game_name = game.get("name", "Game")
+        teams = game.get("teams", [])
+        
+        if len(teams) >= 2:
+            team1_name = teams[0].get("name", "Team 1") 
+            team2_name = teams[1].get("name", "Team 2")
+            score_text = f"{team1_name} {new_scores[0]} - {team2_name} {new_scores[1]}"
+            
+            # For now, update the time label with the notification
+            # Later this can be enhanced with Windows UIA notifications
+            self.time_label.setText(f"SCORE UPDATE: {game_name} - {score_text}")
+            QTimer.singleShot(5000, self._update_time_label)  # Reset after 5 seconds
+    
+    def _add_nav_buttons(self):
+        """Add navigation buttons"""
+        btn_layout = QHBoxLayout()
+        
+        refresh_btn = QPushButton("Refresh (F5)")
+        refresh_btn.clicked.connect(self.refresh_live_scores)
+        btn_layout.addWidget(refresh_btn)
+        
+        back_btn = QPushButton("Back to Home")
+        back_btn.clicked.connect(lambda: self.parent_app.show_home() if self.parent_app else None)
+        btn_layout.addWidget(back_btn)
+        
+        self.layout.addLayout(btn_layout)
+    
+    def on_show(self):
+        """Called when view is shown"""
+        self.set_focus_and_select_first(self.live_scores_list)
+    
+    def _show_api_error(self, message: str):
+        """Show API error message to user"""
+        error_label = QLabel(f"Error: {message}")
+        error_label.setStyleSheet("color: red; font-weight: bold;")
+        self.layout.addWidget(error_label)
+    
+    def refresh(self):
+        """Refresh the live scores"""
+        self.refresh_live_scores()
 
 class LeagueView(BaseView):
     """View showing scores for a specific league"""
@@ -4967,6 +5234,15 @@ class SportsScoresApp(QWidget):
             self._switch_to_view(league_view, "league", league)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open league: {e}")
+
+    def open_live_scores(self):
+        """Open live scores view"""
+        try:
+            self._push_to_stack("home", None)
+            live_scores_view = LiveScoresView(self)
+            self._switch_to_view(live_scores_view, "live_scores", None)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to open live scores: {e}")
 
     def open_game_details(self, game_id: str):
         """Open game details view"""

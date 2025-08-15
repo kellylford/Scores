@@ -313,6 +313,82 @@ def parse_schedule_from_api(url, team_id, today, season=None):
         print(f"Error fetching schedule from {url}: {e}")
     
     return schedule
+def get_live_scores_all_sports():
+    """Get all live games from all supported sports"""
+    live_games = []
+    
+    for league_key in LEAGUES.keys():
+        try:
+            # Get today's scores for each league
+            league_scores = get_scores(league_key)
+            
+            # Filter for only live/in-progress games
+            for game in league_scores:
+                status = game.get("status", "").lower()
+                start_time = game.get("start_time", "").lower()
+                
+                # Check for various live status indicators
+                # Include games that are actively in progress or recently finished
+                is_live = any(live_indicator in status for live_indicator in [
+                    "in progress", "live", "1st", "2nd", "3rd", "4th", "top", "bottom", 
+                    "end", "overtime", "halftime", "half", "quarter", "inning"
+                ])
+                
+                # Also check start_time for live indicators
+                is_live_time = any(live_indicator in start_time for live_indicator in [
+                    "1st", "2nd", "3rd", "4th", "top", "bottom", "end", "overtime", 
+                    "halftime", "half", "quarter", "inning", "final"
+                ])
+                
+                if is_live or is_live_time:
+                    # Add league information to the game
+                    game["league"] = league_key
+                    
+                    # Try to get recent play information if available
+                    try:
+                        game_details = get_game_details(league_key, game.get("id", ""))
+                        recent_play = extract_recent_play(game_details)
+                        if recent_play:
+                            game["recent_play"] = recent_play
+                    except:
+                        # If we can't get play details, continue without them
+                        pass
+                    
+                    live_games.append(game)
+        except Exception as e:
+            # Continue with other leagues if one fails
+            print(f"Error fetching live scores for {league_key}: {e}")
+            continue
+    
+    return live_games
+
+def extract_recent_play(game_details):
+    """Extract the most recent play from game details"""
+    if not game_details:
+        return None
+    
+    # Look for plays in various data structures
+    plays_data = game_details.get("plays")
+    if plays_data and isinstance(plays_data, list) and len(plays_data) > 0:
+        # Get the most recent play
+        recent_play = plays_data[-1]
+        if isinstance(recent_play, dict):
+            # Extract meaningful play information
+            text = recent_play.get("text", "")
+            description = recent_play.get("description", "")
+            return text or description
+    
+    # Alternative: look for current situation or last play in header
+    header = game_details.get("header", {})
+    if header:
+        situation = header.get("situation", {})
+        if situation:
+            last_play = situation.get("lastPlay", {})
+            if last_play:
+                return last_play.get("text", "")
+    
+    return None
+
 def get_leagues():
     return list(LEAGUES.keys())
 
