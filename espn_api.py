@@ -341,7 +341,7 @@ def get_scores(league_key, date=None):
             score = competitor.get("score", "")
             home_away = competitor.get("homeAway", "")
             team_info = {
-                "name": team.get("displayName", "Unknown"),
+                "name": team.get("name", team.get("abbreviation", "Unknown")),
                 "abbreviation": team.get("abbreviation", ""),
                 "score": score,
                 "home_away": home_away
@@ -419,7 +419,7 @@ def extract_meaningful_game_info(details):
             }
             teams.append(team_info)
             if score:
-                scores.append(f"{team.get('abbreviation', team.get('displayName', 'Unknown'))}: {score}")
+                scores.append(f"{team.get('name', team.get('abbreviation', 'Unknown'))}: {score}")
         info['teams'] = teams
         info['scores'] = scores
         
