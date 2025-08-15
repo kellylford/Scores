@@ -4344,6 +4344,32 @@ class TeamScheduleDialog(QDialog):
         header_layout.addStretch()
         layout.addLayout(header_layout)
         
+        # Season selector
+        season_layout = QHBoxLayout()
+        season_label = QLabel("Season:")
+        season_layout.addWidget(season_label)
+        
+        self.season_combo = QComboBox()
+        self.season_combo.setAccessibleName("Season Selection")
+        self.season_combo.setAccessibleDescription("Select a season to view the team's schedule")
+        
+        # Populate seasons
+        try:
+            available_seasons = ApiService.get_available_seasons(self.league)
+            for season_value, season_display in available_seasons:
+                self.season_combo.addItem(season_display, season_value)
+        except Exception as e:
+            # Fallback if API call fails
+            from datetime import datetime
+            current_year = datetime.now().year
+            for year in range(current_year, current_year - 3, -1):
+                self.season_combo.addItem(f"{year} Season", year)
+        
+        self.season_combo.currentIndexChanged.connect(self.on_season_changed)
+        season_layout.addWidget(self.season_combo)
+        season_layout.addStretch()
+        layout.addLayout(season_layout)
+        
         # Schedule list
         self.schedule_list = QListWidget()
         self.schedule_list.setAccessibleName(f"{self.team_name} Schedule")
@@ -4366,6 +4392,10 @@ class TeamScheduleDialog(QDialog):
         layout.addLayout(button_layout)
         self.setLayout(layout)
     
+    def on_season_changed(self):
+        """Handle season selection change"""
+        self.load_schedule()
+    
     def load_schedule(self):
         """Load team schedule data"""
         self.schedule_list.clear()
@@ -4374,8 +4404,13 @@ class TeamScheduleDialog(QDialog):
         self.loading_item = QListWidgetItem("Loading schedule...")
         self.schedule_list.addItem(self.loading_item)
         
+        # Get selected season
+        selected_season = None
+        if hasattr(self, 'season_combo') and self.season_combo.currentData():
+            selected_season = self.season_combo.currentData()
+        
         # Start background loading
-        self.schedule_loader = TeamScheduleLoader(self.team_id, self.team_name, self.league)
+        self.schedule_loader = TeamScheduleLoader(self.team_id, self.team_name, self.league, selected_season)
         self.schedule_loader.data_loaded.connect(self.on_schedule_loaded)
         self.schedule_loader.error_occurred.connect(self.on_schedule_error)
         self.schedule_loader.loading_progress.connect(self.on_loading_progress)
@@ -4489,18 +4524,19 @@ class TeamScheduleLoader(QThread):
     error_occurred = pyqtSignal(str)
     loading_progress = pyqtSignal(str)  # progress message
     
-    def __init__(self, team_id: str, team_name: str, league: str):
+    def __init__(self, team_id: str, team_name: str, league: str, season=None):
         super().__init__()
         self.team_id = team_id
         self.team_name = team_name
         self.league = league
+        self.season = season
     
     def run(self):
         try:
             self.loading_progress.emit("Loading schedule...")
             
             # Load team schedule using the optimized API
-            schedule_data = ApiService.get_team_schedule(self.league, self.team_id)
+            schedule_data = ApiService.get_team_schedule(self.league, self.team_id, season=self.season)
             
             self.loading_progress.emit(f"Loaded {len(schedule_data)} games")
             self.data_loaded.emit(schedule_data, self.team_name, self.league)

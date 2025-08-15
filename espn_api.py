@@ -14,7 +14,7 @@ LEAGUES = {
     # Add more as needed
 }
 
-def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30):
+def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season=None):
     """Get a team's complete schedule using the dedicated team schedule endpoint"""
     from datetime import datetime, timedelta
     
@@ -28,18 +28,23 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30):
         
         # Use appropriate season parameters for each sport
         if league_key == "NFL":
-            # NFL: Use 2025 regular season (seasontype=2) instead of preseason
-            url = f"{base_url}?season=2025&seasontype=2"
+            # NFL: Use specified season or default to 2025 regular season (seasontype=2)
+            season_year = season if season else 2025
+            url = f"{base_url}?season={season_year}&seasontype=2"
         elif league_key == "NBA":
-            # NBA: Use 2025-26 season (2026 = 2025-26 season)
-            url = f"{base_url}?season=2026"
+            # NBA: Use specified season or default to 2025-26 season (2026 = 2025-26 season)
+            season_year = season if season else 2026
+            url = f"{base_url}?season={season_year}"
         elif league_key == "NCAAF":
-            # NCAAF: Use current season with seasontype=2 for regular season
-            from datetime import datetime
-            current_year = datetime.now().year
-            url = f"{base_url}?season={current_year}&seasontype=2"
+            # NCAAF: Use specified season or current year with seasontype=2 for regular season
+            season_year = season if season else datetime.now().year
+            url = f"{base_url}?season={season_year}&seasontype=2"
         else:  # MLB
-            url = base_url
+            # MLB: Use specified season or no season parameter for current
+            if season:
+                url = f"{base_url}?season={season}"
+            else:
+                url = base_url
     else:
         # For other leagues, fall back to the date range approach
         today = datetime.now()
@@ -290,6 +295,31 @@ def parse_schedule_from_api(url, team_id, today):
     return schedule
 def get_leagues():
     return list(LEAGUES.keys())
+
+def get_available_seasons(league_key):
+    """Get available seasons for a league"""
+    from datetime import datetime
+    current_year = datetime.now().year
+    
+    if league_key == "NFL":
+        # NFL seasons typically go from year to year+1 (2024 season = 2024-2025)
+        # Return last 5 seasons
+        return [(year, f"{year} Season") for year in range(current_year, current_year - 5, -1)]
+    elif league_key == "NBA":
+        # NBA seasons are year+1 format (2025-26 season = 2026)
+        # Return last 5 seasons
+        return [(year, f"{year-1}-{str(year)[2:]} Season") for year in range(current_year + 1, current_year - 4, -1)]
+    elif league_key == "NCAAF":
+        # NCAAF seasons are by year
+        # Return last 5 seasons
+        return [(year, f"{year} Season") for year in range(current_year, current_year - 5, -1)]
+    elif league_key == "MLB":
+        # MLB seasons are by year  
+        # Return last 5 seasons
+        return [(year, f"{year} Season") for year in range(current_year, current_year - 5, -1)]
+    else:
+        # For other leagues, return current year only
+        return [(current_year, f"{current_year} Season")]
 
 def get_scores(league_key, date=None):
     league_path = LEAGUES.get(league_key)
