@@ -436,12 +436,21 @@ class LiveScoresView(BaseView):
         # Initialize Windows UIA notification helper
         self.notification_helper = WindowsNotificationHelper()
         
+        # Refresh frequency options (in milliseconds)
+        self.refresh_intervals = {
+            "30 seconds": 30000,
+            "1 minute": 60000,
+            "2 minutes": 120000,
+            "Manual (F5 only)": 0
+        }
+        self.current_refresh_interval = 30000  # Default to 30 seconds
+        
         self.setup_ui()
         
         # Setup auto-refresh timer for live updates
         self.refresh_timer = QTimer()
         self.refresh_timer.timeout.connect(self.refresh_live_scores)
-        self.refresh_timer.start(30000)  # Refresh every 30 seconds
+        self._update_refresh_timer()
     
     def setup_ui(self):
         # Header with current time
@@ -450,8 +459,23 @@ class LiveScoresView(BaseView):
         
         self.layout.addWidget(QLabel("Live Scores - All Sports:"))
         
+        # Refresh frequency control
+        refresh_layout = QHBoxLayout()
+        refresh_layout.addWidget(QLabel("Update frequency:"))
+        
+        self.refresh_combo = QComboBox()
+        self.refresh_combo.addItems(list(self.refresh_intervals.keys()))
+        self.refresh_combo.setCurrentText("30 seconds")  # Default selection
+        self.refresh_combo.currentTextChanged.connect(self._on_refresh_frequency_changed)
+        self.refresh_combo.setAccessibleName("Refresh Frequency")
+        self.refresh_combo.setAccessibleDescription("Select how often live scores should update automatically")
+        refresh_layout.addWidget(self.refresh_combo)
+        
+        refresh_layout.addStretch()  # Push combo to the left
+        self.layout.addLayout(refresh_layout)
+        
         # Instructions for monitoring
-        info_label = QLabel("Press 'Alt+M' on any game to toggle monitoring for notifications")
+        info_label = QLabel("Press 'Alt+M' on any game to toggle monitoring for notifications • Press 'F5' to refresh manually")
         info_label.setStyleSheet("color: #666; font-style: italic;")
         self.layout.addWidget(info_label)
         
@@ -469,6 +493,9 @@ class LiveScoresView(BaseView):
         if event.modifiers() == Qt.KeyboardModifier.AltModifier and event.key() == Qt.Key.Key_M:
             self._toggle_monitoring()
         elif event.key() == Qt.Key.Key_F5:
+            # Provide feedback for manual refresh
+            if hasattr(self, 'refresh_combo') and self.refresh_combo.currentText() == "Manual (F5 only)":
+                self.notification_helper.announce("Refreshing live scores manually")
             self.refresh_live_scores()
         else:
             super().keyPressEvent(event)
@@ -519,7 +546,30 @@ class LiveScoresView(BaseView):
         """Update the time label with current time"""
         self.current_time = datetime.now()
         time_str = self.current_time.strftime("%I:%M %p")
-        self.time_label.setText(f"Live Scores - Last updated: {time_str}")
+        refresh_mode = self.refresh_combo.currentText() if hasattr(self, 'refresh_combo') else "30 seconds"
+        self.time_label.setText(f"Live Scores - Last updated: {time_str} (Refresh: {refresh_mode})")
+    
+    def _on_refresh_frequency_changed(self, frequency_text):
+        """Handle refresh frequency change"""
+        self.current_refresh_interval = self.refresh_intervals[frequency_text]
+        self._update_refresh_timer()
+        
+        # Announce the change for accessibility
+        if frequency_text == "Manual (F5 only)":
+            message = "Automatic refresh disabled. Press F5 to refresh manually."
+        else:
+            message = f"Refresh frequency set to {frequency_text}"
+        
+        self.notification_helper.announce(message)
+        self._update_time_label()  # Update the display immediately
+    
+    def _update_refresh_timer(self):
+        """Update the refresh timer based on current interval"""
+        self.refresh_timer.stop()
+        
+        if self.current_refresh_interval > 0:
+            self.refresh_timer.start(self.current_refresh_interval)
+        # If interval is 0 (manual mode), timer stays stopped
     
     def _on_game_selected(self, item):
         """Handle game selection - open game details"""
@@ -555,11 +605,10 @@ class LiveScoresView(BaseView):
             
             # Add games to list, organized by league
             for league in sorted(games_by_league.keys()):
-                if len(games_by_league) > 1:  # Only show league headers if multiple leagues
-                    # Add league header
-                    league_item = QListWidgetItem(f"--- {league} ---")
-                    league_item.setBackground(QColor(240, 240, 240))
-                    self.live_scores_list.addItem(league_item)
+                # Always show league headers for consistency
+                league_item = QListWidgetItem(f"--- {league} ---")
+                league_item.setBackground(QColor(240, 240, 240))
+                self.live_scores_list.addItem(league_item)
                 
                 for game in games_by_league[league]:
                     game_id = game.get("id", "")
@@ -578,16 +627,23 @@ class LiveScoresView(BaseView):
                         if score1 and score2:
                             display_text += f" - {score1}-{score2}"
                     
-                    if status:
+                    if status and game_league not in ["NFL", "NCAAF"]:
                         display_text += f" ({status})"
                     
-                    # Enhanced baseball information display
+                    # Enhanced display for different sports
                     if recent_play:
-                        if game_league == "MLB":
+                        if game_league in ["NFL", "NCAAF"]:
+                            # Enhanced football display with two-line format
+                            display_text = self._format_enhanced_football(game_name, teams, status, recent_play, game_id)
+                        elif game_league == "MLB":
                             # For baseball, try to extract more detailed info
                             display_text += f" | {recent_play[:100]}"  # Longer for baseball details
                         else:
                             display_text += f" | {recent_play[:50]}"  # Truncate long plays for other sports
+                    else:
+                        # Standard format for games without enhanced play info
+                        if status:
+                            display_text += f" ({status})"
                     
                     # Add monitoring indicator if this game is monitored
                     if game_id in self.monitored_games:
@@ -678,6 +734,42 @@ class LiveScoresView(BaseView):
         error_label.setStyleSheet("color: red; font-weight: bold;")
         self.layout.addWidget(error_label)
     
+    def _format_enhanced_football(self, game_name, teams, status, recent_play, game_id):
+        """Format enhanced football display with two-line format"""
+        try:
+            # The recent_play already contains the hybrid format with newline separation
+            # Line 1: Team names with (RZ) indicator
+            # Line 2: Clock | Down & Distance | Drive Stats
+            lines = recent_play.split('\n')
+            
+            if len(lines) >= 2:
+                # Two-line format: use both lines
+                team_line = lines[0]
+                stats_line = lines[1]
+                
+                # Add status if available and not already in stats
+                if status and status not in stats_line:
+                    stats_line += f" ({status})"
+                
+                display_text = f"{team_line}\n{stats_line}"
+            else:
+                # Fallback to single line if format doesn't have newline
+                score_text = f"{teams[0].get('name', '')} {teams[0].get('score', '')} - {teams[1].get('name', '')} {teams[1].get('score', '')}"
+                if status:
+                    display_text = f"{score_text} ({status}) | {recent_play}"
+                else:
+                    display_text = f"{score_text} | {recent_play}"
+            
+            return display_text
+            
+        except Exception as e:
+            # Fallback to basic format if something goes wrong
+            score_text = f"{teams[0].get('name', '')} {teams[0].get('score', '')} - {teams[1].get('name', '')} {teams[1].get('score', '')}"
+            if status:
+                return f"{score_text} ({status}) | {recent_play[:50]}"
+            else:
+                return f"{score_text} | {recent_play[:50]}"
+
     def refresh(self):
         """Refresh the live scores"""
         self.refresh_live_scores()

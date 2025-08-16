@@ -380,7 +380,7 @@ def get_live_scores_all_sports():
                     try:
                         # This is the key: only call detailed API for confirmed live games
                         game_details = get_game_details(league_key, game_id)
-                        detailed_play = extract_recent_play(game_details)
+                        detailed_play = extract_recent_play(game_details, league_key)
                         if detailed_play and len(detailed_play.strip()) > len(status_text.strip()):
                             # Use detailed play if it's more informative than basic status
                             recent_play = detailed_play
@@ -407,10 +407,112 @@ def get_live_scores_all_sports():
     
     return live_games
 
-def extract_recent_play(game_details):
+def extract_football_enhanced_display(game_details):
+    """Extract enhanced football display with hybrid format (down/distance + drive stats + redzone)"""
+    try:
+        # Get basic game info for team names
+        competitors = game_details.get('header', {}).get('competitions', [{}])[0].get('competitors', [])
+        if len(competitors) < 2:
+            return None
+            
+        # Extract team information
+        home_team = competitors[0] if competitors[0].get('homeAway') == 'home' else competitors[1]
+        away_team = competitors[1] if competitors[1].get('homeAway') == 'away' else competitors[0]
+        
+        home_name = home_team.get('team', {}).get('abbreviation', 'HOME')
+        away_name = away_team.get('team', {}).get('abbreviation', 'AWAY')
+        
+        # Get drive information
+        drives = game_details.get('drives', {})
+        if not isinstance(drives, dict) or 'current' not in drives:
+            return None
+            
+        current_drive = drives['current']
+        drive_description = current_drive.get('description', '')
+        
+        # Get possessing team info
+        possessing_team = current_drive.get('team', {})
+        possessing_abbrev = possessing_team.get('abbreviation', '')
+        
+        # Get plays for down/distance and field position
+        plays = current_drive.get('plays', [])
+        if not plays:
+            return None
+            
+        # Get the latest play for current situation
+        latest_play = plays[-1]
+        
+        # Get down and distance from play start (current situation)
+        start_info = latest_play.get('start', {})
+        down = start_info.get('down')
+        distance = start_info.get('distance')
+        yard_line = start_info.get('yardLine')
+        possessing_id = start_info.get('team', {}).get('id')
+        down_distance_text = start_info.get('shortDownDistanceText', '')
+        
+        # Check for redzone (within 20 yards of goal line)
+        is_redzone = False
+        if yard_line and possessing_id:
+            # yard_line represents yards from goal line for possessing team
+            try:
+                yard_num = int(yard_line)
+                is_redzone = yard_num <= 20
+            except (ValueError, TypeError):
+                pass
+        
+        # Build Line 1: Team names with redzone indicator
+        team_display = f"{away_name} @ {home_name}"
+        if is_redzone and possessing_abbrev:
+            # Add (RZ) after possessing team name
+            if possessing_abbrev == home_name:
+                team_display = f"{away_name} @ {home_name} (RZ)"
+            elif possessing_abbrev == away_name:
+                team_display = f"{away_name} (RZ) @ {home_name}"
+        
+        # Build Line 2: Clock | Down & Distance | Drive Stats
+        line2_parts = []
+        
+        # Get game clock/status
+        status = game_details.get('header', {}).get('competitions', [{}])[0].get('status', {})
+        clock = status.get('displayClock', '')
+        period = status.get('period')
+        if clock and period:
+            period_name = f"Q{period}" if period <= 4 else "OT"
+            line2_parts.append(f"{clock} {period_name}")
+        
+        # Down and distance
+        if down_distance_text:
+            line2_parts.append(down_distance_text)
+        elif down and distance:
+            down_suffix = "st" if down == 1 else "nd" if down == 2 else "rd" if down == 3 else "th"
+            line2_parts.append(f"{down}{down_suffix} & {distance}")
+        
+        # Drive summary (simplified)
+        if drive_description and possessing_abbrev:
+            # Shorten drive description for space
+            short_desc = drive_description.split(',')[0]  # Take first part before comma
+            line2_parts.append(f"{possessing_abbrev}: {short_desc}")
+        
+        # Combine both lines
+        if line2_parts:
+            line2 = " | ".join(line2_parts)
+            return f"{team_display}\n{line2}"
+        else:
+            return team_display
+            
+    except Exception as e:
+        print(f"Error extracting football details: {e}")
+        
+    return None
+
+def extract_recent_play(game_details, league=None):
     """Extract the most recent play from game details with enhanced player information"""
     if not game_details:
         return None
+    
+    # Enhanced football display for NFL and NCAAF
+    if league in ['NFL', 'NCAAF']:
+        return extract_football_enhanced_display(game_details)
     
     # Build player ID to name mapping from rosters (if available)
     player_names = {}
