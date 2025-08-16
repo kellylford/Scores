@@ -19,6 +19,7 @@ def parse_command_line():
         epilog="""
 Examples:
   scores                    Launch home screen
+  scores --live             Launch directly to Live Scores view (shorthand)
   scores --live-scores      Launch directly to Live Scores view (all sports)
   scores --mlb             Launch directly to MLB games
   scores --nfl             Launch directly to NFL games  
@@ -31,6 +32,7 @@ Examples:
     
     # Live Scores view (all sports)
     sports_group.add_argument('--live-scores', action='store_true', help='Launch directly to Live Scores view (all sports)')
+    sports_group.add_argument('--live', action='store_true', help='Launch directly to Live Scores view (shorthand for --live-scores)')
     
     # Sports game views
     sports_group.add_argument('--mlb', action='store_true', help='Launch to MLB games view')
@@ -57,8 +59,8 @@ Examples:
 
 def determine_startup_params(args):
     """Determine startup parameters based on command line arguments"""
-    # Check for live scores view
-    if getattr(args, 'live_scores', False):
+    # Check for live scores view (both --live-scores and --live)
+    if getattr(args, 'live_scores', False) or getattr(args, 'live', False):
         return {'action': 'live_scores'}
     
     # Check for league game views
@@ -92,6 +94,7 @@ if __name__ == "__main__":
         epilog="""
 Examples:
   scores                    Launch home screen
+  scores --live             Launch directly to Live Scores view (shorthand)
   scores --live-scores      Launch directly to Live Scores view (all sports)
   scores --mlb             Launch directly to MLB games
   scores --nfl             Launch directly to NFL games  
@@ -101,6 +104,7 @@ Examples:
     )
     sports_group = parser.add_mutually_exclusive_group()
     sports_group.add_argument('--live-scores', action='store_true', help='Launch directly to Live Scores view (all sports)')
+    sports_group.add_argument('--live', action='store_true', help='Launch directly to Live Scores view (shorthand for --live-scores)')
     sports_group.add_argument('--mlb', action='store_true', help='Launch to MLB games view')
     sports_group.add_argument('--nfl', action='store_true', help='Launch to NFL games view') 
     sports_group.add_argument('--nba', action='store_true', help='Launch to NBA games view')
