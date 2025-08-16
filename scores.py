@@ -443,7 +443,7 @@ class LiveScoresView(BaseView):
             "2 minutes": 120000,
             "Manual (F5 only)": 0
         }
-        self.current_refresh_interval = 30000  # Default to 30 seconds
+        self.current_refresh_interval = 60000  # Default to 1 minute
         
         self.setup_ui()
         
@@ -465,7 +465,7 @@ class LiveScoresView(BaseView):
         
         self.refresh_combo = QComboBox()
         self.refresh_combo.addItems(list(self.refresh_intervals.keys()))
-        self.refresh_combo.setCurrentText("30 seconds")  # Default selection
+        self.refresh_combo.setCurrentText("1 minute")  # Default selection
         self.refresh_combo.currentTextChanged.connect(self._on_refresh_frequency_changed)
         self.refresh_combo.setAccessibleName("Refresh Frequency")
         self.refresh_combo.setAccessibleDescription("Select how often live scores should update automatically")
@@ -474,8 +474,8 @@ class LiveScoresView(BaseView):
         refresh_layout.addStretch()  # Push combo to the left
         self.layout.addLayout(refresh_layout)
         
-        # Instructions for monitoring
-        info_label = QLabel("Press 'Alt+M' on any game to toggle monitoring for notifications • Press 'F5' to refresh manually")
+        # Instructions for manual refresh
+        info_label = QLabel("Press 'F5' to refresh manually")
         info_label.setStyleSheet("color: #666; font-style: italic;")
         self.layout.addWidget(info_label)
         
@@ -645,9 +645,9 @@ class LiveScoresView(BaseView):
                         if status:
                             display_text += f" ({status})"
                     
-                    # Add monitoring indicator if this game is monitored
-                    if game_id in self.monitored_games:
-                        display_text += " - monitoring"
+                    # Note: Monitoring functionality available via Alt+M but not displayed
+                    # if game_id in self.monitored_games:
+                    #     display_text += " - monitoring"
                     
                     item = QListWidgetItem(display_text)
                     item.setData(Qt.ItemDataRole.UserRole, game)  # Store full game data
