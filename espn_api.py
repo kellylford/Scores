@@ -313,6 +313,211 @@ def parse_schedule_from_api(url, team_id, today, season=None):
         print(f"Error fetching schedule from {url}: {e}")
     
     return schedule
+def get_live_scores_all_sports():
+    """Get all live games from all supported sports using hybrid approach for speed and detail"""
+    live_games = []
+    
+    for league_key in LEAGUES.keys():
+        try:
+            # Use the fast events endpoint to identify live games first
+            league_path = LEAGUES.get(league_key)
+            if not league_path:
+                continue
+                
+            # Fast events endpoint - get live games list quickly
+            url = f"{BASE_URL}/{league_path}/events"
+            resp = requests.get(url)
+            if resp.status_code != 200:
+                continue
+                
+            data = resp.json()
+            events = data.get("events", [])
+            
+            for event in events:
+                # Check if the event is currently live
+                status = event.get("fullStatus", {})
+                if not status:
+                    continue
+                    
+                type_info = status.get("type", {})
+                
+                # Check for live status
+                state = type_info.get("state", "").lower()
+                description = type_info.get("description", "").lower()
+                
+                is_live = state == "in" or "progress" in description
+                
+                if is_live:
+                    # Extract basic game information
+                    game_id = event.get("id", "")
+                    
+                    # Extract team information from competitors
+                    competitors = event.get("competitors", [])
+                    teams = []
+                    team_names = []
+                    
+                    for competitor in competitors:
+                        score = competitor.get("score", "0")
+                        team_name = competitor.get("displayName", competitor.get("abbreviation", "Unknown"))
+                        team_names.append(team_name)
+                        
+                        teams.append({
+                            "name": team_name,
+                            "score": str(score)
+                        })
+                    
+                    # Create game name from team names
+                    if len(team_names) >= 2:
+                        game_name = f"{team_names[0]} at {team_names[1]}"
+                    else:
+                        game_name = event.get("name", "Unknown Game")
+                    
+                    # Extract basic status information
+                    status_text = type_info.get("shortDetail", type_info.get("detail", "In Progress"))
+                    
+                    # Now get detailed play information for live games only
+                    recent_play = status_text  # Default fallback
+                    try:
+                        # This is the key: only call detailed API for confirmed live games
+                        game_details = get_game_details(league_key, game_id)
+                        detailed_play = extract_recent_play(game_details)
+                        if detailed_play and len(detailed_play.strip()) > len(status_text.strip()):
+                            # Use detailed play if it's more informative than basic status
+                            recent_play = detailed_play
+                    except Exception as e:
+                        # If detailed call fails, continue with basic status
+                        print(f"Failed to get details for {game_name}: {e}")
+                        pass
+                    
+                    game = {
+                        "id": game_id,
+                        "name": game_name,
+                        "league": league_key,
+                        "status": status_text,
+                        "teams": teams,
+                        "recent_play": recent_play
+                    }
+                    
+                    live_games.append(game)
+                    
+        except Exception as e:
+            # Continue with other leagues if one fails
+            print(f"Error fetching live scores for {league_key}: {e}")
+            continue
+    
+    return live_games
+
+def extract_recent_play(game_details):
+    """Extract the most recent play from game details with enhanced player information"""
+    if not game_details:
+        return None
+    
+    # Build player ID to name mapping from rosters (if available)
+    player_names = {}
+    rosters = game_details.get("rosters", [])
+    for team_roster in rosters:
+        roster = team_roster.get("roster", [])
+        if roster:  # Only process if roster actually has players
+            for player in roster:
+                athlete = player.get("athlete", {})
+                player_id = athlete.get("id")
+                player_name = athlete.get("displayName", "")
+                if player_id and player_name:
+                    # Convert to string for consistent lookup
+                    player_names[str(player_id)] = player_name
+    
+    # Check for situation data (for count and outs)
+    situation = game_details.get("situation", {})
+    balls = situation.get("balls", 0) if situation else 0
+    strikes = situation.get("strikes", 0) if situation else 0
+    outs = situation.get("outs", 0) if situation else 0
+    
+    # Look for pitcher and batter info in recent plays
+    plays_data = game_details.get("plays", [])
+    pitcher_name = None
+    batter_name = None
+    recent_play_text = None
+    
+    if plays_data and isinstance(plays_data, list):
+        # Look through recent plays for pitcher/batter info and meaningful text
+        for play in reversed(plays_data[-10:]):  # Check last 10 plays
+            play_text = play.get("text", "")
+            
+            # Store the most recent meaningful play text as fallback
+            if play_text and len(play_text.strip()) > 5 and not recent_play_text:
+                recent_play_text = play_text
+            
+            # Look for participant info
+            participants = play.get("participants", [])
+            if participants:
+                for participant in participants:
+                    athlete = participant.get("athlete", {})
+                    athlete_id = str(athlete.get("id", ""))
+                    participant_type = participant.get("type", "")
+                    
+                    # Try to get name from roster mapping first
+                    if athlete_id in player_names:
+                        player_name = player_names[athlete_id]
+                    else:
+                        # Fallback: sometimes athlete name is directly in the participant
+                        player_name = athlete.get("displayName", "")
+                    
+                    if participant_type == "pitcher" and player_name:
+                        pitcher_name = player_name
+                    elif participant_type == "batter" and player_name:
+                        batter_name = player_name
+                
+                # If we found both pitcher and batter, we can stop looking
+                if pitcher_name and batter_name:
+                    break
+            
+            # Also try to extract names from play text if we don't have participants
+            if not pitcher_name or not batter_name:
+                if " pitches to " in play_text:
+                    # Format: "Pitcher Name pitches to Batter Name"
+                    parts = play_text.split(" pitches to ")
+                    if len(parts) == 2:
+                        if not pitcher_name:
+                            pitcher_name = parts[0].strip()
+                        if not batter_name:
+                            batter_name = parts[1].strip()
+    
+    # Build enhanced display with available information
+    parts = []
+    
+    # Add pitcher and batter if found
+    if pitcher_name:
+        parts.append(f"P: {pitcher_name}")
+    if batter_name:
+        parts.append(f"AB: {batter_name}")
+    
+    # Add count and outs if we have valid data
+    if balls >= 0 and strikes >= 0:
+        parts.append(f"Count: {balls}-{strikes}")
+    if outs >= 0:
+        parts.append(f"{outs} out{'s' if outs != 1 else ''}")
+    
+    # If we have good enhanced info, return it
+    if len(parts) >= 3:  # pitcher/batter + count + outs, or similar combinations
+        return " | ".join(parts)
+    elif len(parts) >= 2 and (pitcher_name or batter_name):  # At least one player name + other info
+        return " | ".join(parts)
+    
+    # Fallback to the most recent meaningful play text
+    if recent_play_text:
+        return recent_play_text
+    
+    # Final fallback: look for header information
+    header = game_details.get("header", {})
+    if header:
+        situation = header.get("situation", {})
+        if situation:
+            last_play = situation.get("lastPlay", {})
+            if last_play:
+                return last_play.get("text", "")
+    
+    return None
+
 def get_leagues():
     return list(LEAGUES.keys())
 
