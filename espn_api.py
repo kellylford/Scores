@@ -439,8 +439,11 @@ def extract_football_enhanced_display(game_details):
         if not plays:
             return None
             
-        # Get the latest play for current situation
+        # Get the latest play for current situation and last play text
         latest_play = plays[-1]
+        
+        # Extract last play description
+        last_play_text = latest_play.get('text', '')
         
         # Get down and distance from play start (current situation)
         start_info = latest_play.get('start', {})
@@ -460,7 +463,7 @@ def extract_football_enhanced_display(game_details):
             except (ValueError, TypeError):
                 pass
         
-        # Build Line 1: Team names with redzone indicator
+        # Build Line 1: Team names with redzone indicator + last play
         team_display = f"{away_name} @ {home_name}"
         if is_redzone and possessing_abbrev:
             # Add (RZ) after possessing team name
@@ -468,6 +471,12 @@ def extract_football_enhanced_display(game_details):
                 team_display = f"{away_name} @ {home_name} (RZ)"
             elif possessing_abbrev == away_name:
                 team_display = f"{away_name} (RZ) @ {home_name}"
+        
+        # Add last play to line 1 if available
+        if last_play_text:
+            # Truncate long plays to keep display manageable
+            truncated_play = last_play_text[:60] + "..." if len(last_play_text) > 60 else last_play_text
+            team_display += f" | {truncated_play}"
         
         # Build Line 2: Clock | Down & Distance | Drive Stats
         line2_parts = []

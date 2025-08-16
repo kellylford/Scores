@@ -46,6 +46,7 @@ def test_football_enhancement():
                     'id': '12345'
                 },
                 'plays': [{
+                    'text': 'M.Willis pass incomplete deep left to M.Heath',
                     'start': {
                         'down': 2,
                         'distance': 8,
@@ -89,6 +90,8 @@ def test_football_enhancement():
             print("✓ Down and distance found")
         if 'Q2' in result or '8:42' in result:
             print("✓ Clock information found")
+        if 'M.Willis pass incomplete' in result:
+            print("✓ Last play information found")
             
     else:
         print("✗ Function returned None - something went wrong")
