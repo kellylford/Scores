@@ -5,7 +5,8 @@ import sys
 import os
 
 # Add the project root to the Python path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
 
 from espn_api import extract_football_enhanced_display
 
@@ -22,14 +23,16 @@ def test_football_enhancement():
                         'team': {
                             'abbreviation': 'KC',
                             'displayName': 'Kansas City Chiefs'
-                        }
+                        },
+                        'score': '14'
                     },
                     {
                         'homeAway': 'away', 
                         'team': {
                             'abbreviation': 'BUF',
                             'displayName': 'Buffalo Bills'
-                        }
+                        },
+                        'score': '7'
                     }
                 ],
                 'status': {
@@ -84,8 +87,10 @@ def test_football_enhancement():
             print("✗ Redzone indicator missing")
             
         # Check for expected components
-        if 'BUF' in result and 'KC' in result:
-            print("✓ Team abbreviations found")
+        if 'Buffalo Bills' in result and 'Kansas City Chiefs' in result:
+            print("✓ Team names found")
+        if '7' in result and '14' in result:
+            print("✓ Scores found")
         if '2nd & 8' in result:
             print("✓ Down and distance found")
         if 'Q2' in result or '8:42' in result:

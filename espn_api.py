@@ -415,12 +415,19 @@ def extract_football_enhanced_display(game_details):
         if len(competitors) < 2:
             return None
             
-        # Extract team information
+        # Extract team information with scores and names
         home_team = competitors[0] if competitors[0].get('homeAway') == 'home' else competitors[1]
         away_team = competitors[1] if competitors[1].get('homeAway') == 'away' else competitors[0]
         
-        home_name = home_team.get('team', {}).get('abbreviation', 'HOME')
-        away_name = away_team.get('team', {}).get('abbreviation', 'AWAY')
+        # Get team names (not abbreviations) and scores
+        home_name = home_team.get('team', {}).get('displayName', 'HOME')
+        away_name = away_team.get('team', {}).get('displayName', 'AWAY')
+        home_score = home_team.get('score', '0')
+        away_score = away_team.get('score', '0')
+        
+        # Get abbreviations for possessing team logic
+        home_abbrev = home_team.get('team', {}).get('abbreviation', 'HOME')
+        away_abbrev = away_team.get('team', {}).get('abbreviation', 'AWAY')
         
         # Get drive information
         drives = game_details.get('drives', {})
@@ -463,14 +470,15 @@ def extract_football_enhanced_display(game_details):
             except (ValueError, TypeError):
                 pass
         
-        # Build Line 1: Team names with redzone indicator + last play
-        team_display = f"{away_name} @ {home_name}"
+        # Build Line 1: Team names with scores and redzone indicator + last play
+        team_display = f"{away_name} {away_score} at {home_name} {home_score}"
+        
+        # Add redzone indicator after the possessing team
         if is_redzone and possessing_abbrev:
-            # Add (RZ) after possessing team name
-            if possessing_abbrev == home_name:
-                team_display = f"{away_name} @ {home_name} (RZ)"
-            elif possessing_abbrev == away_name:
-                team_display = f"{away_name} (RZ) @ {home_name}"
+            if possessing_abbrev == home_abbrev:
+                team_display = f"{away_name} {away_score} at {home_name} {home_score} (RZ)"
+            elif possessing_abbrev == away_abbrev:
+                team_display = f"{away_name} {away_score} (RZ) at {home_name} {home_score}"
         
         # Add last play to line 1 if available
         if last_play_text:
