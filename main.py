@@ -19,6 +19,7 @@ def parse_command_line():
         epilog="""
 Examples:
   scores                    Launch home screen
+  scores --live-scores      Launch directly to Live Scores view (all sports)
   scores --mlb             Launch directly to MLB games
   scores --nfl             Launch directly to NFL games  
   scores --mlb-teams       Launch directly to MLB teams view
@@ -27,6 +28,9 @@ Examples:
     
     # Create mutually exclusive group for sports
     sports_group = parser.add_mutually_exclusive_group()
+    
+    # Live Scores view (all sports)
+    sports_group.add_argument('--live-scores', action='store_true', help='Launch directly to Live Scores view (all sports)')
     
     # Sports game views
     sports_group.add_argument('--mlb', action='store_true', help='Launch to MLB games view')
@@ -53,6 +57,10 @@ Examples:
 
 def determine_startup_params(args):
     """Determine startup parameters based on command line arguments"""
+    # Check for live scores view
+    if getattr(args, 'live_scores', False):
+        return {'action': 'live_scores'}
+    
     # Check for league game views
     for sport in ['mlb', 'nfl', 'nba', 'nhl', 'ncaaf']:
         if getattr(args, sport, False):
@@ -84,6 +92,7 @@ if __name__ == "__main__":
         epilog="""
 Examples:
   scores                    Launch home screen
+  scores --live-scores      Launch directly to Live Scores view (all sports)
   scores --mlb             Launch directly to MLB games
   scores --nfl             Launch directly to NFL games  
   scores --mlb-teams       Launch directly to MLB teams view
@@ -91,6 +100,7 @@ Examples:
         """
     )
     sports_group = parser.add_mutually_exclusive_group()
+    sports_group.add_argument('--live-scores', action='store_true', help='Launch directly to Live Scores view (all sports)')
     sports_group.add_argument('--mlb', action='store_true', help='Launch to MLB games view')
     sports_group.add_argument('--nfl', action='store_true', help='Launch to NFL games view') 
     sports_group.add_argument('--nba', action='store_true', help='Launch to NBA games view')

@@ -5478,12 +5478,20 @@ class SportsScoresApp(QWidget):
         action = self.startup_params.get('action')
         league = self.startup_params.get('league')
         
-        if not action or not league:
+        if not action:
+            self.show_home()
+            return
+        
+        # For actions that don't require a league (like live_scores)
+        if action not in ['live_scores'] and not league:
             self.show_home()
             return
         
         try:
-            if action == 'league':
+            if action == 'live_scores':
+                # Navigate directly to Live Scores view
+                self.show_live_scores()
+            elif action == 'league':
                 # Navigate directly to league games view
                 self.open_league(league)
             elif action == 'teams':
