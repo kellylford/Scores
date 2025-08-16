@@ -2,13 +2,13 @@
 
 ## 🚀 Major Feature Release: Live Scores & Enhanced Football Experience
 
-This release introduces **Live Scores** - a game-changing feature that provides real-time sports updates with enhanced football visualization and scoring drive analysis.
+This release introduces **Live Scores** - a feature that provides real-time sports updates with enhanced football visualization and scoring drive analysis.
 
 ### 🔥 What's New
 
 #### Live Scores Feature
 - **Real-Time Updates**: Continuously refreshed live game scores across all supported leagues
-- **Auto-Refresh Options**: Choose your update frequency (10s, 15s, 30s, 60s, 2min, 5min)
+- **Auto-Refresh Options**: Choose your update frequency (30s, 60s, 2min, manual)
 - **Quick Access**: Launch directly with `--live` or `--live-scores` command line options
 - **Enhanced Monitoring**: Watch games progress in real-time with minimal resource usage
 
@@ -52,11 +52,11 @@ The standout feature of this release - **visual scoring drive identification**:
 #### Live Scores
 1. Launch with `Scores.exe --live` for instant access
 2. Choose your preferred refresh rate from the dropdown
-3. Watch games update automatically in real-time
-4. Click any game for detailed analysis as usual
+3. Experience games update automatically in real-time
+4. Choose any game for detailed analysis as usual
 
 #### Scoring Drive Enhancement
-- **Visual Recognition**: Scoring drives now have clear visual indicators
+- **Visual Recognition**: Scoring drives now have clear indicators
 - **Quick Identification**: Instantly spot touchdowns, field goals, and other key plays
 - **Accessible Design**: Screen reader compatible with detailed descriptions
 - **Color Coding**: Optional color enhancement for quick visual scanning
