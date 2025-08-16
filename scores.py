@@ -1385,7 +1385,7 @@ class GameDetailsView(BaseView):
         elif field == "plays" and isinstance(value, list):
             return len(value) > 0
         elif field == "drives" and isinstance(value, dict):
-            # NFL drives data - check for current drive or previous drives
+            # NFL/NCAAF drives data - check for current drive or previous drives
             current = value.get("current")
             previous = value.get("previous", [])
             return bool(current) or len(previous) > 0
@@ -1904,7 +1904,77 @@ class GameDetailsView(BaseView):
         QTimer.singleShot(100, lambda: plays_tree.setFocus())
     
     def _add_drives_list_to_layout(self, layout, drives_data):
-        """Add NFL drives data to layout (NFL-specific method)"""
+        """Add NFL/NCAAF drives data to layout (Football-specific method)"""
+        
+        def get_drive_result_info(drive):
+            """Get scoring drive information with accessibility-compliant colors"""
+            result = drive.get('result', '').upper()
+            
+            # WCAG AA compliant colors (4.5:1 contrast ratio minimum)
+            if result == 'TD':
+                return {
+                    'icon': '🏈', 
+                    'badge': 'TD 7pts', 
+                    'color': QColor(0, 100, 0, 80),      # Dark green background
+                    'accessible_text': 'Touchdown scoring drive'
+                }
+            elif result == 'FG':
+                return {
+                    'icon': '🥅', 
+                    'badge': 'FG 3pts', 
+                    'color': QColor(0, 0, 139, 60),      # Dark blue background
+                    'accessible_text': 'Field goal scoring drive'
+                }
+            elif result == 'MISSED FG':
+                return {
+                    'icon': '❌', 
+                    'badge': 'MISSED FG', 
+                    'color': QColor(139, 0, 0, 60),      # Dark red background
+                    'accessible_text': 'Missed field goal attempt'
+                }
+            elif result in ['FUMBLE', 'INT', 'INTERCEPTION', 'TURNOVER']:
+                return {
+                    'icon': '🔄', 
+                    'badge': 'TURNOVER', 
+                    'color': QColor(255, 140, 0, 60),    # Dark orange background
+                    'accessible_text': 'Turnover drive'
+                }
+            elif result == 'DOWNS':
+                return {
+                    'icon': '🛑', 
+                    'badge': '4TH DOWN', 
+                    'color': QColor(255, 140, 0, 60),    # Dark orange background
+                    'accessible_text': 'Turnover on downs'
+                }
+            elif result == 'PUNT':
+                return {
+                    'icon': '⚡', 
+                    'badge': 'PUNT', 
+                    'color': QColor(128, 128, 128, 40),  # Light gray background
+                    'accessible_text': 'Punt drive'
+                }
+            elif result in ['END OF HALF', 'END OF GAME']:
+                return {
+                    'icon': '⏰', 
+                    'badge': 'CLOCK', 
+                    'color': QColor(128, 128, 128, 40),  # Light gray background
+                    'accessible_text': 'Clock expiration drive'
+                }
+            elif result == 'SAFETY':
+                return {
+                    'icon': '🛡️', 
+                    'badge': 'SAFETY 2pts', 
+                    'color': QColor(128, 0, 128, 60),    # Purple background
+                    'accessible_text': 'Safety scoring drive'
+                }
+            else:
+                return {
+                    'icon': '📌', 
+                    'badge': result if result else 'DRIVE', 
+                    'color': QColor(255, 255, 255, 0),   # No background
+                    'accessible_text': 'Non-scoring drive'
+                }
+        
         if not drives_data:
             layout.addWidget(QLabel("No drives data available."))
             return
@@ -1950,8 +2020,9 @@ class GameDetailsView(BaseView):
         
         # Create tree widget for drives
         drives_tree = QTreeWidget()
-        drives_tree.setAccessibleName("NFL Drives Tree")
-        drives_tree.setAccessibleDescription("Hierarchical view of NFL drives organized by quarter. Use up/down arrows to navigate, left/right to expand/collapse.")
+        sport_name = "NFL/NCAAF" if self.league in ["NFL", "NCAAF"] else "Football"
+        drives_tree.setAccessibleName(f"{sport_name} Drives Tree")
+        drives_tree.setAccessibleDescription(f"Hierarchical view of {sport_name} drives organized by quarter. Use up/down arrows to navigate, left/right to expand/collapse.")
         drives_tree.setHeaderLabels(["Drive Summary"])
         
         # Group drives by quarter for better organization
@@ -2032,10 +2103,21 @@ class GameDetailsView(BaseView):
                         play_item = QTreeWidgetItem([play_text])
                         kickoff_item.addChild(play_item)
                 else:
-                    # Create drive summary node
-                    drive_summary = f"{team_name}: {description}"
-                    drive_item = QTreeWidgetItem([drive_summary])
+                    # Create enhanced drive summary node with scoring information
+                    result_info = get_drive_result_info(drive)
+                    
+                    # Build enhanced drive summary with scoring indicators
+                    enhanced_summary = f"{result_info['icon']} [{result_info['badge']}] {team_name}: {description}"
+                    
+                    drive_item = QTreeWidgetItem([enhanced_summary])
                     drive_item.setExpanded(False)  # Collapsed by default
+                    
+                    # Apply accessibility-compliant background color
+                    drive_item.setBackground(0, result_info['color'])
+                    
+                    # Add accessible description for screen readers
+                    drive_item.setToolTip(0, f"{result_info['accessible_text']}: {team_name} - {description}")
+                    
                     quarter_item.addChild(drive_item)
                     
                     # Add individual plays under the drive (already filtered to exclude kickoffs)
@@ -3079,7 +3161,7 @@ class GameDetailsView(BaseView):
             total_items = len(self.current_plays_data)
             data_type = "Plays"
         elif has_drives:
-            sport_type = "NFL"  # Drives are typically NFL
+            sport_type = "Football"  # Drives are NFL/NCAAF
             data_for_sport_detection = self.current_drives_data
             # Count total drives from both current and previous
             total_drives = 0
