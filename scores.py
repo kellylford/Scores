@@ -507,7 +507,7 @@ class LiveScoresView(BaseView):
         game_name = game_data.get("name", "Selected game")
         
         # Use Windows UIA notifications for better accessibility
-        self.notification_helper.notify_monitoring_change(game_name, monitoring)
+        self.notification_helper.announce_monitoring_change(game_name, monitoring)
         
         # Also update the UI
         status = "now monitoring" if monitoring else "no longer monitoring"
