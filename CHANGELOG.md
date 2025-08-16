@@ -5,6 +5,52 @@ All notable changes to the Scores application will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.52.0-preview] - 2025-08-16
+
+### Added
+- **Live Scores Feature**: Real-time sports monitoring with auto-refresh capabilities
+  - Multiple refresh intervals: 10s, 15s, 30s, 60s, 2min, 5min
+  - Continuous background updates for live game tracking
+  - Resource-efficient monitoring with pause/resume functionality
+- **Scoring Drive Enhancement**: Visual identification system for football scoring plays
+  - Touchdown indicators with "TD 7pts" badges
+  - Field goal markers with "FG 3pts" badges  
+  - Missed field goal, turnover, punt, and safety indicators
+  - WCAG AA compliant color coding for accessibility
+  - Enhanced drive summaries with scoring context
+- **Enhanced Football Display**: Comprehensive game situation awareness
+  - Hybrid format showing down/distance + drive statistics
+  - Redzone indicators for teams in scoring position
+  - Last play information for momentum context
+  - Consistent team naming and score formatting
+- **Command Line Options**: Quick access for power users
+  - `--live`: Shorthand to launch Live Scores directly
+  - `--live-scores`: Full command option for Live Scores mode
+- **Multi-Platform Research**: Comprehensive analysis document for Mac and iOS expansion
+- **Windows UIA Integration**: Enhanced accessibility with notification helpers
+
+### Fixed
+- **Score Display**: Resolved missing scores in football game listings
+- **Team Naming**: Fixed inconsistent team name formatting across views
+- **Navigation**: Improved startup parameter handling and validation
+- **Memory Management**: Enhanced cleanup for long-running Live Scores sessions
+
+### Changed
+- **ESPN API Integration**: Enhanced data extraction for scoring drive detection
+- **Performance**: Optimized real-time update processing and resource usage
+- **Code Organization**: Improved project structure with comprehensive testing
+- **Documentation**: Expanded guides for new features and implementation details
+
+### Technical Details
+- **NFL & NCAAF Support**: Scoring drive enhancement works with both professional and college football
+- **Accessibility Compliance**: Full WCAG AA compliance for visual indicators
+- **Background Processing**: Efficient real-time updates without blocking UI
+- **Cross-Platform Planning**: Research completed for future Mac and iOS versions
+
+### Build Artifacts
+- `dist/Scores.exe` - Enhanced Windows executable (~43MB due to new features)
+- Improved startup performance and resource management
+
 ## [0.51.0-preview] - 2025-08-15
 
 ### Added
