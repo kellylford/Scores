@@ -1091,7 +1091,7 @@ class GameDetailsView(BaseView):
         # Store reference to tab widget for F6 handling
         tab_widget_ref = None
         
-        if field_name == "leaders" and isinstance(field_data, dict):
+        if field_name == "leaders" and isinstance(field_data, list):
             self._add_leaders_data_to_layout(layout, field_data)
         elif field_name == "boxscore" and isinstance(field_data, dict):
             self._add_boxscore_data_to_layout(layout, field_data)
