@@ -1091,34 +1091,17 @@ class GameDetailsView(BaseView):
         # Store reference to tab widget for F6 handling
         tab_widget_ref = None
         
-        # Debug information for leaders
-        if field_name == "leaders":
-            debug_info = QLabel(f"DEBUG - Field: {field_name}, Type: {type(field_data)}, Is list: {isinstance(field_data, list)}, Is dict: {isinstance(field_data, dict)}")
-            layout.addWidget(debug_info)
-        
-        # Debug info before condition evaluation
-        debug_eval = QLabel(f"DEBUG EVAL - About to check conditions: field_name='{field_name}', condition_result={field_name == 'leaders' and isinstance(field_data, (list, dict))}")
-        layout.addWidget(debug_eval)
-        
         if field_name == "leaders" and isinstance(field_data, (list, dict)):
             try:
-                debug_info2 = QLabel(f"DEBUG - About to call _add_leaders_data_to_layout with data length: {len(field_data) if hasattr(field_data, '__len__') else 'N/A'}")
-                layout.addWidget(debug_info2)
                 self._add_leaders_data_to_layout(layout, field_data)
-                debug_info3 = QLabel("DEBUG - Successfully called _add_leaders_data_to_layout")
-                layout.addWidget(debug_info3)
+                # Find the tab widget that was just added for F6 handling
+                for child in layout.children():
+                    if hasattr(child, 'widget') and isinstance(child.widget(), QTabWidget):
+                        tab_widget_ref = child.widget()
+                        break
             except Exception as e:
-                # Debug: show what went wrong
                 error_label = QLabel(f"Leaders display error: {str(e)}")
                 layout.addWidget(error_label)
-                # Also add the data type for debugging
-                debug_label = QLabel(f"Data type: {type(field_data)}, Length: {len(field_data) if hasattr(field_data, '__len__') else 'N/A'}")
-                layout.addWidget(debug_label)
-                # Add traceback information
-                import traceback
-                traceback_label = QLabel(f"Traceback: {traceback.format_exc()}")
-                traceback_label.setWordWrap(True)
-                layout.addWidget(traceback_label)
         elif field_name == "boxscore" and isinstance(field_data, dict):
             self._add_boxscore_data_to_layout(layout, field_data)
             # Find the tab widget that was just added
@@ -1138,8 +1121,6 @@ class GameDetailsView(BaseView):
             self._add_news_list_to_layout(layout, field_data)
         else:
             # Fallback to formatted text
-            debug_fallback = QLabel(f"DEBUG - FALLBACK TRIGGERED: field_name='{field_name}', type={type(field_data)}, is_list={isinstance(field_data, list)}, is_dict={isinstance(field_data, dict)}")
-            layout.addWidget(debug_fallback)
             text_widget = QTextEdit()
             try:
                 formatted_data = ApiService.format_complex_data(field_name, field_data)
@@ -1178,14 +1159,18 @@ class GameDetailsView(BaseView):
                 dlg.reject()
                 return
             
-            # Handle F6 for boxscore dialogs
-            if event.key() == Qt.Key.Key_F6 and field_name == "boxscore" and tab_widget_ref:
+            # Handle F6 for tabbed dialogs (boxscore and leaders)
+            if event.key() == Qt.Key.Key_F6 and field_name in ["boxscore", "leaders"] and tab_widget_ref:
                 # Cycle through: tab_bar -> first_table -> other_tables -> next_tab -> repeat
                 current_tab_index = tab_widget_ref.currentIndex()
                 current_widget = tab_widget_ref.widget(current_tab_index)
                 
                 if current_widget:
-                    tables = current_widget.findChildren(BoxscoreTable)
+                    # Find tables based on field type
+                    if field_name == "boxscore":
+                        tables = current_widget.findChildren(BoxscoreTable)
+                    else:  # leaders
+                        tables = current_widget.findChildren(LeadersTable)
                     
                     if focus_state["current"] == "tab_bar":
                         # Move from tab bar to first table in current tab
@@ -1231,8 +1216,8 @@ class GameDetailsView(BaseView):
             
         dlg.keyPressEvent = custom_keyPressEvent
         
-        # Set focus to first table after dialog is shown (for boxscore)
-        if field_name == "boxscore":
+        # Set focus to first table after dialog is shown (for tabbed dialogs)
+        if field_name in ["boxscore", "leaders"]:
             def set_focus_to_table():
                 # Find the tab widget in the dialog
                 tab_widgets = dlg.findChildren(QTabWidget)
@@ -1242,7 +1227,10 @@ class GameDetailsView(BaseView):
                     # Set focus to first table in first tab
                     first_widget = tab_widget.widget(0)
                     if first_widget:
-                        tables = first_widget.findChildren(BoxscoreTable)
+                        if field_name == "boxscore":
+                            tables = first_widget.findChildren(BoxscoreTable)
+                        else:  # leaders
+                            tables = first_widget.findChildren(LeadersTable)
                         if tables and tables[0].rowCount() > 0:
                             QTimer.singleShot(100, lambda: tables[0].setFocus())
                             QTimer.singleShot(100, lambda: tables[0].setCurrentCell(0, 0))
@@ -1570,7 +1558,7 @@ class GameDetailsView(BaseView):
             layout.addWidget(table)
     
     def _add_leaders_data_to_layout(self, layout, data):
-        """Add leaders data to layout using ESPN's nested team structure"""
+        """Add leaders data to layout using tabbed interface with one tab per team"""
         if not data:
             layout.addWidget(QLabel("No leaders data available."))
             return
@@ -1588,19 +1576,37 @@ class GameDetailsView(BaseView):
             layout.addWidget(QLabel("Leaders data format not recognized."))
             return
         
-        # Create accessible table for leaders
-        leaders_table = LeadersTable(parent=self)
-        
-        # Parse ESPN's nested structure into rows
-        rows = []
+        # Filter out teams with no data
+        valid_teams = []
         for team_data in data:
-            if not isinstance(team_data, dict):
-                continue
-                
+            if isinstance(team_data, dict) and team_data.get("leaders"):
+                valid_teams.append(team_data)
+        
+        if not valid_teams:
+            layout.addWidget(QLabel("No statistical leaders found in data."))
+            return
+        
+        # Create tab widget for teams
+        tab_widget = QTabWidget()
+        tab_widget.setAccessibleName("Team Leaders")
+        tab_widget.setAccessibleDescription("Statistical leaders by team. Use arrow keys to navigate between teams, Tab to enter table.")
+        
+        # Create a tab for each team
+        for team_data in valid_teams:
             team_info = team_data.get("team", {})
             team_name = team_info.get("displayName", team_info.get("abbreviation", "Unknown Team"))
             
+            # Create widget for this team's tab
+            team_widget = QWidget()
+            team_layout = QVBoxLayout()
+            
+            # Create leaders table for this team
+            leaders_table = LeadersTable(parent=self)
+            
+            # Parse this team's statistical leaders
             team_leaders = team_data.get("leaders", [])
+            rows = []
+            
             for category_data in team_leaders:
                 if not isinstance(category_data, dict):
                     continue
@@ -1619,18 +1625,49 @@ class GameDetailsView(BaseView):
                     
                     rows.append([
                         category_name,
-                        team_name,
                         player_name,
                         display_value
                     ])
+            
+            if rows:
+                # Use custom headers for individual team view (no team column needed)
+                leaders_table.setColumnCount(3)
+                leaders_table.setHorizontalHeaderLabels(["Category", "Player", "Value"])
+                leaders_table.setRowCount(len(rows))
+                
+                for row, data_row in enumerate(rows):
+                    for col, value in enumerate(data_row):
+                        item = QTableWidgetItem(str(value))
+                        leaders_table.setItem(row, col, item)
+                
+                # Configure table appearance
+                leaders_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+                leaders_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+                leaders_table.setAlternatingRowColors(True)
+                leaders_table.verticalHeader().setVisible(False)
+                
+                # Resize columns
+                header = leaders_table.horizontalHeader()
+                header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+                header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Player name stretches
+                
+                # Set accessibility
+                leaders_table.setAccessibleName(f"{team_name} Statistical Leaders")
+                leaders_table.setAccessibleDescription(f"Statistical leaders for {team_name}. Use arrow keys to navigate.")
+                
+                team_layout.addWidget(leaders_table)
+            else:
+                team_layout.addWidget(QLabel(f"No statistical leaders available for {team_name}."))
+            
+            team_widget.setLayout(team_layout)
+            tab_widget.addTab(team_widget, team_name)
         
-        if not rows:
-            layout.addWidget(QLabel("No statistical leaders found in data."))
-            return
+        # Add tab widget to main layout
+        layout.addWidget(tab_widget)
         
-        # Populate the table and add to layout
-        leaders_table.populate_data(rows, set_focus=True)
-        layout.addWidget(leaders_table)
+        # Set focus to first tab initially
+        if tab_widget.count() > 0:
+            tab_widget.setCurrentIndex(0)
     
     def _add_boxscore_data_to_layout(self, layout, data):
         """Add boxscore data to layout using accessible tables with proper keyboard navigation"""
