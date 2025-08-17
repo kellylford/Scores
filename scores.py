@@ -1091,8 +1091,21 @@ class GameDetailsView(BaseView):
         # Store reference to tab widget for F6 handling
         tab_widget_ref = None
         
-        if field_name == "leaders" and isinstance(field_data, list):
-            self._add_leaders_data_to_layout(layout, field_data)
+        # Debug information for leaders
+        if field_name == "leaders":
+            debug_info = QLabel(f"DEBUG - Field: {field_name}, Type: {type(field_data)}, Is list: {isinstance(field_data, list)}, Is dict: {isinstance(field_data, dict)}")
+            layout.addWidget(debug_info)
+        
+        if field_name == "leaders" and isinstance(field_data, (list, dict)):
+            try:
+                self._add_leaders_data_to_layout(layout, field_data)
+            except Exception as e:
+                # Debug: show what went wrong
+                error_label = QLabel(f"Leaders display error: {str(e)}")
+                layout.addWidget(error_label)
+                # Also add the data type for debugging
+                debug_label = QLabel(f"Data type: {type(field_data)}, Length: {len(field_data) if hasattr(field_data, '__len__') else 'N/A'}")
+                layout.addWidget(debug_label)
         elif field_name == "boxscore" and isinstance(field_data, dict):
             self._add_boxscore_data_to_layout(layout, field_data)
             # Find the tab widget that was just added
@@ -1547,7 +1560,15 @@ class GameDetailsView(BaseView):
             layout.addWidget(QLabel("No leaders data available."))
             return
         
-        # ESPN leaders data is a list of teams, each with their own leaders
+        # Handle both list and dict formats for ESPN leaders data
+        if isinstance(data, dict):
+            # Convert dict format to list format for consistent processing
+            if "teams" in data:
+                data = data["teams"]
+            elif isinstance(data, dict) and all(isinstance(v, (dict, list)) for v in data.values()):
+                # Legacy dict format - convert to list structure
+                data = [{"team": {"displayName": "Team"}, "leaders": [{"displayName": k, "leaders": [v] if isinstance(v, dict) else v} for k, v in data.items()]}]
+        
         if not isinstance(data, list):
             layout.addWidget(QLabel("Leaders data format not recognized."))
             return
