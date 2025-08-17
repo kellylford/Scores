@@ -636,8 +636,8 @@ class LiveScoresView(BaseView):
                             # Enhanced football display with two-line format
                             display_text = self._format_enhanced_football(game_name, teams, status, recent_play, game_id)
                         elif game_league == "MLB":
-                            # For baseball, try to extract more detailed info
-                            display_text += f" | {recent_play[:100]}"  # Longer for baseball details
+                            # Enhanced baseball display with base runners, count, and batter info
+                            display_text = self._format_enhanced_baseball(game_name, teams, status, recent_play, game_id)
                         else:
                             display_text += f" | {recent_play[:50]}"  # Truncate long plays for other sports
                     else:
@@ -754,6 +754,53 @@ class LiveScoresView(BaseView):
                 display_text = f"{team_line}\n{stats_line}"
             else:
                 # Fallback to single line if format doesn't have newline
+                score_text = f"{teams[0].get('name', '')} {teams[0].get('score', '')} - {teams[1].get('name', '')} {teams[1].get('score', '')}"
+                if status:
+                    display_text = f"{score_text} ({status}) | {recent_play}"
+                else:
+                    display_text = f"{score_text} | {recent_play}"
+            
+            return display_text
+            
+        except Exception as e:
+            # Fallback to basic format if something goes wrong
+            score_text = f"{teams[0].get('name', '')} {teams[0].get('score', '')} - {teams[1].get('name', '')} {teams[1].get('score', '')}"
+            if status:
+                return f"{score_text} ({status}) | {recent_play[:50]}"
+            else:
+                return f"{score_text} | {recent_play[:50]}"
+
+    def _format_enhanced_baseball(self, game_name, teams, status, recent_play, game_id):
+        """Format enhanced baseball display with base runners, count, and batter info"""
+        try:
+            # The recent_play contains the enhanced format with newline separation
+            # Line 1: Team names with scores
+            # Line 2: Base situation | Count | At bat: Player
+            # Line 3: Last: Play description
+            lines = recent_play.split('\n')
+            
+            if len(lines) >= 3:
+                # Three-line format: use all lines
+                team_line = lines[0]
+                situation_line = lines[1]
+                last_play_line = lines[2]
+                
+                # Add status if available (inning info)
+                if status and status not in situation_line:
+                    team_line += f" ({status})"
+                
+                display_text = f"{team_line}\n{situation_line}\n{last_play_line}"
+            elif len(lines) >= 2:
+                # Two-line fallback
+                team_line = lines[0]
+                situation_line = lines[1]
+                
+                if status:
+                    team_line += f" ({status})"
+                
+                display_text = f"{team_line}\n{situation_line}"
+            else:
+                # Single line fallback
                 score_text = f"{teams[0].get('name', '')} {teams[0].get('score', '')} - {teams[1].get('name', '')} {teams[1].get('score', '')}"
                 if status:
                     display_text = f"{score_text} ({status}) | {recent_play}"

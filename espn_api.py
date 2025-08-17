@@ -522,6 +522,115 @@ def extract_football_enhanced_display(game_details):
         
     return None
 
+def extract_baseball_enhanced_display(game_details):
+    """Extract enhanced baseball display with base runners, count, and batter info"""
+    try:
+        # The game_details structure varies depending on the source
+        # It could be a direct event from scoreboard, or detailed game data
+        
+        # Try to find competitions data
+        competitions = None
+        if 'competitions' in game_details:
+            competitions = game_details['competitions']
+        elif 'header' in game_details and 'competitions' in game_details['header']:
+            competitions = game_details['header']['competitions']
+        
+        if not competitions or not isinstance(competitions, list) or len(competitions) == 0:
+            return None
+        
+        competition = competitions[0]
+        
+        # Get competitors (teams)
+        competitors = competition.get('competitors', [])
+        if len(competitors) < 2:
+            return None
+            
+        # Extract team information with scores and names
+        home_team = None
+        away_team = None
+        
+        for competitor in competitors:
+            if competitor.get('homeAway') == 'home':
+                home_team = competitor
+            elif competitor.get('homeAway') == 'away':
+                away_team = competitor
+        
+        if not home_team or not away_team:
+            return None
+        
+        # Get team names and scores
+        home_name = home_team.get('team', {}).get('displayName', 'HOME')
+        away_name = away_team.get('team', {}).get('displayName', 'AWAY')
+        home_score = home_team.get('score', '0')
+        away_score = away_team.get('score', '0')
+        
+        # Get situation data from competition
+        situation = competition.get('situation', {})
+        if not situation:
+            return None
+            
+        # Get base runner information
+        on_first = situation.get('onFirst', False)
+        on_second = situation.get('onSecond', False)
+        on_third = situation.get('onThird', False)
+        
+        # Convert to English description
+        runner_count = sum([on_first, on_second, on_third])
+        
+        if runner_count == 0:
+            base_description = "Bases empty"
+        elif runner_count == 3:
+            base_description = "Bases loaded"
+        elif runner_count == 1:
+            if on_first:
+                base_description = "Runner on 1st"
+            elif on_second:
+                base_description = "Runner on 2nd"
+            elif on_third:
+                base_description = "Runner on 3rd"
+        elif runner_count == 2:
+            if on_first and on_second:
+                base_description = "Runners on 1st and 2nd"
+            elif on_first and on_third:
+                base_description = "Runners on 1st and 3rd"
+            elif on_second and on_third:
+                base_description = "Runners on 2nd and 3rd"
+        else:
+            base_description = "Unknown base situation"
+        
+        # Get count and outs
+        balls = situation.get('balls', 0)
+        strikes = situation.get('strikes', 0)
+        outs = situation.get('outs', 0)
+        count_description = f"{balls}-{strikes} count, {outs} out{'s' if outs != 1 else ''}"
+        
+        # Get current batter
+        batter = situation.get('batter', {}).get('athlete', {})
+        batter_name = batter.get('displayName', 'Unknown') if batter else 'Unknown'
+        
+        # Get last play
+        last_play = situation.get('lastPlay', {})
+        last_play_text = last_play.get('text', 'No recent play') if last_play else 'No recent play'
+        
+        # Build display format
+        # Line 1: Team names with scores
+        team_display = f"{away_name} {away_score} at {home_name} {home_score}"
+        
+        # Line 2: Base situation, count, batter
+        line2 = f"{base_description} | {count_description} | At bat: {batter_name}"
+        
+        # Line 3: Last play (simplified for space)
+        if len(last_play_text) > 50:
+            last_play_text = last_play_text[:47] + "..."
+        line3 = f"Last: {last_play_text}"
+        
+        return f"{team_display}\n{line2}\n{line3}"
+            
+    except Exception as e:
+        print(f"Error extracting baseball details: {e}")
+        
+    return None
+
 def extract_recent_play(game_details, league=None):
     """Extract the most recent play from game details with enhanced player information"""
     if not game_details:
@@ -530,6 +639,38 @@ def extract_recent_play(game_details, league=None):
     # Enhanced football display for NFL and NCAAF
     if league in ['NFL', 'NCAAF']:
         return extract_football_enhanced_display(game_details)
+    
+    # Enhanced baseball display for MLB - get fresh situation data
+    if league == 'MLB':
+        # For baseball, we need to get situation data from the scoreboard endpoint
+        # since the summary endpoint doesn't include live situation data
+        game_id = None
+        if 'header' in game_details and 'id' in game_details['header']:
+            game_id = game_details['header']['id']
+        elif 'id' in game_details:
+            game_id = game_details['id']
+            
+        if game_id:
+            try:
+                # Get fresh situation data from scoreboard
+                scoreboard_url = f"https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard"
+                response = requests.get(scoreboard_url)
+                if response.status_code == 200:
+                    scoreboard_data = response.json()
+                    
+                    # Find our specific game in the scoreboard
+                    for event in scoreboard_data.get('events', []):
+                        if event.get('id') == str(game_id):
+                            # Found our game with potential situation data
+                            enhanced_display = extract_baseball_enhanced_display(event)
+                            if enhanced_display:
+                                return enhanced_display
+                            break
+            except Exception as e:
+                print(f"Failed to get baseball situation data: {e}")
+        
+        # Fallback to regular processing if situation data unavailable
+        pass
     
     # Build player ID to name mapping from rosters (if available)
     player_names = {}
