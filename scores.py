@@ -1534,53 +1534,59 @@ class GameDetailsView(BaseView):
             layout.addWidget(table)
     
     def _add_leaders_data_to_layout(self, layout, data):
-        """Add leaders data to layout"""
+        """Add leaders data to layout using ESPN's nested team structure"""
         if not data:
             layout.addWidget(QLabel("No leaders data available."))
             return
         
-        # Create table for leaders
-        table = QTableWidget()
-        table.setColumnCount(len(LEADERS_HEADERS))
-        table.setHorizontalHeaderLabels(LEADERS_HEADERS)
+        # ESPN leaders data is a list of teams, each with their own leaders
+        if not isinstance(data, list):
+            layout.addWidget(QLabel("Leaders data format not recognized."))
+            return
         
-        # Flatten leaders data into rows
+        # Create accessible table for leaders
+        leaders_table = LeadersTable(parent=self)
+        
+        # Parse ESPN's nested structure into rows
         rows = []
-        for category, leaders in data.items():
-            if isinstance(leaders, list):
-                for leader in leaders:
-                    if isinstance(leader, dict):
-                        rows.append([
-                            category,
-                            leader.get("team", ""),
-                            leader.get("name", ""),
-                            leader.get("value", "")
-                        ])
-            elif isinstance(leaders, dict):
-                rows.append([
-                    category,
-                    leaders.get("team", ""),
-                    leaders.get("name", ""),
-                    leaders.get("value", "")
-                ])
+        for team_data in data:
+            if not isinstance(team_data, dict):
+                continue
+                
+            team_info = team_data.get("team", {})
+            team_name = team_info.get("displayName", team_info.get("abbreviation", "Unknown Team"))
+            
+            team_leaders = team_data.get("leaders", [])
+            for category_data in team_leaders:
+                if not isinstance(category_data, dict):
+                    continue
+                    
+                category_name = category_data.get("displayName", category_data.get("name", "Unknown Category"))
+                category_leaders = category_data.get("leaders", [])
+                
+                # Add each leader in this category
+                for leader in category_leaders:
+                    if not isinstance(leader, dict):
+                        continue
+                        
+                    athlete_info = leader.get("athlete", {})
+                    player_name = athlete_info.get("displayName", athlete_info.get("fullName", "Unknown Player"))
+                    display_value = leader.get("displayValue", "N/A")
+                    
+                    rows.append([
+                        category_name,
+                        team_name,
+                        player_name,
+                        display_value
+                    ])
         
-        table.setRowCount(len(rows))
-        for row, row_data in enumerate(rows):
-            for col, value in enumerate(row_data):
-                item = QTableWidgetItem(str(value))
-                table.setItem(row, col, item)
+        if not rows:
+            layout.addWidget(QLabel("No statistical leaders found in data."))
+            return
         
-        # Configure table
-        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        table.setAlternatingRowColors(True)
-        table.verticalHeader().setVisible(False)
-        
-        header = table.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)  # Player name stretches
-        
-        layout.addWidget(table)
+        # Populate the table and add to layout
+        leaders_table.populate_data(rows, set_focus=True)
+        layout.addWidget(leaders_table)
     
     def _add_boxscore_data_to_layout(self, layout, data):
         """Add boxscore data to layout using accessible tables with proper keyboard navigation"""
