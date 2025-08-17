@@ -1378,8 +1378,16 @@ class GameDetailsView(BaseView):
                 # Check for game details standings format (groups with standings.entries)
                 groups = value.get("groups", [])
                 return any(group.get("standings", {}).get("entries") for group in groups)
-        elif field == "leaders" and isinstance(value, dict):
-            return len(value) > 0
+        elif field == "leaders":
+            # ESPN leaders data is a list of teams with leader categories
+            if isinstance(value, list):
+                return len(value) > 0 and any(
+                    isinstance(team, dict) and team.get("leaders") 
+                    for team in value
+                )
+            elif isinstance(value, dict):
+                return len(value) > 0
+            return False
         elif field == "boxscore" and isinstance(value, dict):
             return bool(value.get("teams") or value.get("players"))
         elif field == "plays" and isinstance(value, list):
