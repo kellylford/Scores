@@ -853,6 +853,8 @@ class LeagueView(BaseView):
             self._show_news_dialog(); return
         if data == "__standings__":
             self._show_standings_dialog(); return
+        if data == "__statistics__":
+            self._show_statistics_dialog(); return
         if data == "__teams__":
             self._show_teams_dialog(); return
         if data and isinstance(data, str) and self.parent_app:
@@ -880,10 +882,14 @@ class LeagueView(BaseView):
                 self.scores_list.addItem("--- News Headlines ---")
                 news_item = self.scores_list.item(self.scores_list.count()-1)
                 news_item.setData(Qt.ItemDataRole.UserRole, "__news__")  # type: ignore
-            if self.league in ["MLB", "NFL", "NBA", "NCAAF"]:
+            if self.league in ["MLB", "NFL", "NBA", "NHL", "NCAAF"]:
                 self.scores_list.addItem("--- Standings ---")
                 standings_item = self.scores_list.item(self.scores_list.count()-1)
                 standings_item.setData(Qt.ItemDataRole.UserRole, "__standings__")  # type: ignore
+                
+                self.scores_list.addItem("--- Statistics ---")
+                statistics_item = self.scores_list.item(self.scores_list.count()-1)
+                statistics_item.setData(Qt.ItemDataRole.UserRole, "__statistics__")  # type: ignore
                 
                 self.scores_list.addItem("--- Teams ---")
                 teams_item = self.scores_list.item(self.scores_list.count()-1)
@@ -935,6 +941,20 @@ class LeagueView(BaseView):
             dialog.exec()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to display standings: {str(e)}")
+    
+    def _show_statistics_dialog(self):
+        """Show statistics dialog"""
+        try:
+            statistics_data = ApiService.get_statistics(self.league)
+            if not statistics_data or (not statistics_data.get("player_stats") and not statistics_data.get("team_stats")):
+                QMessageBox.information(self, "Statistics", 
+                                      f"No statistics data available for {self.league}.")
+                return
+            
+            dialog = StatisticsDialog(statistics_data, self.league, self)
+            dialog.exec()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to display statistics: {str(e)}")
     
     def _on_standings_data_error(self, error_message):
         """Handle standings data loading error"""
@@ -5313,6 +5333,130 @@ class StandingsDialog(QDialog):
                         w.table.setFocus()  # type: ignore[attr-defined]
                     event.accept(); return
         super().keyPressEvent(event)
+
+
+class StatisticsDialog(QDialog):
+    """Dialog for displaying league statistics with player and team stats"""
+    
+    def __init__(self, statistics_data: Dict, league: str, parent=None):
+        super().__init__(parent)
+        self.statistics_data = statistics_data
+        self.league = league
+        self.setWindowTitle(f"{league} Statistics")
+        self.resize(900, 600)
+        self.tab_widget: QTabWidget | None = None
+        self.setup_ui()
+    
+    def setup_ui(self):
+        layout = QVBoxLayout()
+        
+        player_stats = self.statistics_data.get("player_stats", [])
+        team_stats = self.statistics_data.get("team_stats", [])
+        
+        if not player_stats and not team_stats:
+            layout.addWidget(QLabel(f"No statistics data available for {self.league}."))
+            close_btn = QPushButton("Close")
+            close_btn.clicked.connect(self.accept)
+            layout.addWidget(close_btn)
+            self.setLayout(layout)
+            return
+        
+        # Create tab widget for Player/Team separation
+        self.tab_widget = QTabWidget()
+        self.tab_widget.setAccessibleName("Statistics")
+        self.tab_widget.setAccessibleDescription("Statistics data with player and team tabs. Use Left/Right arrow keys to navigate tabs.")
+        self.tab_widget.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        
+        # Add Player Statistics tab
+        if player_stats:
+            player_widget = self._create_player_stats_widget(player_stats)
+            self.tab_widget.addTab(player_widget, "Player Statistics")
+        
+        # Add Team Statistics tab  
+        if team_stats:
+            team_widget = self._create_team_stats_widget(team_stats)
+            self.tab_widget.addTab(team_widget, "Team Statistics")
+        
+        layout.addWidget(self.tab_widget)
+        
+        # Close button
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        layout.addWidget(close_btn)
+        
+        self.setLayout(layout)
+        
+        # Set focus
+        QTimer.singleShot(100, lambda: self.tab_widget.setFocus())
+    
+    def _create_player_stats_widget(self, player_stats: List) -> QWidget:
+        """Create widget for player statistics"""
+        widget = QWidget()
+        layout = QVBoxLayout()
+        
+        if not player_stats:
+            layout.addWidget(QLabel("No player statistics available."))
+            widget.setLayout(layout)
+            return widget
+        
+        # Create tree widget for hierarchical display
+        tree = QTreeWidget()
+        tree.setAccessibleName("Player Statistics Tree")
+        tree.setAccessibleDescription("Hierarchical view of player statistics by category. Use arrow keys to navigate.")
+        tree.setHeaderLabels(["Category/Player", "Team", "Statistic", "Value"])
+        tree.setAlternatingRowColors(True)
+        tree.setSortingEnabled(True)
+        
+        for category in player_stats:
+            category_name = category.get("category", "Unknown")
+            category_item = QTreeWidgetItem([category_name, "", "", ""])
+            category_item.setExpanded(True)
+            
+            # Add players in this category
+            for stat in category.get("stats", []):
+                player_name = stat.get("player_name", "Unknown")
+                team = stat.get("team", "")
+                stat_name = stat.get("stat_name", "")
+                value = str(stat.get("value", ""))
+                
+                player_item = QTreeWidgetItem([player_name, team, stat_name, value])
+                category_item.addChild(player_item)
+            
+            tree.addTopLevelItem(category_item)
+        
+        layout.addWidget(tree)
+        widget.setLayout(layout)
+        return widget
+    
+    def _create_team_stats_widget(self, team_stats: List) -> QWidget:
+        """Create widget for team statistics"""
+        widget = QWidget()
+        layout = QVBoxLayout()
+        
+        if not team_stats:
+            layout.addWidget(QLabel("Team statistics not available yet."))
+            layout.addWidget(QLabel("(Feature will be enhanced in future updates)"))
+            widget.setLayout(layout)
+            return widget
+        
+        # Create table widget for team stats
+        table = QTableWidget()
+        table.setAccessibleName("Team Statistics Table")
+        table.setAccessibleDescription("Team statistics table. Use arrow keys to navigate.")
+        
+        # Configure table based on team_stats structure
+        # This will be implemented when team stats are available from API
+        
+        layout.addWidget(table)
+        widget.setLayout(layout)
+        return widget
+    
+    def keyPressEvent(self, event):
+        """Handle key press events"""
+        if event.key() == Qt.Key.Key_Escape:
+            self.accept()
+        else:
+            super().keyPressEvent(event)
 
 
 class SimpleTeamsDialog(QDialog):

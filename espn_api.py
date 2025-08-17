@@ -2273,3 +2273,246 @@ def parse_standings_entry(entry, division="League"):
         "division": division,
         "logo": team.get("logo", "")
     }
+
+def get_statistics(league_key):
+    """Get statistics/leaders data for a league"""
+    league_path = LEAGUES.get(league_key)
+    if not league_path:
+        return {"player_stats": [], "team_stats": []}
+    
+    try:
+        # Try leaders endpoint first
+        leaders_url = f"{BASE_URL}/{league_path}/leaders"
+        resp = requests.get(leaders_url)
+        
+        if resp.status_code == 200:
+            data = resp.json()
+            return _parse_statistics_data(data, league_key)
+        else:
+            # Fallback: try to get statistics from scoreboard data
+            scoreboard_url = f"{BASE_URL}/{league_path}/scoreboard"
+            resp = requests.get(scoreboard_url)
+            if resp.status_code == 200:
+                scoreboard_data = resp.json()
+                return _extract_stats_from_scoreboard(scoreboard_data, league_key)
+    
+    except Exception as e:
+        print(f"Error fetching statistics for {league_key}: {e}")
+    
+    return {"player_stats": [], "team_stats": []}
+
+def _parse_statistics_data(data, league_key):
+    """Parse statistics data from ESPN leaders endpoint"""
+    player_stats = []
+    team_stats = []
+    
+    if "leaders" in data:
+        leaders = data["leaders"]
+        
+        # Parse different categories based on sport
+        if league_key == "MLB":
+            player_stats = _parse_mlb_player_stats(leaders)
+        elif league_key == "NFL":
+            player_stats = _parse_nfl_player_stats(leaders)
+        elif league_key == "NBA":
+            player_stats = _parse_nba_player_stats(leaders)
+        elif league_key == "NHL":
+            player_stats = _parse_nhl_player_stats(leaders)
+        else:
+            player_stats = _parse_generic_player_stats(leaders)
+    
+    # Team statistics are typically found in different endpoints
+    # For now, return empty team stats - could be enhanced later
+    return {
+        "player_stats": player_stats,
+        "team_stats": team_stats
+    }
+
+def _parse_mlb_player_stats(leaders):
+    """Parse MLB player statistics from leaders data"""
+    categories = []
+    
+    # Common MLB categories
+    category_mapping = {
+        "batting": "Hitting",
+        "hitting": "Hitting", 
+        "pitching": "Pitching",
+        "fielding": "Fielding"
+    }
+    
+    for category_key, category_data in leaders.items():
+        if isinstance(category_data, dict) and "leaders" in category_data:
+            category_name = category_mapping.get(category_key, category_key.title())
+            
+            stats = []
+            for leader in category_data["leaders"]:
+                if "athlete" in leader:
+                    athlete = leader["athlete"]
+                    team = athlete.get("team", {})
+                    
+                    stats.append({
+                        "player_name": athlete.get("displayName", "Unknown"),
+                        "team": team.get("abbreviation", ""),
+                        "value": leader.get("displayValue", leader.get("value", "")),
+                        "stat_name": leader.get("shortDisplayName", category_name)
+                    })
+            
+            if stats:
+                categories.append({
+                    "category": category_name,
+                    "stats": stats
+                })
+    
+    return categories
+
+def _parse_nfl_player_stats(leaders):
+    """Parse NFL player statistics from leaders data"""
+    categories = []
+    
+    category_mapping = {
+        "passing": "Passing",
+        "rushing": "Rushing", 
+        "receiving": "Receiving",
+        "defense": "Defense",
+        "kicking": "Kicking"
+    }
+    
+    for category_key, category_data in leaders.items():
+        if isinstance(category_data, dict) and "leaders" in category_data:
+            category_name = category_mapping.get(category_key, category_key.title())
+            
+            stats = []
+            for leader in category_data["leaders"]:
+                if "athlete" in leader:
+                    athlete = leader["athlete"]
+                    team = athlete.get("team", {})
+                    
+                    stats.append({
+                        "player_name": athlete.get("displayName", "Unknown"),
+                        "team": team.get("abbreviation", ""), 
+                        "value": leader.get("displayValue", leader.get("value", "")),
+                        "stat_name": leader.get("shortDisplayName", category_name)
+                    })
+            
+            if stats:
+                categories.append({
+                    "category": category_name,
+                    "stats": stats
+                })
+    
+    return categories
+
+def _parse_nba_player_stats(leaders):
+    """Parse NBA player statistics from leaders data"""
+    categories = []
+    
+    category_mapping = {
+        "scoring": "Scoring",
+        "rebounding": "Rebounding",
+        "assists": "Assists", 
+        "steals": "Steals",
+        "blocks": "Blocks",
+        "fieldGoals": "Field Goals",
+        "freeThrows": "Free Throws",
+        "threePoints": "Three Points"
+    }
+    
+    for category_key, category_data in leaders.items():
+        if isinstance(category_data, dict) and "leaders" in category_data:
+            category_name = category_mapping.get(category_key, category_key.title())
+            
+            stats = []
+            for leader in category_data["leaders"]:
+                if "athlete" in leader:
+                    athlete = leader["athlete"]
+                    team = athlete.get("team", {})
+                    
+                    stats.append({
+                        "player_name": athlete.get("displayName", "Unknown"),
+                        "team": team.get("abbreviation", ""),
+                        "value": leader.get("displayValue", leader.get("value", "")),
+                        "stat_name": leader.get("shortDisplayName", category_name)
+                    })
+            
+            if stats:
+                categories.append({
+                    "category": category_name,
+                    "stats": stats
+                })
+    
+    return categories
+
+def _parse_generic_player_stats(leaders):
+    """Parse generic player statistics for other sports"""
+    categories = []
+    
+    for category_key, category_data in leaders.items():
+        if isinstance(category_data, dict) and "leaders" in category_data:
+            category_name = category_key.replace("_", " ").title()
+            
+            stats = []
+            for leader in category_data["leaders"]:
+                if "athlete" in leader:
+                    athlete = leader["athlete"] 
+                    team = athlete.get("team", {})
+                    
+                    stats.append({
+                        "player_name": athlete.get("displayName", "Unknown"),
+                        "team": team.get("abbreviation", ""),
+                        "value": leader.get("displayValue", leader.get("value", "")),
+                        "stat_name": leader.get("shortDisplayName", category_name)
+                    })
+            
+            if stats:
+                categories.append({
+                    "category": category_name,
+                    "stats": stats
+                })
+    
+    return categories
+
+def _parse_nhl_player_stats(leaders):
+    """Parse NHL player statistics from leaders data"""
+    categories = []
+    
+    category_mapping = {
+        "scoring": "Scoring",
+        "goals": "Goals",
+        "assists": "Assists",
+        "points": "Points", 
+        "plus_minus": "Plus/Minus",
+        "penalty_minutes": "Penalty Minutes",
+        "powerplay": "Power Play",
+        "goaltending": "Goaltending"
+    }
+    
+    for category_key, category_data in leaders.items():
+        if isinstance(category_data, dict) and "leaders" in category_data:
+            category_name = category_mapping.get(category_key, category_key.title())
+            
+            stats = []
+            for leader in category_data["leaders"]:
+                if "athlete" in leader:
+                    athlete = leader["athlete"]
+                    team = athlete.get("team", {})
+                    
+                    stats.append({
+                        "player_name": athlete.get("displayName", "Unknown"),
+                        "team": team.get("abbreviation", ""),
+                        "value": leader.get("displayValue", leader.get("value", "")),
+                        "stat_name": leader.get("shortDisplayName", category_name)
+                    })
+            
+            if stats:
+                categories.append({
+                    "category": category_name,
+                    "stats": stats
+                })
+    
+    return categories
+
+def _extract_stats_from_scoreboard(data, league_key):
+    """Extract basic statistics from scoreboard data as fallback"""
+    # This is a fallback method when leaders endpoint is not available
+    # Returns empty for now, but could be enhanced to extract team stats
+    return {"player_stats": [], "team_stats": []}
