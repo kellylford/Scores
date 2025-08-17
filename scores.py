@@ -5390,7 +5390,7 @@ class StatisticsDialog(QDialog):
         QTimer.singleShot(100, lambda: self.tab_widget.setFocus())
     
     def _create_player_stats_widget(self, player_stats: List) -> QWidget:
-        """Create widget for player statistics"""
+        """Create widget for player statistics using accessible tables"""
         widget = QWidget()
         layout = QVBoxLayout()
         
@@ -5399,37 +5399,70 @@ class StatisticsDialog(QDialog):
             widget.setLayout(layout)
             return widget
         
-        # Create tree widget for hierarchical display
-        tree = QTreeWidget()
-        tree.setAccessibleName("Player Statistics Tree")
-        tree.setAccessibleDescription("Hierarchical view of player statistics by category. Use arrow keys to navigate.")
-        tree.setHeaderLabels(["Category/Player", "Team", "Statistic", "Value"])
-        tree.setAlternatingRowColors(True)
-        tree.setSortingEnabled(True)
+        # Create a tab widget for different player stat categories
+        category_tabs = QTabWidget()
+        category_tabs.setAccessibleName("Player Statistics Categories")
+        category_tabs.setAccessibleDescription("Statistics organized by category. Use Ctrl+Tab to switch between categories.")
         
         for category in player_stats:
             category_name = category.get("category", "Unknown")
-            category_item = QTreeWidgetItem([category_name, "", "", ""])
-            category_item.setExpanded(True)
+            stats_list = category.get("stats", [])
             
-            # Add players in this category
-            for stat in category.get("stats", []):
+            if not stats_list:
+                continue
+            
+            # Create table for this category
+            table = QTableWidget()
+            table.setAccessibleName(f"{category_name} Statistics Table")
+            table.setAccessibleDescription(f"Table showing {category_name} statistics. Use arrow keys to navigate cells.")
+            
+            # Set up table structure
+            table.setRowCount(len(stats_list))
+            table.setColumnCount(4)
+            table.setHorizontalHeaderLabels(["Player", "Team", "Statistic", "Value"])
+            
+            # Enable sorting and selection
+            table.setSortingEnabled(True)
+            table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+            table.setAlternatingRowColors(True)
+            
+            # Populate table data
+            for row, stat in enumerate(stats_list):
                 player_name = stat.get("player_name", "Unknown")
                 team = stat.get("team", "")
                 stat_name = stat.get("stat_name", "")
                 value = str(stat.get("value", ""))
                 
-                player_item = QTreeWidgetItem([player_name, team, stat_name, value])
-                category_item.addChild(player_item)
+                # Create table items with accessibility info
+                player_item = QTableWidgetItem(player_name)
+                player_item.setToolTip(f"Player: {player_name}")
+                
+                team_item = QTableWidgetItem(team)
+                team_item.setToolTip(f"Team: {team}")
+                
+                stat_item = QTableWidgetItem(stat_name)
+                stat_item.setToolTip(f"Statistic: {stat_name}")
+                
+                value_item = QTableWidgetItem(value)
+                value_item.setToolTip(f"Value: {value}")
+                
+                table.setItem(row, 0, player_item)
+                table.setItem(row, 1, team_item)
+                table.setItem(row, 2, stat_item)
+                table.setItem(row, 3, value_item)
             
-            tree.addTopLevelItem(category_item)
+            # Auto-resize columns to content
+            table.resizeColumnsToContents()
+            
+            # Add table to category tabs
+            category_tabs.addTab(table, category_name)
         
-        layout.addWidget(tree)
+        layout.addWidget(category_tabs)
         widget.setLayout(layout)
         return widget
     
     def _create_team_stats_widget(self, team_stats: List) -> QWidget:
-        """Create widget for team statistics"""
+        """Create widget for team statistics using accessible tables"""
         widget = QWidget()
         layout = QVBoxLayout()
         
@@ -5439,15 +5472,68 @@ class StatisticsDialog(QDialog):
             widget.setLayout(layout)
             return widget
         
-        # Create table widget for team stats
-        table = QTableWidget()
-        table.setAccessibleName("Team Statistics Table")
-        table.setAccessibleDescription("Team statistics table. Use arrow keys to navigate.")
+        # Create a tab widget for different team stat categories
+        category_tabs = QTabWidget()
+        category_tabs.setAccessibleName("Team Statistics Categories")
+        category_tabs.setAccessibleDescription("Team statistics organized by category. Use Ctrl+Tab to switch between categories.")
         
-        # Configure table based on team_stats structure
-        # This will be implemented when team stats are available from API
+        for category in team_stats:
+            category_name = category.get("category", "Unknown")
+            teams_list = category.get("stats", [])
+            
+            if not teams_list:
+                continue
+            
+            # Get all unique stat names across all teams in this category
+            all_stat_names = set()
+            for team_data in teams_list:
+                team_stats_dict = team_data.get("stats", {})
+                all_stat_names.update(team_stats_dict.keys())
+            
+            stat_names = sorted(list(all_stat_names))
+            
+            # Create table for this category
+            table = QTableWidget()
+            table.setAccessibleName(f"{category_name} Team Statistics Table")
+            table.setAccessibleDescription(f"Table showing team {category_name} statistics. Use arrow keys to navigate cells.")
+            
+            # Set up table structure: Team name + all stat columns
+            table.setRowCount(len(teams_list))
+            table.setColumnCount(1 + len(stat_names))
+            
+            headers = ["Team"] + stat_names
+            table.setHorizontalHeaderLabels(headers)
+            
+            # Enable sorting and selection
+            table.setSortingEnabled(True)
+            table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+            table.setAlternatingRowColors(True)
+            
+            # Populate table data
+            for row, team_data in enumerate(teams_list):
+                team_name = team_data.get("team_name", "Unknown Team")
+                team_stats_dict = team_data.get("stats", {})
+                
+                # Set team name in first column
+                team_item = QTableWidgetItem(team_name)
+                team_item.setToolTip(f"Team: {team_name}")
+                table.setItem(row, 0, team_item)
+                
+                # Set stat values in subsequent columns
+                for col, stat_name in enumerate(stat_names, 1):
+                    stat_value = team_stats_dict.get(stat_name, "N/A")
+                    
+                    stat_item = QTableWidgetItem(str(stat_value))
+                    stat_item.setToolTip(f"{team_name} {stat_name}: {stat_value}")
+                    table.setItem(row, col, stat_item)
+            
+            # Auto-resize columns to content
+            table.resizeColumnsToContents()
+            
+            # Add table to category tabs
+            category_tabs.addTab(table, category_name)
         
-        layout.addWidget(table)
+        layout.addWidget(category_tabs)
         widget.setLayout(layout)
         return widget
     
