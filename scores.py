@@ -1096,9 +1096,17 @@ class GameDetailsView(BaseView):
             debug_info = QLabel(f"DEBUG - Field: {field_name}, Type: {type(field_data)}, Is list: {isinstance(field_data, list)}, Is dict: {isinstance(field_data, dict)}")
             layout.addWidget(debug_info)
         
+        # Debug info before condition evaluation
+        debug_eval = QLabel(f"DEBUG EVAL - About to check conditions: field_name='{field_name}', condition_result={field_name == 'leaders' and isinstance(field_data, (list, dict))}")
+        layout.addWidget(debug_eval)
+        
         if field_name == "leaders" and isinstance(field_data, (list, dict)):
             try:
+                debug_info2 = QLabel(f"DEBUG - About to call _add_leaders_data_to_layout with data length: {len(field_data) if hasattr(field_data, '__len__') else 'N/A'}")
+                layout.addWidget(debug_info2)
                 self._add_leaders_data_to_layout(layout, field_data)
+                debug_info3 = QLabel("DEBUG - Successfully called _add_leaders_data_to_layout")
+                layout.addWidget(debug_info3)
             except Exception as e:
                 # Debug: show what went wrong
                 error_label = QLabel(f"Leaders display error: {str(e)}")
@@ -1106,6 +1114,11 @@ class GameDetailsView(BaseView):
                 # Also add the data type for debugging
                 debug_label = QLabel(f"Data type: {type(field_data)}, Length: {len(field_data) if hasattr(field_data, '__len__') else 'N/A'}")
                 layout.addWidget(debug_label)
+                # Add traceback information
+                import traceback
+                traceback_label = QLabel(f"Traceback: {traceback.format_exc()}")
+                traceback_label.setWordWrap(True)
+                layout.addWidget(traceback_label)
         elif field_name == "boxscore" and isinstance(field_data, dict):
             self._add_boxscore_data_to_layout(layout, field_data)
             # Find the tab widget that was just added
@@ -1125,6 +1138,8 @@ class GameDetailsView(BaseView):
             self._add_news_list_to_layout(layout, field_data)
         else:
             # Fallback to formatted text
+            debug_fallback = QLabel(f"DEBUG - FALLBACK TRIGGERED: field_name='{field_name}', type={type(field_data)}, is_list={isinstance(field_data, list)}, is_dict={isinstance(field_data, dict)}")
+            layout.addWidget(debug_fallback)
             text_widget = QTextEdit()
             try:
                 formatted_data = ApiService.format_complex_data(field_name, field_data)
