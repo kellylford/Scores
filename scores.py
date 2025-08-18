@@ -5463,6 +5463,68 @@ class StatisticsViewDialog(QDialog):
             self.setLayout(layout)
             return
         
+        # Check if the requested stat type is available
+        player_stats = self.statistics_data.get("player_stats", [])
+        team_stats = self.statistics_data.get("team_stats", [])
+        
+        if self.stat_type == "team" and not team_stats:
+            # Team stats not available for this league
+            not_available_label = QLabel(f"Team statistics are not available for {self.league}.")
+            layout.addWidget(not_available_label)
+            
+            if player_stats:
+                # Offer to show player stats instead
+                suggestion_label = QLabel("Player statistics are available. Would you like to view those instead?")
+                layout.addWidget(suggestion_label)
+                
+                button_layout = QHBoxLayout()
+                
+                show_player_btn = QPushButton("Show Player Statistics")
+                show_player_btn.clicked.connect(self._switch_to_player_stats)
+                button_layout.addWidget(show_player_btn)
+                
+                close_btn = QPushButton("Close")
+                close_btn.clicked.connect(self.accept)
+                button_layout.addWidget(close_btn)
+                
+                layout.addLayout(button_layout)
+            else:
+                close_btn = QPushButton("Close")
+                close_btn.clicked.connect(self.accept)
+                layout.addWidget(close_btn)
+            
+            self.setLayout(layout)
+            return
+        
+        elif self.stat_type == "player" and not player_stats:
+            # Player stats not available for this league
+            not_available_label = QLabel(f"Player statistics are not available for {self.league}.")
+            layout.addWidget(not_available_label)
+            
+            if team_stats:
+                # Offer to show team stats instead
+                suggestion_label = QLabel("Team statistics are available. Would you like to view those instead?")
+                layout.addWidget(suggestion_label)
+                
+                button_layout = QHBoxLayout()
+                
+                show_team_btn = QPushButton("Show Team Statistics")
+                show_team_btn.clicked.connect(self._switch_to_team_stats)
+                button_layout.addWidget(show_team_btn)
+                
+                close_btn = QPushButton("Close")
+                close_btn.clicked.connect(self.accept)
+                button_layout.addWidget(close_btn)
+                
+                layout.addLayout(button_layout)
+            else:
+                close_btn = QPushButton("Close")
+                close_btn.clicked.connect(self.accept)
+                layout.addWidget(close_btn)
+            
+            self.setLayout(layout)
+            return
+        
         # Create the main interface
         self._create_statistics_interface(layout)
         
@@ -5473,13 +5535,44 @@ class StatisticsViewDialog(QDialog):
         
         self.setLayout(layout)
     
+    def _switch_to_player_stats(self):
+        """Switch to player statistics"""
+        self.stat_type = "player"
+        self.setWindowTitle(f"{self.league} {self.stat_type.title()} Statistics")
+        
+        # Clear layout and rebuild
+        layout = self.layout()
+        self._clear_layout(layout)
+        self.setup_ui()
+    
+    def _switch_to_team_stats(self):
+        """Switch to team statistics"""
+        self.stat_type = "team"
+        self.setWindowTitle(f"{self.league} {self.stat_type.title()} Statistics")
+        
+        # Clear layout and rebuild
+        layout = self.layout()
+        self._clear_layout(layout)
+        self.setup_ui()
+    
+    def _clear_layout(self, layout):
+        """Clear all widgets from layout"""
+        while layout.count():
+            child = layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+    
     def _create_statistics_interface(self, layout):
         """Create the statistics selection and display interface"""
         
         # Get available statistics
         available_stats = self._get_available_statistics()
         
+        print(f"DEBUG: _create_statistics_interface - available_stats: {len(available_stats) if available_stats else 'None'}")
+        print(f"DEBUG: First few available_stats: {available_stats[:3] if available_stats else 'None'}")
+        
         if not available_stats:
+            print(f"DEBUG: No available_stats found - showing 'no stats' message")
             no_stats_label = QLabel(f"No {self.stat_type} statistics available for {self.league}")
             layout.addWidget(no_stats_label)
             return
