@@ -5789,35 +5789,67 @@ class StatisticsViewDialog(QDialog):
         if self.stat_type == "player":
             player_stats = self.statistics_data.get("player_stats", [])
             print(f"DEBUG: Found {len(player_stats)} player stat categories")
+            
+            # Handle new MLB API format vs old ESPN format
             for i, category in enumerate(player_stats):
-                category_name = category.get("category", "Unknown")
-                stats_list = category.get("stats", [])
-                print(f"DEBUG: Category {i}: {category_name} with {len(stats_list)} stats")
-                
-                # Group by stat types
-                stat_types = {}
-                for stat in stats_list:
-                    stat_name = stat.get("stat_name", "Unknown")
-                    if stat_name not in stat_types:
-                        stat_types[stat_name] = []
-                    stat_types[stat_name].append(stat)
-                
-                # Add each unique stat type
-                for stat_name, stats in stat_types.items():
-                    # Avoid duplicate names when category and stat name are the same
-                    if stat_name.lower() == category_name.lower():
-                        display_name = stat_name  # Just use the stat name
-                    else:
-                        display_name = f"{stat_name} ({category_name})"  # Include category for clarity
+                # Check if this is the new MLB API format
+                if 'leaders' in category and 'name' in category:
+                    # New MLB API format
+                    stat_name = category.get('name', 'Unknown')
+                    leaders = category.get('leaders', [])
+                    
+                    print(f"DEBUG: MLB Category {i}: {stat_name} with {len(leaders)} leaders")
+                    
+                    # Convert MLB format to expected format
+                    converted_leaders = []
+                    for leader in leaders:
+                        converted_leaders.append({
+                            'player_name': leader.get('name', 'Unknown'),
+                            'stat_value': leader.get('value', 0),
+                            'value': leader.get('value', 0),  # Also add 'value' key for compatibility
+                            'team': leader.get('team', 'N/A'),
+                            'position': leader.get('position', None)
+                        })
                     
                     available_stats.append({
-                        'name': display_name,
-                        'category': category_name,
+                        'name': stat_name,
+                        'category': 'MLB Stats',
                         'stat_name': stat_name,
-                        'data': stats,
+                        'data': converted_leaders,
                         'type': 'player'
                     })
-                    print(f"DEBUG: Added stat: {display_name} with {len(stats)} players")
+                    print(f"DEBUG: Added MLB stat: {stat_name} with {len(converted_leaders)} players")
+                    
+                else:
+                    # Old ESPN API format
+                    category_name = category.get("category", "Unknown")
+                    stats_list = category.get("stats", [])
+                    print(f"DEBUG: ESPN Category {i}: {category_name} with {len(stats_list)} stats")
+                    
+                    # Group by stat types
+                    stat_types = {}
+                    for stat in stats_list:
+                        stat_name = stat.get("stat_name", "Unknown")
+                        if stat_name not in stat_types:
+                            stat_types[stat_name] = []
+                        stat_types[stat_name].append(stat)
+                    
+                    # Add each unique stat type
+                    for stat_name, stats in stat_types.items():
+                        # Avoid duplicate names when category and stat name are the same
+                        if stat_name.lower() == category_name.lower():
+                            display_name = stat_name  # Just use the stat name
+                        else:
+                            display_name = f"{stat_name} ({category_name})"  # Include category for clarity
+                        
+                        available_stats.append({
+                            'name': display_name,
+                            'category': category_name,
+                            'stat_name': stat_name,
+                            'data': stats,
+                            'type': 'player'
+                        })
+                        print(f"DEBUG: Added ESPN stat: {display_name} with {len(stats)} players")
         
         elif self.stat_type == "team":
             team_stats = self.statistics_data.get("team_stats", [])

@@ -2457,7 +2457,8 @@ def _get_mlb_statistics():
         """Fetch a single stat category"""
         stat_key, stat_group, display_name = stat_info
         try:
-            url = f"https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories={stat_key}&statGroup={stat_group}&season={season}"
+            # Add limit parameter to get top 50 players instead of default 5
+            url = f"https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories={stat_key}&statGroup={stat_group}&season={season}&limit=50"
             response = requests.get(url, timeout=10)
             
             if response.status_code == 200:
@@ -2468,7 +2469,7 @@ def _get_mlb_statistics():
                     if 'leaders' in leaders_data and len(leaders_data['leaders']) > 0:
                         
                         leaders = []
-                        for leader in leaders_data['leaders'][:10]:  # Top 10 players
+                        for leader in leaders_data['leaders'][:50]:  # Top 50 players
                             player_info = leader.get('person', {})
                             team_info = leader.get('team', {})
                             
