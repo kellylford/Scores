@@ -2310,10 +2310,10 @@ def _get_team_statistics(league_key):
         
         print(f"Found {len(teams)} teams")
         
-        # Get statistics for first few teams (to avoid too many API calls)
+        # Get statistics for all teams
         team_stats_categories = []
         teams_processed = 0
-        max_teams = 5  # Limit to avoid rate limiting
+        max_teams = len(teams)  # Show all teams for team statistics
         
         for team_entry in teams[:max_teams]:
             team = team_entry.get('team', {})

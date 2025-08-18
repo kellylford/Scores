@@ -945,15 +945,29 @@ class LeagueView(BaseView):
     def _show_statistics_dialog(self):
         """Show statistics dialog with new flow: choose team/player → select stat → view results"""
         try:
+            print(f"DEBUG: Starting _show_statistics_dialog for league: {self.league}")
             # First dialog: Choose between Team or Player statistics
             choice_dialog = StatisticsChoiceDialog(self.league, self)
+            print(f"DEBUG: Created StatisticsChoiceDialog")
             if choice_dialog.exec() == QDialog.DialogCode.Accepted:
+                print(f"DEBUG: StatisticsChoiceDialog accepted")
                 choice = choice_dialog.get_choice()
+                print(f"DEBUG: Got choice: {choice}")
                 if choice:
                     # Second dialog: Select specific statistic and view results
+                    print(f"DEBUG: Creating StatisticsViewDialog with league={self.league}, choice={choice}")
                     stats_dialog = StatisticsViewDialog(self.league, choice, self)
-                    stats_dialog.exec()
+                    print(f"DEBUG: About to show StatisticsViewDialog")
+                    result = stats_dialog.exec()
+                    print(f"DEBUG: StatisticsViewDialog returned with result: {result}")
+                else:
+                    print(f"DEBUG: No choice received from StatisticsChoiceDialog")
+            else:
+                print(f"DEBUG: StatisticsChoiceDialog was not accepted")
         except Exception as e:
+            print(f"DEBUG: Exception in _show_statistics_dialog: {str(e)}")
+            import traceback
+            traceback.print_exc()
             QMessageBox.critical(self, "Error", f"Failed to display statistics: {str(e)}")
     
     def _on_standings_data_error(self, error_message):
@@ -5418,12 +5432,15 @@ class StatisticsViewDialog(QDialog):
     
     def __init__(self, league: str, stat_type: str, parent=None):
         super().__init__(parent)
+        print(f"DEBUG: StatisticsViewDialog.__init__ called with league={league}, stat_type={stat_type}")
         self.league = league
         self.stat_type = stat_type  # "team" or "player"
         self.setWindowTitle(f"{league} {stat_type.title()} Statistics")
         self.resize(1000, 700)
         self.statistics_data = None
+        print(f"DEBUG: About to call setup_ui")
         self.setup_ui()
+        print(f"DEBUG: setup_ui completed")
     
     def setup_ui(self):
         layout = QVBoxLayout()
@@ -5432,108 +5449,68 @@ class StatisticsViewDialog(QDialog):
         title = QLabel(f"{self.league} {self.stat_type.title()} Statistics")
         layout.addWidget(title)
         
-        # Load data
+        # Load statistics data IMMEDIATELY and show available stats
         try:
-            print(f"DEBUG: Loading statistics data for {self.league} {self.stat_type}")
+            print(f"DEBUG: Loading statistics data for {self.league}")
             self.statistics_data = ApiService.get_statistics(self.league)
-            print(f"DEBUG: Got statistics_data: {type(self.statistics_data)}")
+            
             if self.statistics_data:
-                player_stats = self.statistics_data.get("player_stats", [])
-                team_stats = self.statistics_data.get("team_stats", [])
-                print(f"DEBUG: Player stats: {len(player_stats)} categories")
-                print(f"DEBUG: Team stats: {len(team_stats)} categories")
+                available_stats = self._get_available_statistics()
+                print(f"DEBUG: Got {len(available_stats)} available stats")
+                
+                if available_stats:
+                    self._create_working_statistics_interface(layout, available_stats)
+                else:
+                    no_data_label = QLabel(f"No {self.stat_type} statistics available for {self.league}")
+                    layout.addWidget(no_data_label)
             else:
-                print("DEBUG: statistics_data is None or empty")
+                no_data_label = QLabel(f"Unable to load statistics data for {self.league}")
+                layout.addWidget(no_data_label)
+                
         except Exception as e:
-            print(f"DEBUG: Exception loading data: {str(e)}")
+            print(f"DEBUG: Exception in setup_ui: {str(e)}")
+            import traceback
+            traceback.print_exc()
             error_label = QLabel(f"Error loading statistics: {str(e)}")
             layout.addWidget(error_label)
-            close_btn = QPushButton("Close")
-            close_btn.clicked.connect(self.accept)
-            layout.addWidget(close_btn)
-            self.setLayout(layout)
-            return
-        
-        if not self.statistics_data:
-            no_data_label = QLabel(f"No statistics data available for {self.league}")
-            layout.addWidget(no_data_label)
-            close_btn = QPushButton("Close")
-            close_btn.clicked.connect(self.accept)
-            layout.addWidget(close_btn)
-            self.setLayout(layout)
-            return
-        
-        # Check if the requested stat type is available
-        player_stats = self.statistics_data.get("player_stats", [])
-        team_stats = self.statistics_data.get("team_stats", [])
-        
-        if self.stat_type == "team" and not team_stats:
-            # Team stats not available for this league
-            not_available_label = QLabel(f"Team statistics are not available for {self.league}.")
-            layout.addWidget(not_available_label)
-            
-            if player_stats:
-                # Offer to show player stats instead
-                suggestion_label = QLabel("Player statistics are available. Would you like to view those instead?")
-                layout.addWidget(suggestion_label)
-                
-                button_layout = QHBoxLayout()
-                
-                show_player_btn = QPushButton("Show Player Statistics")
-                show_player_btn.clicked.connect(self._switch_to_player_stats)
-                button_layout.addWidget(show_player_btn)
-                
-                close_btn = QPushButton("Close")
-                close_btn.clicked.connect(self.accept)
-                button_layout.addWidget(close_btn)
-                
-                layout.addLayout(button_layout)
-            else:
-                close_btn = QPushButton("Close")
-                close_btn.clicked.connect(self.accept)
-                layout.addWidget(close_btn)
-            
-            self.setLayout(layout)
-            return
-        
-        elif self.stat_type == "player" and not player_stats:
-            # Player stats not available for this league
-            not_available_label = QLabel(f"Player statistics are not available for {self.league}.")
-            layout.addWidget(not_available_label)
-            
-            if team_stats:
-                # Offer to show team stats instead
-                suggestion_label = QLabel("Team statistics are available. Would you like to view those instead?")
-                layout.addWidget(suggestion_label)
-                
-                button_layout = QHBoxLayout()
-                
-                show_team_btn = QPushButton("Show Team Statistics")
-                show_team_btn.clicked.connect(self._switch_to_team_stats)
-                button_layout.addWidget(show_team_btn)
-                
-                close_btn = QPushButton("Close")
-                close_btn.clicked.connect(self.accept)
-                button_layout.addWidget(close_btn)
-                
-                layout.addLayout(button_layout)
-            else:
-                close_btn = QPushButton("Close")
-                close_btn.clicked.connect(self.accept)
-                layout.addWidget(close_btn)
-            
-            self.setLayout(layout)
-            return
-        
-        # Create the main interface
-        self._create_statistics_interface(layout)
         
         # Close button
         close_btn = QPushButton("Close")
-        close_btn.clicked.connect(self.accept)
+        close_btn.setAutoDefault(False)  # Prevent auto-activation
+        close_btn.setDefault(False)      # Not the default button
+        close_btn.clicked.connect(lambda: self._debug_accept("Main close button"))
         layout.addWidget(close_btn)
-        
+
         self.setLayout(layout)
+    
+    def _debug_accept(self, reason):
+        """Debug wrapper for accept() to track why dialog is closing"""
+        print(f"DEBUG: StatisticsViewDialog.accept() called - reason: {reason}")
+        self.accept()
+    
+    def keyPressEvent(self, event):
+        """Handle key press events for navigation"""
+        if event.key() == Qt.Key.Key_F6:
+            # Cycle between stats list and results list
+            current_focus = self.focusWidget()
+            if hasattr(self, 'stats_list') and hasattr(self, 'results_list'):
+                if current_focus == self.stats_list:
+                    # Move to results list if visible
+                    if self.results_list.isVisible():
+                        self.results_list.setFocus()
+                    else:
+                        # If no results visible, stay on stats list
+                        self.stats_list.setFocus()
+                else:
+                    # Move back to stats list
+                    self.stats_list.setFocus()
+            event.accept()
+        elif event.key() == Qt.Key.Key_D and event.modifiers() == Qt.KeyboardModifier.AltModifier:
+            # Alt+D: Show stat definitions
+            self._show_stat_definitions()
+            event.accept()
+        else:
+            super().keyPressEvent(event)
     
     def _switch_to_player_stats(self):
         """Switch to player statistics"""
@@ -5562,20 +5539,8 @@ class StatisticsViewDialog(QDialog):
             if child.widget():
                 child.widget().deleteLater()
     
-    def _create_statistics_interface(self, layout):
-        """Create the statistics selection and display interface"""
-        
-        # Get available statistics
-        available_stats = self._get_available_statistics()
-        
-        print(f"DEBUG: _create_statistics_interface - available_stats: {len(available_stats) if available_stats else 'None'}")
-        print(f"DEBUG: First few available_stats: {available_stats[:3] if available_stats else 'None'}")
-        
-        if not available_stats:
-            print(f"DEBUG: No available_stats found - showing 'no stats' message")
-            no_stats_label = QLabel(f"No {self.stat_type} statistics available for {self.league}")
-            layout.addWidget(no_stats_label)
-            return
+    def _create_working_statistics_interface(self, layout, available_stats):
+        """Create working statistics interface with immediate data display"""
         
         # Split layout: Left side for stat selection, right side for results
         h_layout = QHBoxLayout()
@@ -5592,33 +5557,34 @@ class StatisticsViewDialog(QDialog):
         self.stats_list.setAccessibleName(f"{self.stat_type.title()} Statistics List")
         self.stats_list.setAccessibleDescription(f"List of available {self.stat_type} statistics. Select one to view rankings.")
         
-        # Populate statistics list
+        # Populate statistics list with ACTUAL available stats (not categories)
         for stat_info in available_stats:
-            stat_name = stat_info.get('name', 'Unknown Stat')
+            stat_name = stat_info.get('name', 'Unknown')
             item = QListWidgetItem(stat_name)
-            item.setData(Qt.ItemDataRole.UserRole, stat_info)
+            item.setData(Qt.ItemDataRole.UserRole, stat_info)  # Store the actual stat data
             self.stats_list.addItem(item)
         
-        # Connect selection events (use activated for Enter key, clicked for mouse)
-        self.stats_list.itemActivated.connect(self._on_stat_activated)
-        self.stats_list.itemClicked.connect(self._on_stat_selected)
+        # Connect selection events
+        self.stats_list.itemActivated.connect(self._on_working_stat_selected)
+        self.stats_list.itemClicked.connect(self._on_working_stat_selected)
         
         left_layout.addWidget(self.stats_list)
         left_widget.setLayout(left_layout)
         
-        # Right side: Results table
+        # Right side: Results display
         right_widget = QWidget()
         right_layout = QVBoxLayout()
         
         self.results_label = QLabel("Select a statistic to view rankings")
         right_layout.addWidget(self.results_label)
         
-        self.results_table = QTableWidget()
-        self.results_table.setAccessibleName("Statistics Results Table")
-        self.results_table.setAccessibleDescription("Table showing rankings for the selected statistic")
-        self.results_table.hide()  # Hide until stat is selected
+        # Results list (concatenated format: rank team value)
+        self.results_list = QListWidget()
+        self.results_list.setAccessibleName("Statistics Results List")
+        self.results_list.setAccessibleDescription("List showing rankings for the selected statistic")
+        self.results_list.hide()  # Hide until stat is selected
+        right_layout.addWidget(self.results_list)
         
-        right_layout.addWidget(self.results_table)
         right_widget.setLayout(right_layout)
         
         # Add to horizontal layout
@@ -5626,11 +5592,178 @@ class StatisticsViewDialog(QDialog):
         h_layout.addWidget(right_widget)
         
         layout.addLayout(h_layout)
+    
+    def _on_working_stat_selected(self, item):
+        """Handle stat selection with working approach - data is already loaded"""
+        print(f"DEBUG: _on_working_stat_selected called")
+        if item:
+            stat_info = item.data(Qt.ItemDataRole.UserRole)
+            if stat_info:
+                print(f"DEBUG: Displaying results for: {stat_info.get('name')}")
+                self._display_stat_results(stat_info)
+            else:
+                print(f"DEBUG: No stat_info in item data")
+        else:
+            print(f"DEBUG: _on_working_stat_selected called with None item")
         
         # Set focus to stats list
         self.stats_list.setFocus()
     
+    def _display_stat_results(self, stat_info):
+        """Display results in concatenated list format for the selected statistic"""
+        try:
+            stat_name = stat_info.get('stat_name', 'Unknown')
+            stat_type = stat_info.get('type', 'unknown')
+            data = stat_info.get('data', [])
+            
+            # Update results label
+            self.results_label.setText(f"Top Rankings: {stat_info.get('name', stat_name)}")
+            
+            # Clear and show results list
+            self.results_list.clear()
+            self.results_list.show()
+            
+            # Display in concatenated list format
+            if stat_type == "player":
+                self._setup_player_results_list(data, stat_name)
+            elif stat_type == "team":
+                self._setup_team_results_list(data, stat_name)
+            
+        except Exception as e:
+            print(f"ERROR in _display_stat_results: {str(e)}")
+            import traceback
+            traceback.print_exc()
+    
+    def _setup_player_results_list(self, data, stat_name):
+        """Setup concatenated list view for player statistics results"""
+        
+        def safe_float_convert(value):
+            """Safely convert value to float for sorting"""
+            try:
+                if isinstance(value, (int, float)):
+                    return float(value)
+                
+                value_str = str(value).strip()
+                if not value_str or value_str.lower() in ['none', 'n/a', '']:
+                    return 0.0
+                
+                # Handle fraction format like "1-1"
+                if '-' in value_str and value_str.count('-') == 1:
+                    parts = value_str.split('-')
+                    if len(parts) == 2:
+                        try:
+                            return float(parts[0]) / max(1, float(parts[1]))
+                        except (ValueError, ZeroDivisionError):
+                            return 0.0
+                
+                return float(value_str)
+            except (ValueError, TypeError):
+                return 0.0
+        
+        # Convert data to proper format with numeric sorting
+        converted_data = []
+        for item in data:
+            player_name = item.get('player_name', 'Unknown')
+            team = item.get('team', '')
+            value = item.get('value', '')
+            
+            numeric_value = safe_float_convert(value)
+            converted_data.append({
+                'name': f"{player_name} ({team})" if team else player_name,
+                'value': numeric_value,
+                'display_value': str(value)
+            })
+        
+        # Sort by numeric value (descending for most stats)
+        converted_data.sort(key=lambda x: x['value'], reverse=True)
+        
+        # Populate the list with rank
+        for rank, item in enumerate(converted_data, 1):
+            list_text = f"{rank} {item['name']} {item['display_value']}"
+            list_item = QListWidgetItem(list_text)
+            self.results_list.addItem(list_item)
+        
+        # Set focus to first item
+        if self.results_list.count() > 0:
+            self.results_list.setCurrentRow(0)
+    
+    def _setup_team_results_list(self, data, stat_name):
+        """Setup concatenated list view for team statistics results"""
+        
+        # Sort data by numeric value (descending for most stats)
+        sorted_data = sorted(data, key=lambda x: x.get('value', 0), reverse=True)
+        
+        # Populate the list with rank
+        for rank, item in enumerate(sorted_data, 1):
+            team_name = item.get('name', 'Unknown')
+            display_value = item.get('displayValue', str(item.get('value', '')))
+            list_text = f"{rank} {team_name} {display_value}"
+            list_item = QListWidgetItem(list_text)
+            self.results_list.addItem(list_item)
+        
+        # Set focus to first item
+        if self.results_list.count() > 0:
+            self.results_list.setCurrentRow(0)
+    
+    def _get_stat_categories(self):
+        """Get available stat categories without loading full data"""
+        # Return actual individual statistics that users want to see
+        if self.league.upper() == "MLB":
+            if self.stat_type == "team":
+                # Show actual team stats available across all categories
+                return [
+                    "Batting Average", "Home Runs", "RBIs", "Runs", "Hits", "Doubles", "Triples",
+                    "ERA", "Wins", "Strikeouts", "WHIP", "Saves", "Innings Pitched",
+                    "Fielding Percentage", "Errors", "Double Plays"
+                ]
+            else:  # player
+                # Based on actual ESPN player stats structure
+                return [
+                    "Batting Average", "Home Runs", "RBIs", "Runs", "OPS", "On Base Percentage", "Slugging Percentage",
+                    "ERA", "Wins", "Strikeouts", "WHIP", "Saves", "Quality Starts", "Opponent Batting Average",
+                    "Stolen Bases", "Hits", "Holds", "MLB Rating", "Average Game Score", "Wins Above Replacement"
+                ]
+        elif self.league.upper() == "NFL":
+            if self.stat_type == "team":
+                return [
+                    "Total Yards", "Passing Yards", "Rushing Yards", "Points For", "Points Against",
+                    "Turnovers", "Third Down Efficiency", "Red Zone Efficiency"
+                ]
+            else:  # player
+                return [
+                    "Passing Yards", "Passing TDs", "Rushing Yards", "Rushing TDs",
+                    "Receiving Yards", "Receiving TDs", "Tackles", "Sacks", "Interceptions"
+                ]
+        elif self.league.upper() == "NBA":
+            if self.stat_type == "team":
+                return [
+                    "Points Per Game", "Field Goal %", "Three Point %", "Free Throw %",
+                    "Rebounds", "Assists", "Steals", "Blocks", "Turnovers"
+                ]
+            else:  # player
+                return [
+                    "Points Per Game", "Field Goal %", "Three Point %", "Free Throw %",
+                    "Rebounds", "Assists", "Steals", "Blocks", "Minutes"
+                ]
+        else:
+            # Generic categories for other leagues
+            return ["Points", "Wins", "Goals", "Assists"] if self.stat_type == "team" else ["Points", "Goals", "Assists", "Games"]
+    
     def _get_available_statistics(self):
+        """Get available statistics by loading data only when needed"""
+        # Only load full statistics data when actually needed
+        if not self.statistics_data:
+            try:
+                print(f"DEBUG: Loading statistics data for {self.league} {self.stat_type}")
+                self.statistics_data = ApiService.get_statistics(self.league)
+                print(f"DEBUG: Got statistics_data: {type(self.statistics_data)}")
+            except Exception as e:
+                print(f"DEBUG: Exception loading data: {str(e)}")
+                return []
+        
+        if not self.statistics_data:
+            print(f"DEBUG: statistics_data is still None after loading")
+            return []
         """Extract available statistics from the data"""
         print(f"DEBUG: _get_available_statistics called for {self.stat_type}")
         available_stats = []
@@ -5675,132 +5808,384 @@ class StatisticsViewDialog(QDialog):
                     team_stats_dict = first_team.get("stats", {})
                     
                     for stat_name in team_stats_dict.keys():
+                        # Process the teams data for this specific stat
+                        teams_data = []
+                        for team_info in teams_list:
+                            team_name = team_info.get("team_name", "Unknown")
+                            team_stats_dict = team_info.get("stats", {})
+                            
+                            if stat_name in team_stats_dict:
+                                stat_value = team_stats_dict[stat_name]
+                                
+                                # Try to convert to numeric for sorting
+                                numeric_value = 0
+                                try:
+                                    numeric_value = float(stat_value)
+                                except (ValueError, TypeError):
+                                    pass
+                                
+                                teams_data.append({
+                                    "name": team_name,
+                                    "value": numeric_value,
+                                    "displayValue": str(stat_value)
+                                })
+                        
+                        # Sort teams by value (descending for most stats)
+                        teams_data.sort(key=lambda x: x["value"], reverse=True)
+                        
                         available_stats.append({
                             'name': f"{stat_name} ({category_name})",
                             'category': category_name,
                             'stat_name': stat_name,
-                            'data': teams_list,
+                            'data': teams_data,  # Pre-processed data ready for display
                             'type': 'team'
                         })
+                        print(f"DEBUG: Added team stat: {stat_name} ({category_name}) with {len(teams_data)} teams")
         
         print(f"DEBUG: Total available stats: {len(available_stats)}")
         return available_stats
     
     def _on_stat_selected(self, item):
         """Handle when a statistic is clicked (mouse click)"""
+        print(f"DEBUG: _on_stat_selected called with item: {item}")
         if item:
-            stat_info = item.data(Qt.ItemDataRole.UserRole)
-            if stat_info:
-                self._display_stat_results(stat_info)
+            category_info = item.data(Qt.ItemDataRole.UserRole)
+            print(f"DEBUG: category_info: {category_info}")
+            if category_info:
+                print(f"DEBUG: About to load data for category: {category_info.get('category')}")
+                try:
+                    # Load data on demand
+                    stat_info = self._load_stat_data_for_category(category_info.get('category'))
+                    if stat_info:
+                        self._display_stat_results(stat_info)
+                        print(f"DEBUG: _display_stat_results completed successfully")
+                    else:
+                        print(f"DEBUG: No stat_info returned for category")
+                except Exception as e:
+                    print(f"DEBUG: Exception in _on_stat_selected: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
+            else:
+                print(f"DEBUG: No category_info found in item data")
+        else:
+            print(f"DEBUG: _on_stat_selected called with None item")
     
     def _on_stat_activated(self, item):
         """Handle when a statistic is activated (Enter key or double-click)"""
-        if item:
-            stat_info = item.data(Qt.ItemDataRole.UserRole)
-            if stat_info:
-                self._display_stat_results(stat_info)
+        print(f"DEBUG: _on_stat_activated called")
+        self._on_stat_selected(item)  # Use same logic
     
-    def _display_stat_results(self, stat_info):
-        """Display results table for the selected statistic"""
-        try:
-            stat_name = stat_info.get('stat_name', 'Unknown')
-            stat_type = stat_info.get('type', 'unknown')
-            data = stat_info.get('data', [])
-            
-            print(f"DEBUG: Displaying results for {stat_name} ({stat_type}) with {len(data)} items")
-            
-            # Update results label
-            self.results_label.setText(f"Top Rankings: {stat_info.get('name', stat_name)}")
-            
-            # Clear and setup table
-            self.results_table.clear()
-            self.results_table.show()
-            
-            if stat_type == "player":
-                self._setup_player_results_table(data, stat_name)
-            elif stat_type == "team":
-                self._setup_team_results_table(data, stat_name)
-            
-            # Auto-resize columns
-            self.results_table.resizeColumnsToContents()
-            
-            print(f"DEBUG: Results table updated successfully")
-            
-        except Exception as e:
-            print(f"DEBUG: Error in _display_stat_results: {str(e)}")
-            import traceback
-            traceback.print_exc()
-    
-    def _setup_player_results_table(self, data, stat_name):
-        """Setup table for player statistics results"""
-        # Sort by value (descending)
-        sorted_data = sorted(data, key=lambda x: float(x.get('value', 0)), reverse=True)
+    def _load_stat_data_for_category(self, category):
+        """Load statistics data for a specific category on demand"""
+        # Show loading message
+        if hasattr(self, 'results_label'):
+            self.results_label.setText(f"Loading {category}...")
         
-        # Limit to top 50
-        top_data = sorted_data[:50]
-        
-        # Setup table
-        self.results_table.setRowCount(len(top_data))
-        self.results_table.setColumnCount(4)
-        self.results_table.setHorizontalHeaderLabels(["Rank", "Player", "Team", stat_name])
-        
-        # Populate data
-        for row, stat in enumerate(top_data):
-            rank = str(row + 1)
-            player_name = stat.get("player_name", "Unknown")
-            team = stat.get("team", "")
-            value = str(stat.get("value", ""))
-            
-            self.results_table.setItem(row, 0, QTableWidgetItem(rank))
-            self.results_table.setItem(row, 1, QTableWidgetItem(player_name))
-            self.results_table.setItem(row, 2, QTableWidgetItem(team))
-            self.results_table.setItem(row, 3, QTableWidgetItem(value))
-        
-        # Enable sorting
-        self.results_table.setSortingEnabled(True)
-        self.results_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-    
-    def _setup_team_results_table(self, data, stat_name):
-        """Setup table for team statistics results"""
-        # Extract values for this stat from all teams
-        team_values = []
-        for team_data in data:
-            team_name = team_data.get("team_name", "Unknown")
-            stats_dict = team_data.get("stats", {})
-            value = stats_dict.get(stat_name, 0)
-            
+        # Load full data if not already loaded
+        if not self.statistics_data:
             try:
-                numeric_value = float(value)
-            except (ValueError, TypeError):
-                numeric_value = 0
+                print(f"DEBUG: Loading statistics data for {self.league}")
+                self.statistics_data = ApiService.get_statistics(self.league)
+            except Exception as e:
+                print(f"DEBUG: Exception loading statistics data: {str(e)}")
+                if hasattr(self, 'results_label'):
+                    self.results_label.setText(f"Error loading data: {str(e)}")
+                return None
+        
+        if not self.statistics_data:
+            print(f"DEBUG: No statistics data available")
+            if hasattr(self, 'results_label'):
+                self.results_label.setText("No statistics data available")
+            return None
+        
+        # Find matching statistics for the category
+        return self._find_stat_for_category(category)
+    
+    def _find_stat_for_category(self, category):
+        """Find the best matching statistic for a given category"""
+        if self.stat_type == "team":
+            team_stats = self.statistics_data.get("team_stats", [])
             
-            team_values.append({
-                'team': team_name,
-                'value': numeric_value,
-                'display_value': str(value)
-            })
+            # Search across all team stat categories for the specific stat
+            for stat_category in team_stats:
+                category_name = stat_category.get("category", "")
+                teams_in_category = stat_category.get("stats", [])
+                
+                if teams_in_category:
+                    # Get the first team's stats to see what's available
+                    first_team = teams_in_category[0]
+                    team_stats_dict = first_team.get("stats", {})
+                    
+                    # Look for the exact stat name the user wants
+                    best_stat_name = None
+                    
+                    # Direct match
+                    if category in team_stats_dict:
+                        best_stat_name = category
+                    else:
+                        # Fuzzy matching
+                        for stat_name in team_stats_dict.keys():
+                            if (category.lower() in stat_name.lower() or
+                                self._is_category_match(category, stat_name, stat_name)):
+                                best_stat_name = stat_name
+                                break
+                    
+                    if best_stat_name:
+                        # Collect all teams' data for this stat
+                        teams_data = []
+                        for team_info in teams_in_category:
+                            team_name = team_info.get("team_name", "Unknown")
+                            team_stats_dict = team_info.get("stats", {})
+                            
+                            if best_stat_name in team_stats_dict:
+                                stat_value = team_stats_dict[best_stat_name]
+                                
+                                # Try to convert to numeric for sorting
+                                numeric_value = 0
+                                try:
+                                    numeric_value = float(stat_value)
+                                except (ValueError, TypeError):
+                                    # Keep as string, use 0 for sorting
+                                    pass
+                                
+                                teams_data.append({
+                                    "name": team_name,
+                                    "value": numeric_value,
+                                    "displayValue": str(stat_value)
+                                })
+                        
+                        if teams_data:
+                            # Sort teams by value (descending for most stats)
+                            teams_data.sort(key=lambda x: x["value"], reverse=True)
+                            
+                            return {
+                                'name': f"{best_stat_name}",
+                                'category': category,
+                                'stat_name': best_stat_name,
+                                'data': teams_data,
+                                'type': 'team'
+                            }
         
-        # Sort by value (descending)
-        team_values.sort(key=lambda x: x['value'], reverse=True)
-        
-        # Setup table
-        self.results_table.setRowCount(len(team_values))
-        self.results_table.setColumnCount(3)
-        self.results_table.setHorizontalHeaderLabels(["Rank", "Team", stat_name])
-        
-        # Populate data
-        for row, team_data in enumerate(team_values):
-            rank = str(row + 1)
-            team_name = team_data['team']
-            value = team_data['display_value']
+        else:  # player stats
+            player_stats = self.statistics_data.get("player_stats", [])
             
-            self.results_table.setItem(row, 0, QTableWidgetItem(rank))
-            self.results_table.setItem(row, 1, QTableWidgetItem(team_name))
-            self.results_table.setItem(row, 2, QTableWidgetItem(value))
+            # Player stats structure: [{'category': name, 'stats': [{'player_name': name, 'team': team, 'value': value, 'stat_name': stat}]}]
+            for stat_category in player_stats:
+                category_name = stat_category.get("category", "")
+                stats_list = stat_category.get("stats", [])
+                
+                if not stats_list:
+                    continue
+                
+                # Check if this category matches what we're looking for
+                if (category.lower() in category_name.lower() or
+                    self._is_category_match(category, category_name, category_name)):
+                    
+                    # All stats in this category should be the same stat type
+                    # Just use the data as-is since it's already in the right format
+                    players_data = []
+                    for stat in stats_list:
+                        player_name = stat.get("player_name", "Unknown")
+                        stat_value = stat.get("value", "")
+                        
+                        # Try to convert to numeric for sorting
+                        numeric_value = 0
+                        try:
+                            # Handle fraction format like "1-1" 
+                            if '-' in str(stat_value) and str(stat_value).count('-') == 1:
+                                parts = str(stat_value).split('-')
+                                if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                                    numeric_value = int(parts[0]) / max(1, int(parts[1]))  # Avoid division by zero
+                                else:
+                                    numeric_value = float(stat_value)
+                            else:
+                                numeric_value = float(stat_value)
+                        except (ValueError, TypeError):
+                            # Keep as 0 for sorting if can't convert
+                            pass
+                        
+                        players_data.append({
+                            "name": f"{player_name} ({stat.get('team', 'N/A')})",
+                            "value": numeric_value,
+                            "displayValue": str(stat_value)
+                        })
+                    
+                    if players_data:
+                        # Sort players by value (descending for most stats)
+                        players_data.sort(key=lambda x: x["value"], reverse=True)
+                        
+                        return {
+                            'name': f"{category_name}",
+                            'category': category,
+                            'stat_name': category_name,
+                            'data': players_data,
+                            'type': 'player'
+                        }
         
-        # Enable sorting
-        self.results_table.setSortingEnabled(True)
-        self.results_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        # If no exact match found, return None
+        print(f"DEBUG: No matching stat found for category: {category}")
+        return None
+    
+    def _is_category_match(self, category, stat_name, stat_display_name):
+        """Check if a category matches a statistic using fuzzy matching"""
+        category_lower = category.lower()
+        stat_name_lower = stat_name.lower()
+        stat_display_lower = stat_display_name.lower()
+        
+        # Define mapping for common statistics
+        category_mappings = {
+            "batting average": ["avg", "average", "batting"],
+            "home runs": ["hr", "homerun", "home run"],
+            "rbis": ["rbi", "runs batted in"],
+            "runs": ["run", "r"],
+            "hits": ["hit", "h"],
+            "stolen bases": ["sb", "steal", "stolen"],
+            "era": ["era", "earned run average"],
+            "wins": ["win", "w"],
+            "strikeouts": ["so", "k", "strikeout"],
+            "whip": ["whip", "walks hits innings"],
+            "saves": ["save", "sv"],
+            "innings pitched": ["ip", "inning"],
+            "passing yards": ["passing", "pass yards"],
+            "rushing yards": ["rushing", "rush yards"],
+            "receiving yards": ["receiving", "rec yards"],
+            "touchdowns": ["td", "touchdown"],
+            "points per game": ["ppg", "points"],
+            "field goal": ["fg", "field goal"],
+            "assists": ["ast", "assist"],
+            "rebounds": ["reb", "rebound"],
+            "steals": ["stl", "steal"],
+            "blocks": ["blk", "block"]
+        }
+        
+        # Check if category has specific mappings
+        if category_lower in category_mappings:
+            for mapping in category_mappings[category_lower]:
+                if mapping in stat_name_lower or mapping in stat_display_lower:
+                    return True
+        
+        return False
+    
+    def _show_stat_definitions(self):
+        """Show statistics definitions dialog"""
+        definitions_dialog = StatDefinitionsDialog(self.league, self)
+        definitions_dialog.exec()
+
+class StatDefinitionsDialog(QDialog):
+    """Dialog showing definitions of statistics for different leagues"""
+    
+    def __init__(self, league, parent=None):
+        super().__init__(parent)
+        self.league = league
+        self.setWindowTitle(f"{league} Statistics Definitions")
+        self.resize(600, 500)
+        self.setup_ui()
+    
+    def setup_ui(self):
+        layout = QVBoxLayout()
+        
+        # Title
+        title = QLabel(f"{self.league} Statistics Definitions")
+        title.setStyleSheet("font-weight: bold; font-size: 14px;")
+        layout.addWidget(title)
+        
+        # Instructions
+        instructions = QLabel("Browse definitions for statistical categories:")
+        layout.addWidget(instructions)
+        
+        # Definitions list
+        self.definitions_list = QListWidget()
+        self.definitions_list.setAccessibleName("Statistics Definitions")
+        
+        # Populate definitions
+        definitions = self._get_stat_definitions()
+        for stat_name, definition in definitions.items():
+            item_text = f"{stat_name}: {definition}"
+            item = QListWidgetItem(item_text)
+            self.definitions_list.addItem(item)
+        
+        layout.addWidget(self.definitions_list)
+        
+        # Close button
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        layout.addWidget(close_btn)
+        
+        self.setLayout(layout)
+    
+    def _get_stat_definitions(self):
+        """Get statistics definitions for the current league"""
+        if self.league.upper() == "MLB":
+            return {
+                "AVG (Batting Average)": "Hits divided by at bats. Measures how often a batter gets a hit.",
+                "HR (Home Runs)": "Number of hits that allow the batter to circle all bases and score.",
+                "RBI (Runs Batted In)": "Number of runs that scored as a result of the batter's action.",
+                "R (Runs)": "Number of times a player crosses home plate to score.",
+                "H (Hits)": "Number of times a batter safely reaches base via a hit.",
+                "SB (Stolen Bases)": "Number of bases stolen by advancing while the ball is in play.",
+                "ERA (Earned Run Average)": "Average number of earned runs allowed per 9 innings pitched.",
+                "W (Wins)": "Number of games won by a pitcher (must be pitcher of record).",
+                "K/SO (Strikeouts)": "Number of batters struck out by a pitcher.",
+                "WHIP": "Walks plus hits divided by innings pitched. Lower is better.",
+                "SV (Saves)": "Number of times a relief pitcher preserved a lead for the win.",
+                "IP (Innings Pitched)": "Number of complete innings pitched (outs divided by 3).",
+                "OBP (On-Base %)": "Percentage of plate appearances reaching base safely.",
+                "SLG (Slugging %)": "Total bases divided by at bats. Measures power hitting.",
+                "OPS": "On-base percentage plus slugging percentage. Overall offensive measure."
+            }
+        elif self.league.upper() == "NFL":
+            return {
+                "Passing Yards": "Total yards gained through forward passes.",
+                "Passing TDs": "Number of touchdown passes thrown by a quarterback.",
+                "Rushing Yards": "Total yards gained by running with the football.",
+                "Rushing TDs": "Number of touchdowns scored by running the ball.",
+                "Receiving Yards": "Total yards gained from catching passes.",
+                "Receiving TDs": "Number of touchdowns scored by catching passes.",
+                "Tackles": "Number of times a defensive player brings down the ball carrier.",
+                "Sacks": "Number of times the quarterback is tackled behind the line.",
+                "Interceptions": "Number of passes caught by the opposing defense.",
+                "Completion %": "Percentage of pass attempts that were completed.",
+                "QBR (Quarterback Rating)": "Composite statistic measuring quarterback performance.",
+                "Total Yards": "Combined offensive yards (passing + rushing).",
+                "Points For": "Total points scored by a team.",
+                "Points Against": "Total points allowed by a team's defense.",
+                "Turnovers": "Number of times possession was lost (fumbles + interceptions).",
+                "3rd Down %": "Percentage of third down attempts converted for first downs."
+            }
+        elif self.league.upper() == "NBA":
+            return {
+                "PPG (Points Per Game)": "Average number of points scored per game.",
+                "FG% (Field Goal %)": "Percentage of field goal attempts made.",
+                "3P% (Three Point %)": "Percentage of three-point attempts made.",
+                "FT% (Free Throw %)": "Percentage of free throw attempts made.",
+                "RPG (Rebounds Per Game)": "Average number of rebounds per game.",
+                "APG (Assists Per Game)": "Average number of assists per game.",
+                "SPG (Steals Per Game)": "Average number of steals per game.",
+                "BPG (Blocks Per Game)": "Average number of blocks per game.",
+                "TOV (Turnovers)": "Number of times possession was lost.",
+                "MPG (Minutes Per Game)": "Average playing time per game.",
+                "PER (Player Efficiency Rating)": "Overall player productivity rating.",
+                "TS% (True Shooting %)": "Shooting efficiency including free throws and 3-pointers.",
+                "USG% (Usage Rate)": "Percentage of team plays used by a player.",
+                "ORtg (Offensive Rating)": "Points produced per 100 possessions.",
+                "DRtg (Defensive Rating)": "Points allowed per 100 possessions."
+            }
+        else:
+            return {
+                "Points": "Total points scored by team or individual player.",
+                "Wins": "Number of games or matches won.",
+                "Goals": "Number of goals scored (varies by sport).",
+                "Assists": "Number of assists made to help teammates score.",
+                "Games": "Number of games or matches played.",
+                "Average": "Mean value across all games or attempts."
+            }
+    
+    def keyPressEvent(self, event):
+        """Handle Escape key to close dialog"""
+        if event.key() == Qt.Key.Key_Escape:
+            self.accept()
+        else:
+            super().keyPressEvent(event)
 
 
 class StatisticsDialog(QDialog):
