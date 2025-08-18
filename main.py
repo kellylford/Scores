@@ -84,9 +84,9 @@ def determine_startup_params(args):
 
 # Import and run the main application
 if __name__ == "__main__":
-    # Check if running on macOS and use macOS-specific entry point
+    # Check if running on macOS and use simplified macOS entry point
     if platform.system() == "Darwin":
-        from main_macos import main
+        from main_simple import main
         main()
     else:
         # Original cross-platform behavior

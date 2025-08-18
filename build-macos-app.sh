@@ -49,7 +49,7 @@ pyinstaller \
     --name=Scores \
     --osx-bundle-identifier=com.kellylford.scores \
     --add-data="README.md:." \
-    --add-data="macos_accessibility.py:." \
+    --add-data="main_simple.py:." \
     main.py
 
 # Check if build was successful
