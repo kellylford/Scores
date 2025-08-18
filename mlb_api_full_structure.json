@@ -1,0 +1,157 @@
+{
+  "copyright": "Copyright 2025 MLB Advanced Media, L.P.  Use of any content on this page acknowledges agreement to the terms posted here http://gdx.mlb.com/components/copyright.txt",
+  "leagueLeaders": [
+    {
+      "leaderCategory": "homeRuns",
+      "season": "2025",
+      "gameType": {
+        "id": "R",
+        "description": "Regular Season"
+      },
+      "leaders": [
+        {
+          "rank": 1,
+          "value": "47",
+          "team": {
+            "id": 136,
+            "name": "Seattle Mariners",
+            "link": "/api/v1/teams/136"
+          },
+          "league": {
+            "id": 103,
+            "name": "AL",
+            "link": "/api/v1/league/103"
+          },
+          "person": {
+            "id": 663728,
+            "fullName": "Cal Raleigh",
+            "link": "/api/v1/people/663728",
+            "firstName": "Cal",
+            "lastName": "Raleigh"
+          },
+          "sport": {
+            "id": 1,
+            "link": "/api/v1/sports/1",
+            "abbreviation": "MLB"
+          },
+          "season": "2025",
+          "numTeams": 1
+        },
+        {
+          "rank": 2,
+          "value": "43",
+          "team": {
+            "id": 119,
+            "name": "Los Angeles Dodgers",
+            "link": "/api/v1/teams/119"
+          },
+          "league": {
+            "id": 104,
+            "name": "NL",
+            "link": "/api/v1/league/104"
+          },
+          "person": {
+            "id": 660271,
+            "fullName": "Shohei Ohtani",
+            "link": "/api/v1/people/660271",
+            "firstName": "Shohei",
+            "lastName": "Ohtani"
+          },
+          "sport": {
+            "id": 1,
+            "link": "/api/v1/sports/1",
+            "abbreviation": "MLB"
+          },
+          "season": "2025",
+          "numTeams": 1
+        },
+        {
+          "rank": 2,
+          "value": "43",
+          "team": {
+            "id": 143,
+            "name": "Philadelphia Phillies",
+            "link": "/api/v1/teams/143"
+          },
+          "league": {
+            "id": 104,
+            "name": "NL",
+            "link": "/api/v1/league/104"
+          },
+          "person": {
+            "id": 656941,
+            "fullName": "Kyle Schwarber",
+            "link": "/api/v1/people/656941",
+            "firstName": "Kyle",
+            "lastName": "Schwarber"
+          },
+          "sport": {
+            "id": 1,
+            "link": "/api/v1/sports/1",
+            "abbreviation": "MLB"
+          },
+          "season": "2025",
+          "numTeams": 1
+        },
+        {
+          "rank": 4,
+          "value": "39",
+          "team": {
+            "id": 147,
+            "name": "New York Yankees",
+            "link": "/api/v1/teams/147"
+          },
+          "league": {
+            "id": 103,
+            "name": "AL",
+            "link": "/api/v1/league/103"
+          },
+          "person": {
+            "id": 592450,
+            "fullName": "Aaron Judge",
+            "link": "/api/v1/people/592450",
+            "firstName": "Aaron",
+            "lastName": "Judge"
+          },
+          "sport": {
+            "id": 1,
+            "link": "/api/v1/sports/1",
+            "abbreviation": "MLB"
+          },
+          "season": "2025",
+          "numTeams": 1
+        },
+        {
+          "rank": 5,
+          "value": "38",
+          "team": {
+            "id": 136,
+            "name": "Seattle Mariners",
+            "link": "/api/v1/teams/136"
+          },
+          "league": {
+            "id": 103,
+            "name": "AL",
+            "link": "/api/v1/league/103"
+          },
+          "person": {
+            "id": 553993,
+            "fullName": "Eugenio Su\u00e1rez",
+            "link": "/api/v1/people/553993",
+            "firstName": "Eugenio",
+            "lastName": "Su\u00e1rez"
+          },
+          "sport": {
+            "id": 1,
+            "link": "/api/v1/sports/1",
+            "abbreviation": "MLB"
+          },
+          "season": "2025",
+          "numTeams": 2
+        }
+      ],
+      "statGroup": "hitting",
+      "totalSplits": 476
+    }
+  ]
+}

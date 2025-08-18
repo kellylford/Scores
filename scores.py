@@ -5553,9 +5553,13 @@ class StatisticsViewDialog(QDialog):
         stats_label = QLabel("Select a Statistic:")
         left_layout.addWidget(stats_label)
         
-        # Add note about data timeframe
-        note_label = QLabel("📊 Note: Shows recent performance leaders")
-        note_label.setStyleSheet("color: #666; font-style: italic; font-size: 9pt;")
+        # Add note about data timeframe  
+        if self.league.upper() == "MLB":
+            note_label = QLabel("📊 Full Season Statistics")
+            note_label.setStyleSheet("color: #0066cc; font-weight: bold; font-size: 9pt;")
+        else:
+            note_label = QLabel("📊 Note: Shows recent performance leaders")
+            note_label.setStyleSheet("color: #666; font-style: italic; font-size: 9pt;")
         note_label.setWordWrap(True)
         left_layout.addWidget(note_label)
         
@@ -5624,7 +5628,10 @@ class StatisticsViewDialog(QDialog):
             
             # Update results label with data context
             if stat_type == "player":
-                header_text = f"Recent Performance Leaders: {stat_info.get('name', stat_name)}"
+                if self.league.upper() == "MLB":
+                    header_text = f"Season Leaders: {stat_info.get('name', stat_name)}"
+                else:
+                    header_text = f"Recent Performance Leaders: {stat_info.get('name', stat_name)}"
             else:
                 header_text = f"Top Rankings: {stat_info.get('name', stat_name)}"
             

@@ -2392,6 +2392,137 @@ def _get_team_statistics(league_key):
         print(f"Error fetching team statistics: {e}")
         return []
 
+def _get_mlb_statistics():
+    """Get MLB player statistics from the official MLB Stats API with enhanced parallel loading"""
+    import concurrent.futures
+    from datetime import datetime
+    
+    # Determine the current season
+    current_year = datetime.now().year
+    season = current_year
+    
+    print(f"Fetching enhanced MLB statistics for {season} season")
+    
+    # Enhanced stat categories - all available from MLB API
+    stat_categories = [
+        # Hitting stats (16 categories)
+        ("homeRuns", "hitting", "Home Runs"),
+        ("battingAverage", "hitting", "Batting Average"),
+        ("rbi", "hitting", "RBIs"),
+        ("hits", "hitting", "Hits"),
+        ("runs", "hitting", "Runs"),
+        ("doubles", "hitting", "Doubles"),
+        ("triples", "hitting", "Triples"),
+        ("stolenBases", "hitting", "Stolen Bases"),
+        ("onBasePercentage", "hitting", "On-Base %"),
+        ("sluggingPercentage", "hitting", "Slugging %"),
+        ("ops", "hitting", "OPS"),
+        ("walks", "hitting", "Walks"),
+        ("strikeouts", "hitting", "Strikeouts (Batting)"),
+        ("hitByPitch", "hitting", "Hit By Pitch"),
+        ("sacrificeFlies", "hitting", "Sacrifice Flies"),
+        ("groundIntoDoublePlay", "hitting", "GIDP"),
+        
+        # Pitching stats (14 categories)
+        ("wins", "pitching", "Wins"),
+        ("losses", "pitching", "Losses"),
+        ("era", "pitching", "ERA"),
+        ("strikeouts", "pitching", "Strikeouts (Pitching)"),
+        ("saves", "pitching", "Saves"),
+        ("holds", "pitching", "Holds"),
+        ("whip", "pitching", "WHIP"),
+        ("inningsPitched", "pitching", "Innings Pitched"),
+        ("hitBatsmen", "pitching", "Hit Batsmen"),
+        ("wildPitches", "pitching", "Wild Pitches"),
+        ("balks", "pitching", "Balks"),
+        ("completeGames", "pitching", "Complete Games"),
+        ("shutouts", "pitching", "Shutouts"),
+        ("blownSaves", "pitching", "Blown Saves"),
+        
+        # Fielding stats (9 categories) - NEW!
+        ("errors", "fielding", "Errors"),
+        ("fieldingPercentage", "fielding", "Fielding %"),
+        ("assists", "fielding", "Assists"),
+        ("putouts", "fielding", "Putouts"),
+        ("chances", "fielding", "Total Chances"),
+        ("doublePlays", "fielding", "Double Plays"),
+        ("triplePlays", "fielding", "Triple Plays"),
+        ("passedBalls", "fielding", "Passed Balls"),
+        ("caughtStealing", "fielding", "Caught Stealing"),
+    ]
+    
+    print(f"Loading {len(stat_categories)} statistical categories in parallel...")
+    
+    def fetch_stat_category(stat_info):
+        """Fetch a single stat category"""
+        stat_key, stat_group, display_name = stat_info
+        try:
+            url = f"https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories={stat_key}&statGroup={stat_group}&season={season}"
+            response = requests.get(url, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                if 'leagueLeaders' in data and len(data['leagueLeaders']) > 0:
+                    leaders_data = data['leagueLeaders'][0]
+                    if 'leaders' in leaders_data and len(leaders_data['leaders']) > 0:
+                        
+                        leaders = []
+                        for leader in leaders_data['leaders'][:10]:  # Top 10 players
+                            player_info = leader.get('person', {})
+                            team_info = leader.get('team', {})
+                            
+                            leader_data = {
+                                'name': player_info.get('fullName', 'Unknown'),
+                                'value': leader.get('value', 0),
+                                'team': team_info.get('abbreviation', team_info.get('name', 'N/A')),
+                                'position': None  # MLB API doesn't provide position in leaders
+                            }
+                            leaders.append(leader_data)
+                        
+                        category_data = {
+                            'name': display_name,
+                            'display_name': display_name,
+                            'abbreviation': stat_key,
+                            'leaders': leaders
+                        }
+                        
+                        return category_data, display_name, leaders[0]['name'], leaders[0]['value']
+                        
+        except Exception as e:
+            print(f"  💥 Error fetching {display_name}: {str(e)[:60]}")
+        
+        return None, display_name, None, None
+    
+    # Use parallel execution for much faster loading
+    player_stats = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
+        # Submit all requests in parallel
+        future_to_stat = {
+            executor.submit(fetch_stat_category, stat_info): stat_info[2] 
+            for stat_info in stat_categories
+        }
+        
+        # Collect results as they complete
+        for future in concurrent.futures.as_completed(future_to_stat):
+            stat_name = future_to_stat[future]
+            try:
+                category_data, display_name, leader_name, leader_value = future.result()
+                if category_data:
+                    player_stats.append(category_data)
+                    print(f"  ✅ {display_name}: {leader_name} = {leader_value}")
+                else:
+                    print(f"  ❌ {display_name}: No data available")
+            except Exception as e:
+                print(f"  💥 {stat_name}: Exception - {str(e)[:50]}")
+    
+    print(f"Successfully loaded {len(player_stats)} MLB statistical categories")
+    
+    return {
+        "player_stats": player_stats,
+        "team_stats": []
+    }
+
 def get_statistics(league_key):
     """Get statistics/leaders data for a league"""
     # Handle case-insensitive league keys
@@ -2401,6 +2532,19 @@ def get_statistics(league_key):
         return _get_sample_statistics_data(league_key)
     
     try:
+        # For MLB, use the official MLB Stats API for full season player statistics
+        if league_key.upper() == "MLB":
+            print("Using MLB Stats API for full season player statistics")
+            mlb_result = _get_mlb_statistics()
+            if mlb_result['player_stats']:
+                # Also get team statistics from ESPN
+                team_stats = _get_team_statistics(league_key)
+                if team_stats:
+                    mlb_result['team_stats'] = team_stats
+                return mlb_result
+            else:
+                print("MLB Stats API failed, falling back to ESPN")
+        
         # Try multiple endpoints that might contain statistics
         endpoints_to_try = [
             f"{BASE_URL}/{league_path}/leaders",
