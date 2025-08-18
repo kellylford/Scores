@@ -20,6 +20,12 @@
    - News functionality appears broken (showing blank)
    - Game data may not be displaying properly
 
+### ❌ SPECIFIC ISSUES ENCOUNTERED (August 18, 2025 Session)
+1. **Python Crashes**: App crashes during navigation between views
+2. **News Feature Blank**: News dialog opens but shows no content
+3. **App Stability**: Multiple crash scenarios need investigation
+4. **UI Conversion Incomplete**: LiveScoresView and other views still need button conversion
+
 ### ❌ REMAINING ISSUES
 1. **App Stability**: Python crashes happening during use
 2. **News Feature**: News dialog showing blank content
