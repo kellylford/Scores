@@ -2581,10 +2581,27 @@ def _parse_mlb_player_stats(leaders):
                 team = leader.get("team", athlete.get("team", {}))
                 
                 if athlete and ("displayName" in athlete or "name" in athlete):
+                    # Use the raw value for the specific statistic, not the display value
+                    # displayValue contains full stat lines, value contains just the target stat
+                    raw_value = leader.get("value", "")
+                    
+                    # For most statistics, use the raw numeric value
+                    # For special cases like batting average, format appropriately
+                    stat_value = raw_value
+                    if category_key.lower() in ['avg', 'era', 'whip', 'onbasepct', 'slugavg', 'ops']:
+                        # For percentage/ratio stats, format to 3 decimal places
+                        try:
+                            stat_value = f"{float(raw_value):.3f}"
+                        except (ValueError, TypeError):
+                            stat_value = str(raw_value)
+                    else:
+                        # For counting stats, use the numeric value as-is
+                        stat_value = str(raw_value)
+                    
                     stats.append({
                         "player_name": athlete.get("displayName", athlete.get("name", "Unknown")),
                         "team": team.get("abbreviation", team.get("name", "")),
-                        "value": leader.get("displayValue", str(leader.get("value", ""))),
+                        "value": stat_value,
                         "stat_name": category_display_name or category_key.title()
                     })
             
@@ -2764,10 +2781,27 @@ def _parse_generic_player_stats(leaders):
                 team = leader.get("team", athlete.get("team", {}))
                 
                 if athlete and ("displayName" in athlete or "name" in athlete):
+                    # Use the raw value for the specific statistic, not the display value
+                    # displayValue contains full stat lines, value contains just the target stat
+                    raw_value = leader.get("value", "")
+                    
+                    # For most statistics, use the raw numeric value
+                    # For special cases like batting average, format appropriately
+                    stat_value = raw_value
+                    if category_key.lower() in ['avg', 'era', 'whip', 'onbasepct', 'slugavg', 'ops']:
+                        # For percentage/ratio stats, format to 3 decimal places
+                        try:
+                            stat_value = f"{float(raw_value):.3f}"
+                        except (ValueError, TypeError):
+                            stat_value = str(raw_value)
+                    else:
+                        # For counting stats, use the numeric value as-is
+                        stat_value = str(raw_value)
+                    
                     stats.append({
                         "player_name": athlete.get("displayName", athlete.get("name", "Unknown")),
                         "team": team.get("abbreviation", team.get("name", "")),
-                        "value": leader.get("displayValue", str(leader.get("value", ""))),
+                        "value": stat_value,
                         "stat_name": category_display_name or category_key.title()
                     })
             
