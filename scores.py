@@ -41,6 +41,21 @@ try:
 except ImportError:
     WINDOWS_UIA_AVAILABLE = False
 
+# Cross-platform keyboard modifier helper
+def get_primary_modifier():
+    """Get the primary modifier key for the current platform"""
+    if platform.system() == "Darwin":  # macOS
+        return Qt.KeyboardModifier.MetaModifier  # Command key
+    else:
+        return Qt.KeyboardModifier.AltModifier  # Alt key on Windows/Linux
+
+def get_secondary_modifier():
+    """Get the secondary modifier key for the current platform"""
+    if platform.system() == "Darwin":  # macOS
+        return Qt.KeyboardModifier.AltModifier  # Option key
+    else:
+        return Qt.KeyboardModifier.ControlModifier  # Ctrl key on Windows/Linux
+
 # New separated modules
 from exceptions import ApiError, DataModelError
 from services.api_service import ApiService
@@ -343,21 +358,50 @@ class HomeView(BaseView):
             super(BaseView, self).keyPressEvent(event)  # Skip BaseView's Escape handling
     
     def setup_ui(self):
-        self.layout.addWidget(QLabel("Select a League:"))
+        # Title
+        title_label = QLabel("Select a League:")
+        title_label.setAccessibleName("League Selection Title")
+        title_label.setStyleSheet("font-size: 16px; font-weight: bold; padding: 10px;")
+        self.layout.addWidget(title_label)
         
-        self.league_list = QListWidget()
-        self.league_list.setAccessibleName("League Selection List")
-        self.league_list.setAccessibleDescription("List of available sports leagues and live scores")
+        # Live Scores button (featured option)
+        live_scores_btn = QPushButton("🏆 Live Scores - All Sports")
+        live_scores_btn.setAccessibleName("Live Scores for All Sports")
+        live_scores_btn.setAccessibleDescription("View live games and scores from all sports leagues")
+        live_scores_btn.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        live_scores_btn.setMinimumHeight(60)
+        live_scores_btn.setStyleSheet("""
+            QPushButton {
+                font-size: 14px; 
+                padding: 15px; 
+                margin: 5px;
+                background: #0078d4;
+                color: white;
+                border: none;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background: #106ebe;
+            }
+            QPushButton:focus {
+                border: 3px solid #ffcc00;
+                background: #005a9e;
+            }
+        """)
+        live_scores_btn.clicked.connect(self._on_live_scores_selected)
+        self.layout.addWidget(live_scores_btn)
         
-        # Add Live Scores as the first item
-        live_scores_item = QListWidgetItem("Live Scores - All Sports")
-        live_scores_item.setData(Qt.ItemDataRole.UserRole, "__live_scores__")
-        self.league_list.addItem(live_scores_item)
+        # Separator
+        separator = QLabel("─" * 50)
+        separator.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        separator.setStyleSheet("color: #888; margin: 10px 0;")
+        self.layout.addWidget(separator)
         
-        # Add separator
-        separator_item = QListWidgetItem("─" * 30)
-        separator_item.setFlags(Qt.ItemFlag.NoItemFlags)  # Make it non-selectable
-        self.league_list.addItem(separator_item)
+        # League selection buttons
+        leagues_label = QLabel("Choose a League:")
+        leagues_label.setAccessibleName("Individual League Selection")
+        leagues_label.setStyleSheet("font-weight: bold; margin: 10px 0;")
+        self.layout.addWidget(leagues_label)
         
         # Load leagues with error handling
         leagues = ApiService.get_leagues()
@@ -365,25 +409,67 @@ class HomeView(BaseView):
             self._show_api_error("Failed to load leagues")
             return
         
+        # Create buttons for each league
         for league in leagues:
-            self.league_list.addItem(league)
-        
-        self.league_list.itemActivated.connect(self._on_league_selected)
-        self.layout.addWidget(self.league_list)
+            btn = self._create_league_button(league)
+            self.layout.addWidget(btn)
         
         # Navigation buttons
         self._add_nav_buttons()
     
-    def _on_league_selected(self, item):
-        league = item.text()
-        user_data = item.data(Qt.ItemDataRole.UserRole)
+    def _create_league_button(self, league):
+        """Create an accessible button for a league"""
+        # Map league codes to full names and emojis
+        league_info = {
+            'mlb': ('⚾ Major League Baseball', 'View MLB games, standings, and statistics'),
+            'nfl': ('🏈 National Football League', 'View NFL games, standings, and statistics'),
+            'nba': ('🏀 National Basketball Association', 'View NBA games, standings, and statistics'),
+            'nhl': ('🏒 National Hockey League', 'View NHL games, standings, and statistics'),
+            'ncaaf': ('🏈 NCAA Football', 'View NCAA Football games and statistics'),
+            'wnba': ('🏀 WNBA', 'View WNBA games, standings, and statistics')
+        }
         
-        if user_data == "__live_scores__":
-            # Open Live Scores view
-            if self.parent_app:
-                self.parent_app.open_live_scores()
-        elif self.parent_app:
-            # Regular league selection
+        if league.lower() in league_info:
+            display_text, description = league_info[league.lower()]
+        else:
+            display_text = f"🏆 {league.upper()}"
+            description = f"View {league.upper()} games and statistics"
+        
+        btn = QPushButton(display_text)
+        btn.setAccessibleName(f"{league.upper()} League")
+        btn.setAccessibleDescription(description)
+        btn.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        btn.setMinimumHeight(50)
+        btn.setStyleSheet("""
+            QPushButton {
+                font-size: 13px; 
+                padding: 12px; 
+                margin: 3px;
+                text-align: left;
+                background: white;
+                border: 2px solid #ccc;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background: #f5f5f5;
+                border-color: #0078d4;
+            }
+            QPushButton:focus {
+                border: 3px solid #ffcc00;
+                background: #e8f4f8;
+            }
+        """)
+        btn.clicked.connect(lambda checked, l=league: self._on_league_selected(l))
+        return btn
+    
+    def _on_live_scores_selected(self):
+        """Handle live scores button selection"""
+        if self.parent_app:
+            self.parent_app.open_live_scores()
+    
+    def _on_league_selected(self, league):
+        """Handle league button selection"""
+        if self.parent_app:
             self.parent_app.open_league(league)
     
     def _add_nav_buttons(self):
@@ -398,31 +484,25 @@ class HomeView(BaseView):
         self.layout.addWidget(error_label)
     
     def on_show(self):
-        self.set_focus_and_select_first(self.league_list)
+        """Set focus to first league button when view is shown"""
+        # Find first button and set focus
+        for i in range(self.layout.count()):
+            widget = self.layout.itemAt(i).widget()
+            if isinstance(widget, QPushButton):
+                widget.setFocus()
+                break
     
     def refresh(self):
-        """Refresh the league list"""
-        self.league_list.clear()
+        """Refresh the home view by recreating the UI"""
+        # Clear current layout
+        while self.layout.count():
+            child = self.layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
         
-        # Add Live Scores as the first item
-        live_scores_item = QListWidgetItem("Live Scores - All Sports")
-        live_scores_item.setData(Qt.ItemDataRole.UserRole, "__live_scores__")
-        self.league_list.addItem(live_scores_item)
-        
-        # Add separator
-        separator_item = QListWidgetItem("─" * 30)
-        separator_item.setFlags(Qt.ItemFlag.NoItemFlags)  # Make it non-selectable
-        self.league_list.addItem(separator_item)
-        
-        leagues = ApiService.get_leagues()
-        if not leagues:
-            self._show_api_error("Failed to load leagues")
-            return
-        
-        for league in leagues:
-            self.league_list.addItem(league)
-        
-        self.set_focus_and_select_first(self.league_list)
+        # Recreate UI
+        self.setup_ui()
+
 
 class LiveScoresView(BaseView):
     """View showing live games from all sports"""
@@ -490,7 +570,7 @@ class LiveScoresView(BaseView):
     
     def keyPressEvent(self, event):
         """Handle key press events"""
-        if event.modifiers() == Qt.KeyboardModifier.AltModifier and event.key() == Qt.Key.Key_M:
+        if event.modifiers() == get_secondary_modifier() and event.key() == Qt.Key.Key_M:
             self._toggle_monitoring()
         elif event.key() == Qt.Key.Key_F5:
             # Provide feedback for manual refresh
@@ -836,60 +916,155 @@ class LeagueView(BaseView):
         self.date_label = QLabel()
         self.layout.addWidget(self.date_label)
         
-        self.layout.addWidget(QLabel(f"Scores for {self.league}:"))
+        # League title
+        league_title = QLabel(f"Scores for {self.league}:")
+        league_title.setAccessibleName(f"{self.league} Scores Section")
+        league_title.setStyleSheet("font-size: 16px; font-weight: bold; padding: 10px;")
+        self.layout.addWidget(league_title)
         
-        self.scores_list = QListWidget()
-        self.scores_list.setAccessibleName("Scores List")
-        self.scores_list.setAccessibleDescription("List of games and scores for the selected date")
-        self.scores_list.itemActivated.connect(self._on_score_item_selected)
-        self.layout.addWidget(self.scores_list)
+        # Container for game buttons (will be populated by load_scores)
+        self.games_container = QWidget()
+        self.games_layout = QVBoxLayout(self.games_container)
+        self.layout.addWidget(self.games_container)
         
         self._add_nav_buttons()
         self.load_scores()
     
-    def _on_score_item_selected(self, item):
-        data = item.data(Qt.ItemDataRole.UserRole)
-        if data == "__news__":
-            self._show_news_dialog(); return
-        if data == "__standings__":
-            self._show_standings_dialog(); return
-        if data == "__teams__":
-            self._show_teams_dialog(); return
-        if data and isinstance(data, str) and self.parent_app:
-            self.parent_app.open_game_details(data)
+    def _create_game_button(self, game_data, game_raw):
+        """Create an accessible button for a game"""
+        game = GameData(game_raw)
+        display_text = game.get_display_text()
+        
+        btn = QPushButton(display_text)
+        btn.setAccessibleName(f"Game: {game.get_teams_for_accessibility()}")
+        btn.setAccessibleDescription(f"{game.get_status_for_accessibility()}")
+        btn.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        btn.setMinimumHeight(60)
+        btn.setStyleSheet("""
+            QPushButton {
+                font-size: 12px; 
+                padding: 10px; 
+                margin: 2px;
+                text-align: left;
+                background: white;
+                border: 2px solid #ddd;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background: #f5f5f5;
+                border-color: #0078d4;
+            }
+            QPushButton:focus {
+                border: 3px solid #ffcc00;
+                background: #e8f4f8;
+            }
+        """)
+        
+        game_id = game_raw.get("id")
+        btn.clicked.connect(lambda checked, gid=game_id: self._on_game_selected(gid))
+        return btn
+    
+    def _create_section_button(self, text, action_data, description):
+        """Create a button for sections like News, Standings, etc."""
+        btn = QPushButton(text)
+        btn.setAccessibleName(text)
+        btn.setAccessibleDescription(description)
+        btn.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        btn.setMinimumHeight(50)
+        btn.setStyleSheet("""
+            QPushButton {
+                font-size: 13px; 
+                padding: 12px; 
+                margin: 3px;
+                background: #f0f8ff;
+                border: 2px solid #0078d4;
+                border-radius: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background: #e8f4f8;
+            }
+            QPushButton:focus {
+                border: 3px solid #ffcc00;
+                background: #d0e8ff;
+            }
+        """)
+        btn.clicked.connect(lambda checked, data=action_data: self._on_section_selected(data))
+        return btn
+    
+    def _on_game_selected(self, game_id):
+        """Handle game button selection"""
+        if game_id and self.parent_app:
+            self.parent_app.open_game_details(game_id)
+    
+    def _on_section_selected(self, action_data):
+        """Handle section button selection (news, standings, etc.)"""
+        if action_data == "__news__":
+            self._show_news_dialog()
+        elif action_data == "__standings__":
+            self._show_standings_dialog()
+        elif action_data == "__teams__":
+            self._show_teams_dialog()
 
     def load_scores(self):
-        """Load scores for the current date"""
-        self.scores_list.clear()
+        """Load scores for the current date and create buttons"""
+        # Clear existing buttons
+        while self.games_layout.count():
+            child = self.games_layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+        
         date_str = self.current_date.strftime("%A, %B %d, %Y")
         self.date_label.setText(f"Date: {date_str}")
+        self.date_label.setAccessibleDescription(f"Showing games for {date_str}")
+        
         try:
             scores_data = ApiService.get_scores(self.league, self.current_date)
             self.news_headlines = ApiService.get_news(self.league)
+            
             if not scores_data:
-                self.scores_list.addItem("No games found for this date.")
+                no_games_label = QLabel("No games found for this date.")
+                no_games_label.setAccessibleName("No Games Message")
+                no_games_label.setStyleSheet("padding: 20px; text-align: center; color: #666;")
+                self.games_layout.addWidget(no_games_label)
             else:
+                # Add game buttons
                 for game_raw in scores_data:
-                    game = GameData(game_raw)
-                    item_text = game.get_display_text()
-                    self.scores_list.addItem(item_text)
-                    list_item = self.scores_list.item(self.scores_list.count()-1)
-                    if list_item:
-                        list_item.setData(Qt.ItemDataRole.UserRole, game_raw.get("id"))
+                    game_btn = self._create_game_button(None, game_raw)
+                    self.games_layout.addWidget(game_btn)
+            
+            # Add section buttons
             if self.news_headlines:
-                self.scores_list.addItem("--- News Headlines ---")
-                news_item = self.scores_list.item(self.scores_list.count()-1)
-                news_item.setData(Qt.ItemDataRole.UserRole, "__news__")  # type: ignore
+                news_btn = self._create_section_button(
+                    "📰 News Headlines", 
+                    "__news__", 
+                    f"View latest {self.league} news and headlines"
+                )
+                self.games_layout.addWidget(news_btn)
+            
             if self.league in ["MLB", "NFL", "NBA", "NCAAF"]:
-                self.scores_list.addItem("--- Standings ---")
-                standings_item = self.scores_list.item(self.scores_list.count()-1)
-                standings_item.setData(Qt.ItemDataRole.UserRole, "__standings__")  # type: ignore
+                standings_btn = self._create_section_button(
+                    "📊 Standings", 
+                    "__standings__", 
+                    f"View {self.league} league standings and team records"
+                )
+                self.games_layout.addWidget(standings_btn)
                 
-                self.scores_list.addItem("--- Teams ---")
-                teams_item = self.scores_list.item(self.scores_list.count()-1)
-                teams_item.setData(Qt.ItemDataRole.UserRole, "__teams__")  # type: ignore
+                teams_btn = self._create_section_button(
+                    "👥 Teams", 
+                    "__teams__", 
+                    f"View {self.league} team information and rosters"
+                )
+                self.games_layout.addWidget(teams_btn)
         except Exception as e:
             self._show_api_error(f"Failed to load scores: {str(e)}")
+
+    def _set_focus_to_first_game_button(self):
+        """Set focus to the first game button in the layout"""
+        if self.games_layout.count() > 0:
+            widget = self.games_layout.itemAt(0).widget()
+            if widget and isinstance(widget, QPushButton):
+                widget.setFocus()
 
     def _show_news_dialog(self):
         """Show news dialog"""
@@ -973,13 +1148,13 @@ class LeagueView(BaseView):
         """Navigate to previous day"""
         self.current_date -= timedelta(days=1)
         self.load_scores()
-        self.set_focus_and_select_first(self.scores_list)
+        self._set_focus_to_first_game_button()
     
     def next_day(self):
         """Navigate to next day"""
         self.current_date += timedelta(days=1)
         self.load_scores()
-        self.set_focus_and_select_first(self.scores_list)
+        self._set_focus_to_first_game_button()
     
     def go_to_date(self):
         """Show date picker dialog and navigate to selected date"""
@@ -990,14 +1165,14 @@ class LeagueView(BaseView):
                 if new_date != self.current_date:
                     self.current_date = new_date
                     self.load_scores()
-                    self.set_focus_and_select_first(self.scores_list)
+                    self._set_focus_to_first_game_button()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to change date: {str(e)}")
     
     def refresh(self):
         """Refresh the current view"""
         self.load_scores()
-        self.set_focus_and_select_first(self.scores_list)
+        self._set_focus_to_first_game_button()
     
     def _add_nav_buttons(self):
         btn_layout = QHBoxLayout()
@@ -1030,8 +1205,18 @@ class LeagueView(BaseView):
     
     def _show_api_error(self, message: str):
         """Show API error message"""
-        self.scores_list.clear()
-        error_item = self.scores_list.addItem(f"Error: {message}")
+        # Clear the games layout
+        for i in reversed(range(self.games_layout.count())):
+            child = self.games_layout.takeAt(i)
+            if child.widget():
+                child.widget().deleteLater()
+        
+        # Add error message as a button
+        error_btn = QPushButton(f"⚠️ Error: {message}")
+        error_btn.setStyleSheet("QPushButton { background-color: #ffcccc; color: #cc0000; }")
+        error_btn.setEnabled(False)
+        self.games_layout.addWidget(error_btn)
+        
         QMessageBox.warning(self, "API Error", message)
     
     def keyPressEvent(self, event):
@@ -1043,7 +1228,7 @@ class LeagueView(BaseView):
             super().keyPressEvent(event)
     
     def on_show(self):
-        self.set_focus_and_select_first(self.scores_list)
+        self._set_focus_to_first_game_button()
 
 class GameDetailsView(BaseView):
     """View showing detailed information for a specific game"""
@@ -1998,13 +2183,13 @@ class GameDetailsView(BaseView):
                     self._show_pitch_context_menu(current_item, plays_tree.mapToGlobal(item_rect.center()))
                     event.accept()
                     return
-            elif event.key() == Qt.Key.Key_P and event.modifiers() == Qt.KeyboardModifier.AltModifier:
+            elif event.key() == Qt.Key.Key_P and event.modifiers() == get_secondary_modifier():
                 # Alt+P for pitch audio (only works on actual pitches)
                 if current_item and self._is_pitch_item(current_item):
                     self._play_pitch_audio(current_item)
                     event.accept()
                     return
-            elif event.key() == Qt.Key.Key_S and event.modifiers() == Qt.KeyboardModifier.AltModifier:
+            elif event.key() == Qt.Key.Key_S and event.modifiers() == get_secondary_modifier():
                 # Alt+S for pitch sequence (works on pitches and at-bat items)
                 if current_item:
                     is_pitch = self._is_pitch_item(current_item)
@@ -5773,7 +5958,7 @@ class SportsScoresApp(QWidget):
 
     def keyPressEvent(self, event):
         # Global back shortcut
-        if event.modifiers() == Qt.KeyboardModifier.AltModifier and event.key() == Qt.Key.Key_B:
+        if event.modifiers() == get_secondary_modifier() and event.key() == Qt.Key.Key_B:
             self.go_back(); event.accept(); return
         # Escape key also goes back
         elif event.key() == Qt.Key.Key_Escape:

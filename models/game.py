@@ -70,3 +70,50 @@ class GameData:
 
     def has_scores(self) -> bool:
         return any(t.get("score") for t in self.teams)
+    
+    def get_teams_for_accessibility(self) -> str:
+        """Get team information formatted for screen reader accessibility"""
+        if not self.teams:
+            return self.name
+        
+        team_parts = []
+        for team in self.teams:
+            name = team.get("name") or team.get("abbreviation", "Unknown Team")
+            score = team.get("score")
+            if score:
+                team_parts.append(f"{name} {score}")
+            else:
+                team_parts.append(name)
+        
+        return " versus ".join(team_parts)
+    
+    def get_status_for_accessibility(self) -> str:
+        """Get game status formatted for screen reader accessibility"""
+        if not self.status:
+            return "Game status unknown"
+        
+        status_lower = self.status.lower()
+        
+        if status_lower == "in progress":
+            if self.start_time:
+                # For live games, provide detailed situation
+                if any(inning in self.start_time.lower() for inning in ['top', 'bot', 'end', 'mid']):
+                    return f"Live game, {self.start_time}"
+                elif any(quarter in self.start_time.lower() for quarter in ['1st', '2nd', '3rd', '4th', 'ot']):
+                    return f"Live game, {self.start_time}"
+                else:
+                    return f"Live game, {self.status}"
+            else:
+                return "Live game in progress"
+        elif status_lower == "final":
+            if self.start_time and "final" in self.start_time.lower():
+                return f"Game completed, {self.start_time}"
+            else:
+                return "Game completed"
+        elif status_lower == "scheduled":
+            if self.start_time:
+                return f"Scheduled to start at {self.start_time}"
+            else:
+                return "Game scheduled"
+        else:
+            return f"Game status: {self.status}"
