@@ -5553,6 +5553,12 @@ class StatisticsViewDialog(QDialog):
         stats_label = QLabel("Select a Statistic:")
         left_layout.addWidget(stats_label)
         
+        # Add note about data timeframe
+        note_label = QLabel("📊 Note: Shows recent performance leaders")
+        note_label.setStyleSheet("color: #666; font-style: italic; font-size: 9pt;")
+        note_label.setWordWrap(True)
+        left_layout.addWidget(note_label)
+        
         self.stats_list = QListWidget()
         self.stats_list.setAccessibleName(f"{self.stat_type.title()} Statistics List")
         self.stats_list.setAccessibleDescription(f"List of available {self.stat_type} statistics. Select one to view rankings.")
@@ -5616,8 +5622,13 @@ class StatisticsViewDialog(QDialog):
             stat_type = stat_info.get('type', 'unknown')
             data = stat_info.get('data', [])
             
-            # Update results label
-            self.results_label.setText(f"Top Rankings: {stat_info.get('name', stat_name)}")
+            # Update results label with data context
+            if stat_type == "player":
+                header_text = f"Recent Performance Leaders: {stat_info.get('name', stat_name)}"
+            else:
+                header_text = f"Top Rankings: {stat_info.get('name', stat_name)}"
+            
+            self.results_label.setText(header_text)
             
             # Clear and show results list
             self.results_list.clear()
@@ -5786,14 +5797,20 @@ class StatisticsViewDialog(QDialog):
                 
                 # Add each unique stat type
                 for stat_name, stats in stat_types.items():
+                    # Avoid duplicate names when category and stat name are the same
+                    if stat_name.lower() == category_name.lower():
+                        display_name = stat_name  # Just use the stat name
+                    else:
+                        display_name = f"{stat_name} ({category_name})"  # Include category for clarity
+                    
                     available_stats.append({
-                        'name': f"{stat_name} ({category_name})",
+                        'name': display_name,
                         'category': category_name,
                         'stat_name': stat_name,
                         'data': stats,
                         'type': 'player'
                     })
-                    print(f"DEBUG: Added stat: {stat_name} ({category_name}) with {len(stats)} players")
+                    print(f"DEBUG: Added stat: {display_name} with {len(stats)} players")
         
         elif self.stat_type == "team":
             team_stats = self.statistics_data.get("team_stats", [])
