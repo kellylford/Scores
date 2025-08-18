@@ -53,3 +53,17 @@ class ApiService:
     @staticmethod
     def get_live_scores_all_sports() -> List[Dict]:
         return ApiService._call(espn_api.get_live_scores_all_sports)
+
+    @staticmethod
+    def get_statistics(league: str) -> Dict:
+        return ApiService._call(espn_api.get_statistics, league)
+    
+    @staticmethod
+    def get_player_statistics(league: str) -> Dict:
+        """Get only player statistics for a league (faster)"""
+        return ApiService._call(espn_api.get_player_statistics, league)
+    
+    @staticmethod
+    def get_team_statistics(league: str) -> Dict:
+        """Get only team statistics for a league (faster)"""
+        return ApiService._call(espn_api.get_team_statistics, league)

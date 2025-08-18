@@ -1,0 +1,216 @@
+{
+  "successful_calls": 11,
+  "sample_data": {
+    "copyright": "Copyright 2025 MLB Advanced Media, L.P.  Use of any content on this page acknowledges agreement to the terms posted here http://gdx.mlb.com/components/copyright.txt",
+    "leagueLeaders": [
+      {
+        "leaderCategory": "homeRuns",
+        "season": "2024",
+        "gameType": {
+          "id": "R",
+          "description": "Regular Season"
+        },
+        "leaders": [
+          {
+            "rank": 1,
+            "value": "58",
+            "team": {
+              "id": 147,
+              "name": "New York Yankees",
+              "link": "/api/v1/teams/147"
+            },
+            "league": {
+              "id": 103,
+              "name": "AL",
+              "link": "/api/v1/league/103"
+            },
+            "person": {
+              "id": 592450,
+              "fullName": "Aaron Judge",
+              "link": "/api/v1/people/592450",
+              "firstName": "Aaron",
+              "lastName": "Judge"
+            },
+            "sport": {
+              "id": 1,
+              "link": "/api/v1/sports/1",
+              "abbreviation": "MLB"
+            },
+            "season": "2024",
+            "numTeams": 1
+          },
+          {
+            "rank": 2,
+            "value": "54",
+            "team": {
+              "id": 119,
+              "name": "Los Angeles Dodgers",
+              "link": "/api/v1/teams/119"
+            },
+            "league": {
+              "id": 104,
+              "name": "NL",
+              "link": "/api/v1/league/104"
+            },
+            "person": {
+              "id": 660271,
+              "fullName": "Shohei Ohtani",
+              "link": "/api/v1/people/660271",
+              "firstName": "Shohei",
+              "lastName": "Ohtani"
+            },
+            "sport": {
+              "id": 1,
+              "link": "/api/v1/sports/1",
+              "abbreviation": "MLB"
+            },
+            "season": "2024",
+            "numTeams": 1
+          },
+          {
+            "rank": 3,
+            "value": "44",
+            "team": {
+              "id": 110,
+              "name": "Baltimore Orioles",
+              "link": "/api/v1/teams/110"
+            },
+            "league": {
+              "id": 103,
+              "name": "AL",
+              "link": "/api/v1/league/103"
+            },
+            "person": {
+              "id": 623993,
+              "fullName": "Anthony Santander",
+              "link": "/api/v1/people/623993",
+              "firstName": "Anthony",
+              "lastName": "Santander"
+            },
+            "sport": {
+              "id": 1,
+              "link": "/api/v1/sports/1",
+              "abbreviation": "MLB"
+            },
+            "season": "2024",
+            "numTeams": 1
+          },
+          {
+            "rank": 4,
+            "value": "41",
+            "team": {
+              "id": 147,
+              "name": "New York Yankees",
+              "link": "/api/v1/teams/147"
+            },
+            "league": {
+              "id": 103,
+              "name": "AL",
+              "link": "/api/v1/league/103"
+            },
+            "person": {
+              "id": 665742,
+              "fullName": "Juan Soto",
+              "link": "/api/v1/people/665742",
+              "firstName": "Juan",
+              "lastName": "Soto"
+            },
+            "sport": {
+              "id": 1,
+              "link": "/api/v1/sports/1",
+              "abbreviation": "MLB"
+            },
+            "season": "2024",
+            "numTeams": 1
+          },
+          {
+            "rank": 5,
+            "value": "39",
+            "team": {
+              "id": 144,
+              "name": "Atlanta Braves",
+              "link": "/api/v1/teams/144"
+            },
+            "league": {
+              "id": 104,
+              "name": "NL",
+              "link": "/api/v1/league/104"
+            },
+            "person": {
+              "id": 542303,
+              "fullName": "Marcell Ozuna",
+              "link": "/api/v1/people/542303",
+              "firstName": "Marcell",
+              "lastName": "Ozuna"
+            },
+            "sport": {
+              "id": 1,
+              "link": "/api/v1/sports/1",
+              "abbreviation": "MLB"
+            },
+            "season": "2024",
+            "numTeams": 1
+          },
+          {
+            "rank": 5,
+            "value": "39",
+            "team": {
+              "id": 114,
+              "name": "Cleveland Guardians",
+              "link": "/api/v1/teams/114"
+            },
+            "league": {
+              "id": 103,
+              "name": "AL",
+              "link": "/api/v1/league/103"
+            },
+            "person": {
+              "id": 608070,
+              "fullName": "Jos\u00e9 Ram\u00edrez",
+              "link": "/api/v1/people/608070",
+              "firstName": "Jos\u00e9",
+              "lastName": "Ram\u00edrez"
+            },
+            "sport": {
+              "id": 1,
+              "link": "/api/v1/sports/1",
+              "abbreviation": "MLB"
+            },
+            "season": "2024",
+            "numTeams": 1
+          },
+          {
+            "rank": 5,
+            "value": "39",
+            "team": {
+              "id": 133,
+              "name": "Oakland Athletics",
+              "link": "/api/v1/teams/133"
+            },
+            "league": {
+              "id": 103,
+              "name": "AL",
+              "link": "/api/v1/league/103"
+            },
+            "person": {
+              "id": 667670,
+              "fullName": "Brent Rooker",
+              "link": "/api/v1/people/667670",
+              "firstName": "Brent",
+              "lastName": "Rooker"
+            },
+            "sport": {
+              "id": 1,
+              "link": "/api/v1/sports/1",
+              "abbreviation": "MLB"
+            },
+            "season": "2024",
+            "numTeams": 1
+          }
+        ],
+        "statGroup": "hitting",
+        "totalSplits": 522
+      }
+    ]
+  }
+}

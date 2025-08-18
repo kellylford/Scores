@@ -2273,3 +2273,1075 @@ def parse_standings_entry(entry, division="League"):
         "division": division,
         "logo": team.get("logo", "")
     }
+
+def _get_team_statistics(league_key):
+    """Get team statistics for a league with parallel processing for speed"""
+    import concurrent.futures
+    
+    league_path = LEAGUES.get(league_key)
+    if not league_path:
+        return []
+    
+    try:
+        print(f"Fetching team statistics for {league_key}")
+        
+        # Get list of teams first
+        teams_url = f"{BASE_URL}/{league_path}/teams"
+        resp = requests.get(teams_url)
+        
+        if resp.status_code != 200:
+            print(f"Failed to get teams list: {resp.status_code}")
+            return []
+        
+        data = resp.json()
+        
+        # Navigate to teams data
+        if 'sports' not in data or not data['sports']:
+            print("No sports data found")
+            return []
+            
+        leagues = data['sports'][0].get('leagues', [])
+        if not leagues:
+            print("No leagues data found")
+            return []
+            
+        teams = leagues[0].get('teams', [])
+        if not teams:
+            print("No teams data found")
+            return []
+        
+        print(f"Found {len(teams)} teams")
+        
+        def fetch_team_stats(team_entry):
+            """Fetch statistics for a single team"""
+            team = team_entry.get('team', {})
+            team_id = team.get('id')
+            team_name = team.get('displayName', 'Unknown')
+            
+            if not team_id:
+                return None
+            
+            try:
+                # Get team statistics
+                team_stats_url = f"{BASE_URL}/{league_path}/teams/{team_id}/statistics"
+                team_resp = requests.get(team_stats_url)
+                
+                if team_resp.status_code == 200:
+                    team_data = team_resp.json()
+                    
+                    # Parse team statistics
+                    if 'results' in team_data and 'stats' in team_data['results']:
+                        stats = team_data['results']['stats']
+                        
+                        if 'categories' in stats:
+                            categories = stats['categories']
+                            team_categories = []
+                            
+                            # Process each category for this team
+                            for category in categories:
+                                category_name = category.get('displayName', category.get('name', 'Unknown'))
+                                category_stats = category.get('stats', [])
+                                
+                                # Create team's stats for this category
+                                team_category_stats = {
+                                    'team_name': team_name,
+                                    'team_id': str(team_id),
+                                    'stats': {}
+                                }
+                                
+                                # Process individual stats
+                                for stat in category_stats:
+                                    stat_name = stat.get('name', '')
+                                    stat_display_name = stat.get('displayName', stat_name)
+                                    stat_value = stat.get('displayValue', str(stat.get('value', '')))
+                                    
+                                    if stat_name and stat_value:
+                                        team_category_stats['stats'][stat_display_name] = stat_value
+                                
+                                team_categories.append({
+                                    'category': category_name,
+                                    'team_stats': team_category_stats
+                                })
+                            
+                            print(f"Processed team statistics for {team_name}")
+                            return team_categories
+                    
+                else:
+                    print(f"Failed to get statistics for {team_name}: {team_resp.status_code}")
+                    
+            except Exception as e:
+                print(f"Error getting statistics for {team_name}: {e}")
+                
+            return None
+        
+        # Use parallel processing to fetch all team stats
+        team_stats_categories = []
+        teams_processed = 0
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            # Submit all team stat requests in parallel
+            futures = [executor.submit(fetch_team_stats, team_entry) for team_entry in teams]
+            
+            # Collect results as they complete
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    team_categories = future.result()
+                    if team_categories:
+                        teams_processed += 1
+                        
+                        # Merge this team's categories into the main structure
+                        for team_category in team_categories:
+                            category_name = team_category['category']
+                            team_stats = team_category['team_stats']
+                            
+                            # Find or create the category
+                            existing_category = None
+                            for existing in team_stats_categories:
+                                if existing['category'] == category_name:
+                                    existing_category = existing
+                                    break
+                            
+                            if not existing_category:
+                                existing_category = {
+                                    'category': category_name,
+                                    'stats': []
+                                }
+                                team_stats_categories.append(existing_category)
+                            
+                            existing_category['stats'].append(team_stats)
+                            
+                except Exception as e:
+                    print(f"Error processing team stats result: {e}")
+        
+        print(f"Successfully processed {teams_processed} teams with {len(team_stats_categories)} stat categories")
+        return team_stats_categories
+        
+    except Exception as e:
+        print(f"Error fetching team statistics: {e}")
+        return []
+
+def _get_mlb_statistics():
+    """Get MLB player statistics from the official MLB Stats API with enhanced parallel loading"""
+    import concurrent.futures
+    from datetime import datetime
+    
+    # Determine the current season
+    current_year = datetime.now().year
+    season = current_year
+    
+    print(f"Fetching enhanced MLB statistics for {season} season")
+    
+    # Enhanced stat categories - all available from MLB API
+    stat_categories = [
+        # Hitting stats (16 categories)
+        ("homeRuns", "hitting", "Home Runs"),
+        ("battingAverage", "hitting", "Batting Average"),
+        ("rbi", "hitting", "RBIs"),
+        ("hits", "hitting", "Hits"),
+        ("runs", "hitting", "Runs"),
+        ("doubles", "hitting", "Doubles"),
+        ("triples", "hitting", "Triples"),
+        ("stolenBases", "hitting", "Stolen Bases"),
+        ("onBasePercentage", "hitting", "On-Base %"),
+        ("sluggingPercentage", "hitting", "Slugging %"),
+        ("ops", "hitting", "OPS"),
+        ("walks", "hitting", "Walks"),
+        ("strikeouts", "hitting", "Strikeouts (Batting)"),
+        ("hitByPitch", "hitting", "Hit By Pitch"),
+        ("sacrificeFlies", "hitting", "Sacrifice Flies"),
+        ("groundIntoDoublePlay", "hitting", "GIDP"),
+        
+        # Pitching stats (14 categories)
+        ("wins", "pitching", "Wins"),
+        ("losses", "pitching", "Losses"),
+        ("era", "pitching", "ERA"),
+        ("strikeouts", "pitching", "Strikeouts (Pitching)"),
+        ("saves", "pitching", "Saves"),
+        ("holds", "pitching", "Holds"),
+        ("whip", "pitching", "WHIP"),
+        ("inningsPitched", "pitching", "Innings Pitched"),
+        ("hitBatsmen", "pitching", "Hit Batsmen"),
+        ("wildPitches", "pitching", "Wild Pitches"),
+        ("balks", "pitching", "Balks"),
+        ("completeGames", "pitching", "Complete Games"),
+        ("shutouts", "pitching", "Shutouts"),
+        ("blownSaves", "pitching", "Blown Saves"),
+        
+        # Fielding stats (9 categories) - NEW!
+        ("errors", "fielding", "Errors"),
+        ("fieldingPercentage", "fielding", "Fielding %"),
+        ("assists", "fielding", "Assists"),
+        ("putouts", "fielding", "Putouts"),
+        ("chances", "fielding", "Total Chances"),
+        ("doublePlays", "fielding", "Double Plays"),
+        ("triplePlays", "fielding", "Triple Plays"),
+        ("passedBalls", "fielding", "Passed Balls"),
+        ("caughtStealing", "fielding", "Caught Stealing"),
+    ]
+    
+    print(f"Loading {len(stat_categories)} statistical categories in parallel...")
+    
+    def fetch_stat_category(stat_info):
+        """Fetch a single stat category"""
+        stat_key, stat_group, display_name = stat_info
+        try:
+            # Add limit parameter to get top 50 players instead of default 5
+            url = f"https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories={stat_key}&statGroup={stat_group}&season={season}&limit=50"
+            response = requests.get(url, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                if 'leagueLeaders' in data and len(data['leagueLeaders']) > 0:
+                    leaders_data = data['leagueLeaders'][0]
+                    if 'leaders' in leaders_data and len(leaders_data['leaders']) > 0:
+                        
+                        leaders = []
+                        for leader in leaders_data['leaders'][:50]:  # Top 50 players
+                            player_info = leader.get('person', {})
+                            team_info = leader.get('team', {})
+                            
+                            leader_data = {
+                                'name': player_info.get('fullName', 'Unknown'),
+                                'value': leader.get('value', 0),
+                                'team': team_info.get('abbreviation', team_info.get('name', 'N/A')),
+                                'position': None  # MLB API doesn't provide position in leaders
+                            }
+                            leaders.append(leader_data)
+                        
+                        category_data = {
+                            'name': display_name,
+                            'display_name': display_name,
+                            'abbreviation': stat_key,
+                            'leaders': leaders
+                        }
+                        
+                        return category_data, display_name, leaders[0]['name'], leaders[0]['value']
+                        
+        except Exception as e:
+            print(f"  💥 Error fetching {display_name}: {str(e)[:60]}")
+        
+        return None, display_name, None, None
+    
+    # Use parallel execution for much faster loading
+    player_stats = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
+        # Submit all requests in parallel
+        future_to_stat = {
+            executor.submit(fetch_stat_category, stat_info): stat_info[2] 
+            for stat_info in stat_categories
+        }
+        
+        # Collect results as they complete
+        for future in concurrent.futures.as_completed(future_to_stat):
+            stat_name = future_to_stat[future]
+            try:
+                category_data, display_name, leader_name, leader_value = future.result()
+                if category_data:
+                    player_stats.append(category_data)
+                    print(f"  ✅ {display_name}: {leader_name} = {leader_value}")
+                else:
+                    print(f"  ❌ {display_name}: No data available")
+            except Exception as e:
+                print(f"  💥 {stat_name}: Exception - {str(e)[:50]}")
+    
+    print(f"Successfully loaded {len(player_stats)} MLB statistical categories")
+    
+    return {
+        "player_stats": player_stats,
+        "team_stats": []
+    }
+
+def get_statistics(league_key):
+    """Get statistics/leaders data for a league"""
+    # Handle case-insensitive league keys
+    league_path = LEAGUES.get(league_key) or LEAGUES.get(league_key.upper())
+    if not league_path:
+        print(f"No league path found for {league_key}, providing sample data")
+        return _get_sample_statistics_data(league_key)
+
+    try:
+        # For MLB, use the official MLB Stats API for full season player statistics
+        if league_key.upper() == "MLB":
+            print("Using MLB Stats API for full season player statistics")
+            mlb_result = _get_mlb_statistics()
+            if mlb_result['player_stats']:
+                # Also get team statistics from ESPN
+                team_stats = _get_team_statistics(league_key)
+                if team_stats:
+                    mlb_result['team_stats'] = team_stats
+                return mlb_result
+            else:
+                print("MLB Stats API failed, falling back to ESPN")
+
+        # Try multiple endpoints that might contain statistics
+        endpoints_to_try = [
+            f"{BASE_URL}/{league_path}/leaders",
+            f"{BASE_URL}/{league_path}/athletes",
+            f"{BASE_URL}/{league_path}/statistics",
+            f"{BASE_URL}/{league_path}/stats/leaders",
+            f"https://sports.core.api.espn.com/v2/sports/{league_path}/leaders",
+            f"{BASE_URL}/{league_path}/scoreboard"  # Last resort
+        ]
+        
+        for endpoint in endpoints_to_try:
+            try:
+                print(f"Attempting to fetch statistics from: {endpoint}")
+                resp = requests.get(endpoint, timeout=10)
+                
+                if resp.status_code == 200:
+                    data = resp.json()
+                    print(f"SUCCESS: {endpoint} returned data")
+                    print(f"Response keys: {list(data.keys())}")
+                    print(f"Response sample: {str(data)[:300]}...")
+                    
+                    # Special handling for scoreboard endpoint
+                    if "scoreboard" in endpoint:
+                        scoreboard_result = _extract_stats_from_scoreboard(data, league_key)
+                        # Only return scoreboard result if it has data, otherwise continue to team stats/sample data
+                        if scoreboard_result['player_stats'] or scoreboard_result['team_stats']:
+                            return scoreboard_result
+                        else:
+                            print(f"Scoreboard endpoint returned no usable data, will try team stats and sample data fallback")
+                            break  # Exit the endpoint loop to try team stats
+                    else:
+                        result = _parse_statistics_data(data, league_key)
+                        print(f"Parsed result - player_stats: {len(result['player_stats'])}, team_stats: {len(result['team_stats'])}")
+                        
+                        # If we got data, try to also get team statistics
+                        if result['player_stats'] or result['team_stats']:
+                            print(f"Got player stats, now attempting to fetch team statistics for {league_key}")
+                            team_stats = _get_team_statistics(league_key)
+                            if team_stats:
+                                result['team_stats'] = team_stats
+                                print(f"Successfully added {len(team_stats)} team stat categories")
+                            
+                            return result
+                        else:
+                            print(f"No usable data from {endpoint}, trying next...")
+                            continue
+                else:
+                    print(f"FAILED: {endpoint} returned status {resp.status_code}")
+                    
+            except Exception as e:
+                print(f"ERROR: {endpoint} failed with: {e}")
+                continue
+    
+    except Exception as e:
+        print(f"Error fetching statistics for {league_key}: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    print(f"All player statistics endpoints failed for {league_key}")
+    
+    # Try to get team statistics
+    print(f"Attempting to fetch team statistics for {league_key}")
+    team_stats = _get_team_statistics(league_key)
+    
+    # Always provide sample data when API fails to ensure UI functionality
+    print(f"Providing sample statistics data for {league_key} to ensure UI functionality")
+    sample_data = _get_sample_statistics_data(league_key)
+    
+    if team_stats:
+        print(f"Successfully retrieved {len(team_stats)} team stat categories")
+        # Combine team stats with sample player stats
+        return {
+            "player_stats": sample_data.get("player_stats", []),
+            "team_stats": team_stats
+        }
+    else:
+        # Return sample data for both player and team stats
+        return sample_data
+
+def get_player_statistics(league_key):
+    """Get only player statistics for a league (optimized for speed)"""
+    # Handle case-insensitive league keys
+    league_path = LEAGUES.get(league_key) or LEAGUES.get(league_key.upper())
+    if not league_path:
+        print(f"No league path found for {league_key}")
+        return {"player_stats": [], "team_stats": []}
+
+    try:
+        # For MLB, use the official MLB Stats API for full season player statistics
+        if league_key.upper() == "MLB":
+            print("Using MLB Stats API for player statistics only")
+            mlb_result = _get_mlb_statistics()
+            if mlb_result['player_stats']:
+                return mlb_result
+            else:
+                print("MLB Stats API failed, falling back to ESPN")
+
+        # For other leagues, use ESPN API but only extract player stats
+        endpoints_to_try = [
+            f"{BASE_URL}/{league_path}/leaders",
+            f"{BASE_URL}/{league_path}/athletes", 
+            f"{BASE_URL}/{league_path}/statistics"
+        ]
+        
+        for endpoint in endpoints_to_try:
+            try:
+                print(f"Attempting to fetch player statistics from: {endpoint}")
+                resp = requests.get(endpoint, timeout=10)
+                
+                if resp.status_code == 200:
+                    data = resp.json()
+                    parsed_data = _parse_statistics_data(data, league_key)
+                    if parsed_data and parsed_data.get("player_stats"):
+                        # Only return player stats, not team stats
+                        return {"player_stats": parsed_data["player_stats"], "team_stats": []}
+                        
+            except requests.RequestException:
+                continue
+                
+        # Fallback to sample data
+        sample_data = _get_sample_statistics_data(league_key)
+        return {"player_stats": sample_data.get("player_stats", []), "team_stats": []}
+        
+    except Exception as e:
+        print(f"Error fetching player statistics for {league_key}: {str(e)}")
+        return {"player_stats": [], "team_stats": []}
+
+def get_team_statistics(league_key):
+    """Get only team statistics for a league (optimized for speed)"""
+    try:
+        print(f"Loading team statistics for {league_key}")
+        team_stats = _get_team_statistics(league_key)
+        return {"team_stats": team_stats, "player_stats": []}
+    except Exception as e:
+        print(f"Error fetching team statistics for {league_key}: {str(e)}")
+        return {"team_stats": [], "player_stats": []}
+
+def _parse_statistics_data(data, league_key):
+    """Parse statistics data from ESPN leaders endpoint"""
+    player_stats = []
+    team_stats = []
+    
+    print(f"Parsing statistics data for {league_key}")
+    print(f"Data structure: {type(data)} with keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
+    
+    # Try different possible data structures
+    leaders_data = None
+    
+    # Check for ESPN statistics API structure
+    if "stats" in data and isinstance(data["stats"], dict):
+        stats_data = data["stats"]
+        if "categories" in stats_data:
+            leaders_data = stats_data["categories"]
+            print(f"Found 'stats.categories' with type: {type(leaders_data)}")
+    elif "leaders" in data:
+        leaders_data = data["leaders"]
+        print(f"Found 'leaders' key with type: {type(leaders_data)}")
+    elif "categories" in data:
+        leaders_data = data["categories"]  
+        print(f"Found 'categories' key with type: {type(leaders_data)}")
+    elif isinstance(data, list):
+        leaders_data = data
+        print(f"Data is a list with {len(data)} items")
+    else:
+        print(f"No recognized structure, trying to use data directly")
+        leaders_data = data
+    
+    if leaders_data:
+        # Parse different categories based on sport
+        if league_key == "MLB":
+            player_stats = _parse_mlb_player_stats(leaders_data)
+        elif league_key == "NFL":
+            player_stats = _parse_nfl_player_stats(leaders_data)
+        elif league_key == "NBA":
+            player_stats = _parse_nba_player_stats(leaders_data)
+        elif league_key == "NHL":
+            player_stats = _parse_nhl_player_stats(leaders_data)
+        else:
+            player_stats = _parse_generic_player_stats(leaders_data)
+        
+        print(f"Parsed {len(player_stats)} player stat categories")
+    
+    # Team statistics are typically found in different endpoints
+    # For now, return empty team stats - could be enhanced later
+    return {
+        "player_stats": player_stats,
+        "team_stats": team_stats
+    }
+
+def _parse_mlb_player_stats(leaders):
+    """Parse MLB player statistics from leaders data"""
+    categories = []
+    
+    print(f"Parsing MLB stats from data type: {type(leaders)}")
+    
+    # Common MLB categories
+    category_mapping = {
+        "batting": "Hitting",
+        "hitting": "Hitting", 
+        "pitching": "Pitching",
+        "fielding": "Fielding",
+        "rbis": "RBIs",
+        "homeruns": "Home Runs",
+        "avg": "Batting Average",
+        "era": "ERA",
+        "wins": "Wins",
+        "saves": "Saves"
+    }
+    
+    # Handle list structure from ESPN statistics API
+    if isinstance(leaders, list):
+        print(f"Processing {len(leaders)} categories from statistics API")
+        
+        for category_data in leaders:
+            if not isinstance(category_data, dict):
+                continue
+                
+            category_key = category_data.get('name', 'unknown')
+            category_display_name = category_data.get('displayName', category_key.title())
+            leaders_list = category_data.get('leaders', [])
+            
+            print(f"Processing category: {category_key} ({category_display_name}) with {len(leaders_list)} leaders")
+            
+            if not leaders_list:
+                continue
+            
+            # Use display name if available, otherwise use mapping
+            category_name = category_display_name or category_mapping.get(category_key.lower(), category_key.title())
+            
+            stats = []
+            for leader in leaders_list:
+                if not isinstance(leader, dict):
+                    continue
+                    
+                athlete = leader.get("athlete", {})
+                team = leader.get("team", athlete.get("team", {}))
+                
+                if athlete and ("displayName" in athlete or "name" in athlete):
+                    # Use the raw value for the specific statistic, not the display value
+                    # displayValue contains full stat lines, value contains just the target stat
+                    raw_value = leader.get("value", "")
+                    
+                    # For most statistics, use the raw numeric value
+                    # For special cases like batting average, format appropriately
+                    stat_value = raw_value
+                    if category_key.lower() in ['avg', 'era', 'whip', 'onbasepct', 'slugavg', 'ops']:
+                        # For percentage/ratio stats, format to 3 decimal places
+                        try:
+                            stat_value = f"{float(raw_value):.3f}"
+                        except (ValueError, TypeError):
+                            stat_value = str(raw_value)
+                    else:
+                        # For counting stats, use the numeric value as-is
+                        stat_value = str(raw_value)
+                    
+                    stats.append({
+                        "player_name": athlete.get("displayName", athlete.get("name", "Unknown")),
+                        "team": team.get("abbreviation", team.get("name", "")),
+                        "value": stat_value,
+                        "stat_name": category_display_name or category_key.title()
+                    })
+            
+            if stats:
+                categories.append({
+                    "category": category_name,
+                    "stats": stats
+                })
+                print(f"Added category {category_name} with {len(stats)} players")
+    
+    # Handle dictionary structure (legacy support)
+    elif isinstance(leaders, dict):
+        # Standard structure: {category: {leaders: [...]}}
+        items = leaders.items()
+        
+        for category_key, category_data in items:
+            print(f"Processing category: {category_key}, data type: {type(category_data)}")
+            
+            # Get leaders list
+            leaders_list = []
+            if isinstance(category_data, dict):
+                if "leaders" in category_data:
+                    leaders_list = category_data["leaders"]
+                elif "athletes" in category_data:
+                    leaders_list = category_data["athletes"]
+                elif "items" in category_data:
+                    leaders_list = category_data["items"]
+            elif isinstance(category_data, list):
+                leaders_list = category_data
+                
+            if not leaders_list:
+                print(f"No leaders found for category {category_key}")
+                continue
+                
+            category_name = category_mapping.get(category_key.lower(), category_key.title())
+            print(f"Found {len(leaders_list)} leaders for {category_name}")
+            
+            stats = []
+            for leader in leaders_list:
+                if not isinstance(leader, dict):
+                    continue
+                    
+                athlete = leader.get("athlete", leader)  # sometimes athlete data is at top level
+                
+                if "displayName" in athlete or "name" in athlete:
+                    team = athlete.get("team", {})
+                    
+                    stats.append({
+                        "player_name": athlete.get("displayName", athlete.get("name", "Unknown")),
+                        "team": team.get("abbreviation", team.get("name", "")),
+                        "value": leader.get("displayValue", leader.get("value", "")),
+                        "stat_name": leader.get("shortDisplayName", category_name)
+                    })
+            
+            if stats:
+                categories.append({
+                    "category": category_name,
+                    "stats": stats
+                })
+                print(f"Added category {category_name} with {len(stats)} players")
+    else:
+        print(f"Unexpected leaders data structure: {type(leaders)}")
+        return categories
+    
+    print(f"MLB parsing complete: {len(categories)} categories")
+    return categories
+
+def _parse_nfl_player_stats(leaders):
+    """Parse NFL player statistics from leaders data"""
+    categories = []
+    
+    category_mapping = {
+        "passing": "Passing",
+        "rushing": "Rushing", 
+        "receiving": "Receiving",
+        "defense": "Defense",
+        "kicking": "Kicking"
+    }
+    
+    for category_key, category_data in leaders.items():
+        if isinstance(category_data, dict) and "leaders" in category_data:
+            category_name = category_mapping.get(category_key, category_key.title())
+            
+            stats = []
+            for leader in category_data["leaders"]:
+                if "athlete" in leader:
+                    athlete = leader["athlete"]
+                    team = athlete.get("team", {})
+                    
+                    stats.append({
+                        "player_name": athlete.get("displayName", "Unknown"),
+                        "team": team.get("abbreviation", ""), 
+                        "value": leader.get("displayValue", leader.get("value", "")),
+                        "stat_name": leader.get("shortDisplayName", category_name)
+                    })
+            
+            if stats:
+                categories.append({
+                    "category": category_name,
+                    "stats": stats
+                })
+    
+    return categories
+
+def _parse_nba_player_stats(leaders):
+    """Parse NBA player statistics from leaders data"""
+    categories = []
+    
+    category_mapping = {
+        "scoring": "Scoring",
+        "rebounding": "Rebounding",
+        "assists": "Assists", 
+        "steals": "Steals",
+        "blocks": "Blocks",
+        "fieldGoals": "Field Goals",
+        "freeThrows": "Free Throws",
+        "threePoints": "Three Points"
+    }
+    
+    for category_key, category_data in leaders.items():
+        if isinstance(category_data, dict) and "leaders" in category_data:
+            category_name = category_mapping.get(category_key, category_key.title())
+            
+            stats = []
+            for leader in category_data["leaders"]:
+                if "athlete" in leader:
+                    athlete = leader["athlete"]
+                    team = athlete.get("team", {})
+                    
+                    stats.append({
+                        "player_name": athlete.get("displayName", "Unknown"),
+                        "team": team.get("abbreviation", ""),
+                        "value": leader.get("displayValue", leader.get("value", "")),
+                        "stat_name": leader.get("shortDisplayName", category_name)
+                    })
+            
+            if stats:
+                categories.append({
+                    "category": category_name,
+                    "stats": stats
+                })
+    
+    return categories
+
+def _parse_generic_player_stats(leaders):
+    """Parse generic player statistics for other sports"""
+    categories = []
+    
+    print(f"Parsing generic stats from data type: {type(leaders)}")
+    
+    # Handle different data structures
+    if isinstance(leaders, list):
+        # ESPN statistics API structure: [{name: category, leaders: [...]}]
+        print(f"Processing {len(leaders)} categories from statistics API")
+        
+        for category_data in leaders:
+            if not isinstance(category_data, dict):
+                continue
+                
+            category_key = category_data.get('name', 'unknown')
+            category_display_name = category_data.get('displayName', category_key.title())
+            leaders_list = category_data.get('leaders', [])
+            
+            print(f"Processing generic category: {category_key} ({category_display_name}) with {len(leaders_list)} leaders")
+            
+            if not leaders_list:
+                continue
+            
+            category_name = category_display_name or category_key.replace("_", " ").title()
+            
+            stats = []
+            for leader in leaders_list:
+                if not isinstance(leader, dict):
+                    continue
+                    
+                athlete = leader.get("athlete", {})
+                team = leader.get("team", athlete.get("team", {}))
+                
+                if athlete and ("displayName" in athlete or "name" in athlete):
+                    # Use the raw value for the specific statistic, not the display value
+                    # displayValue contains full stat lines, value contains just the target stat
+                    raw_value = leader.get("value", "")
+                    
+                    # For most statistics, use the raw numeric value
+                    # For special cases like batting average, format appropriately
+                    stat_value = raw_value
+                    if category_key.lower() in ['avg', 'era', 'whip', 'onbasepct', 'slugavg', 'ops']:
+                        # For percentage/ratio stats, format to 3 decimal places
+                        try:
+                            stat_value = f"{float(raw_value):.3f}"
+                        except (ValueError, TypeError):
+                            stat_value = str(raw_value)
+                    else:
+                        # For counting stats, use the numeric value as-is
+                        stat_value = str(raw_value)
+                    
+                    stats.append({
+                        "player_name": athlete.get("displayName", athlete.get("name", "Unknown")),
+                        "team": team.get("abbreviation", team.get("name", "")),
+                        "value": stat_value,
+                        "stat_name": category_display_name or category_key.title()
+                    })
+            
+            if stats:
+                categories.append({
+                    "category": category_name,
+                    "stats": stats
+                })
+                print(f"Added generic category {category_name} with {len(stats)} players")
+    
+    elif isinstance(leaders, dict):
+        # Standard structure: {category: {leaders: [...]}}
+        items = leaders.items()
+        
+        for category_key, category_data in items:
+            print(f"Processing generic category: {category_key}, data type: {type(category_data)}")
+            
+            # Get leaders list
+            leaders_list = []
+            if isinstance(category_data, dict):
+                if "leaders" in category_data:
+                    leaders_list = category_data["leaders"]
+                elif "athletes" in category_data:
+                    leaders_list = category_data["athletes"]
+                elif "items" in category_data:
+                    leaders_list = category_data["items"]
+            elif isinstance(category_data, list):
+                leaders_list = category_data
+                
+            if not leaders_list:
+                print(f"No leaders found for generic category {category_key}")
+                continue
+                
+            category_name = str(category_key).replace("_", " ").title()
+            print(f"Found {len(leaders_list)} leaders for generic {category_name}")
+            
+            stats = []
+            for leader in leaders_list:
+                if not isinstance(leader, dict):
+                    continue
+                    
+                athlete = leader.get("athlete", leader)  # sometimes athlete data is at top level
+                
+                if "displayName" in athlete or "name" in athlete:
+                    team = athlete.get("team", {})
+                    
+                    stats.append({
+                        "player_name": athlete.get("displayName", athlete.get("name", "Unknown")),
+                        "team": team.get("abbreviation", team.get("name", "")),
+                        "value": leader.get("displayValue", leader.get("value", "")),
+                        "stat_name": leader.get("shortDisplayName", category_name)
+                    })
+            
+            if stats:
+                categories.append({
+                    "category": category_name,
+                    "stats": stats
+                })
+                print(f"Added generic category {category_name} with {len(stats)} players")
+    else:
+        print(f"Unexpected leaders data structure: {type(leaders)}")
+        return categories
+    
+    print(f"Generic parsing complete: {len(categories)} categories")
+    return categories
+
+def _parse_nhl_player_stats(leaders):
+    """Parse NHL player statistics from leaders data"""
+    categories = []
+    
+    category_mapping = {
+        "scoring": "Scoring",
+        "goals": "Goals",
+        "assists": "Assists",
+        "points": "Points", 
+        "plus_minus": "Plus/Minus",
+        "penalty_minutes": "Penalty Minutes",
+        "powerplay": "Power Play",
+        "goaltending": "Goaltending"
+    }
+    
+    for category_key, category_data in leaders.items():
+        if isinstance(category_data, dict) and "leaders" in category_data:
+            category_name = category_mapping.get(category_key, category_key.title())
+            
+            stats = []
+            for leader in category_data["leaders"]:
+                if "athlete" in leader:
+                    athlete = leader["athlete"]
+                    team = athlete.get("team", {})
+                    
+                    stats.append({
+                        "player_name": athlete.get("displayName", "Unknown"),
+                        "team": team.get("abbreviation", ""),
+                        "value": leader.get("displayValue", leader.get("value", "")),
+                        "stat_name": leader.get("shortDisplayName", category_name)
+                    })
+            
+            if stats:
+                categories.append({
+                    "category": category_name,
+                    "stats": stats
+                })
+    
+    return categories
+
+def _extract_stats_from_scoreboard(data, league_key):
+    """Extract basic statistics from scoreboard data as fallback"""
+    print(f"Attempting to extract stats from scoreboard data for {league_key}")
+    player_stats = []
+    team_stats = []
+    
+    try:
+        # Look for any statistical data in the scoreboard response
+        if "events" in data:
+            events = data["events"]
+            print(f"Found {len(events)} events in scoreboard")
+            
+            for event in events:
+                if "competitions" in event:
+                    for competition in event["competitions"]:
+                        # Check if there are any player stats in the game data
+                        if "details" in competition:
+                            # Sometimes game details contain player performance
+                            pass
+                        
+                        # Extract team statistics if available
+                        if "competitors" in competition:
+                            for competitor in competition["competitors"]:
+                                team = competitor.get("team", {})
+                                team_name = team.get("displayName", "Unknown Team")
+                                
+                                # Look for team statistics
+                                if "statistics" in competitor:
+                                    stats = competitor["statistics"]
+                                    # This could be developed further based on actual API structure
+                        
+        print("Scoreboard extraction complete - no usable stats found")
+    except Exception as e:
+        print(f"Error extracting from scoreboard: {e}")
+    
+    return {"player_stats": player_stats, "team_stats": team_stats}
+
+def _get_sample_statistics_data(league_key):
+    """Provide sample statistics data for testing and development"""
+    # Make case-insensitive
+    league_upper = league_key.upper()
+    
+    if league_upper == "MLB":
+        return {
+            "player_stats": [
+                {
+                    "category": "Hitting",
+                    "stats": [
+                        {"player_name": "Aaron Judge", "team": "NYY", "value": "62", "stat_name": "Home Runs"},
+                        {"player_name": "Jose Altuve", "team": "HOU", "value": "0.300", "stat_name": "Batting Average"}, 
+                        {"player_name": "Vladimir Guerrero Jr.", "team": "TOR", "value": "111", "stat_name": "RBIs"},
+                        {"player_name": "Ronald Acuna Jr.", "team": "ATL", "value": "41", "stat_name": "Stolen Bases"},
+                        {"player_name": "Freddie Freeman", "team": "LAD", "value": "199", "stat_name": "Hits"}
+                    ]
+                },
+                {
+                    "category": "Pitching", 
+                    "stats": [
+                        {"player_name": "Gerrit Cole", "team": "NYY", "value": "2.78", "stat_name": "ERA"},
+                        {"player_name": "Shane Bieber", "team": "CLE", "value": "198", "stat_name": "Strikeouts"},
+                        {"player_name": "Dylan Cease", "team": "CHW", "value": "14", "stat_name": "Wins"},
+                        {"player_name": "Emmanuel Clase", "team": "CLE", "value": "42", "stat_name": "Saves"},
+                        {"player_name": "Spencer Strider", "team": "ATL", "value": "1.08", "stat_name": "WHIP"}
+                    ]
+                }
+            ],
+            "team_stats": [
+                {
+                    "category": "Team Offense",
+                    "stats": [
+                        {"team_name": "Los Angeles Dodgers", "stats": {"Runs": 847, "Home Runs": 212, "Batting Average": 0.259}},
+                        {"team_name": "Houston Astros", "stats": {"Runs": 794, "Home Runs": 214, "Batting Average": 0.263}},
+                        {"team_name": "New York Yankees", "stats": {"Runs": 718, "Home Runs": 254, "Batting Average": 0.244}}
+                    ]
+                }
+            ]
+        }
+    elif league_upper == "NFL":
+        return {
+            "player_stats": [
+                {
+                    "category": "Passing",
+                    "stats": [
+                        {"player_name": "Josh Allen", "team": "BUF", "value": "4306", "stat_name": "Passing Yards"},
+                        {"player_name": "Patrick Mahomes", "team": "KC", "value": "38", "stat_name": "Passing TDs"},
+                        {"player_name": "Tua Tagovailoa", "team": "MIA", "value": "69.3", "stat_name": "Completion %"},
+                        {"player_name": "Aaron Rodgers", "team": "GB", "value": "107.0", "stat_name": "Passer Rating"},
+                        {"player_name": "Tom Brady", "team": "TB", "value": "5316", "stat_name": "Passing Yards"}
+                    ]
+                },
+                {
+                    "category": "Rushing",
+                    "stats": [
+                        {"player_name": "Derrick Henry", "team": "TEN", "value": "1538", "stat_name": "Rushing Yards"},
+                        {"player_name": "Jonathan Taylor", "team": "IND", "value": "18", "stat_name": "Rushing TDs"},
+                        {"player_name": "Nick Chubb", "team": "CLE", "value": "5.5", "stat_name": "Yards/Attempt"},
+                        {"player_name": "Austin Ekeler", "team": "LAC", "value": "12", "stat_name": "Rushing TDs"},
+                        {"player_name": "Josh Jacobs", "team": "LV", "value": "1653", "stat_name": "Rushing Yards"}
+                    ]
+                }
+            ],
+            "team_stats": [
+                {
+                    "category": "Team Offense", 
+                    "stats": [
+                        {"team_name": "Buffalo Bills", "stats": {"Points": 483, "Total Yards": 6420, "Passing Yards": 4283}},
+                        {"team_name": "Kansas City Chiefs", "stats": {"Points": 496, "Total Yards": 6106, "Passing Yards": 4544}},
+                        {"team_name": "Philadelphia Eagles", "stats": {"Points": 477, "Total Yards": 6217, "Passing Yards": 3715}}
+                    ]
+                }
+            ]
+        }
+    elif league_upper == "NBA":
+        return {
+            "player_stats": [
+                {
+                    "category": "Scoring",
+                    "stats": [
+                        {"player_name": "Luka Doncic", "team": "DAL", "value": "32.4", "stat_name": "Points Per Game"},
+                        {"player_name": "Giannis Antetokounmpo", "team": "MIL", "value": "55.3", "stat_name": "Field Goal %"},
+                        {"player_name": "Stephen Curry", "team": "GSW", "value": "42.7", "stat_name": "3-Point %"},
+                        {"player_name": "Joel Embiid", "team": "PHI", "value": "33.1", "stat_name": "Points Per Game"},
+                        {"player_name": "Jayson Tatum", "team": "BOS", "value": "30.1", "stat_name": "Points Per Game"}
+                    ]
+                },
+                {
+                    "category": "Rebounding",
+                    "stats": [
+                        {"player_name": "Rudy Gobert", "team": "MIN", "value": "12.9", "stat_name": "Rebounds Per Game"},
+                        {"player_name": "Domantas Sabonis", "team": "SAC", "value": "8.1", "stat_name": "Offensive Rebounds"},
+                        {"player_name": "Nikola Jokic", "team": "DEN", "value": "11.8", "stat_name": "Defensive Rebounds"},
+                        {"player_name": "Andre Drummond", "team": "CHI", "value": "10.4", "stat_name": "Rebounds Per Game"},
+                        {"player_name": "Clint Capela", "team": "ATL", "value": "11.0", "stat_name": "Rebounds Per Game"}
+                    ]
+                }
+            ],
+            "team_stats": [
+                {
+                    "category": "Team Offense",
+                    "stats": [
+                        {"team_name": "Boston Celtics", "stats": {"Points": 117.9, "Field Goal %": 47.2, "3-Point %": 37.7}},
+                        {"team_name": "Sacramento Kings", "stats": {"Points": 120.7, "Field Goal %": 48.7, "3-Point %": 36.9}},
+                        {"team_name": "Phoenix Suns", "stats": {"Points": 115.0, "Field Goal %": 47.5, "3-Point %": 36.4}}
+                    ]
+                }
+            ]
+        }
+    elif league_upper == "NHL":
+        return {
+            "player_stats": [
+                {
+                    "category": "Scoring",
+                    "stats": [
+                        {"player_name": "Connor McDavid", "team": "EDM", "value": "150", "stat_name": "Points"},
+                        {"player_name": "David Pastrnak", "team": "BOS", "value": "61", "stat_name": "Goals"},
+                        {"player_name": "Erik Karlsson", "team": "SJS", "value": "101", "stat_name": "Assists"},
+                        {"player_name": "Leon Draisaitl", "team": "EDM", "value": "128", "stat_name": "Points"},
+                        {"player_name": "Mikko Rantanen", "team": "COL", "value": "55", "stat_name": "Goals"}
+                    ]
+                },
+                {
+                    "category": "Goaltending",
+                    "stats": [
+                        {"player_name": "Linus Ullmark", "team": "BOS", "value": "0.938", "stat_name": "Save %"},
+                        {"player_name": "Frederik Andersen", "team": "CAR", "value": "2.17", "stat_name": "Goals Against Avg"},
+                        {"player_name": "Igor Shesterkin", "team": "NYR", "value": "36", "stat_name": "Wins"},
+                        {"player_name": "Ilya Sorokin", "team": "NYI", "value": "0.924", "stat_name": "Save %"},
+                        {"player_name": "Jake Oettinger", "team": "DAL", "value": "2.53", "stat_name": "Goals Against Avg"}
+                    ]
+                }
+            ],
+            "team_stats": [
+                {
+                    "category": "Team Offense",
+                    "stats": [
+                        {"team_name": "Boston Bruins", "stats": {"Goals": 302, "Power Play %": 21.2, "Shots": 2847}},
+                        {"team_name": "Edmonton Oilers", "stats": {"Goals": 314, "Power Play %": 32.4, "Shots": 2623}},
+                        {"team_name": "Toronto Maple Leafs", "stats": {"Goals": 291, "Power Play %": 24.3, "Shots": 2756}}
+                    ]
+                }
+            ]
+        }
+    
+    # Default fallback for any league not specifically handled
+    return {
+        "player_stats": [
+            {
+                "category": "General Stats",
+                "stats": [
+                    {"player_name": "Sample Player 1", "team": "TEAM1", "value": "100", "stat_name": "Sample Stat"},
+                    {"player_name": "Sample Player 2", "team": "TEAM2", "value": "90", "stat_name": "Sample Stat"},
+                    {"player_name": "Sample Player 3", "team": "TEAM3", "value": "85", "stat_name": "Sample Stat"}
+                ]
+            }
+        ],
+        "team_stats": [
+            {
+                "category": "Team Stats", 
+                "stats": [
+                    {"team_name": "Sample Team 1", "stats": {"Sample Stat": 100}},
+                    {"team_name": "Sample Team 2", "stats": {"Sample Stat": 90}},
+                    {"team_name": "Sample Team 3", "stats": {"Sample Stat": 85}}
+                ]
+            }
+        ]
+    }
