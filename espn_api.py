@@ -2275,7 +2275,9 @@ def parse_standings_entry(entry, division="League"):
     }
 
 def _get_team_statistics(league_key):
-    """Get team statistics for a league"""
+    """Get team statistics for a league with parallel processing for speed"""
+    import concurrent.futures
+    
     league_path = LEAGUES.get(league_key)
     if not league_path:
         return []
@@ -2310,18 +2312,14 @@ def _get_team_statistics(league_key):
         
         print(f"Found {len(teams)} teams")
         
-        # Get statistics for all teams
-        team_stats_categories = []
-        teams_processed = 0
-        max_teams = len(teams)  # Show all teams for team statistics
-        
-        for team_entry in teams[:max_teams]:
+        def fetch_team_stats(team_entry):
+            """Fetch statistics for a single team"""
             team = team_entry.get('team', {})
             team_id = team.get('id')
             team_name = team.get('displayName', 'Unknown')
             
             if not team_id:
-                continue
+                return None
             
             try:
                 # Get team statistics
@@ -2337,27 +2335,14 @@ def _get_team_statistics(league_key):
                         
                         if 'categories' in stats:
                             categories = stats['categories']
+                            team_categories = []
                             
-                            # Process each category
+                            # Process each category for this team
                             for category in categories:
                                 category_name = category.get('displayName', category.get('name', 'Unknown'))
                                 category_stats = category.get('stats', [])
                                 
-                                # Find or create category
-                                existing_category = None
-                                for existing in team_stats_categories:
-                                    if existing['category'] == category_name:
-                                        existing_category = existing
-                                        break
-                                
-                                if not existing_category:
-                                    existing_category = {
-                                        'category': category_name,
-                                        'stats': []
-                                    }
-                                    team_stats_categories.append(existing_category)
-                                
-                                # Add team's stats to this category
+                                # Create team's stats for this category
                                 team_category_stats = {
                                     'team_name': team_name,
                                     'team_id': str(team_id),
@@ -2373,17 +2358,60 @@ def _get_team_statistics(league_key):
                                     if stat_name and stat_value:
                                         team_category_stats['stats'][stat_display_name] = stat_value
                                 
-                                existing_category['stats'].append(team_category_stats)
-                    
-                    teams_processed += 1
-                    print(f"Processed team statistics for {team_name}")
+                                team_categories.append({
+                                    'category': category_name,
+                                    'team_stats': team_category_stats
+                                })
+                            
+                            print(f"Processed team statistics for {team_name}")
+                            return team_categories
                     
                 else:
                     print(f"Failed to get statistics for {team_name}: {team_resp.status_code}")
                     
             except Exception as e:
                 print(f"Error getting statistics for {team_name}: {e}")
-                continue
+                
+            return None
+        
+        # Use parallel processing to fetch all team stats
+        team_stats_categories = []
+        teams_processed = 0
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            # Submit all team stat requests in parallel
+            futures = [executor.submit(fetch_team_stats, team_entry) for team_entry in teams]
+            
+            # Collect results as they complete
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    team_categories = future.result()
+                    if team_categories:
+                        teams_processed += 1
+                        
+                        # Merge this team's categories into the main structure
+                        for team_category in team_categories:
+                            category_name = team_category['category']
+                            team_stats = team_category['team_stats']
+                            
+                            # Find or create the category
+                            existing_category = None
+                            for existing in team_stats_categories:
+                                if existing['category'] == category_name:
+                                    existing_category = existing
+                                    break
+                            
+                            if not existing_category:
+                                existing_category = {
+                                    'category': category_name,
+                                    'stats': []
+                                }
+                                team_stats_categories.append(existing_category)
+                            
+                            existing_category['stats'].append(team_stats)
+                            
+                except Exception as e:
+                    print(f"Error processing team stats result: {e}")
         
         print(f"Successfully processed {teams_processed} teams with {len(team_stats_categories)} stat categories")
         return team_stats_categories
@@ -2531,7 +2559,7 @@ def get_statistics(league_key):
     if not league_path:
         print(f"No league path found for {league_key}, providing sample data")
         return _get_sample_statistics_data(league_key)
-    
+
     try:
         # For MLB, use the official MLB Stats API for full season player statistics
         if league_key.upper() == "MLB":
@@ -2545,7 +2573,7 @@ def get_statistics(league_key):
                 return mlb_result
             else:
                 print("MLB Stats API failed, falling back to ESPN")
-        
+
         # Try multiple endpoints that might contain statistics
         endpoints_to_try = [
             f"{BASE_URL}/{league_path}/leaders",
@@ -2624,6 +2652,64 @@ def get_statistics(league_key):
     else:
         # Return sample data for both player and team stats
         return sample_data
+
+def get_player_statistics(league_key):
+    """Get only player statistics for a league (optimized for speed)"""
+    # Handle case-insensitive league keys
+    league_path = LEAGUES.get(league_key) or LEAGUES.get(league_key.upper())
+    if not league_path:
+        print(f"No league path found for {league_key}")
+        return {"player_stats": [], "team_stats": []}
+
+    try:
+        # For MLB, use the official MLB Stats API for full season player statistics
+        if league_key.upper() == "MLB":
+            print("Using MLB Stats API for player statistics only")
+            mlb_result = _get_mlb_statistics()
+            if mlb_result['player_stats']:
+                return mlb_result
+            else:
+                print("MLB Stats API failed, falling back to ESPN")
+
+        # For other leagues, use ESPN API but only extract player stats
+        endpoints_to_try = [
+            f"{BASE_URL}/{league_path}/leaders",
+            f"{BASE_URL}/{league_path}/athletes", 
+            f"{BASE_URL}/{league_path}/statistics"
+        ]
+        
+        for endpoint in endpoints_to_try:
+            try:
+                print(f"Attempting to fetch player statistics from: {endpoint}")
+                resp = requests.get(endpoint, timeout=10)
+                
+                if resp.status_code == 200:
+                    data = resp.json()
+                    parsed_data = _parse_statistics_data(data, league_key)
+                    if parsed_data and parsed_data.get("player_stats"):
+                        # Only return player stats, not team stats
+                        return {"player_stats": parsed_data["player_stats"], "team_stats": []}
+                        
+            except requests.RequestException:
+                continue
+                
+        # Fallback to sample data
+        sample_data = _get_sample_statistics_data(league_key)
+        return {"player_stats": sample_data.get("player_stats", []), "team_stats": []}
+        
+    except Exception as e:
+        print(f"Error fetching player statistics for {league_key}: {str(e)}")
+        return {"player_stats": [], "team_stats": []}
+
+def get_team_statistics(league_key):
+    """Get only team statistics for a league (optimized for speed)"""
+    try:
+        print(f"Loading team statistics for {league_key}")
+        team_stats = _get_team_statistics(league_key)
+        return {"team_stats": team_stats, "player_stats": []}
+    except Exception as e:
+        print(f"Error fetching team statistics for {league_key}: {str(e)}")
+        return {"team_stats": [], "player_stats": []}
 
 def _parse_statistics_data(data, league_key):
     """Parse statistics data from ESPN leaders endpoint"""

@@ -946,24 +946,38 @@ class LeagueView(BaseView):
         """Show statistics dialog with new flow: choose team/player → select stat → view results"""
         try:
             print(f"DEBUG: Starting _show_statistics_dialog for league: {self.league}")
-            # First dialog: Choose between Team or Player statistics
-            choice_dialog = StatisticsChoiceDialog(self.league, self)
-            print(f"DEBUG: Created StatisticsChoiceDialog")
-            if choice_dialog.exec() == QDialog.DialogCode.Accepted:
-                print(f"DEBUG: StatisticsChoiceDialog accepted")
-                choice = choice_dialog.get_choice()
-                print(f"DEBUG: Got choice: {choice}")
-                if choice:
-                    # Second dialog: Select specific statistic and view results
-                    print(f"DEBUG: Creating StatisticsViewDialog with league={self.league}, choice={choice}")
-                    stats_dialog = StatisticsViewDialog(self.league, choice, self)
-                    print(f"DEBUG: About to show StatisticsViewDialog")
-                    result = stats_dialog.exec()
-                    print(f"DEBUG: StatisticsViewDialog returned with result: {result}")
+            
+            # Loop to allow returning to choice dialog
+            while True:
+                # First dialog: Choose between Team or Player statistics
+                choice_dialog = StatisticsChoiceDialog(self.league, self)
+                print(f"DEBUG: Created StatisticsChoiceDialog")
+                
+                if choice_dialog.exec() == QDialog.DialogCode.Accepted:
+                    print(f"DEBUG: StatisticsChoiceDialog accepted")
+                    choice = choice_dialog.get_choice()
+                    print(f"DEBUG: Got choice: {choice}")
+                    
+                    if choice:
+                        # Second dialog: Select specific statistic and view results
+                        print(f"DEBUG: Creating StatisticsViewDialog with league={self.league}, choice={choice}")
+                        stats_dialog = StatisticsViewDialog(self.league, choice, self)
+                        print(f"DEBUG: About to show StatisticsViewDialog")
+                        result = stats_dialog.exec()
+                        print(f"DEBUG: StatisticsViewDialog returned with result: {result}")
+                        
+                        # If the user clicked OK or closed normally, exit the loop
+                        # If they pressed Escape (result == 0), continue the loop to show choice again
+                        if result == QDialog.DialogCode.Accepted:
+                            break  # Exit statistics completely
+                        # If result == QDialog.DialogCode.Rejected (Escape), loop continues
+                    else:
+                        print(f"DEBUG: No choice received from StatisticsChoiceDialog")
+                        break  # Exit if no choice
                 else:
-                    print(f"DEBUG: No choice received from StatisticsChoiceDialog")
-            else:
-                print(f"DEBUG: StatisticsChoiceDialog was not accepted")
+                    print(f"DEBUG: StatisticsChoiceDialog was not accepted")
+                    break  # Exit if choice dialog was cancelled
+                    
         except Exception as e:
             print(f"DEBUG: Exception in _show_statistics_dialog: {str(e)}")
             import traceback
@@ -5451,8 +5465,13 @@ class StatisticsViewDialog(QDialog):
         
         # Load statistics data IMMEDIATELY and show available stats
         try:
-            print(f"DEBUG: Loading statistics data for {self.league}")
-            self.statistics_data = ApiService.get_statistics(self.league)
+            print(f"DEBUG: Loading {self.stat_type} statistics data for {self.league}")
+            
+            # Only load the specific type of statistics we need
+            if self.stat_type == "player":
+                self.statistics_data = ApiService.get_player_statistics(self.league)
+            else:  # team
+                self.statistics_data = ApiService.get_team_statistics(self.league)
             
             if self.statistics_data:
                 available_stats = self._get_available_statistics()
@@ -5602,6 +5621,9 @@ class StatisticsViewDialog(QDialog):
         h_layout.addWidget(right_widget)
         
         layout.addLayout(h_layout)
+        
+        # Set the main layout
+        self.setLayout(layout)
     
     def _on_working_stat_selected(self, item):
         """Handle stat selection with working approach - data is already loaded"""
@@ -5615,9 +5637,6 @@ class StatisticsViewDialog(QDialog):
                 print(f"DEBUG: No stat_info in item data")
         else:
             print(f"DEBUG: _on_working_stat_selected called with None item")
-        
-        # Set focus to stats list
-        self.stats_list.setFocus()
     
     def _display_stat_results(self, stat_info):
         """Display results in concatenated list format for the selected statistic"""
@@ -5701,9 +5720,10 @@ class StatisticsViewDialog(QDialog):
             list_item = QListWidgetItem(list_text)
             self.results_list.addItem(list_item)
         
-        # Set focus to first item
+        # Set focus to first item in results list
         if self.results_list.count() > 0:
             self.results_list.setCurrentRow(0)
+            self.results_list.setFocus()  # Move focus to results list
     
     def _setup_team_results_list(self, data, stat_name):
         """Setup concatenated list view for team statistics results"""
@@ -5719,9 +5739,10 @@ class StatisticsViewDialog(QDialog):
             list_item = QListWidgetItem(list_text)
             self.results_list.addItem(list_item)
         
-        # Set focus to first item
+        # Set focus to first item in results list
         if self.results_list.count() > 0:
             self.results_list.setCurrentRow(0)
+            self.results_list.setFocus()  # Move focus to results list
     
     def _get_stat_categories(self):
         """Get available stat categories without loading full data"""
@@ -5768,22 +5789,13 @@ class StatisticsViewDialog(QDialog):
             return ["Points", "Wins", "Goals", "Assists"] if self.stat_type == "team" else ["Points", "Goals", "Assists", "Games"]
     
     def _get_available_statistics(self):
-        """Get available statistics by loading data only when needed"""
-        # Only load full statistics data when actually needed
-        if not self.statistics_data:
-            try:
-                print(f"DEBUG: Loading statistics data for {self.league} {self.stat_type}")
-                self.statistics_data = ApiService.get_statistics(self.league)
-                print(f"DEBUG: Got statistics_data: {type(self.statistics_data)}")
-            except Exception as e:
-                print(f"DEBUG: Exception loading data: {str(e)}")
-                return []
-        
-        if not self.statistics_data:
-            print(f"DEBUG: statistics_data is still None after loading")
-            return []
         """Extract available statistics from the data"""
         print(f"DEBUG: _get_available_statistics called for {self.stat_type}")
+        
+        if not self.statistics_data:
+            print(f"DEBUG: No statistics_data available")
+            return []
+        
         available_stats = []
         
         if self.stat_type == "player":
