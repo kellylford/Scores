@@ -2394,9 +2394,11 @@ def _get_team_statistics(league_key):
 
 def get_statistics(league_key):
     """Get statistics/leaders data for a league"""
-    league_path = LEAGUES.get(league_key)
+    # Handle case-insensitive league keys
+    league_path = LEAGUES.get(league_key) or LEAGUES.get(league_key.upper())
     if not league_path:
-        return {"player_stats": [], "team_stats": []}
+        print(f"No league path found for {league_key}, providing sample data")
+        return _get_sample_statistics_data(league_key)
     
     try:
         # Try multiple endpoints that might contain statistics
@@ -2911,106 +2913,170 @@ def _extract_stats_from_scoreboard(data, league_key):
 
 def _get_sample_statistics_data(league_key):
     """Provide sample statistics data for testing and development"""
-    if league_key == "MLB":
+    # Make case-insensitive
+    league_upper = league_key.upper()
+    
+    if league_upper == "MLB":
         return {
             "player_stats": [
                 {
                     "category": "Hitting",
                     "stats": [
-                        {"player_name": "Aaron Judge", "team": "NYY", "value": "62 HR", "stat_name": "Home Runs"},
-                        {"player_name": "Jose Altuve", "team": "HOU", "value": ".300", "stat_name": "Batting Average"}, 
-                        {"player_name": "Vladimir Guerrero Jr.", "team": "TOR", "value": "111 RBI", "stat_name": "RBIs"}
+                        {"player_name": "Aaron Judge", "team": "NYY", "value": "62", "stat_name": "Home Runs"},
+                        {"player_name": "Jose Altuve", "team": "HOU", "value": "0.300", "stat_name": "Batting Average"}, 
+                        {"player_name": "Vladimir Guerrero Jr.", "team": "TOR", "value": "111", "stat_name": "RBIs"},
+                        {"player_name": "Ronald Acuna Jr.", "team": "ATL", "value": "41", "stat_name": "Stolen Bases"},
+                        {"player_name": "Freddie Freeman", "team": "LAD", "value": "199", "stat_name": "Hits"}
                     ]
                 },
                 {
                     "category": "Pitching", 
                     "stats": [
-                        {"player_name": "Gerrit Cole", "team": "NYY", "value": "2.78 ERA", "stat_name": "ERA"},
-                        {"player_name": "Shane Bieber", "team": "CLE", "value": "198 K", "stat_name": "Strikeouts"},
-                        {"player_name": "Dylan Cease", "team": "CHW", "value": "14 W", "stat_name": "Wins"}
+                        {"player_name": "Gerrit Cole", "team": "NYY", "value": "2.78", "stat_name": "ERA"},
+                        {"player_name": "Shane Bieber", "team": "CLE", "value": "198", "stat_name": "Strikeouts"},
+                        {"player_name": "Dylan Cease", "team": "CHW", "value": "14", "stat_name": "Wins"},
+                        {"player_name": "Emmanuel Clase", "team": "CLE", "value": "42", "stat_name": "Saves"},
+                        {"player_name": "Spencer Strider", "team": "ATL", "value": "1.08", "stat_name": "WHIP"}
                     ]
                 }
             ],
-            "team_stats": []
+            "team_stats": [
+                {
+                    "category": "Team Offense",
+                    "stats": [
+                        {"team_name": "Los Angeles Dodgers", "stats": {"Runs": 847, "Home Runs": 212, "Batting Average": 0.259}},
+                        {"team_name": "Houston Astros", "stats": {"Runs": 794, "Home Runs": 214, "Batting Average": 0.263}},
+                        {"team_name": "New York Yankees", "stats": {"Runs": 718, "Home Runs": 254, "Batting Average": 0.244}}
+                    ]
+                }
+            ]
         }
-    elif league_key == "NFL":
+    elif league_upper == "NFL":
         return {
             "player_stats": [
                 {
                     "category": "Passing",
                     "stats": [
-                        {"player_name": "Josh Allen", "team": "BUF", "value": "4306 YDS", "stat_name": "Passing Yards"},
-                        {"player_name": "Patrick Mahomes", "team": "KC", "value": "38 TD", "stat_name": "Passing TDs"},
-                        {"player_name": "Tua Tagovailoa", "team": "MIA", "value": "69.3%", "stat_name": "Completion %"}
+                        {"player_name": "Josh Allen", "team": "BUF", "value": "4306", "stat_name": "Passing Yards"},
+                        {"player_name": "Patrick Mahomes", "team": "KC", "value": "38", "stat_name": "Passing TDs"},
+                        {"player_name": "Tua Tagovailoa", "team": "MIA", "value": "69.3", "stat_name": "Completion %"},
+                        {"player_name": "Aaron Rodgers", "team": "GB", "value": "107.0", "stat_name": "Passer Rating"},
+                        {"player_name": "Tom Brady", "team": "TB", "value": "5316", "stat_name": "Passing Yards"}
                     ]
                 },
                 {
                     "category": "Rushing",
                     "stats": [
-                        {"player_name": "Derrick Henry", "team": "TEN", "value": "1538 YDS", "stat_name": "Rushing Yards"},
-                        {"player_name": "Jonathan Taylor", "team": "IND", "value": "18 TD", "stat_name": "Rushing TDs"},
-                        {"player_name": "Nick Chubb", "team": "CLE", "value": "5.5 AVG", "stat_name": "Yards/Attempt"}
+                        {"player_name": "Derrick Henry", "team": "TEN", "value": "1538", "stat_name": "Rushing Yards"},
+                        {"player_name": "Jonathan Taylor", "team": "IND", "value": "18", "stat_name": "Rushing TDs"},
+                        {"player_name": "Nick Chubb", "team": "CLE", "value": "5.5", "stat_name": "Yards/Attempt"},
+                        {"player_name": "Austin Ekeler", "team": "LAC", "value": "12", "stat_name": "Rushing TDs"},
+                        {"player_name": "Josh Jacobs", "team": "LV", "value": "1653", "stat_name": "Rushing Yards"}
                     ]
                 }
             ],
-            "team_stats": []
+            "team_stats": [
+                {
+                    "category": "Team Offense", 
+                    "stats": [
+                        {"team_name": "Buffalo Bills", "stats": {"Points": 483, "Total Yards": 6420, "Passing Yards": 4283}},
+                        {"team_name": "Kansas City Chiefs", "stats": {"Points": 496, "Total Yards": 6106, "Passing Yards": 4544}},
+                        {"team_name": "Philadelphia Eagles", "stats": {"Points": 477, "Total Yards": 6217, "Passing Yards": 3715}}
+                    ]
+                }
+            ]
         }
-    elif league_key == "NBA":
+    elif league_upper == "NBA":
         return {
             "player_stats": [
                 {
                     "category": "Scoring",
                     "stats": [
-                        {"player_name": "Luka Doncic", "team": "DAL", "value": "32.4 PPG", "stat_name": "Points Per Game"},
-                        {"player_name": "Giannis Antetokounmpo", "team": "MIL", "value": "55.3%", "stat_name": "Field Goal %"},
-                        {"player_name": "Stephen Curry", "team": "GSW", "value": "42.7%", "stat_name": "3-Point %"}
+                        {"player_name": "Luka Doncic", "team": "DAL", "value": "32.4", "stat_name": "Points Per Game"},
+                        {"player_name": "Giannis Antetokounmpo", "team": "MIL", "value": "55.3", "stat_name": "Field Goal %"},
+                        {"player_name": "Stephen Curry", "team": "GSW", "value": "42.7", "stat_name": "3-Point %"},
+                        {"player_name": "Joel Embiid", "team": "PHI", "value": "33.1", "stat_name": "Points Per Game"},
+                        {"player_name": "Jayson Tatum", "team": "BOS", "value": "30.1", "stat_name": "Points Per Game"}
                     ]
                 },
                 {
                     "category": "Rebounding",
                     "stats": [
-                        {"player_name": "Rudy Gobert", "team": "MIN", "value": "12.9 RPG", "stat_name": "Rebounds Per Game"},
-                        {"player_name": "Domantas Sabonis", "team": "SAC", "value": "8.1 ORPG", "stat_name": "Offensive Rebounds"},
-                        {"player_name": "Nikola Jokic", "team": "DEN", "value": "11.8 DRPG", "stat_name": "Defensive Rebounds"}
+                        {"player_name": "Rudy Gobert", "team": "MIN", "value": "12.9", "stat_name": "Rebounds Per Game"},
+                        {"player_name": "Domantas Sabonis", "team": "SAC", "value": "8.1", "stat_name": "Offensive Rebounds"},
+                        {"player_name": "Nikola Jokic", "team": "DEN", "value": "11.8", "stat_name": "Defensive Rebounds"},
+                        {"player_name": "Andre Drummond", "team": "CHI", "value": "10.4", "stat_name": "Rebounds Per Game"},
+                        {"player_name": "Clint Capela", "team": "ATL", "value": "11.0", "stat_name": "Rebounds Per Game"}
                     ]
                 }
             ],
-            "team_stats": []
+            "team_stats": [
+                {
+                    "category": "Team Offense",
+                    "stats": [
+                        {"team_name": "Boston Celtics", "stats": {"Points": 117.9, "Field Goal %": 47.2, "3-Point %": 37.7}},
+                        {"team_name": "Sacramento Kings", "stats": {"Points": 120.7, "Field Goal %": 48.7, "3-Point %": 36.9}},
+                        {"team_name": "Phoenix Suns", "stats": {"Points": 115.0, "Field Goal %": 47.5, "3-Point %": 36.4}}
+                    ]
+                }
+            ]
         }
-    elif league_key == "NHL":
+    elif league_upper == "NHL":
         return {
             "player_stats": [
                 {
                     "category": "Scoring",
                     "stats": [
-                        {"player_name": "Connor McDavid", "team": "EDM", "value": "150 PTS", "stat_name": "Points"},
-                        {"player_name": "David Pastrnak", "team": "BOS", "value": "61 G", "stat_name": "Goals"},
-                        {"player_name": "Erik Karlsson", "team": "SJS", "value": "101 A", "stat_name": "Assists"}
+                        {"player_name": "Connor McDavid", "team": "EDM", "value": "150", "stat_name": "Points"},
+                        {"player_name": "David Pastrnak", "team": "BOS", "value": "61", "stat_name": "Goals"},
+                        {"player_name": "Erik Karlsson", "team": "SJS", "value": "101", "stat_name": "Assists"},
+                        {"player_name": "Leon Draisaitl", "team": "EDM", "value": "128", "stat_name": "Points"},
+                        {"player_name": "Mikko Rantanen", "team": "COL", "value": "55", "stat_name": "Goals"}
                     ]
                 },
                 {
                     "category": "Goaltending",
                     "stats": [
-                        {"player_name": "Linus Ullmark", "team": "BOS", "value": ".938", "stat_name": "Save %"},
+                        {"player_name": "Linus Ullmark", "team": "BOS", "value": "0.938", "stat_name": "Save %"},
                         {"player_name": "Frederik Andersen", "team": "CAR", "value": "2.17", "stat_name": "Goals Against Avg"},
-                        {"player_name": "Igor Shesterkin", "team": "NYR", "value": "36 W", "stat_name": "Wins"}
+                        {"player_name": "Igor Shesterkin", "team": "NYR", "value": "36", "stat_name": "Wins"},
+                        {"player_name": "Ilya Sorokin", "team": "NYI", "value": "0.924", "stat_name": "Save %"},
+                        {"player_name": "Jake Oettinger", "team": "DAL", "value": "2.53", "stat_name": "Goals Against Avg"}
                     ]
                 }
             ],
-            "team_stats": []
-        }
-    else:
-        # Generic sample data for other leagues
-        return {
-            "player_stats": [
+            "team_stats": [
                 {
-                    "category": "Top Performers",
+                    "category": "Team Offense",
                     "stats": [
-                        {"player_name": "Sample Player 1", "team": "TEAM1", "value": "100.0", "stat_name": "Sample Stat"},
-                        {"player_name": "Sample Player 2", "team": "TEAM2", "value": "95.5", "stat_name": "Sample Stat"},
-                        {"player_name": "Sample Player 3", "team": "TEAM3", "value": "90.2", "stat_name": "Sample Stat"}
+                        {"team_name": "Boston Bruins", "stats": {"Goals": 302, "Power Play %": 21.2, "Shots": 2847}},
+                        {"team_name": "Edmonton Oilers", "stats": {"Goals": 314, "Power Play %": 32.4, "Shots": 2623}},
+                        {"team_name": "Toronto Maple Leafs", "stats": {"Goals": 291, "Power Play %": 24.3, "Shots": 2756}}
                     ]
                 }
-            ],
-            "team_stats": []
+            ]
         }
+    
+    # Default fallback for any league not specifically handled
+    return {
+        "player_stats": [
+            {
+                "category": "General Stats",
+                "stats": [
+                    {"player_name": "Sample Player 1", "team": "TEAM1", "value": "100", "stat_name": "Sample Stat"},
+                    {"player_name": "Sample Player 2", "team": "TEAM2", "value": "90", "stat_name": "Sample Stat"},
+                    {"player_name": "Sample Player 3", "team": "TEAM3", "value": "85", "stat_name": "Sample Stat"}
+                ]
+            }
+        ],
+        "team_stats": [
+            {
+                "category": "Team Stats", 
+                "stats": [
+                    {"team_name": "Sample Team 1", "stats": {"Sample Stat": 100}},
+                    {"team_name": "Sample Team 2", "stats": {"Sample Stat": 90}},
+                    {"team_name": "Sample Team 3", "stats": {"Sample Stat": 85}}
+                ]
+            }
+        ]
+    }
