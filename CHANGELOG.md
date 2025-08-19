@@ -5,6 +5,50 @@ All notable changes to the Scores application will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.0-preview] - 2025-08-18
+
+### Added
+- **Statistics Feature**: Complete new statistics system for comprehensive sports analysis
+  - Two-dialog interface: Choose Team/Player → Select statistic → View rankings
+  - Multi-sport framework supporting MLB, NFL, NBA, NHL, NCAA Football
+  - Professional-grade statistical categories with official data sources
+  - Accessible design with full keyboard navigation and screen reader support
+- **MLB Full Season Statistics**: Official MLB Stats API integration for baseball
+  - 39 comprehensive statistical categories (vs 18 from ESPN)
+  - Hitting statistics: 16 categories including advanced metrics (AVG, OPS, SB, etc.)
+  - Pitching statistics: 15 categories with complete season data (ERA, Saves, etc.)
+  - Fielding statistics: 8 categories for defensive analysis
+  - Official MLB source with full season totals
+  - Parallel loading for optimal performance (6x faster: 157ms vs 953ms)
+- **Enhanced Baseball Information**: Improved game details and pitch location system
+  - Pitch location validation with 85.4% strike zone accuracy
+  - Enhanced game details display (venue, weather, broadcast info)
+  - Better configuration options for game information fields
+  - Cross-game validation with real umpire call analysis
+
+### Fixed
+- **Statistics Display**: Resolved "No player stats available for mlb" error
+  - Fixed data format conversion between MLB API and UI expectations
+  - Proper player name, stat value, and team information display
+  - Seamless integration with existing statistics interface
+- **MLB Data Quality**: Eliminated misleading limited-game statistics
+  - Real season totals replacing recent performance samples
+  - Complete statistical picture for informed analysis
+
+### Changed
+- **Statistics Architecture**: New comprehensive statistics system implementation
+- **MLB Data Source**: ESPN API → Official MLB Stats API for baseball statistics
+- **Data Coverage**: Recent games → Full season comprehensive statistics
+- **Performance Optimization**: Enhanced concurrent request handling for statistics
+- **User Interface**: Added Statistics menu option to all major sports
+
+### Technical Details
+- **Statistics Framework**: Scalable system ready for all major sports
+- **MLB API Integration**: statsapi.mlb.com/api/v1/stats/leaders endpoints
+- **No Authentication Required**: Public MLB API endpoints
+- **Backward Compatibility**: All existing functionality preserved
+- **Enhanced Error Handling**: Robust statistics processing and display
+
 ## [0.52.0-preview] - 2025-08-16
 
 ### Added
