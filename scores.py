@@ -1485,11 +1485,7 @@ class GameDetailsView(BaseView):
     def _get_team_id_from_original_data(self, team_name: str) -> str:
         """Get team ID from original game data (infrastructure-level solution)"""
         if not self.original_game_data:
-            print(f"DEBUG: No original_game_data available for {team_name}")
             return ""
-            
-        print(f"DEBUG: Looking for team '{team_name}' in original data")
-        print(f"DEBUG: Original data keys: {list(self.original_game_data.keys())}")
             
         # Look for team ID in the original game data structure
         competitors = []
@@ -1497,15 +1493,11 @@ class GameDetailsView(BaseView):
             competitions = self.original_game_data.get('competitions', [])
             if competitions:
                 competitors = competitions[0].get('competitors', [])
-                print(f"DEBUG: Found {len(competitors)} competitors in competitions")
         elif 'competitors' in self.original_game_data:
             competitors = self.original_game_data.get('competitors', [])
-            print(f"DEBUG: Found {len(competitors)} competitors directly")
-        else:
-            print(f"DEBUG: No competitors or competitions found in original data")
             
         # Try to match team by name and get ID
-        for i, competitor in enumerate(competitors):
+        for competitor in competitors:
             team = competitor.get('team', {})
             team_names = [
                 team.get('name', ''),
@@ -1515,29 +1507,20 @@ class GameDetailsView(BaseView):
                 team.get('nickname', '')
             ]
             
-            print(f"DEBUG: Competitor {i} names: {team_names}")
-            
             # Check for exact matches first
             for name in team_names:
                 if name and name == team_name:
-                    team_id = str(team.get('id', ''))
-                    print(f"DEBUG: Exact match found! Team ID: {team_id}")
-                    return team_id
+                    return str(team.get('id', ''))
                     
             # Check for partial matches (handles "Wisconsin Badgers" vs "Badgers")
             for name in team_names:
                 if name and (team_name in name or name in team_name):
-                    team_id = str(team.get('id', ''))
-                    print(f"DEBUG: Partial match found! Team ID: {team_id}")
-                    return team_id
+                    return str(team.get('id', ''))
                     
-        print(f"DEBUG: No match found for {team_name}")
         return ""
 
     def _find_team_id_alternative(self, team_name: str) -> str:
         """Alternative method to find team ID when standard extraction fails"""
-        print(f"DEBUG: Trying alternative lookup for {team_name}")
-        
         # Known team ID mappings for major teams (interim solution)
         team_id_map = {
             'college-football': {
@@ -1561,13 +1544,11 @@ class GameDetailsView(BaseView):
         league_map = team_id_map.get(self.league, {})
         for known_name, team_id in league_map.items():
             if known_name.lower() == team_name.lower() or team_name.lower() in known_name.lower() or known_name.lower() in team_name.lower():
-                print(f"DEBUG: Found team ID in hardcoded map: {team_id}")
                 return team_id
         
         try:
             # Try to get current league standings which contain team IDs
             standings_data = ApiService.get_standings(self.league)
-            print(f"DEBUG: Standings data type: {type(standings_data)}, length: {len(standings_data) if standings_data else 0}")
             
             if standings_data:
                 # Handle both dict format (with groups) and list format
@@ -1581,8 +1562,6 @@ class GameDetailsView(BaseView):
                 elif isinstance(standings_data, list):
                     # Direct list format
                     entries_to_check = standings_data
-                    
-                print(f"DEBUG: Checking {len(entries_to_check)} entries")
                 
                 for entry in entries_to_check:
                     team = entry.get('team', {})
@@ -1597,13 +1576,10 @@ class GameDetailsView(BaseView):
                     # Check for matches
                     for name in team_names:
                         if name and (name == team_name or team_name in name or name in team_name):
-                            team_id = str(team.get('id', ''))
-                            print(f"DEBUG: Alternative lookup found team ID: {team_id}")
-                            return team_id
+                            return str(team.get('id', ''))
         except Exception as e:
-            print(f"DEBUG: Alternative team ID lookup failed: {e}")
+            pass  # Silently handle API errors
             
-        print(f"DEBUG: Alternative lookup failed for {team_name}")
         return ""
 
     def _extract_team_id(self, team_info: Dict, raw_details: Dict) -> str:
