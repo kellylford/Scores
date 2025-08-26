@@ -1217,6 +1217,19 @@ class GameDetailsView(BaseView):
         print(f"Audio error: {error_message}")
         # Could show a non-intrusive error message if needed
     
+    def keyPressEvent(self, event):
+        """Handle key press events for game details view"""
+        if event.key() == Qt.Key.Key_Return or event.key() == Qt.Key.Key_Enter:
+            # If details list has focus and an item is selected, activate it
+            if self.details_list.hasFocus():
+                current_item = self.details_list.currentItem()
+                if current_item:
+                    self._on_detail_item_selected(current_item)
+                    return
+        
+        # Call parent to handle other keys (F5, Escape, etc.)
+        super().keyPressEvent(event)
+    
     def _on_detail_item_selected(self, item):
         """Handle selection of detailed data items"""
         data = item.data(Qt.ItemDataRole.UserRole)
@@ -1533,7 +1546,7 @@ class GameDetailsView(BaseView):
                 home_away = " (Home)" if team['home_away'] == 'home' else " (Away)"
                 
                 # Create interactive team item  
-                team_display = f"📊 {team['name']}{home_away} → Press Enter for schedule"
+                team_display = f"{team['name']}{home_away}"
                 team_item = QListWidgetItem(team_display)
                 team_item.setData(Qt.ItemDataRole.UserRole, {
                     "field": "team_schedule",
