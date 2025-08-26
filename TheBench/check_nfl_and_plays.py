@@ -9,12 +9,12 @@ try:
     
     if nfl_scores:
         print(f"First NFL game raw: {nfl_scores[0]}")
-        nfl_game = GameData(nfl_scores[0])
+        nfl_game = GameData(nfl_scores[0], 'NFL')
         print(f"NFL display: {nfl_game.get_display_text()}")
         
         # Check status patterns
         for i, game_data in enumerate(nfl_scores[:3]):
-            game = GameData(game_data)
+            game = GameData(game_data, 'NFL')
             print(f"  Game {i+1}: {game.get_display_text()}")
     else:
         print("No NFL games today - checking preseason or recent games...")
@@ -27,7 +27,7 @@ try:
             if nfl_scores:
                 print(f"\nFound NFL games {days_back} days ago:")
                 for game_data in nfl_scores[:2]:
-                    game = GameData(game_data)
+                    game = GameData(game_data, 'NFL')
                     print(f"  {game.get_display_text()}")
                 break
                 

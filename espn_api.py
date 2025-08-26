@@ -813,25 +813,33 @@ def get_available_seasons(league_key):
         # For other leagues, return last 10 years as a reasonable default
         return [(year, f"{year} Season") for year in range(current_year, current_year - 10, -1)]
 
-def get_scores(league_key, date=None):
+def get_scores(league_key, date=None, week=None):
     league_path = LEAGUES.get(league_key)
     if not league_path:
         return []
-    
+
     url = f"{BASE_URL}/{league_path}/scoreboard"
-    
+    params = []
+    # Add week parameter for football leagues
+    if week is not None and league_key in ("NFL", "NCAAF"):
+        params.append(f"week={week}")
+    # Add groups=80 for NCAAF to get complete Division 1 coverage
+    if league_key == "NCAAF":
+        params.append("groups=80")
     # Add date parameter if provided
     if date:
         date_str = date.strftime("%Y%m%d")
-        url += f"?dates={date_str}"
-    
+        params.append(f"dates={date_str}")
+    if params:
+        url += "?" + "&".join(params)
+
     resp = requests.get(url)
     if resp.status_code != 200:
         return []
     data = resp.json()
     events = data.get("events", [])
     scores = []
-    
+
     for event in events:
         name = event.get("name", "Unknown Game")
         eid = event.get("id", "")

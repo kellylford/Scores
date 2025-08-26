@@ -382,8 +382,21 @@ class HomeView(BaseView):
             # Open Live Scores view
             if self.parent_app:
                 self.parent_app.open_live_scores()
-        elif self.parent_app:
-            # Regular league selection
+            return
+
+        # For NFL/NCAAF, determine current week and show those games
+        if league in ("NFL", "NCAAF"):
+            try:
+                from services.football_calendar import get_current_football_week
+                today = datetime.now().date()
+                week = get_current_football_week(league, today=today)
+                if week is not None and self.parent_app:
+                    self.parent_app.open_league(league, week=week)
+                    return
+            except Exception as e:
+                print(f"Failed to get current week for {league}: {e}")
+                # Fallback to default
+        if self.parent_app:
             self.parent_app.open_league(league)
     
     def _add_nav_buttons(self):
@@ -824,26 +837,45 @@ class LiveScoresView(BaseView):
 class LeagueView(BaseView):
     """View showing scores for a specific league"""
     
-    def __init__(self, parent=None, league=None):
+    def __init__(self, parent=None, league=None, week=None):
         super().__init__(parent)
         self.league = league
-        self.current_date = datetime.now().date()
         self.news_headlines = []
+        
+        # For football leagues, ensure we have a week
+        if self.is_football_league():
+            if week is not None:
+                self.current_week = week
+            else:
+                # Auto-determine current week for football
+                try:
+                    from services.football_calendar import get_current_football_week
+                    self.current_week = get_current_football_week(league)
+                except Exception:
+                    self.current_week = 1  # Default to week 1
+            self.current_date = None
+        else:
+            self.current_week = None
+            self.current_date = datetime.now().date()
+        
         self.setup_ui()
+
+    def is_football_league(self):
+        return self.league in ["NFL", "NCAAF"]
     
     def setup_ui(self):
-        # Date navigation label
+        # Navigation label (date or week)
         self.date_label = QLabel()
         self.layout.addWidget(self.date_label)
-        
+
         self.layout.addWidget(QLabel(f"Scores for {self.league}:"))
-        
+
         self.scores_list = QListWidget()
         self.scores_list.setAccessibleName("Scores List")
-        self.scores_list.setAccessibleDescription("List of games and scores for the selected date")
+        self.scores_list.setAccessibleDescription("List of games and scores for the selected date or week")
         self.scores_list.itemActivated.connect(self._on_score_item_selected)
         self.layout.addWidget(self.scores_list)
-        
+
         self._add_nav_buttons()
         self.load_scores()
     
@@ -861,41 +893,65 @@ class LeagueView(BaseView):
             self.parent_app.open_game_details(data)
 
     def load_scores(self):
-        """Load scores for the current date"""
+        """Load scores for the current date or week"""
         self.scores_list.clear()
-        date_str = self.current_date.strftime("%A, %B %d, %Y")
-        self.date_label.setText(f"Date: {date_str}")
-        try:
-            scores_data = ApiService.get_scores(self.league, self.current_date)
-            self.news_headlines = ApiService.get_news(self.league)
-            if not scores_data:
-                self.scores_list.addItem("No games found for this date.")
-            else:
-                for game_raw in scores_data:
-                    game = GameData(game_raw)
-                    item_text = game.get_display_text()
-                    self.scores_list.addItem(item_text)
-                    list_item = self.scores_list.item(self.scores_list.count()-1)
-                    if list_item:
-                        list_item.setData(Qt.ItemDataRole.UserRole, game_raw.get("id"))
-            if self.news_headlines:
-                self.scores_list.addItem("--- News Headlines ---")
-                news_item = self.scores_list.item(self.scores_list.count()-1)
-                news_item.setData(Qt.ItemDataRole.UserRole, "__news__")  # type: ignore
-            if self.league in ["MLB", "NFL", "NBA", "NHL", "NCAAF"]:
-                self.scores_list.addItem("--- Standings ---")
-                standings_item = self.scores_list.item(self.scores_list.count()-1)
-                standings_item.setData(Qt.ItemDataRole.UserRole, "__standings__")  # type: ignore
-                
-                self.scores_list.addItem("--- Statistics ---")
-                statistics_item = self.scores_list.item(self.scores_list.count()-1)
-                statistics_item.setData(Qt.ItemDataRole.UserRole, "__statistics__")  # type: ignore
-                
-                self.scores_list.addItem("--- Teams ---")
-                teams_item = self.scores_list.item(self.scores_list.count()-1)
-                teams_item.setData(Qt.ItemDataRole.UserRole, "__teams__")  # type: ignore
-        except Exception as e:
-            self._show_api_error(f"Failed to load scores: {str(e)}")
+        if self.is_football_league() and self.current_week is not None:
+            self.date_label.setText(f"Week: {self.current_week}")
+            try:
+                scores_data = ApiService.get_scores(self.league, week=self.current_week)
+                self.news_headlines = ApiService.get_news(self.league)
+                if not scores_data:
+                    self.scores_list.addItem("No games found for this week.")
+                else:
+                    for game_raw in scores_data:
+                        game = GameData(game_raw, self.league)
+                        item_text = game.get_display_text()
+                        self.scores_list.addItem(item_text)
+                        list_item = self.scores_list.item(self.scores_list.count()-1)
+                        if list_item:
+                            list_item.setData(Qt.ItemDataRole.UserRole, game_raw.get("id"))
+                if self.news_headlines:
+                    self.scores_list.addItem("--- News Headlines ---")
+                    news_item = self.scores_list.item(self.scores_list.count()-1)
+                    news_item.setData(Qt.ItemDataRole.UserRole, "__news__")
+                self._add_common_sections()
+            except Exception as e:
+                self._show_api_error(f"Failed to load scores: {str(e)}")
+        else:
+            date_str = self.current_date.strftime("%A, %B %d, %Y")
+            self.date_label.setText(f"Date: {date_str}")
+            try:
+                scores_data = ApiService.get_scores(self.league, self.current_date)
+                self.news_headlines = ApiService.get_news(self.league)
+                if not scores_data:
+                    self.scores_list.addItem("No games found for this date.")
+                else:
+                    for game_raw in scores_data:
+                        game = GameData(game_raw, self.league)
+                        item_text = game.get_display_text()
+                        self.scores_list.addItem(item_text)
+                        list_item = self.scores_list.item(self.scores_list.count()-1)
+                        if list_item:
+                            list_item.setData(Qt.ItemDataRole.UserRole, game_raw.get("id"))
+                if self.news_headlines:
+                    self.scores_list.addItem("--- News Headlines ---")
+                    news_item = self.scores_list.item(self.scores_list.count()-1)
+                    news_item.setData(Qt.ItemDataRole.UserRole, "__news__")
+                self._add_common_sections()
+            except Exception as e:
+                self._show_api_error(f"Failed to load scores: {str(e)}")
+
+    def _add_common_sections(self):
+        if self.league in ["MLB", "NFL", "NBA", "NHL", "NCAAF"]:
+            self.scores_list.addItem("--- Standings ---")
+            standings_item = self.scores_list.item(self.scores_list.count()-1)
+            standings_item.setData(Qt.ItemDataRole.UserRole, "__standings__")
+            self.scores_list.addItem("--- Statistics ---")
+            statistics_item = self.scores_list.item(self.scores_list.count()-1)
+            statistics_item.setData(Qt.ItemDataRole.UserRole, "__statistics__")
+            self.scores_list.addItem("--- Teams ---")
+            teams_item = self.scores_list.item(self.scores_list.count()-1)
+            teams_item.setData(Qt.ItemDataRole.UserRole, "__teams__")
 
     def _show_news_dialog(self):
         """Show news dialog"""
@@ -1049,32 +1105,54 @@ class LeagueView(BaseView):
     
     def _add_nav_buttons(self):
         btn_layout = QHBoxLayout()
-        
+
         back_btn = QPushButton("Back (Alt+B)")
         back_btn.setShortcut("Alt+B")
         back_btn.clicked.connect(lambda: self.parent_app.go_back() if self.parent_app else None)
         btn_layout.addWidget(back_btn)
-        
-        prev_btn = QPushButton("Previous Day (Alt+P)")
-        prev_btn.setShortcut("Alt+P")
-        prev_btn.clicked.connect(self.previous_day)
-        btn_layout.addWidget(prev_btn)
-        
-        next_btn = QPushButton("Next Day (Alt+N)")
-        next_btn.setShortcut("Alt+N")
-        next_btn.clicked.connect(self.next_day)
-        btn_layout.addWidget(next_btn)
-        
-        go_to_date_btn = QPushButton("Go to Date (Ctrl+G)")
-        go_to_date_btn.setShortcut("Ctrl+G")
-        go_to_date_btn.clicked.connect(self.go_to_date)
-        btn_layout.addWidget(go_to_date_btn)
-        
+
+        if self.is_football_league():
+            prev_week_btn = QPushButton("Previous Week (Alt+P)")
+            prev_week_btn.setShortcut("Alt+P")
+            prev_week_btn.clicked.connect(self.previous_week)
+            btn_layout.addWidget(prev_week_btn)
+
+            next_week_btn = QPushButton("Next Week (Alt+N)")
+            next_week_btn.setShortcut("Alt+N")
+            next_week_btn.clicked.connect(self.next_week)
+            btn_layout.addWidget(next_week_btn)
+
+        else:
+            prev_btn = QPushButton("Previous Day (Alt+P)")
+            prev_btn.setShortcut("Alt+P")
+            prev_btn.clicked.connect(self.previous_day)
+            btn_layout.addWidget(prev_btn)
+
+            next_btn = QPushButton("Next Day (Alt+N)")
+            next_btn.setShortcut("Alt+N")
+            next_btn.clicked.connect(self.next_day)
+            btn_layout.addWidget(next_btn)
+
+            go_to_date_btn = QPushButton("Go to Date (Ctrl+G)")
+            go_to_date_btn.setShortcut("Ctrl+G")
+            go_to_date_btn.clicked.connect(self.go_to_date)
+            btn_layout.addWidget(go_to_date_btn)
+
         refresh_btn = QPushButton("Refresh")
         refresh_btn.clicked.connect(self.refresh)
         btn_layout.addWidget(refresh_btn)
-        
+
         self.layout.addLayout(btn_layout)
+
+    def previous_week(self):
+        if self.current_week and self.current_week > 1:
+            self.current_week -= 1
+            self.load_scores()
+
+    def next_week(self):
+        if self.current_week:
+            self.current_week += 1
+            self.load_scores()
     
     def _show_api_error(self, message: str):
         """Show API error message"""
@@ -6725,11 +6803,11 @@ class SportsScoresApp(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to show live scores view: {str(e)}")
     
-    def open_league(self, league: str):
-        """Open a league view"""
+    def open_league(self, league: str, week: int = None):
+        """Open a league view, optionally for a specific week (football)"""
         try:
             self._push_to_stack("home", None)
-            league_view = LeagueView(self, league)
+            league_view = LeagueView(self, league, week=week)
             self._switch_to_view(league_view, "league", league)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open league: {e}")
