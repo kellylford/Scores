@@ -1537,6 +1537,33 @@ class GameDetailsView(BaseView):
     def _find_team_id_alternative(self, team_name: str) -> str:
         """Alternative method to find team ID when standard extraction fails"""
         print(f"DEBUG: Trying alternative lookup for {team_name}")
+        
+        # Known team ID mappings for major teams (interim solution)
+        team_id_map = {
+            'college-football': {
+                'Wisconsin Badgers': '275',
+                'Badgers': '275',
+                'Wisconsin': '275',
+                'Michigan Wolverines': '130',
+                'Wolverines': '130',
+                'Michigan': '130',
+                'Ohio State Buckeyes': '194',
+                'Buckeyes': '194',
+                'Ohio State': '194',
+                'Alabama Crimson Tide': '333',
+                'Alabama': '333',
+                'Crimson Tide': '333',
+                # Add more as needed
+            }
+        }
+        
+        # Check hardcoded mappings first
+        league_map = team_id_map.get(self.league, {})
+        for known_name, team_id in league_map.items():
+            if known_name.lower() == team_name.lower() or team_name.lower() in known_name.lower() or known_name.lower() in team_name.lower():
+                print(f"DEBUG: Found team ID in hardcoded map: {team_id}")
+                return team_id
+        
         try:
             # Try to get current league standings which contain team IDs
             standings_data = ApiService.get_standings(self.league)
