@@ -1478,8 +1478,10 @@ class GameDetailsView(BaseView):
         competition = competitions[0]
         competitors = competition.get('competitors', [])
         
-        # Match by team name (try multiple name fields)
+        # Get the team name we're looking for (from processed game info)
         team_name = team_info.get('name', '')
+        
+        # Try exact matches with all possible name fields
         for competitor in competitors:
             comp_team = competitor.get('team', {})
             comp_names = [
@@ -1492,23 +1494,34 @@ class GameDetailsView(BaseView):
             for comp_name in comp_names:
                 if comp_name and comp_name == team_name:
                     return str(comp_team.get('id', ''))
-                
-        # Fallback: try to match by abbreviation or partial name
+        
+        # Enhanced fallback: try partial matches since processed names might be different from raw names
         for competitor in competitors:
             comp_team = competitor.get('team', {})
             comp_abbrev = comp_team.get('abbreviation', '')
             comp_location = comp_team.get('location', '')
             comp_nickname = comp_team.get('nickname', '')
+            comp_name = comp_team.get('name', '')
+            comp_display = comp_team.get('displayName', '')
             
-            # Check if abbreviation matches or is contained in team name
-            if comp_abbrev and (comp_abbrev in team_name or team_name in comp_abbrev):
+            # Check if abbreviation matches
+            if comp_abbrev and comp_abbrev in team_name:
                 return str(comp_team.get('id', ''))
                 
-            # Check if location or nickname matches
+            # Check if any part of the processed name matches the raw name components
             if comp_location and comp_location in team_name:
                 return str(comp_team.get('id', ''))
             if comp_nickname and comp_nickname in team_name:
                 return str(comp_team.get('id', ''))
+            if comp_name and comp_name in team_name:
+                return str(comp_team.get('id', ''))
+                
+            # Reverse check: see if raw display name contains our processed name parts
+            team_words = team_name.split()
+            for word in team_words:
+                if len(word) > 3:  # Skip short words like "at", "vs", etc.
+                    if word in comp_display or word in comp_name or word in comp_location:
+                        return str(comp_team.get('id', ''))
                 
         return ""
 
