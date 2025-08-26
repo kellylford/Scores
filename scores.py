@@ -1674,12 +1674,15 @@ class GameDetailsView(BaseView):
             for team in details['teams']:
                 home_away = " (Home)" if team['home_away'] == 'home' else " (Away)"
                 
-                # Infrastructure-level team ID resolution (primary method)
-                team_id = self._get_team_id_from_original_data(team['name'])
+                # Use team_id directly from processed details (infrastructure fix)
+                team_id = team.get('team_id', '')
                 
-                # Fallback to extraction from detailed data if needed
+                # Only use complex extraction if team_id is missing
                 if not team_id:
-                    team_id = self._extract_team_id(team, raw_details)
+                    # Infrastructure-level team ID resolution (fallback methods)
+                    team_id = self._get_team_id_from_original_data(team['name'])
+                    if not team_id:
+                        team_id = self._extract_team_id(team, raw_details)
                 
                 # Create interactive team item  
                 team_display = f"{team['name']}{home_away}"

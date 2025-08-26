@@ -942,6 +942,7 @@ def extract_meaningful_game_info(details):
             score = competitor.get('score', '')
             team_info = {
                 'name': team.get('displayName', 'Unknown'),
+                'team_id': team.get('id', ''),  # ADD THE TEAM ID!
                 'abbreviation': team.get('abbreviation', 'N/A'),
                 'record': record[0].get('summary', 'N/A') if record else 'N/A',
                 'home_away': competitor.get('homeAway', 'unknown'),
