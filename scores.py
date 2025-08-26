@@ -1174,10 +1174,11 @@ class LeagueView(BaseView):
 class GameDetailsView(BaseView):
     """View showing detailed information for a specific game"""
     
-    def __init__(self, parent=None, league=None, game_id=None):
+    def __init__(self, parent=None, league=None, game_id=None, original_game_data=None):
         super().__init__(parent)
         self.league = league
         self.game_id = game_id
+        self.original_game_data = original_game_data  # Store original game data with team IDs
         self.config = parent.config if parent else {}
         self.raw_game_data = None  # Store raw data for drill-down access
         
@@ -1279,9 +1280,13 @@ class GameDetailsView(BaseView):
             team_id = field_data.get("team_id")
             
             if not team_id:
+                # Infrastructure solution: Try to find team ID through alternative means
+                team_id = self._find_team_id_alternative(team_name)
+                
+            if not team_id:
+                # Still no team ID - gracefully handle this
                 QMessageBox.information(self, "Team Schedule", 
-                    f"Unable to load {team_name} schedule.\n"
-                    "Team ID could not be determined from game data.\n\n"
+                    f"Schedule for {team_name} is temporarily unavailable.\n\n"
                     "You can access team schedules from the main league standings.")
                 return
                 
@@ -1477,6 +1482,71 @@ class GameDetailsView(BaseView):
         except Exception as e:
             self._show_api_error(f"Failed to load game details: {str(e)}")
     
+    def _get_team_id_from_original_data(self, team_name: str) -> str:
+        """Get team ID from original game data (infrastructure-level solution)"""
+        if not self.original_game_data:
+            return ""
+            
+        # Look for team ID in the original game data structure
+        competitors = []
+        if 'competitions' in self.original_game_data:
+            competitions = self.original_game_data.get('competitions', [])
+            if competitions:
+                competitors = competitions[0].get('competitors', [])
+        elif 'competitors' in self.original_game_data:
+            competitors = self.original_game_data.get('competitors', [])
+            
+        # Try to match team by name and get ID
+        for competitor in competitors:
+            team = competitor.get('team', {})
+            team_names = [
+                team.get('name', ''),
+                team.get('displayName', ''),
+                team.get('shortDisplayName', ''),
+                team.get('location', ''),
+                team.get('nickname', '')
+            ]
+            
+            # Check for exact matches first
+            for name in team_names:
+                if name and name == team_name:
+                    return str(team.get('id', ''))
+                    
+            # Check for partial matches (handles "Wisconsin Badgers" vs "Badgers")
+            for name in team_names:
+                if name and (team_name in name or name in team_name):
+                    return str(team.get('id', ''))
+                    
+        return ""
+
+    def _find_team_id_alternative(self, team_name: str) -> str:
+        """Alternative method to find team ID when standard extraction fails"""
+        try:
+            # Try to get current league standings which contain team IDs
+            standings_data = ApiService.get_standings(self.league)
+            if standings_data and isinstance(standings_data, dict):
+                # Look through standings for the team
+                for group in standings_data.get('groups', []):
+                    standings = group.get('standings', {})
+                    for entry in standings.get('entries', []):
+                        team = entry.get('team', {})
+                        team_names = [
+                            team.get('name', ''),
+                            team.get('displayName', ''),
+                            team.get('shortDisplayName', ''),
+                            team.get('location', ''),
+                            team.get('nickname', '')
+                        ]
+                        
+                        # Check for matches
+                        for name in team_names:
+                            if name and (name == team_name or team_name in name or name in team_name):
+                                return str(team.get('id', ''))
+        except Exception as e:
+            print(f"Alternative team ID lookup failed: {e}")
+            
+        return ""
+
     def _extract_team_id(self, team_info: Dict, raw_details: Dict) -> str:
         """Extract team ID from game details data"""
         if not raw_details:
@@ -1545,6 +1615,13 @@ class GameDetailsView(BaseView):
             for team in details['teams']:
                 home_away = " (Home)" if team['home_away'] == 'home' else " (Away)"
                 
+                # Infrastructure-level team ID resolution (primary method)
+                team_id = self._get_team_id_from_original_data(team['name'])
+                
+                # Fallback to extraction from detailed data if needed
+                if not team_id:
+                    team_id = self._extract_team_id(team, raw_details)
+                
                 # Create interactive team item  
                 team_display = f"{team['name']}{home_away}"
                 team_item = QListWidgetItem(team_display)
@@ -1552,7 +1629,7 @@ class GameDetailsView(BaseView):
                     "field": "team_schedule",
                     "data": {
                         "team_name": team['name'],
-                        "team_id": self._extract_team_id(team, raw_details),
+                        "team_id": team_id,
                         "league": self.league,
                         "record": team['record'],
                         "from_game_details": True  # Flag to indicate navigation source
@@ -5119,10 +5196,11 @@ class StandingsLoader(QThread):
 class GameDetailsDialog(QDialog):
     """Dialog wrapper for GameDetailsView to show game details"""
     
-    def __init__(self, game_id: str, league: str, parent=None):
+    def __init__(self, game_id: str, league: str, parent=None, original_game_data=None):
         super().__init__(parent)
         self.game_id = game_id
         self.league = league
+        self.original_game_data = original_game_data
         
         # Add config attribute that GameDetailsView expects
         self.config = {league: ["standings", "leaders", "boxscore", "injuries", "news"]}
@@ -5135,7 +5213,7 @@ class GameDetailsDialog(QDialog):
         layout = QVBoxLayout()
         
         # Create game details view
-        self.game_details_view = GameDetailsView(self, league, game_id)
+        self.game_details_view = GameDetailsView(self, league, game_id, original_game_data)
         layout.addWidget(self.game_details_view)
         
         # Add close button
@@ -5359,7 +5437,7 @@ class TeamScheduleDialog(QDialog):
         if game_id:
             # Open game details in a new dialog
             try:
-                detail_dialog = GameDetailsDialog(game_id, self.league, self)
+                detail_dialog = GameDetailsDialog(game_id, self.league, self, game_data)
                 detail_dialog.exec()
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to open game details: {str(e)}")
@@ -6949,7 +7027,7 @@ class SportsScoresApp(QWidget):
                 self._push_to_stack("live_scores", None)
             else:
                 self._push_to_stack("league", self.current_league if hasattr(self, 'current_league') else None)
-            gdv = GameDetailsView(self, getattr(self, 'current_league', None), game_id)
+            gdv = GameDetailsView(self, getattr(self, 'current_league', None), game_id, None)
             self._switch_to_view(gdv, "game", game_id)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open game details: {e}")
