@@ -1256,12 +1256,44 @@ class GameDetailsView(BaseView):
             dlg.exec()
             return
         
+        if field_name == "team_schedule":
+            # Handle team schedule navigation
+            if not isinstance(field_data, dict):
+                QMessageBox.warning(self, "Error", "Invalid team data.")
+                return
+                
+            team_name = field_data.get("team_name", "Unknown Team")
+            team_id = field_data.get("team_id")
+            
+            if not team_id:
+                QMessageBox.information(self, "Team Schedule", 
+                    f"Unable to load {team_name} schedule.\n"
+                    "Team ID could not be determined from game data.\n\n"
+                    "You can access team schedules from the main league standings.")
+                return
+                
+            # Create team data structure for TeamScheduleDialog
+            team_data = {
+                'team_id': team_id,
+                'team_name': team_name,
+                'wins': '',  # TeamScheduleDialog will load this
+                'losses': '',
+                'record': field_data.get('record', '')
+            }
+            
+            try:
+                dlg = TeamScheduleDialog(team_data, field_data.get('league', self.league), self)
+                dlg.exec()
+            except Exception as e:
+                QMessageBox.critical(self, "Error", 
+                    f"Failed to load {team_name} schedule: {str(e)}\n\n"
+                    "You can try accessing the team schedule from the main league standings.")
+            return
+
         dlg = QDialog(self)
         dlg.setWindowTitle(f"{field_name.title()} Details")
         dlg.resize(DIALOG_WIDTH, DIALOG_HEIGHT)
-        layout = QVBoxLayout()
-        
-        # Store reference to tab widget for F6 handling
+        layout = QVBoxLayout()        # Store reference to tab widget for F6 handling
         tab_widget_ref = None
         
         if field_name == "leaders" and isinstance(field_data, (list, dict)):
@@ -1432,13 +1464,75 @@ class GameDetailsView(BaseView):
         except Exception as e:
             self._show_api_error(f"Failed to load game details: {str(e)}")
     
+    def _extract_team_id(self, team_info: Dict, raw_details: Dict) -> str:
+        """Extract team ID from game details data"""
+        if not raw_details:
+            return ""
+            
+        # Look for team ID in the header.competitions.competitors
+        header = raw_details.get('header', {})
+        competitions = header.get('competitions', [])
+        if not competitions:
+            return ""
+            
+        competition = competitions[0]
+        competitors = competition.get('competitors', [])
+        
+        # Match by team name (try multiple name fields)
+        team_name = team_info.get('name', '')
+        for competitor in competitors:
+            comp_team = competitor.get('team', {})
+            comp_names = [
+                comp_team.get('name', ''),
+                comp_team.get('displayName', ''),
+                comp_team.get('shortDisplayName', ''),
+                comp_team.get('alternateDisplayName', '')
+            ]
+            
+            for comp_name in comp_names:
+                if comp_name and comp_name == team_name:
+                    return str(comp_team.get('id', ''))
+                
+        # Fallback: try to match by abbreviation or partial name
+        for competitor in competitors:
+            comp_team = competitor.get('team', {})
+            comp_abbrev = comp_team.get('abbreviation', '')
+            comp_location = comp_team.get('location', '')
+            comp_nickname = comp_team.get('nickname', '')
+            
+            # Check if abbreviation matches or is contained in team name
+            if comp_abbrev and (comp_abbrev in team_name or team_name in comp_abbrev):
+                return str(comp_team.get('id', ''))
+                
+            # Check if location or nickname matches
+            if comp_location and comp_location in team_name:
+                return str(comp_team.get('id', ''))
+            if comp_nickname and comp_nickname in team_name:
+                return str(comp_team.get('id', ''))
+                
+        return ""
+
     def _add_basic_game_info(self, details: Dict, raw_details: Dict = None):
         """Add basic game information to the details list"""
-        # Display teams and records
+        # Display teams and records with interactive team names
         if 'teams' in details:
             for team in details['teams']:
                 home_away = " (Home)" if team['home_away'] == 'home' else " (Away)"
-                self.details_list.addItem(f"{team['name']}{home_away}")
+                
+                # Create interactive team item  
+                team_display = f"📊 {team['name']}{home_away} → Press Enter for schedule"
+                team_item = QListWidgetItem(team_display)
+                team_item.setData(Qt.ItemDataRole.UserRole, {
+                    "field": "team_schedule",
+                    "data": {
+                        "team_name": team['name'],
+                        "team_id": self._extract_team_id(team, raw_details),
+                        "league": self.league,
+                        "record": team['record'],
+                        "from_game_details": True  # Flag to indicate navigation source
+                    }
+                })
+                self.details_list.addItem(team_item)
                 self.details_list.addItem(f"  Record: {team['record']}")
         
         # Game status and timing
