@@ -1,0 +1,1719 @@
+{
+  "3718": {
+    "id": "3718",
+    "name": "Tom Benson Hall of Fame Stadium",
+    "city": "Canton",
+    "state": "OH",
+    "indoor": false,
+    "grass": false,
+    "capacity": null,
+    "zipCode": "44708",
+    "images": [],
+    "guid": "49d8c191-8847-3ef6-a888-fe03b76d235b",
+    "league": "NFL"
+  },
+  "3814": {
+    "id": "3814",
+    "name": "M&T Bank Stadium",
+    "city": "Baltimore",
+    "state": "MD",
+    "indoor": false,
+    "grass": true,
+    "capacity": null,
+    "zipCode": "21230",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/3814.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3814.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "664f4464-f7c1-3d07-b1e5-71dc5a42f362",
+    "league": "NFL"
+  },
+  "3806": {
+    "id": "3806",
+    "name": "Lincoln Financial Field",
+    "city": "Philadelphia",
+    "state": "PA",
+    "indoor": false,
+    "grass": true,
+    "capacity": null,
+    "zipCode": "19148",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/3806.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3806.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "a1e68291-b8a7-3428-9754-7bfc568e5d71",
+    "league": "NFL"
+  },
+  "3673": {
+    "id": "3673",
+    "name": "Lumen Field",
+    "city": "Seattle",
+    "state": "WA",
+    "indoor": false,
+    "grass": false,
+    "capacity": null,
+    "zipCode": "98134",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/3673.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3673.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "35e528a7-d270-3182-b51f-612c9ad0045d",
+    "league": "NFL"
+  },
+  "5348": {
+    "id": "5348",
+    "name": "Mercedes-Benz Stadium",
+    "city": "Atlanta",
+    "state": "GA",
+    "indoor": true,
+    "grass": false,
+    "capacity": null,
+    "zipCode": "30313",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/5348.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "4194f4ed-0558-33dc-8494-98eee2a0e4fc",
+    "league": "NFL"
+  },
+  "3628": {
+    "id": "3628",
+    "name": "Bank of America Stadium",
+    "city": "Charlotte",
+    "state": "NC",
+    "indoor": false,
+    "grass": false,
+    "capacity": null,
+    "zipCode": "28202",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/3628.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3628.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "69e75d0b-ebc2-39a7-9611-db6607721bd5",
+    "league": "NFL"
+  },
+  "3738": {
+    "id": "3738",
+    "name": "Gillette Stadium",
+    "city": "Foxborough",
+    "state": "MA",
+    "indoor": false,
+    "grass": false,
+    "capacity": null,
+    "zipCode": "02035",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/3738.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3738.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "ed71e174-10c3-3e30-bc8d-4134bb06188e",
+    "league": "NFL"
+  },
+  "3883": {
+    "id": "3883",
+    "name": "Highmark Stadium",
+    "city": "Orchard Park",
+    "state": "NY",
+    "indoor": false,
+    "grass": false,
+    "capacity": null,
+    "zipCode": "14127",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/3883.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3883.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "3c80cf14-6837-377a-b30d-1b9559f2f6f4",
+    "league": "NFL"
+  },
+  "5239": {
+    "id": "5239",
+    "name": "U.S. Bank Stadium",
+    "city": "Minneapolis",
+    "state": "MN",
+    "indoor": true,
+    "grass": false,
+    "capacity": null,
+    "zipCode": "55415",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/5239.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "d0b85a2a-5b22-356b-aebc-6aeec6d097c3",
+    "league": "NFL"
+  },
+  "7065": {
+    "id": "7065",
+    "name": "SoFi Stadium",
+    "city": "Inglewood",
+    "state": "CA",
+    "indoor": true,
+    "grass": false,
+    "capacity": null,
+    "zipCode": "90301",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/7065.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/7065.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "08c7d61d-9771-3b5b-ba66-80a2297ba4a8",
+    "league": "NFL"
+  },
+  "3712": {
+    "id": "3712",
+    "name": "EverBank Stadium",
+    "city": "Jacksonville",
+    "state": "FL",
+    "indoor": false,
+    "grass": true,
+    "capacity": null,
+    "zipCode": "32202",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/3712.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3712.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "4e56dad0-1bbe-30e6-a081-d55a7d6d5730",
+    "league": "NFL"
+  },
+  "3886": {
+    "id": "3886",
+    "name": "Raymond James Stadium",
+    "city": "Tampa",
+    "state": "FL",
+    "indoor": false,
+    "grass": true,
+    "capacity": null,
+    "zipCode": "33607",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/3886.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3886.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "aab423e5-c4ef-3dd1-a6fb-cf7efdbe0be8",
+    "league": "NFL"
+  },
+  "3798": {
+    "id": "3798",
+    "name": "Lambeau Field",
+    "city": "Green Bay",
+    "state": "WI",
+    "indoor": false,
+    "grass": true,
+    "capacity": null,
+    "zipCode": "54304",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/3798.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3798.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "cbb0ff53-c186-3d41-91cf-410bc23baaef",
+    "league": "NFL"
+  },
+  "3970": {
+    "id": "3970",
+    "name": "State Farm Stadium",
+    "city": "Glendale",
+    "state": "AZ",
+    "indoor": true,
+    "grass": true,
+    "capacity": null,
+    "zipCode": "85305",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/3970.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3970.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "e5462558-fb41-3902-bb35-1f76c0807d76",
+    "league": "NFL"
+  },
+  "4738": {
+    "id": "4738",
+    "name": "Levi's Stadium",
+    "city": "Santa Clara",
+    "state": "CA",
+    "indoor": false,
+    "grass": true,
+    "capacity": null,
+    "zipCode": "95054",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/4738.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/4738.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "ad9d3113-9b26-3c9a-98a9-250109205ef9",
+    "league": "NFL"
+  },
+  "3933": {
+    "id": "3933",
+    "name": "Soldier Field",
+    "city": "Chicago",
+    "state": "IL",
+    "indoor": false,
+    "grass": true,
+    "capacity": null,
+    "zipCode": "60605",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/3933.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3933.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "adbe5c1d-8923-3bf4-8e31-fe78211484a9",
+    "league": "NFL"
+  },
+  "3727": {
+    "id": "3727",
+    "name": "Ford Field",
+    "city": "Detroit",
+    "state": "MI",
+    "indoor": true,
+    "grass": false,
+    "capacity": null,
+    "zipCode": "48226",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/3727.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3727.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "3a82e243-5f64-3ce4-bdaf-49367fb55391",
+    "league": "NFL"
+  },
+  "3812": {
+    "id": "3812",
+    "name": "Lucas Oil Stadium",
+    "city": "Indianapolis",
+    "state": "IN",
+    "indoor": true,
+    "grass": false,
+    "capacity": null,
+    "zipCode": "46225",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/3812.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3812.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "f636eae9-da36-3954-83d5-3b24995d4e59",
+    "league": "NFL"
+  },
+  "3891": {
+    "id": "3891",
+    "name": "NRG Stadium",
+    "city": "Houston",
+    "state": "TX",
+    "indoor": true,
+    "grass": false,
+    "capacity": null,
+    "zipCode": "77054",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/3891.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3891.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "8a2b5070-4bbd-3dd3-bc00-e867aea0b5be",
+    "league": "NFL"
+  },
+  "6501": {
+    "id": "6501",
+    "name": "Allegiant Stadium",
+    "city": "Las Vegas",
+    "state": "NV",
+    "indoor": true,
+    "grass": true,
+    "capacity": null,
+    "zipCode": "89118",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/6501.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/6501.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "850ed279-ceca-3fbd-911b-eece9b2c23fe",
+    "league": "NFL"
+  },
+  "3687": {
+    "id": "3687",
+    "name": "AT&T Stadium",
+    "city": "Arlington",
+    "state": "TX",
+    "indoor": true,
+    "grass": false,
+    "capacity": null,
+    "zipCode": "76011",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/3687.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3687.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "a6d02626-ee51-3e35-98f1-2b05c0b9b2b3",
+    "league": "NFL"
+  },
+  "3839": {
+    "id": "3839",
+    "name": "MetLife Stadium",
+    "city": "East Rutherford",
+    "state": "NJ",
+    "indoor": false,
+    "grass": false,
+    "capacity": null,
+    "zipCode": "07073",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/3839.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3839.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "604c24d0-2641-3553-82bc-1b005ac94765",
+    "league": "NFL"
+  },
+  "3752": {
+    "id": "3752",
+    "name": "Acrisure Stadium",
+    "city": "Pittsburgh",
+    "state": "PA",
+    "indoor": false,
+    "grass": true,
+    "capacity": null,
+    "zipCode": "15212",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/3752.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3752.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "cba1fd96-fceb-3ccd-89bc-ec61231f9bd9",
+    "league": "NFL"
+  },
+  "3937": {
+    "id": "3937",
+    "name": "Empower Field at Mile High",
+    "city": "Denver",
+    "state": "CO",
+    "indoor": false,
+    "grass": true,
+    "capacity": null,
+    "zipCode": "80204",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/3937.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3937.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "aac80886-8e5d-31b2-8514-8cc859c358d0",
+    "league": "NFL"
+  },
+  "3493": {
+    "id": "3493",
+    "name": "Caesars Superdome",
+    "city": "New Orleans",
+    "state": "LA",
+    "indoor": true,
+    "grass": false,
+    "capacity": null,
+    "zipCode": "70112",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/3493.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3493.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "aa9f0642-8b00-34cf-b043-9b3965116455",
+    "league": "NFL"
+  },
+  "3719": {
+    "id": "3719",
+    "name": "Northwest Stadium",
+    "city": "Landover",
+    "state": "MD",
+    "indoor": false,
+    "grass": true,
+    "capacity": null,
+    "zipCode": "20785",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/3719.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3719.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "1c1018d5-6ef5-3d07-9c8a-c83af1482517",
+    "league": "NFL"
+  },
+  "3810": {
+    "id": "3810",
+    "name": "Nissan Stadium",
+    "city": "Nashville",
+    "state": "TN",
+    "indoor": false,
+    "grass": false,
+    "capacity": null,
+    "zipCode": "37213",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/3810.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3810.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "2ce67339-d170-3f5a-af8f-85c1869b9e23",
+    "league": "NFL"
+  },
+  "3622": {
+    "id": "3622",
+    "name": "GEHA Field at Arrowhead Stadium",
+    "city": "Kansas City",
+    "state": "MO",
+    "indoor": false,
+    "grass": true,
+    "capacity": null,
+    "zipCode": "64129",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/3622.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3622.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "abb5abf3-0c80-3f8d-a148-dc5cf8be2e7a",
+    "league": "NFL"
+  },
+  "3874": {
+    "id": "3874",
+    "name": "Paycor Stadium",
+    "city": "Cincinnati",
+    "state": "OH",
+    "indoor": false,
+    "grass": false,
+    "capacity": null,
+    "zipCode": "45202",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/3874.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3874.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "d9523a4f-8254-3ee6-91b5-e1e5c2307e72",
+    "league": "NFL"
+  },
+  "3679": {
+    "id": "3679",
+    "name": "Huntington Bank Field",
+    "city": "Cleveland",
+    "state": "OH",
+    "indoor": false,
+    "grass": true,
+    "capacity": null,
+    "zipCode": "44114",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/3679.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3679.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "0febca4c-a926-3713-9088-240cc5db6e37",
+    "league": "NFL"
+  },
+  "3948": {
+    "id": "3948",
+    "name": "Hard Rock Stadium",
+    "city": "Miami Gardens",
+    "state": "FL",
+    "indoor": false,
+    "grass": true,
+    "capacity": null,
+    "zipCode": "33056",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/3948.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      },
+      {
+        "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3948.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day",
+          "interior"
+        ]
+      }
+    ],
+    "guid": "b4c5fbb6-281e-3621-9ac8-0682b1554f8b",
+    "league": "NFL"
+  },
+  "8748": {
+    "id": "8748",
+    "name": "Corinthians Arena",
+    "city": "Sao Paulo",
+    "state": "Unknown",
+    "indoor": false,
+    "grass": true,
+    "capacity": null,
+    "zipCode": null,
+    "images": [],
+    "guid": "372bd7e1-3768-39a0-9968-b29e8e11d0e6",
+    "league": "NFL"
+  },
+  "208": {
+    "id": "208",
+    "name": "Yankee Stadium",
+    "city": "Bronx",
+    "state": "New York",
+    "indoor": false,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "10451",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/208.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": null,
+    "league": "MLB"
+  },
+  "45": {
+    "id": "45",
+    "name": "Comerica Park",
+    "city": "Detroit",
+    "state": "Michigan",
+    "indoor": false,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "48201",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/45.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": "ad5738fd-86c1-3563-bfb5-8e996631a1ed",
+    "league": "MLB"
+  },
+  "47": {
+    "id": "47",
+    "name": "PNC Park",
+    "city": "Pittsburgh",
+    "state": "Pennsylvania",
+    "indoor": false,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "15212",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/47.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": null,
+    "league": "MLB"
+  },
+  "1": {
+    "id": "1",
+    "name": "Oriole Park at Camden Yards",
+    "city": "Baltimore",
+    "state": "Maryland",
+    "indoor": false,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "21201",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/1.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": null,
+    "league": "MLB"
+  },
+  "231": {
+    "id": "231",
+    "name": "Globe Life Field",
+    "city": "Arlington",
+    "state": "Texas",
+    "indoor": true,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "76011",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/231.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": null,
+    "league": "MLB"
+  },
+  "83": {
+    "id": "83",
+    "name": "Great American Ball Park",
+    "city": "Cincinnati",
+    "state": "Ohio",
+    "indoor": false,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "45202",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/83.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": "fc29fee9-3e88-343a-8f51-086d41354161",
+    "league": "MLB"
+  },
+  "5": {
+    "id": "5",
+    "name": "Progressive Field",
+    "city": "Cleveland",
+    "state": "Ohio",
+    "indoor": false,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "44115",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/5.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": null,
+    "league": "MLB"
+  },
+  "2": {
+    "id": "2",
+    "name": "Fenway Park",
+    "city": "Boston",
+    "state": "Massachusetts",
+    "indoor": false,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "02215",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/2.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": null,
+    "league": "MLB"
+  },
+  "4242": {
+    "id": "4242",
+    "name": "American Family Field",
+    "city": "Milwaukee",
+    "state": "Wisconsin",
+    "indoor": true,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "53214",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/4242.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": "e30fc8b9-a5a7-3003-bb31-4fc92cbdd85a",
+    "league": "MLB"
+  },
+  "7": {
+    "id": "7",
+    "name": "Kauffman Stadium",
+    "city": "Kansas City",
+    "state": "Missouri",
+    "indoor": false,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "64129",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/7.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": null,
+    "league": "MLB"
+  },
+  "4": {
+    "id": "4",
+    "name": "Rate Field",
+    "city": "Chicago",
+    "state": "Illinois",
+    "indoor": false,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "60616",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/4.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": null,
+    "league": "MLB"
+  },
+  "30": {
+    "id": "30",
+    "name": "Chase Field",
+    "city": "Phoenix",
+    "state": "Arizona",
+    "indoor": true,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "85004",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/30.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": null,
+    "league": "MLB"
+  },
+  "218": {
+    "id": "218",
+    "name": "Truist Park",
+    "city": "Atlanta",
+    "state": "Georgia",
+    "indoor": false,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "30339",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/218.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": "06bf999b-4569-33b8-9c85-6da87cc75a80",
+    "league": "MLB"
+  },
+  "44": {
+    "id": "44",
+    "name": "Daikin Park",
+    "city": "Houston",
+    "state": "Texas",
+    "indoor": true,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "77002",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/44.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": null,
+    "league": "MLB"
+  },
+  "3": {
+    "id": "3",
+    "name": "Angel Stadium",
+    "city": "Anaheim",
+    "state": "California",
+    "indoor": false,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "92806",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/3.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": null,
+    "league": "MLB"
+  },
+  "84": {
+    "id": "84",
+    "name": "Citizens Bank Park",
+    "city": "Philadelphia",
+    "state": "Pennsylvania",
+    "indoor": false,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "19148",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/84.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": null,
+    "league": "MLB"
+  },
+  "14": {
+    "id": "14",
+    "name": "Rogers Centre",
+    "city": "Toronto",
+    "state": "Ontario",
+    "indoor": true,
+    "grass": null,
+    "capacity": null,
+    "zipCode": null,
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/14.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": "2caa8387-3481-362a-8093-3b1245597b00",
+    "league": "MLB"
+  },
+  "72": {
+    "id": "72",
+    "name": "George M. Steinbrenner Field",
+    "city": "Tampa",
+    "state": "Florida",
+    "indoor": false,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "33697",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/72.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": null,
+    "league": "MLB"
+  },
+  "41": {
+    "id": "41",
+    "name": "T-Mobile Park",
+    "city": "Seattle",
+    "state": "Washington",
+    "indoor": true,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "98134",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/41.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": null,
+    "league": "MLB"
+  },
+  "4223": {
+    "id": "4223",
+    "name": "loanDepot park",
+    "city": "Miami",
+    "state": "Florida",
+    "indoor": true,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "33125",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/4223.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": "195fbfea-c6fc-36bc-9a03-f83878af62d5",
+    "league": "MLB"
+  },
+  "89": {
+    "id": "89",
+    "name": "Nationals Park",
+    "city": "Washington",
+    "state": "District of Columbia",
+    "indoor": false,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "20003",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/89.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": null,
+    "league": "MLB"
+  },
+  "209": {
+    "id": "209",
+    "name": "Citi Field",
+    "city": "Queens",
+    "state": "New York",
+    "indoor": false,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "11368",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/209.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": null,
+    "league": "MLB"
+  },
+  "16": {
+    "id": "16",
+    "name": "Wrigley Field",
+    "city": "Chicago",
+    "state": "Illinois",
+    "indoor": false,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "60613",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/16.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": null,
+    "league": "MLB"
+  },
+  "27": {
+    "id": "27",
+    "name": "Coors Field",
+    "city": "Denver",
+    "state": "Colorado",
+    "indoor": false,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "80205",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/27.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": null,
+    "league": "MLB"
+  },
+  "19": {
+    "id": "19",
+    "name": "Dodger Stadium",
+    "city": "Los Angeles",
+    "state": "California",
+    "indoor": false,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "90090",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/19.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": null,
+    "league": "MLB"
+  },
+  "210": {
+    "id": "210",
+    "name": "Target Field",
+    "city": "Minneapolis",
+    "state": "Minnesota",
+    "indoor": false,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "55403",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/210.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": null,
+    "league": "MLB"
+  },
+  "85": {
+    "id": "85",
+    "name": "Petco Park",
+    "city": "San Diego",
+    "state": "California",
+    "indoor": false,
+    "grass": null,
+    "capacity": null,
+    "zipCode": "92101",
+    "images": [
+      {
+        "href": "https://a.espncdn.com/i/venues/mlb/day/85.jpg",
+        "width": 2000,
+        "height": 1125,
+        "alt": "",
+        "rel": [
+          "full",
+          "day"
+        ]
+      }
+    ],
+    "guid": null,
+    "league": "MLB"
+  },
+  "7109": {
+    "id": "7109",
+    "name": "Sutter Health Park",
+    "city": "Sacramento",
+    "state": "California",
+    "indoor": false,
+    "grass": null,
+    "capacity": null,
+    "zipCode": null,
+    "images": [],
+    "guid": "303d2a49-857b-33f3-9ac4-a2cfe2d6cb29",
+    "league": "MLB"
+  }
+}
