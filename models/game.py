@@ -2,6 +2,13 @@ from typing import Dict, List
 from datetime import datetime
 import re
 
+# Import timezone conversion function
+try:
+    from timezone_utils import convert_espn_time_to_local
+    TIMEZONE_CONVERSION_AVAILABLE = True
+except ImportError:
+    TIMEZONE_CONVERSION_AVAILABLE = False
+
 class GameData:
     """Data model for game information"""
     def __init__(self, raw_data: Dict, league: str = None):
@@ -10,6 +17,11 @@ class GameData:
         self.game_id = self.raw.get("id", "")
         self.name = self.raw.get("name", "Unknown Game")
         self.start_time = self.raw.get("start_time", self.raw.get("date", ""))
+        
+        # Apply timezone conversion to start_time if available
+        if TIMEZONE_CONVERSION_AVAILABLE and self.start_time:
+            self.start_time = convert_espn_time_to_local(self.start_time)
+            
         self.status = self.raw.get("status", "")
         self.teams = self.raw.get("teams", [])
 
