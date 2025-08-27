@@ -1072,7 +1072,9 @@ class LeagueView(BaseView):
     def _show_venues_dialog(self):
         """Show venues dialog for the current league"""
         try:
-            venues_data = venue_service.get_venues_for_league(self.league)
+            # Convert league to lowercase for venue service
+            league_key = self.league.lower()
+            venues_data = venue_service.get_venues_for_league(league_key)
             if not venues_data:
                 QMessageBox.information(self, "Venues", 
                                       f"No venue data available for {self.league}.")
@@ -7080,7 +7082,8 @@ class VenuesDialog(QDialog):
         
         # Get detailed venue information
         venue_id = venue_data.get('id')
-        venue_details = venue_service.get_venue_details(venue_id, self.league)
+        league_key = self.league.lower()
+        venue_details = venue_service.get_venue_details(venue_id, league_key)
         
         if not venue_details:
             QMessageBox.information(self, "Venue Details", "No detailed information available for this venue.")
