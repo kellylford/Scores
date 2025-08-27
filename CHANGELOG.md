@@ -5,6 +5,36 @@ All notable changes to the Scores application will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.54.0-preview] - 2025-08-27
+
+### Added
+- **Venue Browsing Feature**: Complete stadium/venue exploration system
+  - Browse stadiums and venues by league (NFL, MLB, NBA, NHL, NCAA Football)
+  - Comprehensive venue details including capacity, surface type, location, and facts
+  - Home team information for each venue
+  - NCAAF venue support through proper college-football API mapping
+- **Enhanced Team Navigation Infrastructure**: Robust system for navigating between games and team schedules
+  - Smart team ID resolution with multiple fallback mechanisms
+  - College football team mapping for major programs ensuring reliable navigation
+  - Improved back navigation with context preservation
+- **Automatic Timezone Conversion**: All game times converted to user's local timezone
+  - ESPN timezone data processing and local time conversion
+  - Cross-platform timezone handling with verification tools
+- **UI Consistency Improvements**: Unified interface design across all dialogs
+  - Venue details use consistent QListWidget format matching rest of application
+  - Text-based indicators ([Indoor, Grass]) replacing emoji decorations
+  - Clean "--- Section ---" headers for organized information display
+
+### Changed
+- **Venue Service Architecture**: New venue service with efficient API usage and smart caching
+- **Code Organization**: Test and demo files properly organized in TheBench directory
+- **Interface Design**: Standardized on list-based UI elements for consistency and accessibility
+
+### Fixed
+- **NCAAF Venue Access**: Added proper "ncaaf" to "college-football" league mapping
+- **Case Sensitivity**: Fixed venue dialog league case sensitivity for reliable data access
+- **Team Navigation**: Enhanced team ID resolution prevents navigation failures in college football
+
 ## [0.53.0-preview] - 2025-08-18
 
 ### Added

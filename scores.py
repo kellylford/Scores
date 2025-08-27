@@ -1,10 +1,10 @@
 """
 Scores - Sports Analysis Application
-Version: 0.5.0-preview
+Version: 0.54.0-preview
 A comprehensive sports analysis application supporting MLB and NFL
 """
 
-__version__ = "0.51.0-preview"
+__version__ = "0.54.0-preview"
 __author__ = "Kelly Ford"
 __description__ = "Sports Analysis Application with ESPN API integration"
 
