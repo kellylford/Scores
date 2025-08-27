@@ -7031,14 +7031,16 @@ class VenuesDialog(QDialog):
             # Add visual indicators for venue characteristics
             indicators = []
             if venue.get('indoor'):
-                indicators.append("🏢")  # Indoor
+                indicators.append("Indoor")
             else:
-                indicators.append("🌤️")  # Outdoor
+                indicators.append("Outdoor")
             
             if venue.get('grass') is True:
-                indicators.append("🌱")  # Natural grass
+                indicators.append("Grass")
             elif venue.get('grass') is False:
-                indicators.append("🏈")  # Artificial turf
+                indicators.append("Turf")
+            else:
+                indicators.append("Unknown Surface")
             
             # Show home teams if available
             home_teams = venue.get('home_teams', [])
@@ -7049,8 +7051,9 @@ class VenuesDialog(QDialog):
                 else:
                     team_info = f" - {len(home_teams)} teams"
             
-            # Format: "Stadium Name (City, State) 🏢🌱 - Team Name"
-            display_text = f"{venue_name} ({city}, {state}) {''.join(indicators)}{team_info}"
+            # Format: "Stadium Name (City, State) [Indoor, Grass] - Team Name" 
+            surface_info = " | ".join(indicators)
+            display_text = f"{venue_name} ({city}, {state}) [{surface_info}]{team_info}"
             
             item = QListWidgetItem(display_text)
             item.setData(Qt.ItemDataRole.UserRole, venue)
@@ -7109,11 +7112,14 @@ class VenueDetailsDialog(QDialog):
         basic_info = venue_details.get('basic_info', {})
         venue_name = basic_info.get('name', 'Unknown Venue')
         self.setWindowTitle(f"{venue_name} - Details")
-        self.resize(700, 500)
+        self.resize(600, 500)
         self.setup_ui()
     
     def setup_ui(self):
         layout = QVBoxLayout()
+        
+        # Create list widget for venue details
+        self.details_list = QListWidget()
         
         # Get venue information sections
         basic_info = self.venue_details.get('basic_info', {})
@@ -7125,83 +7131,73 @@ class VenueDetailsDialog(QDialog):
         
         # Venue name header
         venue_name = basic_info.get('name', 'Unknown Venue')
-        name_label = QLabel(venue_name)
-        name_label.setStyleSheet("font-weight: bold; font-size: 18px; margin: 10px 0;")
-        layout.addWidget(name_label)
-        
-        # Create scrollable content area
-        scroll_area = QScrollArea()
-        scroll_content = QWidget()
-        scroll_layout = QVBoxLayout()
+        self.details_list.addItem(QListWidgetItem(f"=== {venue_name} ==="))
+        self.details_list.addItem(QListWidgetItem(""))
         
         # Basic Information Section
-        basic_section = self._create_info_section("📍 Basic Information", [
-            f"Location: {basic_info.get('city', 'Unknown')}, {basic_info.get('state', 'Unknown')}",
-            f"League: {basic_info.get('league', 'Unknown')}",
-            f"ZIP Code: {basic_info.get('zip_code', 'N/A')}" if basic_info.get('zip_code') else None
-        ])
-        scroll_layout.addWidget(basic_section)
+        self.details_list.addItem(QListWidgetItem("--- Basic Information ---"))
+        if basic_info.get('city') and basic_info.get('state'):
+            self.details_list.addItem(QListWidgetItem(f"Location: {basic_info['city']}, {basic_info['state']}"))
+        if basic_info.get('league'):
+            self.details_list.addItem(QListWidgetItem(f"League: {basic_info['league']}"))
+        if basic_info.get('zip_code'):
+            self.details_list.addItem(QListWidgetItem(f"ZIP Code: {basic_info['zip_code']}"))
+        self.details_list.addItem(QListWidgetItem(""))
         
         # Characteristics Section
-        char_items = []
-        if characteristics.get('indoor') is not None:
-            char_items.append(f"Type: {'Indoor stadium' if characteristics['indoor'] else 'Outdoor stadium'}")
-        
-        if characteristics.get('grass') is not None:
-            if characteristics['grass']:
-                char_items.append("Playing Surface: Natural grass 🌱")
-            else:
-                char_items.append("Playing Surface: Artificial turf 🏈")
-        
-        if characteristics.get('capacity'):
-            try:
-                capacity = int(characteristics['capacity'])
-                char_items.append(f"Capacity: {capacity:,} fans")
-            except (ValueError, TypeError):
-                char_items.append(f"Capacity: {characteristics['capacity']}")
-        
-        if char_items:
-            char_section = self._create_info_section("🏟️ Stadium Characteristics", char_items)
-            scroll_layout.addWidget(char_section)
+        if characteristics:
+            self.details_list.addItem(QListWidgetItem("--- Stadium Characteristics ---"))
+            if characteristics.get('indoor') is not None:
+                venue_type = "Indoor stadium" if characteristics['indoor'] else "Outdoor stadium"
+                self.details_list.addItem(QListWidgetItem(f"Type: {venue_type}"))
+            
+            if characteristics.get('grass') is not None:
+                if characteristics['grass']:
+                    self.details_list.addItem(QListWidgetItem("Playing Surface: Natural grass"))
+                else:
+                    self.details_list.addItem(QListWidgetItem("Playing Surface: Artificial turf"))
+            
+            if characteristics.get('capacity'):
+                try:
+                    capacity = int(characteristics['capacity'])
+                    self.details_list.addItem(QListWidgetItem(f"Capacity: {capacity:,} fans"))
+                except (ValueError, TypeError):
+                    self.details_list.addItem(QListWidgetItem(f"Capacity: {characteristics['capacity']}"))
+            self.details_list.addItem(QListWidgetItem(""))
         
         # Home Teams Section
         if home_teams:
-            team_items = []
+            self.details_list.addItem(QListWidgetItem("--- Home Teams ---"))
             for team in home_teams:
                 team_name = team.get('name', 'Unknown Team')
                 team_abbrev = team.get('abbreviation', '')
                 if team_abbrev:
-                    team_items.append(f"{team_name} ({team_abbrev})")
+                    self.details_list.addItem(QListWidgetItem(f"{team_name} ({team_abbrev})"))
                 else:
-                    team_items.append(team_name)
-            
-            teams_section = self._create_info_section("🏠 Home Teams", team_items)
-            scroll_layout.addWidget(teams_section)
+                    self.details_list.addItem(QListWidgetItem(team_name))
+            self.details_list.addItem(QListWidgetItem(""))
         
         # Interesting Facts Section
         if interesting_facts:
-            facts_section = self._create_info_section("✨ Interesting Facts", interesting_facts)
-            scroll_layout.addWidget(facts_section)
+            self.details_list.addItem(QListWidgetItem("--- Interesting Facts ---"))
+            for fact in interesting_facts:
+                self.details_list.addItem(QListWidgetItem(f"• {fact}"))
+            self.details_list.addItem(QListWidgetItem(""))
         
         # Images Section
         if images:
-            images_items = [f"📸 {len(images)} high-quality images available"]
+            self.details_list.addItem(QListWidgetItem("--- Available Media ---"))
+            self.details_list.addItem(QListWidgetItem(f"{len(images)} high-quality images available"))
             # Show first few image types for information
             for i, img in enumerate(images[:3]):
                 rel_info = ", ".join(img.get('rel', []))
                 if rel_info:
-                    images_items.append(f"  • {rel_info.title()} view")
+                    self.details_list.addItem(QListWidgetItem(f"  • {rel_info.title()} view"))
             
             if len(images) > 3:
-                images_items.append(f"  • ... and {len(images) - 3} more")
-            
-            images_section = self._create_info_section("🖼️ Available Media", images_items)
-            scroll_layout.addWidget(images_section)
+                self.details_list.addItem(QListWidgetItem(f"  • ... and {len(images) - 3} more"))
         
-        scroll_content.setLayout(scroll_layout)
-        scroll_area.setWidget(scroll_content)
-        scroll_area.setWidgetResizable(True)
-        layout.addWidget(scroll_area)
+        layout.addWidget(self.details_list)
         
         # Close button
         close_layout = QHBoxLayout()
@@ -7213,27 +7209,6 @@ class VenueDetailsDialog(QDialog):
         
         layout.addLayout(close_layout)
         self.setLayout(layout)
-    
-    def _create_info_section(self, title: str, items: List[str]) -> QWidget:
-        """Create a section with title and items"""
-        section_widget = QWidget()
-        section_layout = QVBoxLayout()
-        
-        # Section title
-        title_label = QLabel(title)
-        title_label.setStyleSheet("font-weight: bold; font-size: 14px; margin: 15px 0 5px 0; color: #333;")
-        section_layout.addWidget(title_label)
-        
-        # Section items
-        for item in items:
-            if item:  # Skip None items
-                item_label = QLabel(f"  {item}")
-                item_label.setStyleSheet("margin: 2px 0 2px 10px; color: #555;")
-                item_label.setWordWrap(True)
-                section_layout.addWidget(item_label)
-        
-        section_widget.setLayout(section_layout)
-        return section_widget
     
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:

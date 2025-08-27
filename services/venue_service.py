@@ -19,6 +19,7 @@ class VenueService:
             "mlb": "baseball/mlb",
             "nhl": "hockey/nhl",
             "college-football": "football/college-football",
+            "ncaaf": "football/college-football",  # Map NCAAF to college-football
             "mens-college-basketball": "basketball/mens-college-basketball"
         }
     
@@ -269,15 +270,15 @@ class VenueService:
         
         # Surface type facts
         if venue.get('grass') is True:
-            facts.append("🌱 Natural grass playing surface")
+            facts.append("Natural grass playing surface")
         elif venue.get('grass') is False:
-            facts.append("🏈 Artificial turf playing surface")
+            facts.append("Artificial turf playing surface")
         
         # Indoor/outdoor facts
         if venue.get('indoor'):
-            facts.append("🏢 Indoor stadium with climate control")
+            facts.append("Indoor stadium with climate control")
         else:
-            facts.append("🌤️ Open-air stadium exposed to weather")
+            facts.append("Open-air stadium exposed to weather")
         
         # Capacity facts (if available)
         capacity = venue.get('capacity')
@@ -285,51 +286,51 @@ class VenueService:
             try:
                 cap_num = int(capacity)
                 if cap_num > 80000:
-                    facts.append(f"🏟️ Massive stadium seating {cap_num:,} fans")
+                    facts.append(f"Massive stadium seating {cap_num:,} fans")
                 elif cap_num > 60000:
-                    facts.append(f"🏟️ Large stadium seating {cap_num:,} fans")
+                    facts.append(f"Large stadium seating {cap_num:,} fans")
                 else:
-                    facts.append(f"🏟️ Intimate venue seating {cap_num:,} fans")
+                    facts.append(f"Intimate venue seating {cap_num:,} fans")
             except (ValueError, TypeError):
                 pass
         
         # League-specific facts
         if league_key == "MLB":
-            facts.append("⚾ Major League Baseball venue")
+            facts.append("Major League Baseball venue")
             venue_name = venue.get('name', '')
             if "Field" in venue_name:
-                facts.append("⭐ Classic baseball 'Field' naming")
+                facts.append("Classic baseball 'Field' naming")
             elif "Park" in venue_name:
-                facts.append("⭐ Traditional baseball 'Park' naming")
+                facts.append("Traditional baseball 'Park' naming")
         
         elif league_key == "NFL":
-            facts.append("🏈 National Football League venue")
+            facts.append("National Football League venue")
             if venue.get('indoor'):
-                facts.append("❄️ Weather never affects games here")
+                facts.append("Weather never affects games here")
         
         elif league_key == "NBA":
-            facts.append("🏀 National Basketball Association venue")
+            facts.append("National Basketball Association venue")
         
         elif league_key == "NHL":
-            facts.append("🏒 National Hockey League venue")
+            facts.append("National Hockey League venue")
         
-        elif league_key == "NCAAF":
-            facts.append("🎓 College football venue")
+        elif league_key in ["NCAAF", "college-football"]:
+            facts.append("College football venue")
         
         # Location facts
         city = venue.get('city', '')
         state = venue.get('state', '')
         if city and state:
-            facts.append(f"📍 Located in {city}, {state}")
+            facts.append(f"Located in {city}, {state}")
         
         # Home team facts
         home_teams = venue.get('home_teams', [])
         if home_teams:
             if len(home_teams) == 1:
                 team_name = home_teams[0].get('name', 'Unknown')
-                facts.append(f"🏠 Home of the {team_name}")
+                facts.append(f"Home of the {team_name}")
             else:
-                facts.append(f"🏠 Shared by {len(home_teams)} teams")
+                facts.append(f"Shared by {len(home_teams)} teams")
         
         return facts
 
