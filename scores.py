@@ -1149,11 +1149,13 @@ class LeagueView(BaseView):
         if self.current_week and self.current_week > 1:
             self.current_week -= 1
             self.load_scores()
+            self.set_focus_and_select_first(self.scores_list)
 
     def next_week(self):
         if self.current_week:
             self.current_week += 1
             self.load_scores()
+            self.set_focus_and_select_first(self.scores_list)
     
     def _show_api_error(self, message: str):
         """Show API error message"""
