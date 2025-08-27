@@ -48,6 +48,7 @@ from models.game import GameData
 from models.news import NewsData
 from models.standings import StandingsData
 from accessible_table import AccessibleTable, StandingsTable, LeadersTable, BoxscoreTable, InjuryTable
+from timezone_utils import convert_espn_time_to_local
 from windows_notifications import WindowsNotificationHelper
 
 # Audio system for pitch mapping

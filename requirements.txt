@@ -9,6 +9,7 @@ pyinstaller-hooks-contrib==2025.8
 PyQt6==6.9.1
 PyQt6-Qt6==6.9.1
 PyQt6_sip==13.10.2
+pytz==2024.2
 pywin32-ctypes==0.2.3
 requests==2.32.4
 setuptools==80.9.0

@@ -1,4 +1,5 @@
 import requests
+from timezone_utils import convert_espn_time_to_local
 
 BASE_URL = "https://site.api.espn.com/apis/site/v2/sports"
 
@@ -151,6 +152,9 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
             elif 'detail' in status_type:
                 start_time = status_type['detail']
             
+            # Convert timezone to user's local time
+            start_time = convert_espn_time_to_local(start_time)
+            
             # Get venue
             venue = comp.get('venue', {})
             venue_name = venue.get('fullName', 'TBD')
@@ -284,6 +288,9 @@ def parse_schedule_from_api(url, team_id, today, season=None):
                         start_time = status_type["shortDetail"]
                     elif "detail" in status_type:
                         start_time = status_type["detail"]
+                    
+                    # Convert timezone to user's local time
+                    start_time = convert_espn_time_to_local(start_time)
                     
                     # Get venue
                     venue = comp.get("venue", {})
@@ -861,6 +868,11 @@ def get_scores(league_key, date=None, week=None):
                 start_time = type_info["shortDetail"]
             elif "detail" in type_info:
                 start_time = type_info["detail"]
+            
+            # Convert timezone to user's local time
+            if start_time:
+                start_time = convert_espn_time_to_local(start_time)
+                
             game_status = type_info.get("description", "")
         
         # Extract scores from competitors
@@ -957,7 +969,9 @@ def extract_meaningful_game_info(details):
         # Game status and time
         status = comp.get('status', {})
         info['status'] = status.get('type', {}).get('description', 'Unknown')
-        info['detailed_status'] = status.get('type', {}).get('detail', 'N/A')
+        detailed_status = status.get('type', {}).get('detail', 'N/A')
+        # Convert timezone to user's local time
+        info['detailed_status'] = convert_espn_time_to_local(detailed_status)
         
         # Date
         info['date'] = comp.get('date', 'N/A')
