@@ -2747,7 +2747,16 @@ class GameDetailsView(BaseView):
             if "inning" in period_display.lower():
                 return "MLB"
             elif "quarter" in period_display.lower():
-                return "NFL"
+                # Need to differentiate between football and basketball quarters
+                # Check for football-specific indicators
+                if any(key in sample_play for key in ["driveNumber", "down", "distance", "yardsToEndzone"]):
+                    return "NFL"
+                else:
+                    return "NBA"  # Default basketball for quarters without football indicators
+            elif "period" in period_display.lower():
+                return "NHL"
+            elif "half" in period_display.lower() or "time" in period_display.lower():
+                return "Soccer"
         
         return "Generic"
     
@@ -3559,11 +3568,75 @@ class GameDetailsView(BaseView):
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(html_content)
             
-            # Show success message
-            QMessageBox.information(
-                self,
-                "Export Complete",
-                f"Game log exported successfully!\n\nFile saved as:\n{filename}\n\nLocation: {app_dir}"
+            # Show success message with custom dialog
+            self._show_export_success_dialog(filename, file_path, app_dir)
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", f"Failed to export game log:\n{str(e)}")
+    
+    def _show_export_success_dialog(self, filename, file_path, app_dir):
+        """Show custom export success dialog with View Log and Close buttons"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Export Complete")
+        dialog.setModal(True)
+        dialog.resize(450, 200)
+        
+        layout = QVBoxLayout(dialog)
+        
+        # Success message
+        message = QLabel(f"Game log exported successfully!\n\nFile saved as:\n{filename}\n\nLocation: {app_dir}")
+        message.setWordWrap(True)
+        message.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(message)
+        
+        # Button layout
+        button_layout = QHBoxLayout()
+        
+        # View Log button (Alt+G)
+        view_button = QPushButton("&View Log")
+        view_button.setAccessibleName("View Log Button")
+        view_button.setAccessibleDescription("Open the exported game log file")
+        view_button.clicked.connect(lambda: self._open_exported_file(file_path, dialog))
+        button_layout.addWidget(view_button)
+        
+        # Close button
+        close_button = QPushButton("&Close")
+        close_button.setAccessibleName("Close Button") 
+        close_button.setAccessibleDescription("Close this dialog and return to game details")
+        close_button.clicked.connect(dialog.accept)
+        close_button.setDefault(True)
+        button_layout.addWidget(close_button)
+        
+        layout.addLayout(button_layout)
+        
+        # Set focus to View Log button initially
+        view_button.setFocus()
+        
+        dialog.exec()
+    
+    def _open_exported_file(self, file_path, dialog):
+        """Open the exported file in the default application"""
+        import os
+        import subprocess
+        import platform
+        
+        try:
+            # Close the dialog first
+            dialog.accept()
+            
+            # Open file based on platform
+            if platform.system() == "Windows":
+                os.startfile(file_path)
+            elif platform.system() == "Darwin":  # macOS
+                subprocess.call(["open", file_path])
+            else:  # Linux and others
+                subprocess.call(["xdg-open", file_path])
+                
+        except Exception as e:
+            QMessageBox.warning(
+                self, 
+                "Open Error", 
+                f"Could not open the exported file:\n{str(e)}\n\nFile location: {file_path}"
             )
             
         except Exception as e:
@@ -3874,11 +3947,17 @@ class GameDetailsView(BaseView):
         
         if sport_type == "MLB":
             html += self._generate_baseball_html()
-        elif sport_type == "NFL":
+        elif sport_type in ("NFL", "Football", "NCAAF"):
             if has_drives:
                 html += self._generate_football_drives_html()
             else:
                 html += self._generate_football_html()
+        elif sport_type in ("NBA", "WNBA", "NCAAM"):
+            html += self._generate_basketball_html()
+        elif sport_type == "NHL":
+            html += self._generate_hockey_html()
+        elif sport_type == "Soccer":
+            html += self._generate_soccer_html()
         else:
             html += self._generate_generic_html()
         
@@ -3894,6 +3973,10 @@ class GameDetailsView(BaseView):
     
     def _generate_baseball_html(self):
         """Generate HTML for baseball game log"""
+        # Check if we have plays data
+        if not hasattr(self, 'current_plays_data') or not self.current_plays_data:
+            return '<div class="period"><div class="period-header">No baseball data available for export</div></div>'
+        
         # Group plays by inning (similar to tree structure)
         inning_groups = {}
         for play in self.current_plays_data:
@@ -4242,6 +4325,10 @@ class GameDetailsView(BaseView):
     
     def _generate_football_html(self):
         """Generate HTML for football game log"""
+        # Check if we have plays data
+        if not hasattr(self, 'current_plays_data') or not self.current_plays_data:
+            return '<div class="period"><div class="period-header">No football play data available for export</div></div>'
+        
         # Group by quarter and drive
         quarter_groups = {}
         
@@ -4485,11 +4572,109 @@ class GameDetailsView(BaseView):
         html = '<div class="period">'
         html += '<div class="period-header">All Plays</div>'
         
-        for i, play in enumerate(self.current_plays_data, 1):
-            play_text = play.get("text", f"Play {i}")
-            html += f'<div class="play">{play_text}</div>'
+        # Check if we have plays data
+        if hasattr(self, 'current_plays_data') and self.current_plays_data:
+            for i, play in enumerate(self.current_plays_data, 1):
+                play_text = play.get("text", f"Play {i}")
+                html += f'<div class="play">{play_text}</div>'
+        else:
+            html += '<div class="play">No play data available for export.</div>'
         
         html += '</div>'
+        return html
+
+    def _generate_basketball_html(self):
+        """Generate HTML for basketball game log"""
+        # Check if we have plays data
+        if not hasattr(self, 'current_plays_data') or not self.current_plays_data:
+            return '<div class="period"><div class="period-header">No basketball data available for export</div></div>'
+        
+        # Group by quarter
+        quarter_groups = {}
+        for play in self.current_plays_data:
+            period_info = play.get("period", {})
+            period_display = period_info.get("displayValue", f"{period_info.get('number', 1)}Q")
+            
+            if period_display not in quarter_groups:
+                quarter_groups[period_display] = []
+            quarter_groups[period_display].append(play)
+        
+        html = ""
+        for period_display in sorted(quarter_groups.keys(), key=lambda x: int(x.replace('Q', '')) if x.replace('Q', '').isdigit() else 999):
+            html += f'<div class="period">'
+            html += f'<div class="period-header">{period_display}</div>'
+            
+            for play in quarter_groups[period_display]:
+                play_text = play.get("text", "Play")
+                score_value = play.get("scoreValue", 0)
+                css_class = "play scoring" if score_value > 0 else "play"
+                html += f'<div class="{css_class}">{play_text}</div>'
+            
+            html += '</div>'
+        
+        return html
+
+    def _generate_hockey_html(self):
+        """Generate HTML for hockey game log"""
+        # Check if we have plays data
+        if not hasattr(self, 'current_plays_data') or not self.current_plays_data:
+            return '<div class="period"><div class="period-header">No hockey data available for export</div></div>'
+        
+        # Group by period
+        period_groups = {}
+        for play in self.current_plays_data:
+            period_info = play.get("period", {})
+            period_display = period_info.get("displayValue", f"Period {period_info.get('number', 1)}")
+            
+            if period_display not in period_groups:
+                period_groups[period_display] = []
+            period_groups[period_display].append(play)
+        
+        html = ""
+        for period_display in sorted(period_groups.keys()):
+            html += f'<div class="period">'
+            html += f'<div class="period-header">{period_display}</div>'
+            
+            for play in period_groups[period_display]:
+                play_text = play.get("text", "Play")
+                score_value = play.get("scoreValue", 0)
+                css_class = "play scoring" if score_value > 0 else "play"
+                html += f'<div class="{css_class}">{play_text}</div>'
+            
+            html += '</div>'
+        
+        return html
+
+    def _generate_soccer_html(self):
+        """Generate HTML for soccer game log"""
+        # Check if we have plays data
+        if not hasattr(self, 'current_plays_data') or not self.current_plays_data:
+            return '<div class="period"><div class="period-header">No soccer data available for export</div></div>'
+        
+        # Group by half
+        half_groups = {}
+        for play in self.current_plays_data:
+            period_info = play.get("period", {})
+            period_display = period_info.get("displayValue", f"Half {period_info.get('number', 1)}")
+            
+            if period_display not in half_groups:
+                half_groups[period_display] = []
+            half_groups[period_display].append(play)
+        
+        html = ""
+        for period_display in sorted(half_groups.keys()):
+            html += f'<div class="period">'
+            html += f'<div class="period-header">{period_display}</div>'
+            
+            for play in half_groups[period_display]:
+                play_text = play.get("text", "Play")
+                # Soccer events like goals, cards, substitutions
+                event_type = play.get("type", {}).get("text", "")
+                css_class = "play scoring" if "goal" in event_type.lower() else "play"
+                html += f'<div class="{css_class}">{play_text}</div>'
+            
+            html += '</div>'
+        
         return html
 
     def _add_injuries_list_to_layout(self, layout, data):
