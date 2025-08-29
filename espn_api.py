@@ -58,6 +58,11 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
         start_str = start_date.strftime("%Y%m%d")
         end_str = end_date.strftime("%Y%m%d")
         url = f"{BASE_URL}/{league_path}/scoreboard?dates={start_str}-{end_str}"
+        
+        # Add groups=80 for NCAAF to get complete Division 1 coverage
+        if league_key == "NCAAF":
+            url += "&groups=80"
+            
         return parse_schedule_from_api(url, team_id, datetime.now(), season)
     
     try:
