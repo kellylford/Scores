@@ -24,7 +24,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout, QCheckBox, QDialog, QMessageBox, QTextEdit, QScrollArea,
     QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget, QStackedWidget,
     QListWidgetItem, QTreeWidget, QTreeWidgetItem, QSpinBox, QComboBox,
-    QSizePolicy, QMenu
+    QSizePolicy, QMenu, QRadioButton, QButtonGroup
 )
 from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
 from PyQt6.QtGui import QColor, QAction, QFont
@@ -5776,27 +5776,91 @@ class StandingsDialog(QDialog):
         self.resize(STANDINGS_DIALOG_WIDTH, STANDINGS_DIALOG_HEIGHT)
         self.tab_widget: QTabWidget | None = None
         self.single_table: StandingsTable | None = None
+        self.expanded_view = False
+        self.division_tables: List[StandingsTable] = []
         self.setup_ui()
     
     def setup_ui(self):
         layout = QVBoxLayout()
+        
+        # Add view toggle buttons for supported sports
+        if self.league in ["MLB", "NFL", "NBA", "NHL"]:
+            button_layout = QHBoxLayout()
+            
+            # Create radio button group for exclusive selection
+            self.view_group = QButtonGroup()
+            
+            self.basic_radio = QRadioButton("Basic View")
+            self.expanded_radio = QRadioButton("Expanded View")
+            
+            # Set up radio button group
+            self.view_group.addButton(self.basic_radio, 0)  # Basic = 0
+            self.view_group.addButton(self.expanded_radio, 1)  # Expanded = 1
+            self.basic_radio.setChecked(True)  # Start with basic view
+            
+            # Ensure proper focus policy for arrow key navigation
+            self.basic_radio.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+            self.expanded_radio.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+            
+            # Set accessibility properties
+            self.basic_radio.setAccessibleName("Basic standings view")
+            self.basic_radio.setAccessibleDescription("Show basic standings with wins, losses, percentage, games back, and streak")
+            self.expanded_radio.setAccessibleName("Expanded standings view") 
+            self.expanded_radio.setAccessibleDescription("Show expanded standings with additional statistics like runs, home/road records, and playoff information")
+            
+            # Connect signals
+            self.view_group.buttonClicked.connect(self._on_view_changed)
+            
+            button_layout.addWidget(self.basic_radio)
+            button_layout.addWidget(self.expanded_radio)
+            button_layout.addStretch()
+            
+            layout.addLayout(button_layout)
+        
         if not self.standings_data.teams:
             layout.addWidget(QLabel(f"No standings data available for {self.league}."))
         else:
             has_divisions = len(self.standings_data.divisions) > 1 or any(
                 d != "League" for d in self.standings_data.divisions
             )
-            if has_divisions and self.league in ["MLB", "NFL"]:
+            if has_divisions and self.league in ["MLB", "NFL", "NBA", "NHL"]:
                 self._build_division_tabs(layout)
             else:
                 self.single_table = self._create_single_standings_table(self.standings_data.teams)
                 layout.addWidget(QLabel(f"Current {self.league} Standings:"))
                 layout.addWidget(self.single_table)
                 self.single_table.setFocus()
+        
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.accept)
         layout.addWidget(close_btn)
         self.setLayout(layout)
+    
+    def _on_view_changed(self, button):
+        """Handle radio button selection change"""
+        button_id = self.view_group.id(button)
+        expanded = button_id == 1  # 1 = expanded radio button
+        self._toggle_view(expanded)
+    
+    def _toggle_view(self, expanded: bool):
+        """Toggle between basic and expanded standings view"""
+        if self.expanded_view == expanded:
+            return
+            
+        self.expanded_view = expanded
+        
+        # Update tables
+        if self.single_table:
+            self.single_table.set_expanded_view(expanded)
+            self.single_table.populate_standings(self.standings_data.teams, set_focus=True)
+        
+        if self.tab_widget and self.division_tables:
+            for table in self.division_tables:
+                table.set_expanded_view(expanded)
+                # Repopulate with the table's division data
+                division_name = table.division_name
+                if division_name in self.standings_data.divisions:
+                    table.populate_standings(self.standings_data.divisions[division_name], set_focus=False)
     
     def _build_division_tabs(self, layout: QVBoxLayout):
         self.tab_widget = QTabWidget()

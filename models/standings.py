@@ -14,6 +14,8 @@ class StandingsData:
         for entry in data:
             if not isinstance(entry, dict):
                 continue
+            
+            # Basic fields with field name normalization
             name = entry.get("team_name") or entry.get("name") or entry.get("displayName") or entry.get("abbreviation", "Unknown")
             wins = entry.get("wins") if isinstance(entry.get("wins"), (int, str)) else entry.get("record", "0-0").split("-")[0]
             losses = entry.get("losses") if isinstance(entry.get("losses"), (int, str)) else entry.get("record", "0-0").split("-")[-1]
@@ -22,16 +24,28 @@ class StandingsData:
             division = entry.get("division", "League")
             streak = entry.get("streak", "")
             record = entry.get("record") or f"{wins}-{losses}"
-            teams.append({
+            
+            # Start with the normalized basic fields
+            team_data = {
                 "name": name,
+                "team_name": name,  # Keep both field names for compatibility
                 "wins": wins,
                 "losses": losses,
                 "win_pct": win_pct,
+                "win_percentage": win_pct,  # Keep both field names for compatibility
                 "games_behind": gb,
+                "games_back": gb,  # Keep both field names for compatibility
                 "streak": streak or "N/A",
                 "record": record,
                 "division": division
-            })
+            }
+            
+            # Add all other fields from the original entry to preserve expanded data
+            for key, value in entry.items():
+                if key not in team_data:  # Don't overwrite our normalized fields
+                    team_data[key] = value
+            
+            teams.append(team_data)
         return teams
 
     def _organize_by_divisions(self) -> Dict[str, List[Dict]]:

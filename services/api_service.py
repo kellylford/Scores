@@ -23,8 +23,14 @@ class ApiService:
         return ApiService._call(espn_api.get_scores, league, date, week)
 
     @staticmethod
-    def get_news(league: str) -> List[Dict]:
-        return ApiService._call(espn_api.get_news, league)
+    def get_news(league: str, limit: int = 20) -> List[Dict]:
+        """Get news headlines for a league with configurable limit
+        
+        Args:
+            league: League identifier (e.g., 'MLB', 'NFL') 
+            limit: Number of articles to retrieve (default: 20, max: 50)
+        """
+        return ApiService._call(espn_api.get_news, league, limit)
 
     @staticmethod
     def get_standings(league: str) -> List[Dict]:

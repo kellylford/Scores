@@ -294,18 +294,46 @@ class AccessibleTable(QTableWidget):
 
 
 class StandingsTable(AccessibleTable):
-    """Specialized table for displaying team standings"""
+    """Specialized table for displaying team standings with basic/expanded views"""
     
-    STANDINGS_HEADERS = ["Pos", "Team", "W", "L", "PCT", "GB", "Streak", "Record"]
+    BASIC_HEADERS = ["Pos", "Team", "W", "L", "PCT", "GB", "Streak"]
     
-    def __init__(self, parent=None, division_name: str = ""):
+    # Sport-specific expanded headers
+    EXPANDED_HEADERS = {
+        "MLB": ["Pos", "Team", "W", "L", "PCT", "GB", "Streak", "R", "RA", "Diff", "Home", "Road", "Playoff%", "Magic#"],
+        "NFL": ["Pos", "Team", "W", "L", "PCT", "GB", "Streak", "PF", "PA", "Diff", "Div Rec", "Seed"],
+        "NBA": ["Pos", "Team", "W", "L", "PCT", "GB", "Streak", "PPG", "OppPPG", "Diff", "DivW%", "Seed"],
+        "NHL": ["Pos", "Team", "W", "L", "PCT", "GB", "Streak", "Pts", "OTL", "GF", "GA", "Diff", "Seed"],
+        "default": BASIC_HEADERS
+    }
+    
+    def __init__(self, parent=None, division_name: str = "", league: str = "", expanded: bool = False):
         table_name = f"{division_name} Standings" if division_name else "Standings"
         super().__init__(
             parent=parent,
             accessible_name=table_name,
             accessible_description=f"{table_name} table showing team records and statistics"
         )
-        self.setup_columns(self.STANDINGS_HEADERS, stretch_column=1)  # Team name stretches
+        self.league = league
+        self.expanded = expanded
+        self.division_name = division_name
+        
+        # Setup columns based on view mode
+        headers = self.EXPANDED_HEADERS.get(league, self.BASIC_HEADERS) if expanded else self.BASIC_HEADERS
+        self.setup_columns(headers, stretch_column=1)  # Team name stretches
+    
+    def set_expanded_view(self, expanded: bool):
+        """Toggle between basic and expanded view"""
+        if self.expanded == expanded:
+            return
+            
+        self.expanded = expanded
+        headers = self.EXPANDED_HEADERS.get(self.league, self.BASIC_HEADERS) if expanded else self.BASIC_HEADERS
+        
+        # Clear and reconfigure table
+        self.setRowCount(0)
+        self.setColumnCount(0)
+        self.setup_columns(headers, stretch_column=1)
     
     def populate_standings(self, teams: List[Dict[str, Any]], set_focus: bool = True):
         """
@@ -321,19 +349,117 @@ class StandingsTable(AccessibleTable):
         
         rows = []
         for idx, team in enumerate(teams):
-            row = [
-                str(idx + 1),  # Position
-                team.get("name", ""),
-                team.get("wins", ""),
-                team.get("losses", ""),
-                team.get("win_pct", ""),
-                team.get("games_behind", ""),
-                team.get("streak", "N/A"),
-                team.get("record", "")
-            ]
+            if self.expanded:
+                row = self._build_expanded_row(idx + 1, team)
+            else:
+                row = self._build_basic_row(idx + 1, team)
             rows.append(row)
         
         self.populate_data(rows, set_focus)
+    
+    def _build_basic_row(self, position: int, team: Dict[str, Any]) -> List[str]:
+        """Build basic standings row"""
+        # Handle different field name formats from API vs StandingsData model
+        team_name = team.get("team_name") or team.get("name", "")
+        wins = str(team.get("wins", ""))
+        losses = str(team.get("losses", ""))
+        
+        # Format win percentage properly
+        win_pct = team.get("win_percentage") or team.get("win_pct", "")
+        if isinstance(win_pct, (int, float)) and win_pct > 0:
+            win_pct = f"{win_pct:.3f}"
+        
+        games_back = team.get("games_back") or team.get("games_behind", "")
+        streak = team.get("streak", "N/A")
+        
+        return [
+            str(position),
+            team_name,
+            wins,
+            losses,
+            win_pct,
+            games_back,
+            streak
+        ]
+    
+    def _build_expanded_row(self, position: int, team: Dict[str, Any]) -> List[str]:
+        """Build expanded standings row based on sport"""
+        basic_row = self._build_basic_row(position, team)
+        
+        if self.league == "MLB":
+            return basic_row + [
+                str(team.get("runs_for", "")),
+                str(team.get("runs_against", "")),
+                self._format_differential(team.get("run_differential", 0)),
+                self._format_record(team.get("home_wins", 0), team.get("home_losses", 0)),
+                self._format_record(team.get("road_wins", 0), team.get("road_losses", 0)),
+                self._format_percentage(team.get("playoff_percent", 0)),
+                self._format_magic_number(team.get("magic_number"))
+            ]
+        elif self.league == "NFL":
+            return basic_row + [
+                str(team.get("points_for", "")),
+                str(team.get("points_against", "")),
+                self._format_differential(team.get("point_differential", 0)),
+                self._format_record(team.get("division_wins", 0), team.get("division_losses", 0)),
+                self._format_seed(team.get("playoff_seed"))
+            ]
+        elif self.league == "NBA":
+            return basic_row + [
+                self._format_average(team.get("avg_points_for", 0)),
+                self._format_average(team.get("avg_points_against", 0)),
+                str(team.get("point_differential", "")),
+                self._format_percentage(team.get("division_win_percent", 0) * 100),  # Convert to percentage
+                self._format_seed(team.get("playoff_seed"))
+            ]
+        elif self.league == "NHL":
+            return basic_row + [
+                str(team.get("points", "")),
+                str(team.get("ot_losses", "")),
+                str(team.get("goals_for", "")),
+                str(team.get("goals_against", "")),
+                self._format_differential(team.get("goal_differential", 0)),
+                self._format_seed(team.get("playoff_seed"))
+            ]
+        else:
+            return basic_row
+    
+    def _format_differential(self, value: int) -> str:
+        """Format differential with +/- sign"""
+        if value > 0:
+            return f"+{value}"
+        elif value < 0:
+            return str(value)
+        else:
+            return "0"
+    
+    def _format_record(self, wins: int, losses: int) -> str:
+        """Format win-loss record"""
+        return f"{wins}-{losses}"
+    
+    def _format_percentage(self, value: float) -> str:
+        """Format percentage"""
+        if value > 0:
+            return f"{value:.1f}%"
+        return "—"
+    
+    def _format_average(self, value: float) -> str:
+        """Format average with 1 decimal place"""
+        if value > 0:
+            return f"{value:.1f}"
+        return "—"
+    
+    def _format_magic_number(self, value) -> str:
+        """Format magic number"""
+        if value and value > 0:
+            return str(value)
+        return "—"
+    
+    def _format_seed(self, value) -> str:
+        """Format playoff seed"""
+        if value and value > 0:
+            return str(value)
+        return "—"
     
     def _update_cell_accessibility(self, row: int, col: int):
         """
