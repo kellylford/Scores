@@ -326,13 +326,18 @@ def get_live_scores_all_sports():
     
     for league_key in LEAGUES.keys():
         try:
-            # Use the fast events endpoint to identify live games first
+            # Use the appropriate endpoint for each league
             league_path = LEAGUES.get(league_key)
             if not league_path:
                 continue
                 
-            # Fast events endpoint - get live games list quickly
-            url = f"{BASE_URL}/{league_path}/events"
+            # Use scoreboard endpoint for better live game detection, especially for NCAAF
+            url = f"{BASE_URL}/{league_path}/scoreboard"
+            
+            # Add NCAAF-specific parameters for complete Division 1 coverage
+            if league_key == "NCAAF":
+                url += "?groups=80"
+                
             resp = requests.get(url)
             if resp.status_code != 200:
                 continue
@@ -341,8 +346,15 @@ def get_live_scores_all_sports():
             events = data.get("events", [])
             
             for event in events:
+                # Extract competition data (scoreboard endpoint structure)
+                competitions = event.get("competitions", [])
+                if not competitions:
+                    continue
+                
+                comp = competitions[0]
+                
                 # Check if the event is currently live
-                status = event.get("fullStatus", {})
+                status = comp.get("status", {})
                 if not status:
                     continue
                     
@@ -359,13 +371,14 @@ def get_live_scores_all_sports():
                     game_id = event.get("id", "")
                     
                     # Extract team information from competitors
-                    competitors = event.get("competitors", [])
+                    competitors = comp.get("competitors", [])
                     teams = []
                     team_names = []
                     
                     for competitor in competitors:
                         score = competitor.get("score", "0")
-                        team_name = competitor.get("displayName", competitor.get("abbreviation", "Unknown"))
+                        team = competitor.get("team", {})
+                        team_name = team.get("displayName", team.get("name", team.get("abbreviation", "Unknown")))
                         team_names.append(team_name)
                         
                         teams.append({
