@@ -51,6 +51,11 @@ This release introduces **weekly navigation for football leagues** and significa
 - **Text-Only Indicators**: Replaced emoji indicators with clear text descriptions ([Indoor, Grass])
 - **Section Headers**: Clean "--- Section ---" headers for organized information display
 
+#### 📰 Enhanced News Coverage
+- **Expanded News Capacity**: Increased news stories from 6 to 20+ articles per league
+- **Comprehensive Coverage**: Full ESPN news feed access without artificial limits
+- **Game-Specific News**: Prioritized game-specific articles with general league news as backup
+
 ## 📥 Download v0.54.0-preview
 
 ### Primary Download
