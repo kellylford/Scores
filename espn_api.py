@@ -1088,7 +1088,7 @@ def create_wrap_up_data(details):
         wrap_up['article'] = {
             'headline': article.get('headline', ''),
             'summary': article.get('description', ''),
-            'full_story': article.get('story', ''),
+            'story': article.get('story', ''),
             'web_link': article.get('links', {}).get('web', {}).get('href', ''),
             'type': article.get('type', 'recap')
         }

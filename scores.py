@@ -1503,8 +1503,8 @@ class GameDetailsView(BaseView):
             # Display basic game information
             self._add_basic_game_info(details)
             
-            # Show configurable details
-            self._add_configurable_details(raw_details)
+            # Show configurable details - pass both raw and processed details
+            self._add_configurable_details(raw_details, details)
             
         except Exception as e:
             self._show_api_error(f"Failed to load game details: {str(e)}")
@@ -1759,7 +1759,7 @@ class GameDetailsView(BaseView):
         if 'injuries' in details:
             self.details_list.addItem(f"Injuries: {details['injuries']}")
     
-    def _add_configurable_details(self, raw_details: Dict):
+    def _add_configurable_details(self, raw_details: Dict, processed_details: Dict = None):
         """Add all available detail fields (no longer configurable - show everything)"""
         import os
         debug_mode = os.environ.get('SCORES_DEBUG_WRAPUP', '').lower() in ['1', 'true', 'yes']
@@ -1769,13 +1769,20 @@ class GameDetailsView(BaseView):
         
         # Include ALL detail fields that have any data (even empty lists/dicts) 
         for field in DETAIL_FIELDS:
-            value = raw_details.get(field)
-            if debug_mode and field == "wrapup":
-                print(f"WRAPUP DEBUG: UI checking field '{field}' - value exists: {value is not None}")
+            # For wrapup field, check processed_details first (new behavior)
+            if field == "wrapup" and processed_details:
+                value = processed_details.get(field)
+                if debug_mode:
+                    print(f"WRAPUP DEBUG: UI checking field '{field}' in processed_details - value exists: {value is not None}")
+                    if value is not None:
+                        print(f"WRAPUP DEBUG: Wrapup field found with value: {value}")
                 if value is not None:
-                    print(f"WRAPUP DEBUG: Wrapup field found with value: {value}")
-            if value is not None:  # Include if field exists, even if empty
-                all_available_fields.append(field)
+                    all_available_fields.append(field)
+            else:
+                # For all other fields, use raw_details (preserve existing behavior)
+                value = raw_details.get(field)
+                if value is not None:  # Include if field exists, even if empty
+                    all_available_fields.append(field)
         
         # Always include plays if available (even if empty, for consistency)
         if raw_details.get("plays") is not None and "plays" not in all_available_fields:
@@ -1784,7 +1791,12 @@ class GameDetailsView(BaseView):
         if all_available_fields:
             self.details_list.addItem("--- Additional Details ---")
             for field in all_available_fields:
-                value = raw_details.get(field, "N/A")
+                # Get value from appropriate source
+                if field == "wrapup" and processed_details:
+                    value = processed_details.get(field, "N/A")
+                else:
+                    value = raw_details.get(field, "N/A")
+                    
                 if value == "N/A" or not value:
                     self.details_list.addItem(f"{field}: No data available")
                 else:
@@ -4822,7 +4834,7 @@ class GameDetailsView(BaseView):
         # Create the main list widget
         wrap_up_list = QListWidget()
         wrap_up_list.setAccessibleName("Game Wrap Up Summary")
-        wrap_up_list.setAccessibleDescription("Post-game summary with key highlights and performances. Use arrow keys to navigate, Enter to open links.")
+        wrap_up_list.setAccessibleDescription("Post-game summary with key highlights and performances. Use arrow keys to navigate, Enter to open links or view full article.")
         
         # Add header
         layout.addWidget(QLabel("🏆 GAME WRAP UP"))
@@ -4832,21 +4844,35 @@ class GameDetailsView(BaseView):
         if article_data:
             headline = article_data.get('headline', '')
             summary = article_data.get('summary', '')
+            story = article_data.get('story', '')
             web_link = article_data.get('web_link', '')
             
             if headline:
                 wrap_up_list.addItem("📰 Game Recap")
                 
-                # Add headline as clickable item
+                # Add headline as clickable item with both full article and web link access
                 headline_item = QListWidgetItem(f"   {headline}")
-                if web_link:
-                    headline_item.setData(Qt.ItemDataRole.UserRole, {'type': 'link', 'url': web_link})
-                    headline_item.setToolTip("Press Enter to open in browser")
+                headline_item.setData(Qt.ItemDataRole.UserRole, {
+                    'type': 'article',
+                    'headline': headline,
+                    'summary': summary,
+                    'story': story,
+                    'web_link': web_link
+                })
+                headline_item.setToolTip("Press Enter to view full article or open in browser")
                 wrap_up_list.addItem(headline_item)
                 
                 # Add summary if available
                 if summary:
-                    wrap_up_list.addItem(f"   {summary}")
+                    summary_item = QListWidgetItem(f"   {summary}")
+                    if story and story != summary:  # Only add full article access if story is different
+                        summary_item.setData(Qt.ItemDataRole.UserRole, {
+                            'type': 'article_summary',
+                            'headline': headline,
+                            'story': story
+                        })
+                        summary_item.setToolTip("Press Enter to view full article")
+                    wrap_up_list.addItem(summary_item)
         
         # Priority 2: Key performers section
         key_performers = data.get('key_performers', [])
@@ -4866,23 +4892,115 @@ class GameDetailsView(BaseView):
         if wrap_up_list.count() == 0:
             wrap_up_list.addItem("No wrap up content available for this game.")
         
-        # Connect activation to handle clickable links
+        # Connect activation to handle clickable links and full article viewing
         def open_wrap_up_item(item):
             item_data = item.data(Qt.ItemDataRole.UserRole)
-            if item_data and item_data.get('type') == 'link':
-                url = item_data.get('url', '')
-                if url.startswith(("http://", "https://")):
-                    try:
-                        webbrowser.open(url)
-                    except Exception as e:
-                        QMessageBox.warning(None, "Browser Error", f"Could not open browser: {str(e)}")
-                else:
-                    QMessageBox.warning(None, "Invalid URL", "The URL for this article is invalid.")
+            if item_data:
+                item_type = item_data.get('type')
+                
+                if item_type == 'article':
+                    # Show options for full article view or web link
+                    headline = item_data.get('headline', 'Article')
+                    story = item_data.get('story', '')
+                    web_link = item_data.get('web_link', '')
+                    
+                    # Create a dialog to show options
+                    from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTextEdit, QPushButton, QHBoxLayout, QLabel
+                    
+                    dialog = QDialog()
+                    dialog.setWindowTitle(f"Game Recap - {headline}")
+                    dialog.setModal(True)
+                    dialog.resize(600, 400)
+                    
+                    layout = QVBoxLayout()
+                    
+                    # Add headline
+                    headline_label = QLabel(headline)
+                    headline_label.setWordWrap(True)
+                    headline_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-bottom: 10px;")
+                    layout.addWidget(headline_label)
+                    
+                    # Add full article text in scrollable area
+                    if story:
+                        story_text = QTextEdit()
+                        story_text.setPlainText(story)
+                        story_text.setReadOnly(True)
+                        story_text.setAccessibleName("Full article text")
+                        story_text.setAccessibleDescription("Complete article content. Use arrow keys or Page Up/Down to scroll.")
+                        layout.addWidget(story_text)
+                    else:
+                        layout.addWidget(QLabel("Full article text not available."))
+                    
+                    # Add buttons
+                    button_layout = QHBoxLayout()
+                    
+                    if web_link and web_link.startswith(("http://", "https://")):
+                        web_btn = QPushButton("Open in Browser")
+                        web_btn.clicked.connect(lambda: self._open_url_safely(web_link))
+                        button_layout.addWidget(web_btn)
+                    
+                    close_btn = QPushButton("Close")
+                    close_btn.clicked.connect(dialog.close)
+                    button_layout.addWidget(close_btn)
+                    
+                    layout.addLayout(button_layout)
+                    dialog.setLayout(layout)
+                    dialog.exec()
+                    
+                elif item_type == 'article_summary':
+                    # Show full article from summary click
+                    headline = item_data.get('headline', 'Article')
+                    story = item_data.get('story', '')
+                    
+                    if story:
+                        self._show_full_article_dialog(headline, story)
+                    else:
+                        QMessageBox.information(None, "No Full Article", "Full article text is not available.")
         
         wrap_up_list.itemActivated.connect(open_wrap_up_item)
         wrap_up_list.itemDoubleClicked.connect(open_wrap_up_item)
         
         layout.addWidget(wrap_up_list)
+    
+    def _open_url_safely(self, url):
+        """Safely open URL in browser with error handling"""
+        try:
+            webbrowser.open(url)
+        except Exception as e:
+            QMessageBox.warning(None, "Browser Error", f"Could not open browser: {str(e)}")
+    
+    def _show_full_article_dialog(self, headline, story):
+        """Show full article in a dedicated dialog"""
+        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTextEdit, QPushButton, QLabel
+        
+        dialog = QDialog()
+        dialog.setWindowTitle(f"Full Article - {headline}")
+        dialog.setModal(True)
+        dialog.resize(600, 400)
+        
+        layout = QVBoxLayout()
+        
+        # Add headline
+        headline_label = QLabel(headline)
+        headline_label.setWordWrap(True)
+        headline_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-bottom: 10px;")
+        layout.addWidget(headline_label)
+        
+        # Add full article text in scrollable area
+        story_text = QTextEdit()
+        story_text.setPlainText(story)
+        story_text.setReadOnly(True)
+        story_text.setAccessibleName("Full article text")
+        story_text.setAccessibleDescription("Complete article content. Use arrow keys or Page Up/Down to scroll.")
+        layout.addWidget(story_text)
+        
+        # Add close button
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(dialog.close)
+        layout.addWidget(close_btn)
+        
+        dialog.setLayout(layout)
+        dialog.exec()
     
     def keyPressEvent(self, event):
         """Handle key press events, but let dialog handle Escape when in modal context"""
