@@ -123,6 +123,7 @@ class AccessibleTable(QTableWidget):
         # Set focus to first cell if requested and data exists
         if set_focus and data and self.rowCount() > 0 and self.columnCount() > 0:
             self.setCurrentCell(0, 0)
+            self.setFocus()  # Explicitly set focus to the table
             self._update_cell_accessibility(0, 0)
     
     def populate_from_dicts(self, data: List[Dict[str, Any]], headers: List[str], 
@@ -170,7 +171,8 @@ class AccessibleTable(QTableWidget):
             if current_row > 0:
                 new_row = current_row - 1
                 self.setCurrentCell(new_row, current_col)
-                self._update_cell_accessibility(new_row, current_col)
+                # Temporarily disable accessibility updates during navigation to prevent crashes
+                # self._update_cell_accessibility(new_row, current_col)
                 self.setFocus()  # Ensure focus stays on table
                 event.accept()
                 return
@@ -183,7 +185,8 @@ class AccessibleTable(QTableWidget):
             if current_row < self.rowCount() - 1:
                 new_row = current_row + 1
                 self.setCurrentCell(new_row, current_col)
-                self._update_cell_accessibility(new_row, current_col)
+                # Temporarily disable accessibility updates during navigation to prevent crashes
+                # self._update_cell_accessibility(new_row, current_col)
                 self.setFocus()  # Ensure focus stays on table
                 event.accept()
                 return
@@ -196,7 +199,8 @@ class AccessibleTable(QTableWidget):
             if current_col > 0:
                 new_col = current_col - 1
                 self.setCurrentCell(current_row, new_col)
-                self._update_cell_accessibility(current_row, new_col)
+                # Temporarily disable accessibility updates during navigation to prevent crashes
+                # self._update_cell_accessibility(current_row, new_col)
                 self.setFocus()  # Ensure focus stays on table
                 event.accept()
                 return
@@ -209,7 +213,8 @@ class AccessibleTable(QTableWidget):
             if current_col < self.columnCount() - 1:
                 new_col = current_col + 1
                 self.setCurrentCell(current_row, new_col)
-                self._update_cell_accessibility(current_row, new_col)
+                # Temporarily disable accessibility updates during navigation to prevent crashes
+                # self._update_cell_accessibility(current_row, new_col)
                 self.setFocus()  # Ensure focus stays on table
                 event.accept()
                 return
@@ -324,24 +329,25 @@ class StandingsTable(AccessibleTable):
     
     def set_expanded_view(self, expanded: bool):
         """Toggle between basic and expanded view"""
-        print(f"DEBUG: set_expanded_view called with expanded={expanded}, current self.expanded={self.expanded}")
-        
         if self.expanded == expanded:
-            print(f"DEBUG: No change needed, already expanded={expanded}")
             return
+            
+        # Remember if we had focus before the change
+        had_focus = self.hasFocus()
+        current_row = self.currentRow()
+        current_col = self.currentColumn()
             
         self.expanded = expanded
         headers = self.EXPANDED_HEADERS.get(self.league, self.BASIC_HEADERS) if expanded else self.BASIC_HEADERS
-        
-        print(f"DEBUG: Setting up {len(headers)} columns for {self.league} league")
-        print(f"DEBUG: Headers: {headers}")
         
         # Clear and reconfigure table
         self.setRowCount(0)
         self.setColumnCount(0)
         self.setup_columns(headers, stretch_column=1)
         
-        print(f"DEBUG: After setup_columns - table now has {self.columnCount()} columns")
+        # Restore focus if we had it before
+        if had_focus:
+            self.setFocus()
         
         # Force a visual update
         self.update()

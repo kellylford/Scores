@@ -5846,13 +5846,31 @@ class StandingsDialog(QDialog):
             self.single_table.set_expanded_view(expanded)
             self.single_table.populate_standings(self.standings_data.teams, set_focus=True)
         
-        if self.tab_widget and self.division_tables:
-            for table in self.division_tables:
-                table.set_expanded_view(expanded)
-                # Repopulate with the table's division data
-                division_name = table.division_name
-                if division_name in self.standings_data.divisions:
-                    table.populate_standings(self.standings_data.divisions[division_name], set_focus=False)
+        # Update division tables through tab widget
+        if self.tab_widget:
+            current_tab_index = self.tab_widget.currentIndex()
+            for i in range(self.tab_widget.count()):
+                widget = self.tab_widget.widget(i)
+                if hasattr(widget, 'table'):
+                    table = widget.table
+                    table.set_expanded_view(expanded)
+                    # Repopulate with the table's division data
+                    division_name = table.division_name
+                    if division_name in self.standings_data.divisions:
+                        # Set focus on the currently visible tab's table
+                        should_focus = (i == current_tab_index)
+                        table.populate_standings(self.standings_data.divisions[division_name], set_focus=should_focus)
+            
+            # Ensure focus is properly restored after toggle with a slight delay
+            from PyQt6.QtCore import QTimer
+            def restore_focus():
+                if current_tab_index < self.tab_widget.count():
+                    current_widget = self.tab_widget.widget(current_tab_index)
+                    if hasattr(current_widget, 'table'):
+                        current_widget.table.setFocus()
+                        current_widget.table.setCurrentCell(0, 0)
+            
+            QTimer.singleShot(50, restore_focus)
     
     def _build_division_tabs(self, layout: QVBoxLayout):
         self.tab_widget = QTabWidget()
@@ -5887,7 +5905,7 @@ class StandingsDialog(QDialog):
     def _create_division_table(self, division_name: str, teams: List[Dict]) -> QWidget:
         widget = QWidget()
         layout = QVBoxLayout()
-        table = StandingsTable(parent=self, division_name=division_name)
+        table = StandingsTable(parent=self, division_name=division_name, league=self.league, expanded=self.expanded_view)
         table.populate_standings(teams, set_focus=True)
         layout.addWidget(table)
         widget.setLayout(layout)
@@ -5895,7 +5913,7 @@ class StandingsDialog(QDialog):
         return widget
     
     def _create_single_standings_table(self, teams: List[Dict]) -> StandingsTable:
-        table = StandingsTable(parent=self)
+        table = StandingsTable(parent=self, league=self.league, expanded=self.expanded_view)
         table.populate_standings(teams, set_focus=True)
         return table
     
