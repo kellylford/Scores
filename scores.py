@@ -5792,7 +5792,7 @@ class StandingsDialog(QDialog):
             has_divisions = len(self.standings_data.divisions) > 1 or any(
                 d != "League" for d in self.standings_data.divisions
             )
-            if has_divisions and self.league in ["MLB", "NFL", "NBA", "NHL"]:
+            if has_divisions and self.league in ["MLB", "NFL", "NBA", "NHL", "NCAAF", "NCAAB", "NCAAM", "NCAAW", "WNBA"]:
                 self._build_division_tabs(layout)
             else:
                 self.single_table = self._create_single_standings_table(self.standings_data.teams)
@@ -7085,6 +7085,17 @@ class SimpleTeamsDialog(QDialog):
                             "Atlantic Coast Conference", "Pac-12 Conference", "American Conference", 
                             "Conference USA", "Mid-American Conference", "Mountain West Conference", 
                             "FBS Independents"]
+        elif self.league in ["NCAAB", "NCAAM", "NCAAW"]:
+            # College basketball conferences (major conferences first)
+            division_order = ["Southeastern Conference", "Big Ten Conference", "Big 12 Conference",
+                            "Atlantic Coast Conference", "Pac-12 Conference", "Big East Conference",
+                            "American Conference", "Conference USA", "Mid-American Conference",
+                            "Mountain West Conference", "Atlantic 10 Conference", "Missouri Valley Conference",
+                            "West Coast Conference", "Ivy League", "Colonial Conference", 
+                            "Southern Conference", "Ohio Valley Conference", "Big Sky Conference"]
+        elif self.league == "WNBA":
+            # WNBA has Eastern and Western conferences
+            division_order = ["Eastern Conference", "Western Conference"]
         else:
             division_order = []
         
