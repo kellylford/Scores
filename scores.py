@@ -24,7 +24,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout, QCheckBox, QDialog, QMessageBox, QTextEdit, QScrollArea,
     QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget, QStackedWidget,
     QListWidgetItem, QTreeWidget, QTreeWidgetItem, QSpinBox, QComboBox,
-    QSizePolicy, QMenu, QRadioButton, QButtonGroup
+    QSizePolicy, QMenu
 )
 from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
 from PyQt6.QtGui import QColor, QAction, QFont
@@ -5783,39 +5783,32 @@ class StandingsDialog(QDialog):
     def setup_ui(self):
         layout = QVBoxLayout()
         
-        # Add view toggle buttons for supported sports
+        # Add view toggle for supported sports
         if self.league in ["MLB", "NFL", "NBA", "NHL"]:
-            button_layout = QHBoxLayout()
+            view_layout = QHBoxLayout()
             
-            # Create radio button group for exclusive selection
-            self.view_group = QButtonGroup()
-            
-            self.basic_radio = QRadioButton("Basic View")
-            self.expanded_radio = QRadioButton("Expanded View")
-            
-            # Set up radio button group
-            self.view_group.addButton(self.basic_radio, 0)  # Basic = 0
-            self.view_group.addButton(self.expanded_radio, 1)  # Expanded = 1
-            self.basic_radio.setChecked(True)  # Start with basic view
-            
-            # Ensure proper focus policy for arrow key navigation
-            self.basic_radio.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-            self.expanded_radio.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+            # Create combo box for view selection
+            view_label = QLabel("View:")
+            self.view_combo = QComboBox()
+            self.view_combo.addItem("Basic View", 0)  # Basic = 0
+            self.view_combo.addItem("Expanded View", 1)  # Expanded = 1
+            self.view_combo.setCurrentIndex(0)  # Start with basic view
             
             # Set accessibility properties
-            self.basic_radio.setAccessibleName("Basic standings view")
-            self.basic_radio.setAccessibleDescription("Show basic standings with wins, losses, percentage, games back, and streak")
-            self.expanded_radio.setAccessibleName("Expanded standings view") 
-            self.expanded_radio.setAccessibleDescription("Show expanded standings with additional statistics like runs, home/road records, and playoff information")
+            self.view_combo.setAccessibleName("Standings view selector")
+            self.view_combo.setAccessibleDescription("Choose between basic standings (7 columns) or expanded standings with additional statistics")
             
-            # Connect signals
-            self.view_group.buttonClicked.connect(self._on_view_changed)
+            # Set minimum width for combo box
+            self.view_combo.setMinimumWidth(150)
             
-            button_layout.addWidget(self.basic_radio)
-            button_layout.addWidget(self.expanded_radio)
-            button_layout.addStretch()
+            # Connect signal
+            self.view_combo.currentIndexChanged.connect(self._on_view_changed)
             
-            layout.addLayout(button_layout)
+            view_layout.addWidget(view_label)
+            view_layout.addWidget(self.view_combo)
+            view_layout.addStretch()
+            
+            layout.addLayout(view_layout)
         
         if not self.standings_data.teams:
             layout.addWidget(QLabel(f"No standings data available for {self.league}."))
@@ -5836,10 +5829,9 @@ class StandingsDialog(QDialog):
         layout.addWidget(close_btn)
         self.setLayout(layout)
     
-    def _on_view_changed(self, button):
-        """Handle radio button selection change"""
-        button_id = self.view_group.id(button)
-        expanded = button_id == 1  # 1 = expanded radio button
+    def _on_view_changed(self, index):
+        """Handle combo box selection change"""
+        expanded = index == 1  # 1 = expanded view
         self._toggle_view(expanded)
     
     def _toggle_view(self, expanded: bool):
