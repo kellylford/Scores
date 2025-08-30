@@ -1043,7 +1043,103 @@ def extract_meaningful_game_info(details):
         if injury_count > 0:
             info['injuries'] = f"{injury_count} injury report(s) available"
     
+    # Wrap up data for completed games
+    wrap_up = create_wrap_up_data(details)
+    if wrap_up:
+        info['wrapup'] = wrap_up
+    
     return info
+
+
+def create_wrap_up_data(details):
+    """Create wrap up summary for finished games only"""
+    
+    # Only show wrap up for completed games
+    status = details.get('header', {}).get('competitions', [{}])[0].get('status', {})
+    if status.get('type', {}).get('description') != 'Final':
+        return None
+    
+    wrap_up = {}
+    
+    # Priority 1: ESPN Article (best source)
+    article = details.get('article')
+    if article:
+        wrap_up['article'] = {
+            'headline': article.get('headline', ''),
+            'summary': article.get('description', ''),
+            'full_story': article.get('story', ''),
+            'web_link': article.get('links', {}).get('web', {}).get('href', ''),
+            'type': article.get('type', 'recap')
+        }
+    
+    # Priority 2: Game Leaders
+    leaders = details.get('leaders', {})
+    if leaders:
+        wrap_up['key_performers'] = extract_top_performers(leaders)
+    
+    # Priority 3: Key Stats Summary  
+    boxscore = details.get('boxscore')
+    if boxscore:
+        wrap_up['key_stats'] = extract_game_defining_stats(boxscore)
+    
+    return wrap_up if wrap_up else None
+
+
+def extract_top_performers(leaders):
+    """Extract top performers from leaders data"""
+    performers = []
+    
+    if isinstance(leaders, dict):
+        # Handle different leaders data structures
+        for category, leader_data in leaders.items():
+            if isinstance(leader_data, list):
+                for leader in leader_data[:3]:  # Top 3 per category
+                    if isinstance(leader, dict):
+                        athlete = leader.get('athlete', {})
+                        name = athlete.get('displayName', athlete.get('name', 'Unknown'))
+                        value = leader.get('displayValue', leader.get('value', ''))
+                        performers.append(f"{name}: {value} {category}")
+            elif isinstance(leader_data, dict):
+                athlete = leader_data.get('athlete', {})
+                name = athlete.get('displayName', athlete.get('name', 'Unknown'))
+                value = leader_data.get('displayValue', leader_data.get('value', ''))
+                performers.append(f"{name}: {value} {category}")
+    
+    return performers[:6]  # Max 6 performers for readability
+
+
+def extract_game_defining_stats(boxscore):
+    """Extract key game-defining statistics"""
+    stats = []
+    
+    if isinstance(boxscore, dict):
+        teams = boxscore.get('teams', [])
+        if len(teams) >= 2:
+            # Extract key team stats comparison
+            team1 = teams[0]
+            team2 = teams[1]
+            
+            team1_name = team1.get('team', {}).get('abbreviation', 'Team 1')
+            team2_name = team2.get('team', {}).get('abbreviation', 'Team 2')
+            
+            # Look for key statistics
+            team1_stats = team1.get('statistics', [])
+            team2_stats = team2.get('statistics', [])
+            
+            # Extract meaningful comparisons
+            if team1_stats and team2_stats:
+                for i, stat1 in enumerate(team1_stats):
+                    if i < len(team2_stats):
+                        stat2 = team2_stats[i]
+                        stat_name = stat1.get('name', 'Stat')
+                        val1 = stat1.get('displayValue', stat1.get('value', '0'))
+                        val2 = stat2.get('displayValue', stat2.get('value', '0'))
+                        stats.append(f"{stat_name}: {team1_name} {val1}, {team2_name} {val2}")
+                        
+                        if len(stats) >= 4:  # Limit to 4 key stats
+                            break
+    
+    return stats
 
 
 def _parse_boxscore_data(boxscore_data):

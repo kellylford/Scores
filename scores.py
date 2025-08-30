@@ -62,7 +62,7 @@ except ImportError:
     AudioPitchMapper = None
 
 # Constants
-DETAIL_FIELDS = ["boxscore", "plays", "drives", "leaders", "standings", "odds", "injuries", "broadcasts", "news", "gameInfo"]
+DETAIL_FIELDS = ["boxscore", "plays", "drives", "leaders", "standings", "odds", "injuries", "broadcasts", "news", "wrapup", "gameInfo"]
 BASEBALL_STAT_HEADERS = ["Player", "Position", "AB", "R", "H", "RBI", "BB", "SO", "AVG"]
 STANDINGS_HEADERS = ["Rank", "Team", "Wins", "Losses", "Win %", "GB", "Streak", "Record"]
 TEAM_SUMMARY_HEADERS = ["Team", "Statistic", "Value"]
@@ -1367,6 +1367,8 @@ class GameDetailsView(BaseView):
             self._add_injuries_list_to_layout(layout, field_data)
         elif field_name == "news" and isinstance(field_data, (list, dict)):
             self._add_news_list_to_layout(layout, field_data)
+        elif field_name == "wrapup" and isinstance(field_data, dict):
+            self._add_wrap_up_data_to_layout(layout, field_data)
         else:
             # Fallback to formatted text
             text_widget = QTextEdit()
@@ -1783,7 +1785,7 @@ class GameDetailsView(BaseView):
     
     def _add_configurable_field(self, field: str, value: Any):
         """Add a configurable field to the details list"""
-        navigable_fields = ["standings", "leaders", "boxscore", "plays", "drives", "injuries", "news"]
+        navigable_fields = ["standings", "leaders", "boxscore", "plays", "drives", "injuries", "news", "wrapup"]
         
         if field in navigable_fields:
             has_data = self._check_field_has_data(field, value)
@@ -1850,6 +1852,8 @@ class GameDetailsView(BaseView):
             return len(value) > 0
         elif field == "news" and isinstance(value, (list, dict)):
             return len(value) > 0 if isinstance(value, list) else bool(value.get("articles"))
+        elif field == "wrapup" and isinstance(value, dict):
+            return bool(value.get("article") or value.get("key_performers") or value.get("key_stats"))
         return False
     
     def refresh(self):
@@ -4795,6 +4799,77 @@ class GameDetailsView(BaseView):
         
         layout.addWidget(QLabel("News Headlines (🎯 = Game-specific, Enter or double-click to open in browser):"))
         layout.addWidget(news_list)
+    
+    def _add_wrap_up_data_to_layout(self, layout, data):
+        """Add wrap up data to layout using accessible QListWidget"""
+        if not data:
+            layout.addWidget(QLabel("No wrap up data available."))
+            return
+        
+        # Create the main list widget
+        wrap_up_list = QListWidget()
+        wrap_up_list.setAccessibleName("Game Wrap Up Summary")
+        wrap_up_list.setAccessibleDescription("Post-game summary with key highlights and performances. Use arrow keys to navigate, Enter to open links.")
+        
+        # Add header
+        layout.addWidget(QLabel("🏆 GAME WRAP UP"))
+        
+        # Priority 1: ESPN Article section
+        article_data = data.get('article')
+        if article_data:
+            headline = article_data.get('headline', '')
+            summary = article_data.get('summary', '')
+            web_link = article_data.get('web_link', '')
+            
+            if headline:
+                wrap_up_list.addItem("📰 Game Recap")
+                
+                # Add headline as clickable item
+                headline_item = QListWidgetItem(f"   {headline}")
+                if web_link:
+                    headline_item.setData(Qt.ItemDataRole.UserRole, {'type': 'link', 'url': web_link})
+                    headline_item.setToolTip("Press Enter to open in browser")
+                wrap_up_list.addItem(headline_item)
+                
+                # Add summary if available
+                if summary:
+                    wrap_up_list.addItem(f"   {summary}")
+        
+        # Priority 2: Key performers section
+        key_performers = data.get('key_performers', [])
+        if key_performers:
+            wrap_up_list.addItem("⭐ Key Performers")
+            for performer in key_performers[:6]:  # Limit to 6 for readability
+                wrap_up_list.addItem(f"   • {performer}")
+        
+        # Priority 3: Key stats section
+        key_stats = data.get('key_stats', [])
+        if key_stats:
+            wrap_up_list.addItem("📊 Game Summary")
+            for stat in key_stats[:4]:  # Limit to 4 key stats
+                wrap_up_list.addItem(f"   • {stat}")
+        
+        # If no content was added, show message
+        if wrap_up_list.count() == 0:
+            wrap_up_list.addItem("No wrap up content available for this game.")
+        
+        # Connect activation to handle clickable links
+        def open_wrap_up_item(item):
+            item_data = item.data(Qt.ItemDataRole.UserRole)
+            if item_data and item_data.get('type') == 'link':
+                url = item_data.get('url', '')
+                if url.startswith(("http://", "https://")):
+                    try:
+                        webbrowser.open(url)
+                    except Exception as e:
+                        QMessageBox.warning(None, "Browser Error", f"Could not open browser: {str(e)}")
+                else:
+                    QMessageBox.warning(None, "Invalid URL", "The URL for this article is invalid.")
+        
+        wrap_up_list.itemActivated.connect(open_wrap_up_item)
+        wrap_up_list.itemDoubleClicked.connect(open_wrap_up_item)
+        
+        layout.addWidget(wrap_up_list)
     
     def keyPressEvent(self, event):
         """Handle key press events, but let dialog handle Escape when in modal context"""
