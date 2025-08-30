@@ -1089,8 +1089,23 @@ def extract_top_performers(leaders):
     """Extract top performers from leaders data"""
     performers = []
     
-    if isinstance(leaders, dict):
-        # Handle different leaders data structures
+    if isinstance(leaders, list):
+        # Handle ESPN format where leaders is a list of teams
+        for team_data in leaders:
+            if isinstance(team_data, dict) and 'leaders' in team_data:
+                team_leaders = team_data['leaders']
+                team_info = team_data.get('team', {})
+                team_name = team_info.get('abbreviation', team_info.get('displayName', 'Team'))
+                
+                for category, leader_data in team_leaders.items():
+                    if isinstance(leader_data, dict):
+                        athlete = leader_data.get('athlete', {})
+                        name = athlete.get('displayName', athlete.get('name', 'Unknown'))
+                        value = leader_data.get('displayValue', leader_data.get('value', ''))
+                        if name != 'Unknown' and value:
+                            performers.append(f"{name} ({team_name}): {value} {category}")
+    elif isinstance(leaders, dict):
+        # Handle simple dict format or nested format
         for category, leader_data in leaders.items():
             if isinstance(leader_data, list):
                 for leader in leader_data[:3]:  # Top 3 per category
@@ -1098,12 +1113,14 @@ def extract_top_performers(leaders):
                         athlete = leader.get('athlete', {})
                         name = athlete.get('displayName', athlete.get('name', 'Unknown'))
                         value = leader.get('displayValue', leader.get('value', ''))
-                        performers.append(f"{name}: {value} {category}")
+                        if name != 'Unknown' and value:
+                            performers.append(f"{name}: {value} {category}")
             elif isinstance(leader_data, dict):
                 athlete = leader_data.get('athlete', {})
                 name = athlete.get('displayName', athlete.get('name', 'Unknown'))
                 value = leader_data.get('displayValue', leader_data.get('value', ''))
-                performers.append(f"{name}: {value} {category}")
+                if name != 'Unknown' and value:
+                    performers.append(f"{name}: {value} {category}")
     
     return performers[:6]  # Max 6 performers for readability
 
