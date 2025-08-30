@@ -1761,12 +1761,19 @@ class GameDetailsView(BaseView):
     
     def _add_configurable_details(self, raw_details: Dict):
         """Add all available detail fields (no longer configurable - show everything)"""
+        import os
+        debug_mode = os.environ.get('SCORES_DEBUG_WRAPUP', '').lower() in ['1', 'true', 'yes']
+        
         # Show all available detail fields - be more permissive than before
         all_available_fields = []
         
         # Include ALL detail fields that have any data (even empty lists/dicts) 
         for field in DETAIL_FIELDS:
             value = raw_details.get(field)
+            if debug_mode and field == "wrapup":
+                print(f"WRAPUP DEBUG: UI checking field '{field}' - value exists: {value is not None}")
+                if value is not None:
+                    print(f"WRAPUP DEBUG: Wrapup field found with value: {value}")
             if value is not None:  # Include if field exists, even if empty
                 all_available_fields.append(field)
         
@@ -1822,6 +1829,9 @@ class GameDetailsView(BaseView):
     
     def _check_field_has_data(self, field: str, value: Any) -> bool:
         """Check if a field has navigable data"""
+        import os
+        debug_mode = os.environ.get('SCORES_DEBUG_WRAPUP', '').lower() in ['1', 'true', 'yes']
+        
         if field == "standings" and isinstance(value, (list, dict)):
             if isinstance(value, list):
                 return len(value) > 0
@@ -1853,7 +1863,10 @@ class GameDetailsView(BaseView):
         elif field == "news" and isinstance(value, (list, dict)):
             return len(value) > 0 if isinstance(value, list) else bool(value.get("articles"))
         elif field == "wrapup" and isinstance(value, dict):
-            return bool(value.get("article") or value.get("key_performers") or value.get("key_stats"))
+            has_data = bool(value.get("article") or value.get("key_performers") or value.get("key_stats"))
+            if debug_mode:
+                print(f"WRAPUP DEBUG: UI checking wrapup field data - has_data: {has_data}, keys: {list(value.keys())}")
+            return has_data
         return False
     
     def refresh(self):

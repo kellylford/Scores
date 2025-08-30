@@ -1054,15 +1054,36 @@ def extract_meaningful_game_info(details):
 def create_wrap_up_data(details):
     """Create wrap up summary for finished games only"""
     
+    # Check for debug mode
+    import os
+    debug_mode = os.environ.get('SCORES_DEBUG_WRAPUP', '').lower() in ['1', 'true', 'yes']
+    
     # Only show wrap up for completed games
     status = details.get('header', {}).get('competitions', [{}])[0].get('status', {})
-    if status.get('type', {}).get('description') != 'Final':
+    status_desc = status.get('type', {}).get('description', '').lower()
+    status_state = status.get('type', {}).get('state', '').lower()
+    
+    if debug_mode:
+        print(f"WRAPUP DEBUG: Game status - description: '{status.get('type', {}).get('description', '')}', state: '{status.get('type', {}).get('state', '')}'")
+    
+    # More flexible check for completed games
+    completed_indicators = ['final', 'completed', 'game over', 'finished']
+    is_completed = any(indicator in status_desc for indicator in completed_indicators) or status_state == 'post'
+    
+    if not is_completed:
+        if debug_mode:
+            print(f"WRAPUP DEBUG: Game not completed, skipping wrap up. Status: '{status_desc}', State: '{status_state}'")
         return None
+    
+    if debug_mode:
+        print("WRAPUP DEBUG: Game is completed, creating wrap up data...")
     
     wrap_up = {}
     
     # Priority 1: ESPN Article (best source)
     article = details.get('article')
+    if debug_mode:
+        print(f"WRAPUP DEBUG: Article data available: {article is not None}")
     if article:
         wrap_up['article'] = {
             'headline': article.get('headline', ''),
@@ -1071,16 +1092,53 @@ def create_wrap_up_data(details):
             'web_link': article.get('links', {}).get('web', {}).get('href', ''),
             'type': article.get('type', 'recap')
         }
+        if debug_mode:
+            print(f"WRAPUP DEBUG: Article added - headline: '{wrap_up['article']['headline']}'")
     
     # Priority 2: Game Leaders
     leaders = details.get('leaders', {})
+    if debug_mode:
+        print(f"WRAPUP DEBUG: Leaders data available: {leaders is not None}, type: {type(leaders)}")
+        if leaders:
+            print(f"WRAPUP DEBUG: Leaders structure: {list(leaders.keys()) if isinstance(leaders, dict) else f'List with {len(leaders)} items'}")
     if leaders:
-        wrap_up['key_performers'] = extract_top_performers(leaders)
+        try:
+            performers = extract_top_performers(leaders)
+            if performers:
+                wrap_up['key_performers'] = performers
+                if debug_mode:
+                    print(f"WRAPUP DEBUG: Key performers added: {len(performers)} performers")
+                    for p in performers[:3]:  # Show first 3
+                        print(f"WRAPUP DEBUG:   - {p}")
+            else:
+                if debug_mode:
+                    print("WRAPUP DEBUG: No performers extracted from leaders data")
+        except Exception as e:
+            if debug_mode:
+                print(f"WRAPUP DEBUG: Error extracting performers: {e}")
     
     # Priority 3: Key Stats Summary  
     boxscore = details.get('boxscore')
+    if debug_mode:
+        print(f"WRAPUP DEBUG: Boxscore data available: {boxscore is not None}, type: {type(boxscore)}")
     if boxscore:
-        wrap_up['key_stats'] = extract_game_defining_stats(boxscore)
+        try:
+            stats = extract_game_defining_stats(boxscore)
+            if stats:
+                wrap_up['key_stats'] = stats
+                if debug_mode:
+                    print(f"WRAPUP DEBUG: Key stats added: {len(stats)} stats")
+                    for s in stats:
+                        print(f"WRAPUP DEBUG:   - {s}")
+            else:
+                if debug_mode:
+                    print("WRAPUP DEBUG: No stats extracted from boxscore data")
+        except Exception as e:
+            if debug_mode:
+                print(f"WRAPUP DEBUG: Error extracting stats: {e}")
+    
+    if debug_mode:
+        print(f"WRAPUP DEBUG: Final wrap up data keys: {list(wrap_up.keys())}")
     
     return wrap_up if wrap_up else None
 
@@ -1089,38 +1147,54 @@ def extract_top_performers(leaders):
     """Extract top performers from leaders data"""
     performers = []
     
-    if isinstance(leaders, list):
-        # Handle ESPN format where leaders is a list of teams
-        for team_data in leaders:
-            if isinstance(team_data, dict) and 'leaders' in team_data:
-                team_leaders = team_data['leaders']
-                team_info = team_data.get('team', {})
-                team_name = team_info.get('abbreviation', team_info.get('displayName', 'Team'))
-                
-                for category, leader_data in team_leaders.items():
-                    if isinstance(leader_data, dict):
-                        athlete = leader_data.get('athlete', {})
-                        name = athlete.get('displayName', athlete.get('name', 'Unknown'))
-                        value = leader_data.get('displayValue', leader_data.get('value', ''))
-                        if name != 'Unknown' and value:
-                            performers.append(f"{name} ({team_name}): {value} {category}")
-    elif isinstance(leaders, dict):
-        # Handle simple dict format or nested format
-        for category, leader_data in leaders.items():
-            if isinstance(leader_data, list):
-                for leader in leader_data[:3]:  # Top 3 per category
-                    if isinstance(leader, dict):
-                        athlete = leader.get('athlete', {})
-                        name = athlete.get('displayName', athlete.get('name', 'Unknown'))
-                        value = leader.get('displayValue', leader.get('value', ''))
-                        if name != 'Unknown' and value:
-                            performers.append(f"{name}: {value} {category}")
-            elif isinstance(leader_data, dict):
-                athlete = leader_data.get('athlete', {})
-                name = athlete.get('displayName', athlete.get('name', 'Unknown'))
-                value = leader_data.get('displayValue', leader_data.get('value', ''))
-                if name != 'Unknown' and value:
-                    performers.append(f"{name}: {value} {category}")
+    if not leaders:
+        return performers
+    
+    try:
+        if isinstance(leaders, list):
+            # Handle ESPN format where leaders is a list of teams
+            for team_data in leaders:
+                if isinstance(team_data, dict) and 'leaders' in team_data:
+                    team_leaders = team_data['leaders']
+                    team_info = team_data.get('team', {})
+                    team_name = team_info.get('abbreviation', team_info.get('displayName', 'Team'))
+                    
+                    for category, leader_data in team_leaders.items():
+                        if isinstance(leader_data, dict):
+                            athlete = leader_data.get('athlete', {})
+                            name = athlete.get('displayName', athlete.get('name', ''))
+                            value = leader_data.get('displayValue', leader_data.get('value', ''))
+                            if name and value:
+                                performers.append(f"{name} ({team_name}): {value} {category}")
+                        elif isinstance(leader_data, list):
+                            # Handle case where leader_data is a list of athletes
+                            for leader in leader_data[:1]:  # Just take the top performer per category
+                                if isinstance(leader, dict):
+                                    athlete = leader.get('athlete', {})
+                                    name = athlete.get('displayName', athlete.get('name', ''))
+                                    value = leader.get('displayValue', leader.get('value', ''))
+                                    if name and value:
+                                        performers.append(f"{name} ({team_name}): {value} {category}")
+        elif isinstance(leaders, dict):
+            # Handle simple dict format or nested format
+            for category, leader_data in leaders.items():
+                if isinstance(leader_data, list):
+                    for leader in leader_data[:3]:  # Top 3 per category
+                        if isinstance(leader, dict):
+                            athlete = leader.get('athlete', {})
+                            name = athlete.get('displayName', athlete.get('name', ''))
+                            value = leader.get('displayValue', leader.get('value', ''))
+                            if name and value:
+                                performers.append(f"{name}: {value} {category}")
+                elif isinstance(leader_data, dict):
+                    athlete = leader_data.get('athlete', {})
+                    name = athlete.get('displayName', athlete.get('name', ''))
+                    value = leader_data.get('displayValue', leader_data.get('value', ''))
+                    if name and value:
+                        performers.append(f"{name}: {value} {category}")
+    except Exception as e:
+        # Return what we have so far if there's an error
+        pass
     
     return performers[:6]  # Max 6 performers for readability
 
@@ -1129,7 +1203,10 @@ def extract_game_defining_stats(boxscore):
     """Extract key game-defining statistics"""
     stats = []
     
-    if isinstance(boxscore, dict):
+    if not boxscore or not isinstance(boxscore, dict):
+        return stats
+    
+    try:
         teams = boxscore.get('teams', [])
         if len(teams) >= 2:
             # Extract key team stats comparison
@@ -1148,13 +1225,30 @@ def extract_game_defining_stats(boxscore):
                 for i, stat1 in enumerate(team1_stats):
                     if i < len(team2_stats):
                         stat2 = team2_stats[i]
-                        stat_name = stat1.get('name', 'Stat')
+                        stat_name = stat1.get('name', f'Stat {i+1}')
                         val1 = stat1.get('displayValue', stat1.get('value', '0'))
                         val2 = stat2.get('displayValue', stat2.get('value', '0'))
-                        stats.append(f"{stat_name}: {team1_name} {val1}, {team2_name} {val2}")
+                        
+                        # Only include meaningful stats (skip empty or meaningless ones)
+                        if val1 and val2 and val1 != '0' and val2 != '0':
+                            stats.append(f"{stat_name}: {team1_name} {val1}, {team2_name} {val2}")
                         
                         if len(stats) >= 4:  # Limit to 4 key stats
                             break
+        elif len(teams) == 1:
+            # Single team stats (might be a different format)
+            team = teams[0]
+            team_name = team.get('team', {}).get('abbreviation', 'Team')
+            team_stats = team.get('statistics', [])
+            
+            for stat in team_stats[:4]:  # Show top 4 stats
+                stat_name = stat.get('name', 'Stat')
+                value = stat.get('displayValue', stat.get('value', ''))
+                if value and value != '0':
+                    stats.append(f"{team_name} {stat_name}: {value}")
+    except Exception as e:
+        # Return what we have so far if there's an error
+        pass
     
     return stats
 
