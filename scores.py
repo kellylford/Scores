@@ -5776,27 +5776,101 @@ class StandingsDialog(QDialog):
         self.resize(STANDINGS_DIALOG_WIDTH, STANDINGS_DIALOG_HEIGHT)
         self.tab_widget: QTabWidget | None = None
         self.single_table: StandingsTable | None = None
+        self.expanded_view = False
+        self.division_tables: List[StandingsTable] = []
         self.setup_ui()
     
     def setup_ui(self):
         layout = QVBoxLayout()
+        
+        # Add view toggle for supported sports
+        if self.league in ["MLB", "NFL", "NBA", "NHL"]:
+            view_layout = QHBoxLayout()
+            
+            # Create combo box for view selection
+            view_label = QLabel("View:")
+            self.view_combo = QComboBox()
+            self.view_combo.addItem("Basic View", 0)  # Basic = 0
+            self.view_combo.addItem("Expanded View", 1)  # Expanded = 1
+            self.view_combo.setCurrentIndex(0)  # Start with basic view
+            
+            # Set accessibility properties
+            self.view_combo.setAccessibleName("Standings view selector")
+            self.view_combo.setAccessibleDescription("Choose between basic standings (7 columns) or expanded standings with additional statistics")
+            
+            # Set minimum width for combo box
+            self.view_combo.setMinimumWidth(150)
+            
+            # Connect signal
+            self.view_combo.currentIndexChanged.connect(self._on_view_changed)
+            
+            view_layout.addWidget(view_label)
+            view_layout.addWidget(self.view_combo)
+            view_layout.addStretch()
+            
+            layout.addLayout(view_layout)
+        
         if not self.standings_data.teams:
             layout.addWidget(QLabel(f"No standings data available for {self.league}."))
         else:
             has_divisions = len(self.standings_data.divisions) > 1 or any(
                 d != "League" for d in self.standings_data.divisions
             )
-            if has_divisions and self.league in ["MLB", "NFL"]:
+            if has_divisions and self.league in ["MLB", "NFL", "NBA", "NHL"]:
                 self._build_division_tabs(layout)
             else:
                 self.single_table = self._create_single_standings_table(self.standings_data.teams)
                 layout.addWidget(QLabel(f"Current {self.league} Standings:"))
                 layout.addWidget(self.single_table)
                 self.single_table.setFocus()
+        
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.accept)
         layout.addWidget(close_btn)
         self.setLayout(layout)
+    
+    def _on_view_changed(self, index):
+        """Handle combo box selection change"""
+        expanded = index == 1  # 1 = expanded view
+        self._toggle_view(expanded)
+    
+    def _toggle_view(self, expanded: bool):
+        """Toggle between basic and expanded standings view"""
+        if self.expanded_view == expanded:
+            return
+            
+        self.expanded_view = expanded
+        
+        # Update tables
+        if self.single_table:
+            self.single_table.set_expanded_view(expanded)
+            self.single_table.populate_standings(self.standings_data.teams, set_focus=True)
+        
+        # Update division tables through tab widget
+        if self.tab_widget:
+            current_tab_index = self.tab_widget.currentIndex()
+            for i in range(self.tab_widget.count()):
+                widget = self.tab_widget.widget(i)
+                if hasattr(widget, 'table'):
+                    table = widget.table
+                    table.set_expanded_view(expanded)
+                    # Repopulate with the table's division data
+                    division_name = table.division_name
+                    if division_name in self.standings_data.divisions:
+                        # Set focus on the currently visible tab's table
+                        should_focus = (i == current_tab_index)
+                        table.populate_standings(self.standings_data.divisions[division_name], set_focus=should_focus)
+            
+            # Ensure focus is properly restored after toggle with a slight delay
+            from PyQt6.QtCore import QTimer
+            def restore_focus():
+                if current_tab_index < self.tab_widget.count():
+                    current_widget = self.tab_widget.widget(current_tab_index)
+                    if hasattr(current_widget, 'table'):
+                        current_widget.table.setFocus()
+                        current_widget.table.setCurrentCell(0, 0)
+            
+            QTimer.singleShot(50, restore_focus)
     
     def _build_division_tabs(self, layout: QVBoxLayout):
         self.tab_widget = QTabWidget()
@@ -5831,7 +5905,7 @@ class StandingsDialog(QDialog):
     def _create_division_table(self, division_name: str, teams: List[Dict]) -> QWidget:
         widget = QWidget()
         layout = QVBoxLayout()
-        table = StandingsTable(parent=self, division_name=division_name)
+        table = StandingsTable(parent=self, division_name=division_name, league=self.league, expanded=self.expanded_view)
         table.populate_standings(teams, set_focus=True)
         layout.addWidget(table)
         widget.setLayout(layout)
@@ -5839,7 +5913,7 @@ class StandingsDialog(QDialog):
         return widget
     
     def _create_single_standings_table(self, teams: List[Dict]) -> StandingsTable:
-        table = StandingsTable(parent=self)
+        table = StandingsTable(parent=self, league=self.league, expanded=self.expanded_view)
         table.populate_standings(teams, set_focus=True)
         return table
     

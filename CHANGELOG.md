@@ -5,6 +5,29 @@ All notable changes to the Scores application will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Expanded Standings Feature**: Toggle between basic and expanded standings views
+  - Basic View: Traditional 7-column standings (Position, Team, W, L, PCT, GB, Streak)
+  - Expanded View: Sport-specific additional columns with advanced statistics
+  - MLB Expanded: Runs For/Against, Run Differential, Home/Road Records, Playoff %, Magic Numbers
+  - NFL Expanded: Points For/Against, Point Differential, Division Record, Playoff Seed
+  - NBA Expanded: PPG, Opponent PPG, Point Differential, Division Win %, Playoff Seed
+  - NHL Expanded: Points, OT Losses, Goals For/Against, Goal Differential, Playoff Seed
+  - Toggle buttons in standings dialog for supported sports (MLB, NFL, NBA, NHL)
+
+### Enhanced
+- **News Articles**: Increased news article retrieval from 6 to 20 articles per league
+  - Added configurable limit parameter (max 50 articles available from ESPN)
+  - Better news coverage with more comprehensive headlines
+  - Maintains same user interface with enhanced content
+
+### Fixed  
+- **MLB Standings**: Fixed incorrect "American League" tab appearing alongside proper divisions
+  - Corrected Chicago White Sox abbreviation mapping (CHW vs CWS)
+  - Now displays exactly 6 division tabs as expected
+
 ## [0.54.0-preview] - 2025-08-27
 
 ### Added

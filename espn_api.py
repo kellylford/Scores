@@ -917,13 +917,19 @@ def get_scores(league_key, date=None, week=None):
         })
     return scores
 
-def get_news(league_key):
-    """Get news headlines and links for a specific league"""
+def get_news(league_key, limit=10):
+    """Get news headlines and links for a specific league
+    
+    Args:
+        league_key: The league to get news for (e.g., 'MLB', 'NFL')
+        limit: Maximum number of articles to retrieve (default: 10, ESPN default is 6)
+    """
     league_path = LEAGUES.get(league_key)
     if not league_path:
         return []
     url = f"{BASE_URL}/{league_path}/news"
-    resp = requests.get(url)
+    params = {'limit': limit} if limit > 6 else {}
+    resp = requests.get(url, params=params)
     if resp.status_code != 200:
         return []
     data = resp.json()
@@ -1396,6 +1402,8 @@ def get_standings(league_key):
         return _get_nfl_standings_fast()
     elif league_key == "NBA":
         return _get_nba_standings_fast()
+    elif league_key == "NHL":
+        return _get_nhl_standings_fast()
     elif league_key == "NCAAF":
         return _get_ncaaf_standings_fast()
     else:
@@ -1465,7 +1473,17 @@ def _get_mlb_standings_fast():
                     "games_back": "0.0",  # Will calculate after grouping
                     "division": division,
                     "streak": streak,
-                    "logo": team_info.get("logos", [{}])[0].get("href", "") if team_info.get("logos") else ""
+                    "logo": team_info.get("logos", [{}])[0].get("href", "") if team_info.get("logos") else "",
+                    # Expanded MLB data
+                    "runs_for": int(stats_dict.get('pointsFor', 0)),
+                    "runs_against": int(stats_dict.get('pointsAgainst', 0)),
+                    "run_differential": int(stats_dict.get('pointDifferential', 0)),
+                    "home_wins": int(stats_dict.get('homeWins', 0)),
+                    "home_losses": int(stats_dict.get('homeLosses', 0)),
+                    "road_wins": int(stats_dict.get('roadWins', 0)),
+                    "road_losses": int(stats_dict.get('roadLosses', 0)),
+                    "playoff_percent": float(stats_dict.get('playoffPercent', 0.0)),
+                    "magic_number": int(stats_dict.get('magicNumberDivision', 0)) if stats_dict.get('magicNumberDivision', 0) > 0 else None
                 }
                 
                 standings.append(team_data)
@@ -1511,7 +1529,7 @@ def _get_team_division(abbreviation, league_name):
         # American League East
         "BAL": "AL East", "BOS": "AL East", "NYY": "AL East", "TB": "AL East", "TOR": "AL East",
         # American League Central  
-        "CWS": "AL Central", "CLE": "AL Central", "DET": "AL Central", "KC": "AL Central", "MIN": "AL Central",
+        "CHW": "AL Central", "CLE": "AL Central", "DET": "AL Central", "KC": "AL Central", "MIN": "AL Central",
         # American League West
         "HOU": "AL West", "LAA": "AL West", "OAK": "AL West", "SEA": "AL West", "TEX": "AL West",
         # National League East
@@ -1606,7 +1624,14 @@ def _get_nfl_standings_fast():
                     "division": division,
                     "streak": "",  # Can be enhanced later
                     "logo": team_info.get("logos", [{}])[0].get("href", "") if team_info.get("logos") else "",
-                    "record_display": record_display
+                    "record_display": record_display,
+                    # Expanded NFL data
+                    "points_for": int(stats_dict.get('pointsFor', 0)),
+                    "points_against": int(stats_dict.get('pointsAgainst', 0)),
+                    "point_differential": int(stats_dict.get('pointDifferential', 0)),
+                    "division_wins": int(stats_dict.get('divisionWins', 0)),
+                    "division_losses": int(stats_dict.get('divisionLosses', 0)),
+                    "playoff_seed": int(stats_dict.get('playoffSeed', 0)) if stats_dict.get('playoffSeed', 0) > 0 else None
                 }
                 
                 standings.append(team_data)
@@ -1724,7 +1749,14 @@ def _get_nba_standings_fast():
                     "games_back": "0.0",
                     "division": division,
                     "streak": "",
-                    "logo": team_info.get("logos", [{}])[0].get("href", "") if team_info.get("logos") else ""
+                    "logo": team_info.get("logos", [{}])[0].get("href", "") if team_info.get("logos") else "",
+                    # Expanded NBA data
+                    "avg_points_for": float(stats_dict.get('avgPointsFor', 0.0)),
+                    "avg_points_against": float(stats_dict.get('avgPointsAgainst', 0.0)),
+                    "point_differential": int(stats_dict.get('pointDifferential', 0)),
+                    "division_win_percent": float(stats_dict.get('divisionWinPercent', 0.0)),
+                    "playoff_seed": int(stats_dict.get('playoffSeed', 0)) if stats_dict.get('playoffSeed', 0) > 0 else None,
+                    "clinch_status": int(stats_dict.get('clincher', 0)) if stats_dict.get('clincher', 0) > 0 else None
                 }
                 
                 standings.append(team_data)
@@ -1842,6 +1874,119 @@ def _get_nba_fresh_standings():
     except Exception as e:
         print(f"Error in fresh NBA standings: {e}")
         return []
+
+def _get_nhl_standings_fast():
+    """Fast NHL standings using dedicated endpoint"""
+    try:
+        url = "https://site.api.espn.com/apis/v2/sports/hockey/nhl/standings"
+        resp = requests.get(url)
+        
+        if resp.status_code != 200:
+            return []
+        
+        data = resp.json()
+        standings = []
+        
+        # NHL divisions mapping
+        nhl_divisions = {
+            # Eastern Conference - Atlantic
+            "BOS": "Atlantic", "BUF": "Atlantic", "DET": "Atlantic", "FLA": "Atlantic", 
+            "MTL": "Atlantic", "OTT": "Atlantic", "TB": "Atlantic", "TOR": "Atlantic",
+            # Eastern Conference - Metropolitan  
+            "CAR": "Metropolitan", "CBJ": "Metropolitan", "NJ": "Metropolitan", "NYI": "Metropolitan",
+            "NYR": "Metropolitan", "PHI": "Metropolitan", "PIT": "Metropolitan", "WSH": "Metropolitan",
+            # Western Conference - Central
+            "ARI": "Central", "CHI": "Central", "COL": "Central", "DAL": "Central",
+            "MIN": "Central", "NSH": "Central", "STL": "Central", "WPG": "Central",
+            # Western Conference - Pacific
+            "ANA": "Pacific", "CGY": "Pacific", "EDM": "Pacific", "LA": "Pacific",
+            "SJ": "Pacific", "SEA": "Pacific", "VAN": "Pacific", "VGK": "Pacific"
+        }
+        
+        # Process each conference
+        division_teams = {}
+        for conference in data.get('children', []):
+            conf_name = conference.get('name', '')
+            conf_standings = conference.get('standings', {})
+            entries = conf_standings.get('entries', [])
+            
+            for entry in entries:
+                team_info = entry.get('team', {})
+                stats = entry.get('stats', [])
+                
+                # Create stats lookup
+                stats_dict = {}
+                for stat in stats:
+                    stats_dict[stat.get('name', '')] = stat.get('value', 0)
+                
+                # Extract team data
+                team_name = team_info.get('displayName', 'Unknown')
+                team_id = str(team_info.get('id', ''))
+                abbreviation = team_info.get('abbreviation', '')
+                
+                # Get wins/losses from stats
+                wins = int(stats_dict.get('wins', 0))
+                losses = int(stats_dict.get('losses', 0))
+                ot_losses = int(stats_dict.get('otLosses', 0))
+                points = int(stats_dict.get('points', 0))
+                
+                # NHL uses points, not win percentage
+                games_played = wins + losses + ot_losses
+                point_pct = points / (games_played * 2) if games_played > 0 else 0.0
+                
+                # Get division with conference prefix
+                base_division = nhl_divisions.get(abbreviation, "Unknown")
+                division = f"{conf_name} {base_division}" if base_division != "Unknown" else conf_name
+                
+                team_data = {
+                    "team_name": team_name,
+                    "team_id": team_id,
+                    "abbreviation": abbreviation,
+                    "wins": wins,
+                    "losses": losses,
+                    "win_percentage": f"{point_pct:.3f}",
+                    "games_back": "0.0",
+                    "division": division,
+                    "streak": "",
+                    "logo": team_info.get("logos", [{}])[0].get("href", "") if team_info.get("logos") else "",
+                    # Expanded NHL data
+                    "points": points,
+                    "ot_losses": ot_losses,
+                    "goals_for": int(stats_dict.get('pointsFor', 0)),
+                    "goals_against": int(stats_dict.get('pointsAgainst', 0)),
+                    "goal_differential": int(stats_dict.get('pointDifferential', 0)),
+                    "playoff_seed": int(stats_dict.get('playoffSeed', 0)) if stats_dict.get('playoffSeed', 0) > 0 else None
+                }
+                
+                standings.append(team_data)
+                
+                if division not in division_teams:
+                    division_teams[division] = []
+                division_teams[division].append(team_data)
+        
+        # Calculate games back for each division (based on points)
+        for division, teams in division_teams.items():
+            teams.sort(key=lambda x: (-x["points"], -x["wins"]))
+            
+            if teams:
+                leader = teams[0]
+                leader_points = leader["points"]
+                
+                for i, team in enumerate(teams):
+                    if i == 0:
+                        team["games_back"] = "—"
+                    else:
+                        points_back = (leader_points - team["points"]) / 2.0
+                        team["games_back"] = f"{points_back:.1f}" if points_back > 0 else "0.0"
+        
+        # Sort final standings by division, then by points
+        standings.sort(key=lambda x: (x["division"], -x["points"], -x["wins"]))
+        
+        return standings
+        
+    except Exception as e:
+        print(f"Error in NHL standings: {e}")
+        return _get_standings_original("NHL")
 
 def _get_ncaaf_standings_fast():
     """Fast NCAAF standings using dedicated endpoint"""
