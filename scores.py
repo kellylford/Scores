@@ -4834,7 +4834,7 @@ class GameDetailsView(BaseView):
         # Create the main list widget
         wrap_up_list = QListWidget()
         wrap_up_list.setAccessibleName("Game Wrap Up Summary")
-        wrap_up_list.setAccessibleDescription("Post-game summary with key highlights and performances. Use arrow keys to navigate, Enter to open links or view full article.")
+        wrap_up_list.setAccessibleDescription("Post-game summary with key highlights and performances. Article content is available in full - use arrow keys to navigate, Enter to access full articles or open links.")
         
         # Add header
         layout.addWidget(QLabel("🏆 GAME WRAP UP"))
@@ -4850,8 +4850,13 @@ class GameDetailsView(BaseView):
             if headline:
                 wrap_up_list.addItem("📰 Game Recap")
                 
-                # Add headline as clickable item with both full article and web link access
-                headline_item = QListWidgetItem(f"   {headline}")
+                # Add headline as clickable item with clear indication of interactivity
+                has_full_content = story and len(story) > 100
+                headline_display = headline
+                if has_full_content or web_link:
+                    headline_display += " (Press Enter for options)"
+                
+                headline_item = QListWidgetItem(f"   {headline_display}")
                 headline_item.setData(Qt.ItemDataRole.UserRole, {
                     'type': 'article',
                     'headline': headline,
@@ -4859,13 +4864,31 @@ class GameDetailsView(BaseView):
                     'story': story,
                     'web_link': web_link
                 })
-                headline_item.setToolTip("Press Enter to view full article or open in browser")
+                
+                tooltip_parts = []
+                if has_full_content:
+                    tooltip_parts.append("view full article")
+                if web_link:
+                    tooltip_parts.append("open in browser")
+                if tooltip_parts:
+                    headline_item.setToolTip(f"Press Enter to {' or '.join(tooltip_parts)}")
+                
                 wrap_up_list.addItem(headline_item)
                 
-                # Add summary if available
+                # Add summary if available - properly truncated with full article access
                 if summary:
-                    summary_item = QListWidgetItem(f"   {summary}")
-                    if story and story != summary:  # Only add full article access if story is different
+                    # Truncate summary to prevent list widget display issues
+                    max_summary_length = 100
+                    display_summary = summary
+                    has_full_article = story and story != summary and len(story) > len(summary)
+                    
+                    if len(display_summary) > max_summary_length or has_full_article:
+                        display_summary = display_summary[:max_summary_length].rsplit(' ', 1)[0] + "..."
+                        if has_full_article:
+                            display_summary += " (Press Enter for full article)"
+                    
+                    summary_item = QListWidgetItem(f"   {display_summary}")
+                    if has_full_article:
                         summary_item.setData(Qt.ItemDataRole.UserRole, {
                             'type': 'article_summary',
                             'headline': headline,
