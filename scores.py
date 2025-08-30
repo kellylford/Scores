@@ -4826,20 +4826,19 @@ class GameDetailsView(BaseView):
         layout.addWidget(news_list)
     
     def _add_wrap_up_data_to_layout(self, layout, data):
-        """Add wrap up data to layout using accessible QListWidget"""
+        """Add wrap up data to layout with enhanced screen reader accessibility"""
         if not data:
             layout.addWidget(QLabel("No wrap up data available."))
             return
         
-        # Create the main list widget
-        wrap_up_list = QListWidget()
-        wrap_up_list.setAccessibleName("Game Wrap Up Summary")
-        wrap_up_list.setAccessibleDescription("Post-game summary with key highlights and performances. Article content is available in full - use arrow keys to navigate, Enter to access full articles or open links.")
+        # Add main header with proper semantic structure
+        main_header = QLabel("🏆 GAME WRAP UP")
+        main_header.setAccessibleName("Game Wrap Up Section")
+        main_header.setAccessibleDescription("Post-game summary with ESPN articles, key performers, and game statistics")
+        main_header.setStyleSheet("font-weight: bold; font-size: 16px; margin-bottom: 10px;")
+        layout.addWidget(main_header)
         
-        # Add header
-        layout.addWidget(QLabel("🏆 GAME WRAP UP"))
-        
-        # Priority 1: ESPN Article section
+        # Priority 1: ESPN Article section with enhanced accessibility
         article_data = data.get('article')
         if article_data:
             headline = article_data.get('headline', '')
@@ -4847,143 +4846,120 @@ class GameDetailsView(BaseView):
             story = article_data.get('story', '')
             web_link = article_data.get('web_link', '')
             
-            if headline:
-                wrap_up_list.addItem("📰 Game Recap")
+            if headline or summary or story:
+                # Create article section header
+                article_header = QLabel("📰 Game Recap")
+                article_header.setAccessibleName("ESPN Article Section")
+                article_header.setAccessibleDescription("Professional game recap from ESPN")
+                article_header.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 10px; margin-bottom: 5px;")
+                layout.addWidget(article_header)
                 
-                # Add headline as clickable item with clear indication of interactivity
-                has_full_content = story and len(story) > 100
-                headline_display = headline
-                if has_full_content or web_link:
-                    headline_display += " (Press Enter for options)"
+                # Create article content area with proper text widget for screen readers
+                if headline:
+                    headline_widget = QTextEdit()
+                    headline_widget.setPlainText(headline)
+                    headline_widget.setReadOnly(True)
+                    headline_widget.setMaximumHeight(60)  # Limit height for headline
+                    headline_widget.setAccessibleName("Article Headline")
+                    headline_widget.setAccessibleDescription("ESPN article headline. Press Tab to navigate to article content.")
+                    headline_widget.setStyleSheet("font-weight: bold; background-color: transparent; border: 1px solid #ccc; padding: 5px;")
+                    layout.addWidget(headline_widget)
                 
-                headline_item = QListWidgetItem(f"   {headline_display}")
-                headline_item.setData(Qt.ItemDataRole.UserRole, {
-                    'type': 'article',
-                    'headline': headline,
-                    'summary': summary,
-                    'story': story,
-                    'web_link': web_link
-                })
-                
-                tooltip_parts = []
-                if has_full_content:
-                    tooltip_parts.append("view full article")
-                if web_link:
-                    tooltip_parts.append("open in browser")
-                if tooltip_parts:
-                    headline_item.setToolTip(f"Press Enter to {' or '.join(tooltip_parts)}")
-                
-                wrap_up_list.addItem(headline_item)
-                
-                # Add summary if available - properly truncated with full article access
-                if summary:
-                    # Truncate summary to prevent list widget display issues
-                    max_summary_length = 100
-                    display_summary = summary
-                    has_full_article = story and story != summary and len(story) > len(summary)
+                # Create scrollable article content area
+                if story and len(story) > 50:
+                    # Use QTextEdit for full article content - much better for screen readers
+                    article_content = QTextEdit()
                     
-                    if len(display_summary) > max_summary_length or has_full_article:
-                        display_summary = display_summary[:max_summary_length].rsplit(' ', 1)[0] + "..."
-                        if has_full_article:
-                            display_summary += " (Press Enter for full article)"
+                    # Format content with proper structure
+                    formatted_content = self._format_article_content_for_accessibility(headline, summary, story)
+                    article_content.setPlainText(formatted_content)
+                    article_content.setReadOnly(True)
+                    article_content.setMaximumHeight(200)  # Reasonable height for preview
+                    article_content.setAccessibleName("ESPN Article Content")
+                    article_content.setAccessibleDescription("Complete ESPN article text. Use arrow keys, Page Up/Down, or Ctrl+Home/End to navigate. Screen readers can read all content.")
+                    article_content.setStyleSheet("border: 1px solid #ccc; padding: 10px; background-color: #f9f9f9;")
+                    layout.addWidget(article_content)
                     
-                    summary_item = QListWidgetItem(f"   {display_summary}")
-                    if has_full_article:
-                        summary_item.setData(Qt.ItemDataRole.UserRole, {
-                            'type': 'article_summary',
-                            'headline': headline,
-                            'story': story
-                        })
-                        summary_item.setToolTip("Press Enter to view full article")
-                    wrap_up_list.addItem(summary_item)
+                    # Add view full article button for enhanced accessibility
+                    if len(story) > 300:  # Only show button for longer articles
+                        full_article_btn = QPushButton("View Full Article in Dedicated Window")
+                        full_article_btn.setAccessibleName("Open Full Article")
+                        full_article_btn.setAccessibleDescription("Opens the complete ESPN article in a larger, dedicated window for easier reading")
+                        full_article_btn.clicked.connect(lambda: self._show_enhanced_article_dialog(headline, story, web_link))
+                        layout.addWidget(full_article_btn)
+                        
+                elif summary:
+                    # For shorter content, display summary with option to view full if available
+                    summary_content = QTextEdit()
+                    summary_content.setPlainText(summary)
+                    summary_content.setReadOnly(True)
+                    summary_content.setMaximumHeight(100)
+                    summary_content.setAccessibleName("Article Summary")
+                    summary_content.setAccessibleDescription("ESPN article summary. Complete content available.")
+                    summary_content.setStyleSheet("border: 1px solid #ccc; padding: 10px; background-color: #f9f9f9;")
+                    layout.addWidget(summary_content)
+                    
+                    if story and story != summary:
+                        full_article_btn = QPushButton("Read Complete Article")
+                        full_article_btn.setAccessibleName("Read Full Article")
+                        full_article_btn.setAccessibleDescription("Opens the complete ESPN article text")
+                        full_article_btn.clicked.connect(lambda: self._show_enhanced_article_dialog(headline, story, web_link))
+                        layout.addWidget(full_article_btn)
+                
+                # Add web link button if available
+                if web_link and web_link.startswith(("http://", "https://")):
+                    web_btn = QPushButton("Open Article on ESPN.com")
+                    web_btn.setAccessibleName("Open ESPN Link")
+                    web_btn.setAccessibleDescription("Opens the article on ESPN website in your default browser")
+                    web_btn.clicked.connect(lambda: self._open_url_safely(web_link))
+                    layout.addWidget(web_btn)
         
-        # Priority 2: Key performers section
+        # Priority 2: Key performers section with enhanced structure
         key_performers = data.get('key_performers', [])
         if key_performers:
-            wrap_up_list.addItem("⭐ Key Performers")
-            for performer in key_performers[:6]:  # Limit to 6 for readability
-                wrap_up_list.addItem(f"   • {performer}")
+            performers_header = QLabel("⭐ Key Performers")
+            performers_header.setAccessibleName("Key Performers Section")
+            performers_header.setAccessibleDescription("Top players and their standout statistics from the game")
+            performers_header.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 15px; margin-bottom: 5px;")
+            layout.addWidget(performers_header)
+            
+            # Create text widget for better screen reader navigation
+            performers_content = QTextEdit()
+            performers_text = "\n".join([f"• {performer}" for performer in key_performers[:6]])
+            performers_content.setPlainText(performers_text)
+            performers_content.setReadOnly(True)
+            performers_content.setMaximumHeight(120)
+            performers_content.setAccessibleName("Key Performers List")
+            performers_content.setAccessibleDescription("List of top performing players with their key statistics. Use arrow keys to navigate through performers.")
+            performers_content.setStyleSheet("border: 1px solid #ccc; padding: 10px; background-color: #f0f8ff;")
+            layout.addWidget(performers_content)
         
-        # Priority 3: Key stats section
+        # Priority 3: Key stats section with enhanced structure
         key_stats = data.get('key_stats', [])
         if key_stats:
-            wrap_up_list.addItem("📊 Game Summary")
-            for stat in key_stats[:4]:  # Limit to 4 key stats
-                wrap_up_list.addItem(f"   • {stat}")
+            stats_header = QLabel("📊 Game Summary")
+            stats_header.setAccessibleName("Game Statistics Section") 
+            stats_header.setAccessibleDescription("Key team statistics and game metrics comparison")
+            stats_header.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 15px; margin-bottom: 5px;")
+            layout.addWidget(stats_header)
+            
+            # Create text widget for better screen reader navigation
+            stats_content = QTextEdit()
+            stats_text = "\n".join([f"• {stat}" for stat in key_stats[:6]])
+            stats_content.setPlainText(stats_text)
+            stats_content.setReadOnly(True)
+            stats_content.setMaximumHeight(120)
+            stats_content.setAccessibleName("Game Statistics")
+            stats_content.setAccessibleDescription("Key game statistics comparing both teams. Use arrow keys to navigate through different statistical categories.")
+            stats_content.setStyleSheet("border: 1px solid #ccc; padding: 10px; background-color: #f0f8f0;")
+            layout.addWidget(stats_content)
         
-        # If no content was added, show message
-        if wrap_up_list.count() == 0:
-            wrap_up_list.addItem("No wrap up content available for this game.")
-        
-        # Connect activation to handle clickable links and full article viewing
-        def open_wrap_up_item(item):
-            item_data = item.data(Qt.ItemDataRole.UserRole)
-            if item_data:
-                item_type = item_data.get('type')
-                
-                if item_type == 'article':
-                    # Show options for full article view or web link
-                    headline = item_data.get('headline', 'Article')
-                    story = item_data.get('story', '')
-                    web_link = item_data.get('web_link', '')
-                    
-                    # Create a dialog to show options
-                    from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTextEdit, QPushButton, QHBoxLayout, QLabel
-                    
-                    dialog = QDialog()
-                    dialog.setWindowTitle(f"Game Recap - {headline}")
-                    dialog.setModal(True)
-                    dialog.resize(600, 400)
-                    
-                    layout = QVBoxLayout()
-                    
-                    # Add headline
-                    headline_label = QLabel(headline)
-                    headline_label.setWordWrap(True)
-                    headline_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-bottom: 10px;")
-                    layout.addWidget(headline_label)
-                    
-                    # Add full article text in scrollable area
-                    if story:
-                        story_text = QTextEdit()
-                        story_text.setPlainText(story)
-                        story_text.setReadOnly(True)
-                        story_text.setAccessibleName("Full article text")
-                        story_text.setAccessibleDescription("Complete article content. Use arrow keys or Page Up/Down to scroll.")
-                        layout.addWidget(story_text)
-                    else:
-                        layout.addWidget(QLabel("Full article text not available."))
-                    
-                    # Add buttons
-                    button_layout = QHBoxLayout()
-                    
-                    if web_link and web_link.startswith(("http://", "https://")):
-                        web_btn = QPushButton("Open in Browser")
-                        web_btn.clicked.connect(lambda: self._open_url_safely(web_link))
-                        button_layout.addWidget(web_btn)
-                    
-                    close_btn = QPushButton("Close")
-                    close_btn.clicked.connect(dialog.close)
-                    button_layout.addWidget(close_btn)
-                    
-                    layout.addLayout(button_layout)
-                    dialog.setLayout(layout)
-                    dialog.exec()
-                    
-                elif item_type == 'article_summary':
-                    # Show full article from summary click
-                    headline = item_data.get('headline', 'Article')
-                    story = item_data.get('story', '')
-                    
-                    if story:
-                        self._show_full_article_dialog(headline, story)
-                    else:
-                        QMessageBox.information(None, "No Full Article", "Full article text is not available.")
-        
-        wrap_up_list.itemActivated.connect(open_wrap_up_item)
-        wrap_up_list.itemDoubleClicked.connect(open_wrap_up_item)
-        
-        layout.addWidget(wrap_up_list)
+        # If no content was added, show accessible message
+        if not any([article_data.get('headline'), article_data.get('summary'), article_data.get('story'), key_performers, key_stats]):
+            no_content_label = QLabel("No wrap up content available for this game.")
+            no_content_label.setAccessibleName("No Content Available")
+            no_content_label.setAccessibleDescription("Game wrap up data is not available for this game")
+            layout.addWidget(no_content_label)
     
     def _open_url_safely(self, url):
         """Safely open URL in browser with error handling"""
@@ -4992,38 +4968,104 @@ class GameDetailsView(BaseView):
         except Exception as e:
             QMessageBox.warning(None, "Browser Error", f"Could not open browser: {str(e)}")
     
-    def _show_full_article_dialog(self, headline, story):
-        """Show full article in a dedicated dialog"""
-        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTextEdit, QPushButton, QLabel
+    def _format_article_content_for_accessibility(self, headline, summary, story):
+        """Format article content with proper structure for screen readers"""
+        formatted_content = ""
+        
+        if headline:
+            formatted_content += f"HEADLINE: {headline}\n\n"
+        
+        if summary and summary != story:
+            formatted_content += f"SUMMARY: {summary}\n\n"
+        
+        if story:
+            formatted_content += f"FULL ARTICLE:\n{story}"
+        
+        return formatted_content
+    
+    def _show_enhanced_article_dialog(self, headline, story, web_link=None):
+        """Show enhanced article dialog with improved screen reader accessibility"""
+        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTextEdit, QPushButton, QHBoxLayout, QLabel
         
         dialog = QDialog()
-        dialog.setWindowTitle(f"Full Article - {headline}")
+        dialog.setWindowTitle(f"ESPN Article - {headline}")
         dialog.setModal(True)
-        dialog.resize(600, 400)
+        dialog.resize(800, 600)  # Larger size for better readability
+        
+        # Set dialog accessibility properties
+        dialog.setAccessibleName("ESPN Article Dialog")
+        dialog.setAccessibleDescription("Complete ESPN article in a dedicated window with enhanced readability")
         
         layout = QVBoxLayout()
         
-        # Add headline
-        headline_label = QLabel(headline)
-        headline_label.setWordWrap(True)
-        headline_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-bottom: 10px;")
-        layout.addWidget(headline_label)
+        # Add section header
+        header_label = QLabel("ESPN Game Article")
+        header_label.setAccessibleName("Article Section Header")
+        header_label.setAccessibleDescription("ESPN article content section")
+        header_label.setStyleSheet("font-weight: bold; font-size: 16px; margin-bottom: 10px; padding: 5px; background-color: #e6f3ff;")
+        layout.addWidget(header_label)
         
-        # Add full article text in scrollable area
-        story_text = QTextEdit()
-        story_text.setPlainText(story)
-        story_text.setReadOnly(True)
-        story_text.setAccessibleName("Full article text")
-        story_text.setAccessibleDescription("Complete article content. Use arrow keys or Page Up/Down to scroll.")
-        layout.addWidget(story_text)
+        # Add headline with proper accessibility
+        if headline:
+            headline_label = QLabel(headline)
+            headline_label.setWordWrap(True)
+            headline_label.setAccessibleName("Article Headline")
+            headline_label.setAccessibleDescription("Main headline of the ESPN article")
+            headline_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-bottom: 15px; padding: 10px; border: 1px solid #ccc; background-color: #f0f8ff;")
+            layout.addWidget(headline_label)
         
-        # Add close button
-        close_btn = QPushButton("Close")
+        # Add article content with enhanced accessibility
+        if story:
+            # Format content with proper structure
+            formatted_content = self._format_article_content_for_accessibility(headline, None, story)
+            
+            story_text = QTextEdit()
+            story_text.setPlainText(story)  # Use original story content
+            story_text.setReadOnly(True)
+            story_text.setAccessibleName("Complete Article Text")
+            story_text.setAccessibleDescription("Full ESPN article content. Use arrow keys, Page Up/Down, Ctrl+Home/End to navigate. Screen readers can read all content sequentially.")
+            story_text.setStyleSheet("font-size: 12px; line-height: 1.5; padding: 15px; background-color: #ffffff; border: 2px solid #ddd;")
+            
+            # Set focus to the text area for immediate screen reader access
+            story_text.setFocus()
+            
+            layout.addWidget(story_text)
+        else:
+            no_content_label = QLabel("Full article content is not available.")
+            no_content_label.setAccessibleName("No Content Message")
+            no_content_label.setAccessibleDescription("Article content unavailable")
+            layout.addWidget(no_content_label)
+        
+        # Add button section with clear accessibility
+        button_layout = QHBoxLayout()
+        
+        if web_link and web_link.startswith(("http://", "https://")):
+            web_btn = QPushButton("Open Original Article on ESPN.com")
+            web_btn.setAccessibleName("Open ESPN Website")
+            web_btn.setAccessibleDescription("Opens the original article on ESPN website in your default browser")
+            web_btn.clicked.connect(lambda: self._open_url_safely(web_link))
+            button_layout.addWidget(web_btn)
+        
+        close_btn = QPushButton("Close Article")
+        close_btn.setAccessibleName("Close Dialog")
+        close_btn.setAccessibleDescription("Closes the article dialog and returns to game details")
         close_btn.clicked.connect(dialog.close)
-        layout.addWidget(close_btn)
+        button_layout.addWidget(close_btn)
         
+        layout.addLayout(button_layout)
         dialog.setLayout(layout)
+        
+        # Ensure proper focus management for screen readers
+        dialog.show()
+        if story:
+            # Give screen readers time to announce the dialog, then focus the content
+            QTimer.singleShot(100, lambda: story_text.setFocus())
+        
         dialog.exec()
+    
+    def _show_full_article_dialog(self, headline, story):
+        """Legacy method - redirect to enhanced version for consistency"""
+        self._show_enhanced_article_dialog(headline, story)
     
     def keyPressEvent(self, event):
         """Handle key press events, but let dialog handle Escape when in modal context"""
