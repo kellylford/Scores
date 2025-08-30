@@ -4940,7 +4940,7 @@ class StandingsDetailDialog(QDialog):
     def _restore_focus_to_tab(self, tab_index: int):
         """
         Restore focus to the first cell of the table in the specified tab.
-        Uses multiple techniques to ensure proper keyboard navigation and accessibility.
+        Uses simplified approach based on user feedback and AccessibleTable pattern.
         """
         def restore_focus():
             from PyQt6.QtWidgets import QApplication
@@ -4951,37 +4951,24 @@ class StandingsDetailDialog(QDialog):
                 
                 # Ensure we have data to work with
                 if table.rowCount() > 0 and table.columnCount() > 0:
-                    # Process any pending events first
+                    # Process pending events before setting focus (user suggestion)
                     QApplication.processEvents()
                     
-                    # Method 1: Set current cell first, then focus (matches AccessibleTable pattern)
-                    table.setCurrentCell(0, 0)
-                    table.setFocus()
-                    
-                    # Method 2: Use selection model for more robust selection
+                    # Use selection model approach instead of setCurrentCell (user suggestion)
                     selection_model = table.selectionModel()
                     if selection_model:
                         model_index = table.model().index(0, 0)
                         selection_model.setCurrentIndex(model_index, selection_model.SelectionFlag.ClearAndSelect)
                     
-                    # Method 3: Force focus policy and activate window
-                    table.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-                    table.activateWindow()
+                    # Set focus AFTER cell selection (user suggestion: focus after, not before)
+                    table.setFocus()
                     
-                    # Method 4: Additional accessibility trigger - scroll to ensure visibility
-                    table.scrollToItem(table.item(0, 0))
-                    
-                    # Method 5: Explicitly trigger accessibility events
-                    # Force screen reader announcement by updating cell accessibility
+                    # Manually trigger accessibility events (user suggestion)
                     if hasattr(table, '_update_cell_accessibility'):
                         table._update_cell_accessibility(0, 0)
-                    
-                    # Final focus assertion with longer processing time
-                    QApplication.processEvents()
-                    table.setFocus()
         
-        # Longer delay to ensure tab switch completes fully
-        QTimer.singleShot(50, restore_focus)
+        # Use longer delay to ensure tab switch completes
+        QTimer.singleShot(100, restore_focus)
 
 class KitchenSinkDialog(QDialog):
     """Dialog for displaying additional MLB data features not shown in main views"""
@@ -6001,7 +5988,7 @@ class StandingsDialog(QDialog):
     def _restore_focus_to_tab(self, tab_index: int):
         """
         Restore focus to the first cell of the table in the specified tab.
-        Uses multiple techniques to ensure proper keyboard navigation and accessibility.
+        Uses simplified approach based on user feedback and AccessibleTable pattern.
         """
         def restore_focus():
             from PyQt6.QtWidgets import QApplication
@@ -6012,37 +5999,24 @@ class StandingsDialog(QDialog):
                 
                 # Ensure we have data to work with
                 if table.rowCount() > 0 and table.columnCount() > 0:
-                    # Process any pending events first
+                    # Process pending events before setting focus (user suggestion)
                     QApplication.processEvents()
                     
-                    # Method 1: Set current cell first, then focus (matches AccessibleTable pattern)
-                    table.setCurrentCell(0, 0)
-                    table.setFocus()
-                    
-                    # Method 2: Use selection model for more robust selection
+                    # Use selection model approach instead of setCurrentCell (user suggestion)
                     selection_model = table.selectionModel()
                     if selection_model:
                         model_index = table.model().index(0, 0)
                         selection_model.setCurrentIndex(model_index, selection_model.SelectionFlag.ClearAndSelect)
                     
-                    # Method 3: Force focus policy and activate window
-                    table.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-                    table.activateWindow()
+                    # Set focus AFTER cell selection (user suggestion: focus after, not before)
+                    table.setFocus()
                     
-                    # Method 4: Additional accessibility trigger - scroll to ensure visibility
-                    table.scrollToItem(table.item(0, 0))
-                    
-                    # Method 5: Explicitly trigger accessibility events
-                    # Force screen reader announcement by updating cell accessibility
+                    # Manually trigger accessibility events (user suggestion)
                     if hasattr(table, '_update_cell_accessibility'):
                         table._update_cell_accessibility(0, 0)
-                    
-                    # Final focus assertion with longer processing time
-                    QApplication.processEvents()
-                    table.setFocus()
         
-        # Longer delay to ensure tab switch completes fully
-        QTimer.singleShot(50, restore_focus)
+        # Use longer delay to ensure tab switch completes
+        QTimer.singleShot(100, restore_focus)
 
 
 class StatisticsChoiceDialog(QDialog):
