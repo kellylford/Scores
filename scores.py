@@ -4928,18 +4928,31 @@ class StandingsDetailDialog(QDialog):
                 if event.key() == Qt.Key.Key_Tab:
                     i = (self.tab_widget.currentIndex() + 1) % self.tab_widget.count()
                     self.tab_widget.setCurrentIndex(i)
-                    w = self.tab_widget.widget(i)
-                    if hasattr(w, "table"):
-                        w.table.setFocus()  # type: ignore[attr-defined]
+                    self._restore_focus_to_tab(i)
                     event.accept(); return
                 if event.key() == Qt.Key.Key_Backtab:
                     i = (self.tab_widget.currentIndex() - 1) % self.tab_widget.count()
                     self.tab_widget.setCurrentIndex(i)
-                    w = self.tab_widget.widget(i)
-                    if hasattr(w, "table"):
-                        w.table.setFocus()  # type: ignore[attr-defined]
+                    self._restore_focus_to_tab(i)
                     event.accept(); return
         super().keyPressEvent(event)
+    
+    def _restore_focus_to_tab(self, tab_index: int):
+        """
+        Restore focus to the first cell of the table in the specified tab.
+        Uses QTimer to handle potential timing issues with tab switching.
+        """
+        def restore_focus():
+            current_widget = self.tab_widget.widget(tab_index)
+            if hasattr(current_widget, 'table'):
+                table = current_widget.table
+                table.setFocus()
+                # Explicitly select first cell to ensure proper keyboard navigation
+                if table.rowCount() > 0 and table.columnCount() > 0:
+                    table.setCurrentCell(0, 0)
+        
+        # Small delay to ensure tab switch completes before setting focus
+        QTimer.singleShot(10, restore_focus)
 
 class KitchenSinkDialog(QDialog):
     """Dialog for displaying additional MLB data features not shown in main views"""
