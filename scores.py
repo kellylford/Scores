@@ -4940,35 +4940,17 @@ class StandingsDetailDialog(QDialog):
     def _restore_focus_to_tab(self, tab_index: int):
         """
         Restore focus to the first cell of the table in the specified tab.
-        Uses simplified approach based on user feedback and AccessibleTable pattern.
+        Uses simple and reliable approach matching AccessibleTable patterns.
         """
         def restore_focus():
-            from PyQt6.QtWidgets import QApplication
-            
             current_widget = self.tab_widget.widget(tab_index)
             if hasattr(current_widget, 'table'):
                 table = current_widget.table
-                
-                # Ensure we have data to work with
                 if table.rowCount() > 0 and table.columnCount() > 0:
-                    # Process pending events before setting focus (user suggestion)
-                    QApplication.processEvents()
-                    
-                    # Use selection model approach instead of setCurrentCell (user suggestion)
-                    selection_model = table.selectionModel()
-                    if selection_model:
-                        model_index = table.model().index(0, 0)
-                        selection_model.setCurrentIndex(model_index, selection_model.SelectionFlag.ClearAndSelect)
-                    
-                    # Set focus AFTER cell selection (user suggestion: focus after, not before)
                     table.setFocus()
+                    table.setCurrentCell(0, 0)
                     
-                    # Manually trigger accessibility events (user suggestion)
-                    if hasattr(table, '_update_cell_accessibility'):
-                        table._update_cell_accessibility(0, 0)
-        
-        # Use longer delay to ensure tab switch completes
-        QTimer.singleShot(100, restore_focus)
+        QTimer.singleShot(50, restore_focus)
 
 class KitchenSinkDialog(QDialog):
     """Dialog for displaying additional MLB data features not shown in main views"""
@@ -5988,35 +5970,17 @@ class StandingsDialog(QDialog):
     def _restore_focus_to_tab(self, tab_index: int):
         """
         Restore focus to the first cell of the table in the specified tab.
-        Uses simplified approach based on user feedback and AccessibleTable pattern.
+        Uses simple and reliable approach matching AccessibleTable patterns.
         """
         def restore_focus():
-            from PyQt6.QtWidgets import QApplication
-            
             current_widget = self.tab_widget.widget(tab_index)
             if hasattr(current_widget, 'table'):
                 table = current_widget.table
-                
-                # Ensure we have data to work with
                 if table.rowCount() > 0 and table.columnCount() > 0:
-                    # Process pending events before setting focus (user suggestion)
-                    QApplication.processEvents()
-                    
-                    # Use selection model approach instead of setCurrentCell (user suggestion)
-                    selection_model = table.selectionModel()
-                    if selection_model:
-                        model_index = table.model().index(0, 0)
-                        selection_model.setCurrentIndex(model_index, selection_model.SelectionFlag.ClearAndSelect)
-                    
-                    # Set focus AFTER cell selection (user suggestion: focus after, not before)
                     table.setFocus()
+                    table.setCurrentCell(0, 0)
                     
-                    # Manually trigger accessibility events (user suggestion)
-                    if hasattr(table, '_update_cell_accessibility'):
-                        table._update_cell_accessibility(0, 0)
-        
-        # Use longer delay to ensure tab switch completes
-        QTimer.singleShot(100, restore_focus)
+        QTimer.singleShot(50, restore_focus)
 
 
 class StatisticsChoiceDialog(QDialog):
