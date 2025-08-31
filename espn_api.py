@@ -1058,6 +1058,19 @@ def extract_meaningful_game_info(details):
         if injury_count > 0:
             info['injuries'] = f"{injury_count} injury report(s) available"
     
+    # Game articles/recaps (if available)
+    if 'article' in details and details['article']:
+        article = details['article']
+        if isinstance(article, dict) and article.get('headline'):
+            info['article'] = {
+                'headline': article.get('headline', ''),
+                'description': article.get('description', ''),
+                'story': article.get('story', ''),
+                'type': article.get('type', 'Article'),
+                'published': article.get('published', ''),
+                'source': article.get('source', '')
+            }
+    
     return info
 
 
