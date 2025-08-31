@@ -14,8 +14,33 @@ class SportsApp {
             'NBA': ['name', 'status', 'competitors'],
             'NHL': ['name', 'status', 'competitors']
         };
+        this.baseTitle = 'Sports Scores';
         
         this.init();
+    }
+
+    updatePageTitle(contextItems = null) {
+        /**
+         * Update page title with breadcrumb-style context for accessibility
+         * 
+         * @param {Array|null} contextItems - List of context items from most specific to most general
+         *                                   e.g., ["Standings", "MLB"] -> "MLB, Standings - Sports Scores"
+         */
+        if (!contextItems || contextItems.length === 0) {
+            document.title = this.baseTitle;
+            return;
+        }
+        
+        // Build title following the pattern: most specific, then general context, then base
+        if (contextItems.length === 1) {
+            // Single context item: "{Context} - Sports Scores"
+            document.title = `${contextItems[0]} - ${this.baseTitle}`;
+        } else {
+            // Multiple context items: reverse order for breadcrumb
+            // Most specific first, then increasingly general
+            const breadcrumbParts = [...contextItems].reverse();
+            document.title = `${breadcrumbParts.join(', ')} - ${this.baseTitle}`;
+        }
     }
 
     async init() {
@@ -104,6 +129,9 @@ class SportsApp {
         this.currentView = 'home';
         this.stack = [];
         
+        // Update page title for home view
+        this.updatePageTitle();
+        
         this.hideAllSections();
         document.getElementById('home-section').classList.remove('hidden');
         
@@ -138,6 +166,9 @@ class SportsApp {
         this.currentView = 'league';
         this.currentLeague = league;
         this.currentDate = new Date(); // Reset to today
+        
+        // Update page title for league view
+        this.updatePageTitle([league]);
         
         this.hideAllSections();
         document.getElementById('league-section').classList.remove('hidden');
@@ -252,6 +283,9 @@ class SportsApp {
         this.currentGameId = gameId;
         this.stack.push({ view: 'league', league: this.currentLeague });
         
+        // Update page title for game details view (will be refined after loading game data)
+        this.updatePageTitle(['Game Details', this.currentLeague]);
+        
         this.hideAllSections();
         document.getElementById('game-section').classList.remove('hidden');
         
@@ -266,6 +300,11 @@ class SportsApp {
             const detailsList = document.getElementById('game-details-list');
             detailsList.innerHTML = '';
             document.getElementById('game-title').textContent = gameDetails.name || 'Game Details';
+
+            // Update page title with specific game information
+            if (gameDetails.name) {
+                this.updatePageTitle([gameDetails.name, this.currentLeague]);
+            }
 
             // MLB: Expandable half-innings
             if (this.currentLeague === 'MLB' && gameDetails.innings) {
@@ -459,6 +498,9 @@ class SportsApp {
 
     async showNewsModal() {
         try {
+            // Update page title to show news context
+            this.updatePageTitle(['News', this.currentLeague]);
+            
             const news = await ESPNApi.getNews(this.currentLeague);
             const newsList = document.getElementById('news-list');
             newsList.innerHTML = '';
@@ -483,6 +525,9 @@ class SportsApp {
 
     async showStandingsModal() {
         try {
+            // Update page title to show standings context
+            this.updatePageTitle(['Standings', this.currentLeague]);
+            
             const standings = await ESPNApi.getStandings(this.currentLeague);
             const standingsContent = document.getElementById('standings-content');
             
@@ -521,8 +566,29 @@ class SportsApp {
         }
     }
 
+    hideNewsModal() {
+        document.getElementById('news-modal').classList.add('hidden');
+        // Restore page title to current view context
+        this.restorePageTitle();
+    }
+
     hideStandingsModal() {
         document.getElementById('standings-modal').classList.add('hidden');
+        // Restore page title to current view context
+        this.restorePageTitle();
+    }
+
+    restorePageTitle() {
+        // Restore page title based on current view
+        if (this.currentView === 'home') {
+            this.updatePageTitle();
+        } else if (this.currentView === 'league' && this.currentLeague) {
+            this.updatePageTitle([this.currentLeague]);
+        } else if (this.currentView === 'game' && this.currentLeague) {
+            // For game details, we'd need to restore the game title
+            // For now, use generic game details title
+            this.updatePageTitle(['Game Details', this.currentLeague]);
+        }
     }
 
 
