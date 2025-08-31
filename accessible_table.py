@@ -3,58 +3,81 @@ Reusable accessible table widget for sports score application.
 Provides consistent keyboard navigation and screen reader support.
 """
 
-from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView
+from PyQt6.QtWidgets import (
+    QTableWidget, QTableWidgetItem, QHeaderView, QStackedWidget, 
+    QListWidget, QListWidgetItem, QWidget, QVBoxLayout
+)
 from PyQt6.QtCore import Qt, QEvent
 from typing import List, Dict, Any, Optional
 
 
-class AccessibleTable(QTableWidget):
+class AccessibleTable(QWidget):
     """
-    Accessible table widget with consistent keyboard navigation and screen reader support.
+    Accessible table widget with multiple view modes and consistent keyboard navigation.
     
     Features:
-    - Proper tab key navigation (tab to enter/exit table)
-    - Arrow key navigation within table cells
+    - Three view modes: Table, Quick List, Full List
+    - Keyboard shortcuts: Alt+V (cycle), Alt+T (table), Alt+Q (quick), Alt+F (full)
+    - Proper tab key navigation and arrow key navigation
     - Screen reader accessibility with proper roles and descriptions
-    - Consistent styling and behavior
-    - Configurable headers and data
+    - Seamless focus management across view switches
+    - Real-time data synchronization across all views
     """
+    
+    # View mode constants
+    VIEW_TABLE = 0
+    VIEW_QUICK_LIST = 1
+    VIEW_FULL_LIST = 2
     
     def __init__(self, parent=None, accessible_name: str = "Data Table", 
                  accessible_description: str = "Data table with arrow key navigation"):
         super().__init__(parent)
         self.accessible_name = accessible_name
         self.accessible_description = accessible_description
+        
+        # Data storage
+        self._headers = []
+        self._data = []
+        self._current_view = self.VIEW_TABLE
+        
+        # Setup the view container and individual views
+        self._setup_view_container()
+        self._setup_table_view()
+        self._setup_list_views()
         self._setup_accessibility()
         self._setup_behavior()
-        self._setup_styling()
     
-    def _setup_accessibility(self):
-        """Configure accessibility features"""
-        self.setAccessibleName(self.accessible_name)
-        self.setAccessibleDescription(
+    def _setup_view_container(self):
+        """Setup the stacked widget container for multiple view modes"""
+        # Create main layout
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        
+        # Create stacked widget to hold different views
+        self.stacked_widget = QStackedWidget()
+        layout.addWidget(self.stacked_widget)
+        self.setLayout(layout)
+        
+    def _setup_table_view(self):
+        """Setup the traditional table view"""
+        self.table_widget = QTableWidget()
+        self.table_widget.setAccessibleName(self.accessible_name)
+        self.table_widget.setAccessibleDescription(
             f"{self.accessible_description}. Use up/down/left/right arrow keys to navigate cells, "
-            "Tab to enter or exit table."
+            "Tab to enter or exit table. Alt+V to cycle views, Alt+Q for quick list, Alt+F for full list."
         )
         
-    def _setup_behavior(self):
-        """Configure table behavior and keyboard navigation"""
-        # Enable keyboard navigation
-        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self.setTabKeyNavigation(False)  # We'll handle tab manually
+        # Configure table behavior
+        self.table_widget.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.table_widget.setTabKeyNavigation(False)
+        self.table_widget.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectItems)
+        self.table_widget.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.table_widget.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table_widget.setTextElideMode(Qt.TextElideMode.ElideRight)
         
-        # Set selection behavior
-        self.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectItems)
-        self.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
-        
-        # Disable editing
-        self.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        
-        # Enable proper keyboard navigation
-        self.setTextElideMode(Qt.TextElideMode.ElideRight)
-        
-        # Make sure focus is properly visible
-        self.setStyleSheet("""
+        # Apply styling
+        self.table_widget.setStyleSheet("""
             QTableWidget::item:focus {
                 background-color: #316AC5;
                 color: white;
@@ -65,11 +88,207 @@ class AccessibleTable(QTableWidget):
                 color: white;
             }
         """)
+        self.table_widget.setAlternatingRowColors(True)
+        self.table_widget.verticalHeader().setVisible(False)
         
-    def _setup_styling(self):
-        """Configure table visual styling"""
-        self.setAlternatingRowColors(True)
-        self.verticalHeader().setVisible(False)
+        # Add to stacked widget
+        self.stacked_widget.addWidget(self.table_widget)
+        
+    def _setup_list_views(self):
+        """Setup the quick list and full list views"""
+        # Quick List View (values only)
+        self.quick_list = QListWidget()
+        self.quick_list.setAccessibleName(f"{self.accessible_name} - Quick List")
+        self.quick_list.setAccessibleDescription(
+            f"{self.accessible_description} in quick list format. "
+            "Use up/down arrow keys to navigate, Alt+V to cycle views, Alt+T for table view."
+        )
+        self.quick_list.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.stacked_widget.addWidget(self.quick_list)
+        
+        # Full List View (header-value pairs)
+        self.full_list = QListWidget()
+        self.full_list.setAccessibleName(f"{self.accessible_name} - Full List")
+        self.full_list.setAccessibleDescription(
+            f"{self.accessible_description} in detailed list format with headers. "
+            "Use up/down arrow keys to navigate, Alt+V to cycle views, Alt+T for table view."
+        )
+        self.full_list.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.stacked_widget.addWidget(self.full_list)
+        
+    def _setup_accessibility(self):
+        """Configure accessibility features"""
+        self.setAccessibleName(self.accessible_name)
+        self.setAccessibleDescription(
+            f"{self.accessible_description}. Multiple view modes available: "
+            "Alt+V to cycle views, Alt+T for table, Alt+Q for quick list, Alt+F for full list."
+        )
+        
+    def _setup_behavior(self):
+        """Configure table behavior and keyboard navigation"""
+        # Set the initial view to table
+        self.stacked_widget.setCurrentIndex(self.VIEW_TABLE)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        
+        # Install event filter to handle keyboard shortcuts
+        self.installEventFilter(self)
+        self.table_widget.installEventFilter(self)
+        self.quick_list.installEventFilter(self)
+        self.full_list.installEventFilter(self)
+        
+    def eventFilter(self, obj, event):
+        """Handle keyboard shortcuts for view switching"""
+        if event.type() == QEvent.Type.KeyPress:
+            key = event.key()
+            modifiers = event.modifiers()
+            
+            # Handle Alt+V (cycle views)
+            if modifiers == Qt.KeyboardModifier.AltModifier and key == Qt.Key.Key_V:
+                self._cycle_view()
+                return True
+                
+            # Handle Alt+T (table view)
+            elif modifiers == Qt.KeyboardModifier.AltModifier and key == Qt.Key.Key_T:
+                self._switch_to_view(self.VIEW_TABLE)
+                return True
+                
+            # Handle Alt+Q (quick list view)
+            elif modifiers == Qt.KeyboardModifier.AltModifier and key == Qt.Key.Key_Q:
+                self._switch_to_view(self.VIEW_QUICK_LIST)
+                return True
+                
+            # Handle Alt+F (full list view)
+            elif modifiers == Qt.KeyboardModifier.AltModifier and key == Qt.Key.Key_F:
+                self._switch_to_view(self.VIEW_FULL_LIST)
+                return True
+                
+            # Handle table-specific navigation for the table widget
+            elif obj == self.table_widget:
+                return self._handle_table_navigation(event)
+        
+        return super().eventFilter(obj, event)
+        
+    def _cycle_view(self):
+        """Cycle through the three view modes"""
+        next_view = (self._current_view + 1) % 3
+        self._switch_to_view(next_view)
+        
+    def _switch_to_view(self, view_mode: int):
+        """Switch to the specified view mode with focus management"""
+        if view_mode == self._current_view:
+            return
+            
+        # Get current position before switching
+        current_row = self._get_current_row()
+        
+        # Switch the view
+        old_view = self._current_view
+        self._current_view = view_mode
+        self.stacked_widget.setCurrentIndex(view_mode)
+        
+        # Set focus to the new view and restore position
+        self._set_focus_to_current_view()
+        self._restore_position(current_row)
+        
+        # Announce the view change
+        self._announce_view_change(old_view, view_mode)
+        
+    def _get_current_row(self) -> int:
+        """Get the current row/item index from the active view"""
+        if self._current_view == self.VIEW_TABLE:
+            return self.table_widget.currentRow()
+        elif self._current_view == self.VIEW_QUICK_LIST:
+            return self.quick_list.currentRow()
+        elif self._current_view == self.VIEW_FULL_LIST:
+            return self.full_list.currentRow()
+        return 0
+        
+    def _restore_position(self, row: int):
+        """Restore the position in the new view"""
+        if row < 0:
+            row = 0
+            
+        if self._current_view == self.VIEW_TABLE:
+            if row < self.table_widget.rowCount():
+                self.table_widget.setCurrentCell(row, 0)
+        elif self._current_view == self.VIEW_QUICK_LIST:
+            if row < self.quick_list.count():
+                self.quick_list.setCurrentRow(row)
+        elif self._current_view == self.VIEW_FULL_LIST:
+            if row < self.full_list.count():
+                self.full_list.setCurrentRow(row)
+                
+    def _set_focus_to_current_view(self):
+        """Set focus to the currently active view"""
+        if self._current_view == self.VIEW_TABLE:
+            self.table_widget.setFocus()
+        elif self._current_view == self.VIEW_QUICK_LIST:
+            self.quick_list.setFocus()
+        elif self._current_view == self.VIEW_FULL_LIST:
+            self.full_list.setFocus()
+            
+    def _announce_view_change(self, old_view: int, new_view: int):
+        """Announce view change for screen readers"""
+        view_names = {
+            self.VIEW_TABLE: "Table View",
+            self.VIEW_QUICK_LIST: "Quick List View", 
+            self.VIEW_FULL_LIST: "Full List View"
+        }
+        
+        new_view_name = view_names.get(new_view, "Unknown View")
+        
+        # Update accessible description to announce the change
+        current_widget = self.stacked_widget.currentWidget()
+        if current_widget:
+            current_widget.setAccessibleDescription(
+                f"Switched to {new_view_name}. {current_widget.accessibleDescription()}"
+            )
+        
+    def _handle_table_navigation(self, event):
+        """Handle keyboard navigation within the table view"""
+        key = event.key()
+        current_row = self.table_widget.currentRow()
+        current_col = self.table_widget.currentColumn()
+        
+        # Handle arrow key navigation explicitly
+        if key == Qt.Key.Key_Up:
+            if current_row > 0:
+                new_row = current_row - 1
+                self.table_widget.setCurrentCell(new_row, current_col)
+                self.table_widget.setFocus()
+                return True
+            return True  # Prevent default behavior at boundary
+                
+        elif key == Qt.Key.Key_Down:
+            if current_row < self.table_widget.rowCount() - 1:
+                new_row = current_row + 1
+                self.table_widget.setCurrentCell(new_row, current_col)
+                self.table_widget.setFocus()
+                return True
+            return True  # Prevent default behavior at boundary
+                
+        elif key == Qt.Key.Key_Left:
+            if current_col > 0:
+                new_col = current_col - 1
+                self.table_widget.setCurrentCell(current_row, new_col)
+                self.table_widget.setFocus()
+                return True
+            return True  # Prevent default behavior at boundary
+                
+        elif key == Qt.Key.Key_Right:
+            if current_col < self.table_widget.columnCount() - 1:
+                new_col = current_col + 1
+                self.table_widget.setCurrentCell(current_row, new_col)
+                self.table_widget.setFocus()
+                return True
+            return True  # Prevent default behavior at boundary
+        
+        # Handle Tab key to exit table
+        elif key == Qt.Key.Key_Tab:
+            # Let the parent widget handle tab navigation to exit the table
+            return False  # Allow default tab handling
+        
+        return False  # Let table handle other keys normally
         
     def setup_columns(self, headers: List[str], stretch_column: Optional[int] = None):
         """
@@ -79,11 +298,14 @@ class AccessibleTable(QTableWidget):
             headers: List of column header labels
             stretch_column: Index of column that should stretch (0-based), None for auto-resize
         """
-        self.setColumnCount(len(headers))
-        self.setHorizontalHeaderLabels(headers)
+        self._headers = headers.copy()
+        
+        # Setup the table widget columns
+        self.table_widget.setColumnCount(len(headers))
+        self.table_widget.setHorizontalHeaderLabels(headers)
         
         # Configure header resize modes
-        header = self.horizontalHeader()
+        header = self.table_widget.horizontalHeader()
         if stretch_column is not None and 0 <= stretch_column < len(headers):
             # Set all columns to resize to contents except the stretch column
             for i in range(len(headers)):
@@ -97,34 +319,72 @@ class AccessibleTable(QTableWidget):
     
     def populate_data(self, data: List[List[Any]], set_focus: bool = True):
         """
-        Populate table with data.
+        Populate all views with data.
         
         Args:
             data: List of rows, where each row is a list of cell values
             set_focus: Whether to set focus to first cell after populating
         """
+        self._data = data.copy() if data else []
+        
+        # Populate table view
+        self._populate_table_view(data, set_focus)
+        
+        # Populate list views
+        self._populate_list_views(data)
+        
+    def _populate_table_view(self, data: List[List[Any]], set_focus: bool):
+        """Populate the table view with data"""
         if not data:
-            self.setRowCount(0)
+            self.table_widget.setRowCount(0)
             return
             
-        self.setRowCount(len(data))
+        self.table_widget.setRowCount(len(data))
         
         for row_idx, row_data in enumerate(data):
             for col_idx, cell_value in enumerate(row_data):
-                if col_idx < self.columnCount():
+                if col_idx < self.table_widget.columnCount():
                     item = QTableWidgetItem(str(cell_value))
-                    self.setItem(row_idx, col_idx, item)
+                    self.table_widget.setItem(row_idx, col_idx, item)
         
         # Update accessibility for all cells after populating
-        for row_idx in range(self.rowCount()):
-            for col_idx in range(self.columnCount()):
+        for row_idx in range(self.table_widget.rowCount()):
+            for col_idx in range(self.table_widget.columnCount()):
                 self._update_cell_accessibility(row_idx, col_idx)
         
         # Set focus to first cell if requested and data exists
-        if set_focus and data and self.rowCount() > 0 and self.columnCount() > 0:
-            self.setCurrentCell(0, 0)
-            self.setFocus()  # Explicitly set focus to the table
-            self._update_cell_accessibility(0, 0)
+        if set_focus and data and self.table_widget.rowCount() > 0 and self.table_widget.columnCount() > 0:
+            self.table_widget.setCurrentCell(0, 0)
+            if self._current_view == self.VIEW_TABLE:
+                self.table_widget.setFocus()
+            
+    def _populate_list_views(self, data: List[List[Any]]):
+        """Populate both list views with data"""
+        if not data or not self._headers:
+            self.quick_list.clear()
+            self.full_list.clear()
+            return
+            
+        # Clear existing items
+        self.quick_list.clear()
+        self.full_list.clear()
+        
+        # Populate both list views
+        for row_data in data:
+            # Quick List View: "Value1, Value2, Value3..."
+            quick_text = ", ".join(str(value) for value in row_data)
+            quick_item = QListWidgetItem(quick_text)
+            quick_item.setData(Qt.ItemDataRole.AccessibleTextRole, quick_text)
+            self.quick_list.addItem(quick_item)
+            
+            # Full List View: "Header1: Value1; Header2: Value2; Header3: Value3"
+            full_parts = []
+            for header, value in zip(self._headers, row_data):
+                full_parts.append(f"{header}: {value}")
+            full_text = "; ".join(full_parts)
+            full_item = QListWidgetItem(full_text)
+            full_item.setData(Qt.ItemDataRole.AccessibleTextRole, full_text)
+            self.full_list.addItem(full_item)
     
     def populate_from_dicts(self, data: List[Dict[str, Any]], headers: List[str], 
                           key_mapping: Dict[str, str] = None, set_focus: bool = True):
@@ -138,7 +398,9 @@ class AccessibleTable(QTableWidget):
             set_focus: Whether to set focus to first cell after populating
         """
         if not data or not headers:
-            self.setRowCount(0)
+            self.table_widget.setRowCount(0)
+            self.quick_list.clear()
+            self.full_list.clear()
             return
         
         # Setup columns first
@@ -157,90 +419,15 @@ class AccessibleTable(QTableWidget):
         
         self.populate_data(rows, set_focus)
     
-    def keyPressEvent(self, event):
-        """
-        Handle key press events for improved keyboard navigation.
-        Ensures all arrow keys work properly within the table.
-        """
-        key = event.key()
-        current_row = self.currentRow()
-        current_col = self.currentColumn()
-        
-        # Handle arrow key navigation explicitly - process BEFORE calling parent
-        if key == Qt.Key.Key_Up:
-            if current_row > 0:
-                new_row = current_row - 1
-                self.setCurrentCell(new_row, current_col)
-                # Temporarily disable accessibility updates during navigation to prevent crashes
-                # self._update_cell_accessibility(new_row, current_col)
-                self.setFocus()  # Ensure focus stays on table
-                event.accept()
-                return
-            else:
-                # At top row, don't move
-                event.accept()
-                return
-                
-        elif key == Qt.Key.Key_Down:
-            if current_row < self.rowCount() - 1:
-                new_row = current_row + 1
-                self.setCurrentCell(new_row, current_col)
-                # Temporarily disable accessibility updates during navigation to prevent crashes
-                # self._update_cell_accessibility(new_row, current_col)
-                self.setFocus()  # Ensure focus stays on table
-                event.accept()
-                return
-            else:
-                # At bottom row, don't move
-                event.accept()
-                return
-                
-        elif key == Qt.Key.Key_Left:
-            if current_col > 0:
-                new_col = current_col - 1
-                self.setCurrentCell(current_row, new_col)
-                # Temporarily disable accessibility updates during navigation to prevent crashes
-                # self._update_cell_accessibility(current_row, new_col)
-                self.setFocus()  # Ensure focus stays on table
-                event.accept()
-                return
-            else:
-                # At leftmost column, don't move
-                event.accept()
-                return
-                
-        elif key == Qt.Key.Key_Right:
-            if current_col < self.columnCount() - 1:
-                new_col = current_col + 1
-                self.setCurrentCell(current_row, new_col)
-                # Temporarily disable accessibility updates during navigation to prevent crashes
-                # self._update_cell_accessibility(current_row, new_col)
-                self.setFocus()  # Ensure focus stays on table
-                event.accept()
-                return
-            else:
-                # At rightmost column, don't move
-                event.accept()
-                return
-        
-        # Handle Tab key to exit table (let parent handle tab navigation)
-        elif key == Qt.Key.Key_Tab:
-            # Let the parent widget handle tab navigation to exit the table
-            event.ignore()  # Let parent handle this
-            return
-        
-        # For all other keys, let the parent handle them
-        super().keyPressEvent(event)
-    
     def _update_cell_accessibility(self, row: int, col: int):
         """
         Update accessibility description for the current cell to include row context.
         For player tables, includes player name. For other tables, includes row identifier.
         """
-        if row < 0 or row >= self.rowCount() or col < 0 or col >= self.columnCount():
+        if row < 0 or row >= self.table_widget.rowCount() or col < 0 or col >= self.table_widget.columnCount():
             return
             
-        current_item = self.item(row, col)
+        current_item = self.table_widget.item(row, col)
         if not current_item:
             return
             
@@ -248,13 +435,13 @@ class AccessibleTable(QTableWidget):
         cell_value = current_item.text()
         
         # Get column header
-        header_item = self.horizontalHeaderItem(col)
+        header_item = self.table_widget.horizontalHeaderItem(col)
         column_name = header_item.text() if header_item else f"Column {col + 1}"
         
         # Get row context (typically from first column - player name or stat name)
         row_context = ""
-        if self.columnCount() > 0:
-            first_col_item = self.item(row, 0)
+        if self.table_widget.columnCount() > 0:
+            first_col_item = self.table_widget.item(row, 0)
             if first_col_item:
                 row_context = first_col_item.text()
         
@@ -280,22 +467,93 @@ class AccessibleTable(QTableWidget):
         Args:
             column_index: 0-based index of column to stretch
         """
-        if 0 <= column_index < self.columnCount():
-            header = self.horizontalHeader()
+        if 0 <= column_index < self.table_widget.columnCount():
+            header = self.table_widget.horizontalHeader()
             header.setSectionResizeMode(column_index, QHeaderView.ResizeMode.Stretch)
     
     def update_accessible_name(self, name: str):
-        """Update the accessible name of the table"""
+        """Update the accessible name of the table and all views"""
         self.accessible_name = name
         self.setAccessibleName(name)
+        self.table_widget.setAccessibleName(name)
+        self.quick_list.setAccessibleName(f"{name} - Quick List")
+        self.full_list.setAccessibleName(f"{name} - Full List")
     
     def update_accessible_description(self, description: str):
-        """Update the accessible description of the table"""
+        """Update the accessible description of the table and all views"""
         self.accessible_description = description
-        self.setAccessibleDescription(
+        base_desc = f"{description}. Multiple view modes available: Alt+V to cycle views, Alt+T for table, Alt+Q for quick list, Alt+F for full list."
+        self.setAccessibleDescription(base_desc)
+        
+        self.table_widget.setAccessibleDescription(
             f"{description}. Use up/down/left/right arrow keys to navigate cells, "
-            "Tab to enter or exit table."
+            "Tab to enter or exit table. Alt+V to cycle views, Alt+Q for quick list, Alt+F for full list."
         )
+        self.quick_list.setAccessibleDescription(
+            f"{description} in quick list format. Use up/down arrow keys to navigate, Alt+V to cycle views, Alt+T for table view."
+        )
+        self.full_list.setAccessibleDescription(
+            f"{description} in detailed list format with headers. Use up/down arrow keys to navigate, Alt+V to cycle views, Alt+T for table view."
+        )
+        
+    # Compatibility methods for existing code that expects QTableWidget interface
+    def rowCount(self):
+        """Return the number of rows in the table"""
+        return self.table_widget.rowCount()
+        
+    def columnCount(self):
+        """Return the number of columns in the table"""
+        return self.table_widget.columnCount()
+        
+    def setRowCount(self, rows: int):
+        """Set the number of rows in the table"""
+        self.table_widget.setRowCount(rows)
+        
+    def setColumnCount(self, columns: int):
+        """Set the number of columns in the table"""
+        self.table_widget.setColumnCount(columns)
+        
+    def item(self, row: int, column: int):
+        """Get the item at the specified row and column"""
+        return self.table_widget.item(row, column)
+        
+    def setItem(self, row: int, column: int, item):
+        """Set the item at the specified row and column"""
+        self.table_widget.setItem(row, column, item)
+        
+    def currentRow(self):
+        """Get the current row in the active view"""
+        return self._get_current_row()
+        
+    def currentColumn(self):
+        """Get the current column (only applicable to table view)"""
+        if self._current_view == self.VIEW_TABLE:
+            return self.table_widget.currentColumn()
+        return 0
+        
+    def setCurrentCell(self, row: int, column: int):
+        """Set the current cell (only applicable to table view)"""
+        if self._current_view == self.VIEW_TABLE:
+            self.table_widget.setCurrentCell(row, column)
+            
+    def hasFocus(self):
+        """Check if any of the views has focus"""
+        return (self.table_widget.hasFocus() or 
+                self.quick_list.hasFocus() or 
+                self.full_list.hasFocus() or
+                super().hasFocus())
+                
+    def setFocus(self):
+        """Set focus to the current active view"""
+        self._set_focus_to_current_view()
+        
+    def horizontalHeaderItem(self, column: int):
+        """Get the horizontal header item for the specified column"""
+        return self.table_widget.horizontalHeaderItem(column)
+        
+    def horizontalHeader(self):
+        """Get the horizontal header"""
+        return self.table_widget.horizontalHeader()
 
 
 class StandingsTable(AccessibleTable):
@@ -483,10 +741,10 @@ class StandingsTable(AccessibleTable):
         """
         Override accessibility for standings to use team name as context instead of position.
         """
-        if row < 0 or row >= self.rowCount() or col < 0 or col >= self.columnCount():
+        if row < 0 or row >= self.table_widget.rowCount() or col < 0 or col >= self.table_widget.columnCount():
             return
             
-        current_item = self.item(row, col)
+        current_item = self.table_widget.item(row, col)
         if not current_item:
             return
             
@@ -494,13 +752,13 @@ class StandingsTable(AccessibleTable):
         cell_value = current_item.text()
         
         # Get column header
-        header_item = self.horizontalHeaderItem(col)
+        header_item = self.table_widget.horizontalHeaderItem(col)
         column_name = header_item.text() if header_item else f"Column {col + 1}"
         
         # Get team name from column 1 (index 1) instead of position from column 0
         team_context = ""
-        if self.columnCount() > 1:
-            team_col_item = self.item(row, 1)  # Team name is in column 1
+        if self.table_widget.columnCount() > 1:
+            team_col_item = self.table_widget.item(row, 1)  # Team name is in column 1
             if team_col_item:
                 team_context = team_col_item.text()
         
@@ -576,87 +834,23 @@ class BoxscoreTable(AccessibleTable):
         # Ensure strong focus policy for boxscore tables
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         
-    def keyPressEvent(self, event):
-        """Enhanced key handling for boxscore tables with tab widget support"""
-        key = event.key()
-        modifiers = event.modifiers()
-        
-        # Handle Shift+Tab to go back to tab bar
-        if key == Qt.Key.Key_Backtab or (key == Qt.Key.Key_Tab and modifiers == Qt.KeyboardModifier.ShiftModifier):
-            # Find parent tab widget and focus on its tab bar
-            parent = self.parent()
-            while parent:
-                if hasattr(parent, 'tabBar'):  # It's a QTabWidget
-                    parent.tabBar().setFocus()
-                    event.accept()
-                    return
-                parent = parent.parent()
-            # If no tab widget found, let default handling occur
-        
-        # Handle regular Tab to move to next table in same tab or next tab
-        elif key == Qt.Key.Key_Tab and modifiers == Qt.KeyboardModifier.NoModifier:
-            # Find all tables in current tab
-            tab_widget = None
-            parent = self.parent()
-            while parent:
-                if hasattr(parent, 'tabBar'):  # It's a QTabWidget
-                    tab_widget = parent
-                    break
-                parent = parent.parent()
-            
-            if tab_widget:
-                current_widget = tab_widget.currentWidget()
-                if current_widget:
-                    tables = current_widget.findChildren(BoxscoreTable)
-                    if len(tables) > 1:
-                        # Find current table index and move to next
-                        try:
-                            current_index = tables.index(self)
-                            next_index = (current_index + 1) % len(tables)
-                            next_table = tables[next_index]
-                            next_table.setFocus()
-                            if next_table.rowCount() > 0:
-                                next_table.setCurrentCell(0, 0)
-                            event.accept()
-                            return
-                        except (ValueError, IndexError):
-                            pass
-                    
-                    # If only one table or couldn't find next, go to next tab
-                    current_tab = tab_widget.currentIndex()
-                    next_tab = (current_tab + 1) % tab_widget.count()
-                    tab_widget.setCurrentIndex(next_tab)
-                    
-                    # Focus first table in next tab
-                    next_widget = tab_widget.currentWidget()
-                    if next_widget:
-                        next_tables = next_widget.findChildren(BoxscoreTable)
-                        if next_tables:
-                            next_tables[0].setFocus()
-                            if next_tables[0].rowCount() > 0:
-                                next_tables[0].setCurrentCell(0, 0)
-                    event.accept()
-                    return
-        
-        # Use parent's arrow key navigation for all other keys
-        super().keyPressEvent(event)
-        
     def focusInEvent(self, event):
         """Ensure proper focus handling when table receives focus"""
         super().focusInEvent(event)
         
         # If no cell is selected, select the first cell
-        if self.currentRow() == -1 and self.rowCount() > 0:
-            self.setCurrentCell(0, 0)
+        if self.table_widget.currentRow() == -1 and self.table_widget.rowCount() > 0:
+            self.table_widget.setCurrentCell(0, 0)
             
     def populate_data(self, data: List[List[Any]], set_focus: bool = True):
         """Override to ensure proper focus for boxscore tables"""
         super().populate_data(data, set_focus)
         
         # Ensure the table is ready for keyboard navigation
-        if set_focus and self.rowCount() > 0 and self.columnCount() > 0:
-            self.setCurrentCell(0, 0)
-            self.setFocus()
+        if set_focus and self.table_widget.rowCount() > 0 and self.table_widget.columnCount() > 0:
+            self.table_widget.setCurrentCell(0, 0)
+            if self._current_view == self.VIEW_TABLE:
+                self.table_widget.setFocus()
 
 
 class InjuryTable(AccessibleTable):
@@ -712,19 +906,20 @@ class InjuryTable(AccessibleTable):
         # Set accessible description with count
         injury_count = len(all_injuries)
         team_count = len(injury_data)
-        self.setAccessibleDescription(
+        self.update_accessible_description(
             f"Injury report table with {injury_count} injuries across {team_count} teams. "
             "Use arrow keys to navigate between cells, Tab to exit table."
         )
         
     def enhance_cell_accessibility(self, row: int, col: int, value: Any):
         """Add injury-specific accessibility enhancements"""
-        item = self.item(row, col)
+        item = self.table_widget.item(row, col)
         if not item:
             return
             
         # Add contextual descriptions for injury data
-        player_name = self.item(row, 0).text() if self.item(row, 0) else "Unknown"
+        player_name_item = self.table_widget.item(row, 0)
+        player_name = player_name_item.text() if player_name_item else "Unknown"
         
         if col == 3:  # Status column
             item.setAccessibleDescription(f"{player_name} injury status: {value}")

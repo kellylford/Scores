@@ -935,10 +935,25 @@ def get_news(league_key, limit=10):
     data = resp.json()
     articles = data.get("articles", [])
     news_items = []
+    
+    # Import text processor for cleaning descriptions
+    try:
+        from text_utils import text_processor
+    except ImportError:
+        text_processor = None
+    
     for article in articles:
+        raw_description = article.get("description", "")
+        
+        # Clean description text if processor is available
+        if text_processor:
+            cleaned_description = text_processor.clean_description(raw_description, article)
+        else:
+            cleaned_description = raw_description
+        
         news_item = {
             "headline": article.get("headline", "No headline"),
-            "description": article.get("description", ""),
+            "description": cleaned_description,
             "web_url": article.get("links", {}).get("web", {}).get("href", ""),
             "mobile_url": article.get("links", {}).get("mobile", {}).get("href", ""),
             "published": article.get("published", ""),
@@ -1042,6 +1057,19 @@ def extract_meaningful_game_info(details):
         injury_count = len(details['injuries'])
         if injury_count > 0:
             info['injuries'] = f"{injury_count} injury report(s) available"
+    
+    # Game articles/recaps (if available)
+    if 'article' in details and details['article']:
+        article = details['article']
+        if isinstance(article, dict) and article.get('headline'):
+            info['article'] = {
+                'headline': article.get('headline', ''),
+                'description': article.get('description', ''),
+                'story': article.get('story', ''),
+                'type': article.get('type', 'Article'),
+                'published': article.get('published', ''),
+                'source': article.get('source', '')
+            }
     
     return info
 
