@@ -1,18 +1,7 @@
 # Scores v0.55.0 Release Notes
 
-## 🚀 Major Release: Accessibility Excellence & Dynamic Window Titles
-
-### ✨ **BREAKTHROUGH ACCESSIBILITY FEATURE**
-- **Dynamic Window Titles for Screen Readers**: **FIRST-IN-CLASS** window title management system
-  - **Contextual Titles**: Window titles dynamically reflect user location in the application
-  - **Screen Reader Optimized**: "MLB - Sports Scores", "MLB, Standings - Sports Scores", "Yankees vs Red Sox - MLB - Sports Scores"
-  - **Hierarchical Navigation**: Most specific information first, following accessibility best practices
-  - **Universal Coverage**: All views, dialogs, and navigation contexts included
-  - **Cross-Platform**: Both desktop (PyQt6) and web (JavaScript) implementations
-  - **Zero Breaking Changes**: Enhances existing functionality without disruption
-
 ### 🎯 **INDUSTRY-LEADING TABLE ACCESSIBILITY**
-- **Multiple View Modes for All Tables**: **REVOLUTIONARY** accessible data presentation system
+- **Multiple View Modes for All Tables**: **Innovative ** accessible data presentation system
   - **Three View Modes**: Table, Quick List, Full List for every tabular data display
   - **Universal Keyboard Shortcuts**: Alt+V (cycle), Alt+T (table), Alt+Q (quick), Alt+F (full)
   - **Seamless Focus Management**: Maintains position when switching between view modes
@@ -33,10 +22,10 @@
 - **Status**: Core infrastructure implemented, text processing being refined
 - **Future**: Full game narrative summaries with enhanced readability
 
-### 🔧 **Enhanced User Experience**
-- **Expanded Standings Feature**: Toggle between basic and expanded standings views
-  - Basic View: Traditional 7-column standings (Position, Team, W, L, PCT, GB, Streak)
-  - Expanded View: Sport-specific additional columns with advanced statistics
+### 🔧 **Enhanced Standings **
+- **Expanded Standings Feature**: Expanded standings now available
+  - Basic View (Previous version): Traditional 7-column standings (Position, Team, W, L, PCT, GB, Streak)
+  - Expanded View(new in this version): Sport-specific additional columns with advanced statistics
   - MLB Expanded: Runs For/Against, Run Differential, Home/Road Records, Playoff %, Magic Numbers
   - NFL Expanded: Points For/Against, Point Differential, Division Record, Playoff Seed
   - NBA Expanded: PPG, Opponent PPG, Point Differential, Division Win %, Playoff Seed
@@ -73,11 +62,6 @@
 
 ## 🎯 Key Improvements Since v0.54.0
 
-### Window Title Accessibility Revolution
-- **Screen Reader Excellence**: Window titles now provide immediate location context
-- **Pattern**: "MLB, Yankees vs Red Sox, Box Score - Sports Scores"
-- **Universal Implementation**: Every view, dialog, and navigation state covered
-- **Cross-Platform Consistency**: Same pattern on desktop and web versions
 
 ### Table/List Accessibility Innovation
 - **Three View Modes**: Table (traditional), Quick List (essential info), Full List (complete details)
@@ -108,14 +92,6 @@
 - Completed Game Wrap Up feature with full story text
 - Enhanced box score data display
 - Additional accessibility improvements based on user feedback
-
-## 🏆 Accessibility Excellence
-
-### WCAG Compliance
-- **AA Standard**: Exceeds WCAG 2.1 AA requirements
-- **Screen Reader Support**: Comprehensive ARIA attributes and announcements
-- **Keyboard Navigation**: Full application accessible via keyboard
-- **Color Contrast**: High contrast ratios for visual accessibility
 
 ### Assistive Technology Support
 - **Window Title Context**: Screen readers announce user location immediately
