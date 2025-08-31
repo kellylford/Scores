@@ -13,12 +13,12 @@ class ESPNTextProcessor:
     def __init__(self):
         # Common patterns that might indicate unresolved player ID replacements
         self.placeholder_patterns = [
-            r'\{\{?\d+\}?\}?',    # {{123}} or {123}
-            r'\[\d+\]',           # [123]
-            r'#\d{6,}',           # #123456 (long ID numbers)
-            r'player_\d+',        # player_123
-            r'athlete_\d+',       # athlete_123
-            r'\b\d{6,}\b',        # Standalone long numbers (6+ digits)
+            r'\{\{?\w+\}?\}?',        # {{123}} or {123} or {{unknown_player}}
+            r'\[\d+\]',               # [123]
+            r'#\d{6,}',               # #123456 (long ID numbers)
+            r'player_\d+',            # player_123
+            r'athlete_\d+',           # athlete_123
+            r'\b\d{6,}\b',            # Standalone long numbers (6+ digits)
         ]
     
     def clean_description(self, description: str, article_data: Optional[Dict] = None) -> str:

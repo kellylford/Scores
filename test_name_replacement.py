@@ -57,8 +57,9 @@ def test_name_replacement_handling():
         print(f"Cleaned:  {cleaned_description}")
         
         # Test with NewsData model
-        article_data['description'] = cleaned_description
-        news_data = NewsData(article_data)
+        test_article_copy = article_data.copy()
+        test_article_copy['description'] = cleaned_description
+        news_data = NewsData(test_article_copy)
         
         print(f"Display:  {news_data.get_display_text()[:100]}...")
         
