@@ -900,8 +900,15 @@ def get_scores(league_key, date=None, week=None):
             team = competitor.get("team", {})
             score = competitor.get("score", "")
             home_away = competitor.get("homeAway", "")
+            
+            # For NCAA sports, use full team names (displayName) instead of nicknames
+            if league_key in ["NCAAF", "NCAAM"]:
+                team_name = team.get("displayName", team.get("name", team.get("abbreviation", "Unknown")))
+            else:
+                team_name = team.get("name", team.get("abbreviation", "Unknown"))
+            
             team_info = {
-                "name": team.get("name", team.get("abbreviation", "Unknown")),
+                "name": team_name,
                 "abbreviation": team.get("abbreviation", ""),
                 "score": score,
                 "home_away": home_away
