@@ -49,6 +49,12 @@ from models.game import GameData
 from models.news import NewsData
 from models.standings import StandingsData
 from accessible_table import AccessibleTable, StandingsTable, LeadersTable, BoxscoreTable, InjuryTable
+
+# Text processing utilities
+try:
+    from text_utils import text_processor
+except ImportError:
+    text_processor = None
 from timezone_utils import convert_espn_time_to_local
 from windows_notifications import WindowsNotificationHelper
 
@@ -3854,6 +3860,15 @@ class GameDetailsView(BaseView):
         # Article content
         article = raw_game_data.get('article', {})
         
+        # Process article text if text processor is available
+        if article and text_processor:
+            # Clean description (pass complete game data for player name extraction)
+            if 'description' in article:
+                article['description'] = text_processor.clean_description(article['description'], raw_game_data)
+            # Clean story content (pass complete game data for player name extraction)
+            if 'story' in article:
+                article['story'] = text_processor.clean_description(article['story'], raw_game_data)
+        
         # Leaders/statistics
         leaders = raw_game_data.get('leaders', [])
         
@@ -4089,13 +4104,18 @@ class GameDetailsView(BaseView):
         
         # Add article content if available
         if article and article.get('headline'):
+            # Clean description if text processor is available
+            description = article.get('description', '')
+            if text_processor:
+                description = text_processor.clean_description(description, raw_game_data)
+            
             html_content += f"""
     <div class="content-section">
         <h2 class="section-title">📰 Game Story</h2>
         <h1 class="article-headline">{article.get('headline', '')}</h1>
-        <p class="article-description">{article.get('description', '')}</p>
+        <p class="article-description">{description}</p>
         <div class="article-content">
-            {self._format_article_story(article.get('story', ''))}
+            {self._format_article_story(article.get('story', ''), raw_game_data)}
         </div>
     </div>
 """
@@ -4163,48 +4183,17 @@ class GameDetailsView(BaseView):
             pass
         return date_str or ''
     
-    def _format_article_story(self, story):
+    def _format_article_story(self, story, game_data=None):
         """Format article story content for HTML display"""
         if not story:
             return ""
         
+        # Use text processor if available to clean ESPN placeholders
+        if text_processor:
+            story = text_processor.clean_description(story, game_data or {})
+        
         # Clean up HTML tags and format for better display
         import re
-        
-        # First, handle ESPN's placeholder patterns which are actually control characters
-        # These appear as \x01, \x02, etc. (ASCII control characters 1-9)
-        def replace_control_char_placeholder(match):
-            char_code = ord(match.group(0))
-            # Create more descriptive replacements based on context
-            if char_code == 1:
-                return '[Player]'
-            elif char_code == 2:
-                return '[Player 2]'
-            elif char_code == 3:
-                return '[Team/Coach]'
-            elif char_code == 4:
-                return '[Coach]'
-            elif char_code == 5:
-                return '[Player 3]'
-            else:
-                return f'[Player {char_code}]'
-        
-        # Replace control character placeholders (ASCII 1-9)
-        story = re.sub(r'[\x01-\x09]', replace_control_char_placeholder, story)
-        
-        # Also handle any escaped backslash patterns as backup
-        def replace_text_placeholder(match):
-            num = match.group(1)
-            if num == '1':
-                return '[Player]'
-            elif num == '2':
-                return '[Player 2]'
-            elif num == '3':
-                return '[Team/Coach]'
-            else:
-                return f'[Player {num}]'
-        
-        story = re.sub(r'\\+(\d+)', replace_text_placeholder, story)
         
         # Handle broken or incomplete story content more gracefully
         # Look for sentences that start with missing content

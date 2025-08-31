@@ -19,6 +19,8 @@ class ESPNTextProcessor:
             r'player_\d+',            # player_123
             r'athlete_\d+',           # athlete_123
             r'\b\d{6,}\b',            # Standalone long numbers (6+ digits)
+            r'[\x01-\x09]',           # Control characters 1-9 (the actual ESPN issue)
+            r'\\[1-9]',               # Escaped backslash patterns like \1, \2
         ]
     
     def clean_description(self, description: str, article_data: Optional[Dict] = None) -> str:
@@ -57,36 +59,100 @@ class ESPNTextProcessor:
     
     def _attempt_placeholder_resolution(self, text: str, article_data: Optional[Dict]) -> str:
         """
-        Attempt to resolve placeholder patterns using available article data.
+        Attempt to resolve placeholder patterns using simple player list mapping.
+        ESPN likely sends placeholders as references to a simple ordered player list.
         """
-        # Try to extract player names from other parts of the article
+        # Get a simple ordered list of players
         player_names = self._extract_player_names_from_article(article_data) if article_data else []
         
-        # Simple pattern replacement for obvious cases
-        # This is a basic implementation - could be enhanced with more sophisticated matching
         cleaned_text = text
         
-        # Remove obvious placeholder patterns that we can't resolve
-        for pattern in self.placeholder_patterns:
+        # Handle control characters with simple index mapping
+        def replace_control_char(match):
+            char = match.group(0)
+            char_code = ord(char)
+            # Simple mapping: \1 = player_names[0], \2 = player_names[1], etc.
+            if player_names and char_code <= len(player_names):
+                return player_names[char_code - 1]  # Convert 1-based to 0-based
+            else:
+                # Fallback to generic names
+                return f'[Player {char_code}]'
+        
+        # Replace control characters (ASCII 1-9)
+        cleaned_text = re.sub(r'[\x01-\x09]', replace_control_char, cleaned_text)
+        
+        # Handle escaped backslash patterns like \1, \2
+        def replace_backslash_pattern(match):
+            num = int(match.group(1))
+            # Simple mapping: \1 = player_names[0], \2 = player_names[1], etc.
+            if player_names and num <= len(player_names):
+                return player_names[num - 1]  # Convert 1-based to 0-based
+            else:
+                # Fallback to generic names
+                return f'[Player {num}]'
+        
+        cleaned_text = re.sub(r'\\([1-9])', replace_backslash_pattern, cleaned_text)
+        
+        # Handle other placeholder patterns
+        remaining_patterns = [p for p in self.placeholder_patterns if p not in [r'[\x01-\x09]', r'\\[1-9]']]
+        for pattern in remaining_patterns:
             cleaned_text = re.sub(pattern, '[Player Name]', cleaned_text, flags=re.IGNORECASE)
         
         return cleaned_text
     
-    def _extract_player_names_from_article(self, article_data: Dict) -> list:
+    def _extract_player_names_from_article(self, game_data: Dict) -> list:
         """
-        Extract player names from article categories or other fields.
+        Extract player names in the most logical order ESPN would reference them.
+        Focus on the most important/relevant players first.
         """
         player_names = []
         
-        # Check categories for athlete information
-        categories = article_data.get('categories', [])
-        for category in categories:
-            if category.get('type') == 'athlete':
-                athlete_name = category.get('description', '')
-                if athlete_name:
-                    player_names.append(athlete_name)
+        # Method 1: Get leaders first (usually the story's main players)
+        leaders = game_data.get('leaders', [])
+        for team_leaders in leaders:
+            for category in team_leaders.get('leaders', []):
+                # Prioritize key statistical categories 
+                category_name = category.get('name', '').lower()
+                priority_categories = ['passingyards', 'rushinyards', 'receivingyards']
+                
+                if any(pri_cat in category_name for pri_cat in priority_categories):
+                    for leader in category.get('leaders', []):
+                        athlete = leader.get('athlete', {})
+                        if athlete.get('displayName'):
+                            player_names.append(athlete['displayName'])
         
-        return player_names
+        # Method 2: Add key players from boxscore passing stats (QBs first)
+        boxscore = game_data.get('boxscore', {})
+        players_data = boxscore.get('players', [])
+        for team in players_data:
+            for stat_category in team.get('statistics', []):
+                if stat_category.get('name') == 'passing':  # QBs are often story leaders
+                    for athlete_stat in stat_category.get('athletes', []):
+                        athlete = athlete_stat.get('athlete', {})
+                        if athlete.get('displayName'):
+                            player_names.append(athlete['displayName'])
+        
+        # Method 3: Add other key statistical performers
+        for team in players_data:
+            for stat_category in team.get('statistics', []):
+                category_name = stat_category.get('name')
+                if category_name in ['rushing', 'receiving', 'defensive']:  # Key categories
+                    for athlete_stat in stat_category.get('athletes', [][:2]):  # Top 2 per category
+                        athlete = athlete_stat.get('athlete', {})
+                        if athlete.get('displayName'):
+                            player_names.append(athlete['displayName'])
+        
+        # Remove duplicates while preserving order (first occurrence wins)
+        seen = set()
+        unique_player_names = []
+        for name in player_names:
+            if name not in seen:
+                seen.add(name)
+                unique_player_names.append(name)
+        
+        return unique_player_names
+    
+
     
     def _still_has_placeholders(self, text: str) -> bool:
         """Check if text still contains unresolved placeholder patterns."""
