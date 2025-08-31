@@ -5783,32 +5783,8 @@ class StandingsDialog(QDialog):
     def setup_ui(self):
         layout = QVBoxLayout()
         
-        # Add view toggle for supported sports
-        if self.league in ["MLB", "NFL", "NBA", "NHL"]:
-            view_layout = QHBoxLayout()
-            
-            # Create combo box for view selection
-            view_label = QLabel("View:")
-            self.view_combo = QComboBox()
-            self.view_combo.addItem("Basic View", 0)  # Basic = 0
-            self.view_combo.addItem("Expanded View", 1)  # Expanded = 1
-            self.view_combo.setCurrentIndex(0)  # Start with basic view
-            
-            # Set accessibility properties
-            self.view_combo.setAccessibleName("Standings view selector")
-            self.view_combo.setAccessibleDescription("Choose between basic standings (7 columns) or expanded standings with additional statistics")
-            
-            # Set minimum width for combo box
-            self.view_combo.setMinimumWidth(150)
-            
-            # Connect signal
-            self.view_combo.currentIndexChanged.connect(self._on_view_changed)
-            
-            view_layout.addWidget(view_label)
-            view_layout.addWidget(self.view_combo)
-            view_layout.addStretch()
-            
-            layout.addLayout(view_layout)
+        # Always use expanded view (no user toggle to prevent issues)
+        self.expanded_view = True
         
         if not self.standings_data.teams:
             layout.addWidget(QLabel(f"No standings data available for {self.league}."))
@@ -5816,7 +5792,7 @@ class StandingsDialog(QDialog):
             has_divisions = len(self.standings_data.divisions) > 1 or any(
                 d != "League" for d in self.standings_data.divisions
             )
-            if has_divisions and self.league in ["MLB", "NFL", "NBA", "NHL"]:
+            if has_divisions and self.league in ["MLB", "NFL", "NBA", "NHL", "NCAAF", "NCAAB", "NCAAM", "NCAAW", "WNBA"]:
                 self._build_division_tabs(layout)
             else:
                 self.single_table = self._create_single_standings_table(self.standings_data.teams)
@@ -7109,6 +7085,17 @@ class SimpleTeamsDialog(QDialog):
                             "Atlantic Coast Conference", "Pac-12 Conference", "American Conference", 
                             "Conference USA", "Mid-American Conference", "Mountain West Conference", 
                             "FBS Independents"]
+        elif self.league in ["NCAAB", "NCAAM", "NCAAW"]:
+            # College basketball conferences (major conferences first)
+            division_order = ["Southeastern Conference", "Big Ten Conference", "Big 12 Conference",
+                            "Atlantic Coast Conference", "Pac-12 Conference", "Big East Conference",
+                            "American Conference", "Conference USA", "Mid-American Conference",
+                            "Mountain West Conference", "Atlantic 10 Conference", "Missouri Valley Conference",
+                            "West Coast Conference", "Ivy League", "Colonial Conference", 
+                            "Southern Conference", "Ohio Valley Conference", "Big Sky Conference"]
+        elif self.league == "WNBA":
+            # WNBA has Eastern and Western conferences
+            division_order = ["Eastern Conference", "Western Conference"]
         else:
             division_order = []
         
