@@ -935,10 +935,25 @@ def get_news(league_key, limit=10):
     data = resp.json()
     articles = data.get("articles", [])
     news_items = []
+    
+    # Import text processor for cleaning descriptions
+    try:
+        from text_utils import text_processor
+    except ImportError:
+        text_processor = None
+    
     for article in articles:
+        raw_description = article.get("description", "")
+        
+        # Clean description text if processor is available
+        if text_processor:
+            cleaned_description = text_processor.clean_description(raw_description, article)
+        else:
+            cleaned_description = raw_description
+        
         news_item = {
             "headline": article.get("headline", "No headline"),
-            "description": article.get("description", ""),
+            "description": cleaned_description,
             "web_url": article.get("links", {}).get("web", {}).get("href", ""),
             "mobile_url": article.get("links", {}).get("mobile", {}).get("href", ""),
             "published": article.get("published", ""),
