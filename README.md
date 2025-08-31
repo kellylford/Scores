@@ -1,6 +1,6 @@
 # Sports Scores Application
 
-A comprehensive sports scores application with enhanced accessibility features, detailed game analysis, and innovative pitch audio exploration for baseball.
+A comprehensive sports scores application with enhanced accessibility features, detailed game analysis, and **revolutionary multiple view modes** for optimal data consumption.
 
 ## 🏟️ What is Scores?
 
@@ -10,14 +10,31 @@ Scores is a desktop application that provides real-time access to:
 - **Team Standings** - Complete league standings and division rankings  
 - **Player Statistics** - Individual player performance data
 - **News & Updates** - Latest sports news and headlines
-- **Audio Features** - Unique audio feedback for baseball pitch analysis
+- **🚀 Multiple View Modes** - **INNOVATIVE**: Choose how you see data (Table/Quick List/Full List)
 
 ### 🎯 Who Should Use Scores?
 
 - **Sports Fans**: Stay updated with your favorite MLB and NFL teams with real-time scores and detailed analysis
 - **Baseball Enthusiasts**: Experience unique audio pitch mapping and spatial strike zone exploration
-- **Accessibility-Focused Users**: Enjoy comprehensive screen reader support and keyboard navigation
+- **Accessibility-Focused Users**: Revolutionary multiple view modes, screen reader support, keyboard navigation
 - **Developers**: Contribute to an open-source sports analysis platform with modern Python architecture
+
+## 🚀 BREAKTHROUGH FEATURE: Multiple View Modes
+
+**Industry-First Accessible Data Presentation**: Every table in the application now offers three distinct view modes, revolutionizing how users consume sports data.
+
+### Three Ways to View Any Data:
+- **📊 Table View**: Traditional grid format with full arrow key navigation
+- **📋 Quick List**: Comma-separated values ideal for rapid scanning ("Team, Wins, Losses...")  
+- **📖 Full List**: Header-value pairs for complete context ("Team: Brewers; Wins: 84...")
+
+### Universal Keyboard Shortcuts:
+- **Alt+V**: Cycle through all view modes
+- **Alt+T**: Direct to Table View
+- **Alt+Q**: Direct to Quick List  
+- **Alt+F**: Direct to Full List
+
+**Available Everywhere**: Standings, statistics, leaders, box scores, injury reports—every table automatically supports all three modes with seamless focus management.
 
 ## Key Features
 

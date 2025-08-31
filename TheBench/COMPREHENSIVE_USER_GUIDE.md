@@ -59,7 +59,21 @@
 ### Standings & League Overview
 **Purpose**: Complete league standings and divisional breakdowns
 
-#### Two View Modes:
+#### Multiple View Modes - **🚀 INNOVATIVE ACCESSIBILITY FEATURE**
+**Revolutionary Data Presentation**: Choose how you consume tabular data
+- **Table View** (Default): Traditional table format with full arrow key navigation
+- **Quick List View**: Linear list with comma-separated values ("Team, Wins, Losses, PCT...")
+- **Full List View**: Detailed list with headers ("Team: Milwaukee Brewers; Wins: 84; Losses: 52...")
+
+**Keyboard Shortcuts** (Available in ALL tables - standings, statistics, leaders, box scores):
+- **Alt+V**: Cycle through all three view modes
+- **Alt+T**: Switch directly to Table View
+- **Alt+Q**: Switch directly to Quick List View  
+- **Alt+F**: Switch directly to Full List View
+
+**Why This Matters**: Screen reader users and keyboard-only users can now choose the data format that works best for their familiarity level and preferences. This is especially powerful for complex statistical data.
+
+#### League Organization:
 - **Basic View**: Essential standings (W, L, PCT, GB, Streak)
 - **Expanded View**: Comprehensive stats including playoff odds, run differential, etc.
 
@@ -167,6 +181,14 @@
 - **News Integration**: Stay informed across all your followed sports
 
 ## Hidden Gems & Lesser-Known Features
+
+### 🚀 Multiple View Modes - **INNOVATIVE ACCESSIBILITY BREAKTHROUGH**
+**Unique Achievement**: Industry-first accessible data presentation system
+- **Universal Application**: Works with ALL tabular data - standings, statistics, leaders, box scores, injuries
+- **Three Distinct Formats**: Table, Quick List, Full List - each optimized for different user preferences
+- **Instant Switching**: Alt+V to cycle, Alt+T/Q/F for direct access
+- **Perfect For**: Screen reader users, keyboard navigation preferences, data consumption styles
+- **Innovation Impact**: Sets new standard for accessible sports data presentation
 
 ### Export Functionality
 **Underrated Feature**: Export game logs and schedules
