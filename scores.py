@@ -1367,6 +1367,10 @@ class GameDetailsView(BaseView):
             self._add_injuries_list_to_layout(layout, field_data)
         elif field_name == "news" and isinstance(field_data, (list, dict)):
             self._add_news_list_to_layout(layout, field_data)
+        elif field_name == "game_wrap_up":
+            # Generate and display comprehensive game wrap-up
+            self._generate_and_display_game_wrap_up(field_data)
+            return  # Don't continue with dialog creation
         else:
             # Fallback to formatted text
             text_widget = QTextEdit()
@@ -1503,6 +1507,9 @@ class GameDetailsView(BaseView):
             
             # Show configurable details
             self._add_configurable_details(raw_details)
+            
+            # Add Game Wrap Up option at the end
+            self._add_game_wrap_up_option()
             
         except Exception as e:
             self._show_api_error(f"Failed to load game details: {str(e)}")
@@ -1757,6 +1764,29 @@ class GameDetailsView(BaseView):
         if 'injuries' in details:
             self.details_list.addItem(f"Injuries: {details['injuries']}")
     
+    def _add_game_wrap_up_option(self):
+        """Add Game Wrap Up option at the end of the details list"""
+        if hasattr(self, 'current_raw_details') and self.current_raw_details:
+            # Check if this is a completed game that might have wrap-up content
+            header = self.current_raw_details.get('header', {})
+            competitions = header.get('competitions', [])
+            
+            if competitions:
+                competition = competitions[0]
+                status = competition.get('status', {})
+                status_type = status.get('type', {})
+                
+                # Only add wrap-up for completed games
+                state = status_type.get('state', '').lower()
+                if state in ['post', 'final']:
+                    # Add only the wrap-up item, no heading
+                    wrap_up_item = QListWidgetItem("🚧 Game Wrap Up")
+                    wrap_up_item.setData(Qt.ItemDataRole.UserRole, {
+                        "field": "game_wrap_up",
+                        "data": self.current_raw_details
+                    })
+                    self.details_list.addItem(wrap_up_item)
+
     def _add_configurable_details(self, raw_details: Dict):
         """Add all available detail fields (no longer configurable - show everything)"""
         # Show all available detail fields - be more permissive than before
@@ -3742,6 +3772,662 @@ class GameDetailsView(BaseView):
         
         return None
     
+    def _generate_and_display_game_wrap_up(self, raw_game_data):
+        """Generate comprehensive game wrap-up HTML and open in browser"""
+        try:
+            # Get game ID to fetch fresh data
+            game_id = None
+            header = raw_game_data.get('header', {})
+            competitions = header.get('competitions', [])
+            if competitions:
+                game_id = competitions[0].get('id')
+            
+            # If we have a game ID, fetch fresh data directly from ESPN
+            fresh_data = None
+            if game_id:
+                try:
+                    import requests
+                    url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/summary?event={game_id}"
+                    response = requests.get(url, timeout=10)
+                    if response.status_code == 200:
+                        fresh_data = response.json()
+                except Exception as e:
+                    print(f"Could not fetch fresh data: {e}")
+            
+            # Use fresh data if available, otherwise fall back to processed data
+            data_to_use = fresh_data if fresh_data else raw_game_data
+            
+            # Generate HTML content
+            html_content = self._generate_game_wrap_up_html(data_to_use)
+            
+            # Create temporary HTML file
+            import tempfile
+            import os
+            import webbrowser
+            
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
+                f.write(html_content)
+                temp_file_path = f.name
+            
+            # Open in default browser
+            webbrowser.open(f'file://{temp_file_path}')
+            
+            # Show confirmation message
+            QMessageBox.information(self, "Game Wrap Up", 
+                "Game Wrap Up opened in your default web browser.")
+                
+        except Exception as e:
+            QMessageBox.critical(self, "Wrap Up Error", 
+                f"Failed to generate game wrap-up:\n{str(e)}")
+    
+    def _generate_game_wrap_up_html(self, raw_game_data):
+        """Generate comprehensive HTML content for game wrap-up"""
+        # Extract key information from raw game data
+        header = raw_game_data.get('header', {})
+        competitions = header.get('competitions', [])
+        
+        # Extract teams info and game details
+        away_team = home_team = None
+        away_score = home_score = "0"
+        game_date = ""
+        status = {}
+        venue = {}
+        
+        if competitions:
+            competition = competitions[0]
+            competitors = competition.get('competitors', [])
+            game_date = competition.get('date', '')
+            status = competition.get('status', {})
+            venue = competition.get('venue', {})
+            
+            for competitor in competitors:
+                team_info = competitor.get('team', {})
+                score = competitor.get('score', '0')
+                
+                if competitor.get('homeAway') == 'away':
+                    away_team = team_info
+                    away_score = score
+                elif competitor.get('homeAway') == 'home':
+                    home_team = team_info
+                    home_score = score
+        
+        # Article content
+        article = raw_game_data.get('article', {})
+        
+        # Leaders/statistics
+        leaders = raw_game_data.get('leaders', [])
+        
+        # Boxscore data
+        boxscore = raw_game_data.get('boxscore', {})
+        
+        # Scoring plays
+        scoring_plays = raw_game_data.get('scoringPlays', [])
+        
+        # Drives (for football)
+        drives = raw_game_data.get('drives', {})
+        
+        # HTML template
+        html_content = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Wrap Up - {away_team.get('displayName', 'Away')} vs {home_team.get('displayName', 'Home')}</title>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }}
+        .header {{
+            background: linear-gradient(135deg, #1a472a 0%, #2e7d32 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }}
+        .score-line {{
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 40px;
+            margin: 20px 0;
+            font-size: 24px;
+            font-weight: bold;
+        }}
+        .team {{
+            text-align: center;
+            min-width: 200px;
+        }}
+        .team-name {{
+            font-size: 18px;
+            margin-bottom: 10px;
+        }}
+        .team-score {{
+            font-size: 36px;
+            font-weight: bold;
+            color: #ffd700;
+        }}
+        .vs {{
+            font-size: 20px;
+            opacity: 0.8;
+        }}
+        .game-info {{
+            text-align: center;
+            margin-top: 15px;
+            opacity: 0.9;
+        }}
+        .content-section {{
+            background: white;
+            margin-bottom: 30px;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }}
+        .section-title {{
+            color: #2e7d32;
+            border-bottom: 3px solid #2e7d32;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-size: 24px;
+            font-weight: bold;
+        }}
+        .article-content {{
+            font-size: 16px;
+            line-height: 1.8;
+        }}
+        .article-headline {{
+            font-size: 28px;
+            font-weight: bold;
+            color: #1a472a;
+            margin-bottom: 15px;
+            line-height: 1.3;
+        }}
+        .article-description {{
+            font-size: 18px;
+            color: #555;
+            font-style: italic;
+            margin-bottom: 25px;
+            border-left: 4px solid #2e7d32;
+            padding-left: 20px;
+        }}
+        .leaders-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }}
+        .leader-card {{
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #2e7d32;
+        }}
+        .leader-category {{
+            font-weight: bold;
+            color: #2e7d32;
+            margin-bottom: 10px;
+        }}
+        .leader-stat {{
+            margin: 5px 0;
+        }}
+        .scoring-plays {{
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+        }}
+        .play {{
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            border-left: 4px solid #ff6b35;
+        }}
+        .quarter {{
+            font-weight: bold;
+            color: #2e7d32;
+            margin-bottom: 5px;
+        }}
+        .boxscore-table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }}
+        .boxscore-table th,
+        .boxscore-table td {{
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }}
+        .boxscore-table th {{
+            background-color: #2e7d32;
+            color: white;
+            font-weight: bold;
+        }}
+        .boxscore-table tr:nth-child(even) {{
+            background-color: #f9f9f9;
+        }}
+        .drive-table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }}
+        .drive-table th,
+        .drive-table td {{
+            padding: 8px 12px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }}
+        .drive-table th {{
+            background-color: #f8f9fa;
+            font-weight: bold;
+            width: 30%;
+        }}
+        .drives-summary-table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }}
+        .drives-summary-table th,
+        .drives-summary-table td {{
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }}
+        .drives-summary-table thead th {{
+            background-color: #2e7d32;
+            color: white;
+            font-weight: bold;
+        }}
+        .drives-summary-table tbody th {{
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }}
+        .drives-summary-table tr:nth-child(even) {{
+            background-color: #f9f9f9;
+        }}
+        .current-drive,
+        .previous-drives {{
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+        }}
+        .timestamp {{
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+        }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="score-line">
+            <div class="team">
+                <div class="team-name">{away_team.get('displayName', 'Away Team') if away_team else 'Away Team'}</div>
+                <div class="team-score">{away_score}</div>
+            </div>
+            <div class="vs">@</div>
+            <div class="team">
+                <div class="team-name">{home_team.get('displayName', 'Home Team') if home_team else 'Home Team'}</div>
+                <div class="team-score">{home_score}</div>
+            </div>
+        </div>
+        <div class="game-info">
+            {self._format_game_date(game_date)} • {venue.get('fullName', '')}
+            <br>{status.get('type', {}).get('description', 'Final')}
+        </div>
+    </div>
+"""
+        
+        # Add article content if available
+        if article and article.get('headline'):
+            html_content += f"""
+    <div class="content-section">
+        <h2 class="section-title">📰 Game Story</h2>
+        <h1 class="article-headline">{article.get('headline', '')}</h1>
+        <p class="article-description">{article.get('description', '')}</p>
+        <div class="article-content">
+            {self._format_article_story(article.get('story', ''))}
+        </div>
+    </div>
+"""
+        
+        # Add key performers/leaders
+        if leaders:
+            html_content += f"""
+    <div class="content-section">
+        <h2 class="section-title">⭐ Key Performers</h2>
+        <div class="leaders-grid">
+            {self._format_leaders_html(leaders)}
+        </div>
+    </div>
+"""
+        
+        # Add scoring plays if available
+        if scoring_plays:
+            html_content += f"""
+    <div class="content-section">
+        <h2 class="section-title">🎯 Scoring Summary</h2>
+        <div class="scoring-plays">
+            {self._format_scoring_plays_html(scoring_plays)}
+        </div>
+    </div>
+"""
+        
+        # Add boxscore summary if available
+        if boxscore and boxscore.get('teams'):
+            html_content += f"""
+    <div class="content-section">
+        <h2 class="section-title">📊 Team Statistics</h2>
+        {self._format_boxscore_html(boxscore)}
+    </div>
+"""
+        
+        # Add drives summary for football
+        if drives and (drives.get('current') or drives.get('previous')):
+            html_content += f"""
+    <div class="content-section">
+        <h2 class="section-title">🏈 Drive Summary</h2>
+        {self._format_drives_html(drives)}
+    </div>
+"""
+        
+        # Close HTML
+        html_content += f"""
+    <div class="timestamp">
+        Generated on {self._get_current_timestamp()}
+    </div>
+</body>
+</html>
+"""
+        
+        return html_content
+    
+    def _format_game_date(self, date_str):
+        """Format game date for display"""
+        try:
+            from datetime import datetime
+            if date_str:
+                # Parse ISO date format
+                dt = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+                return dt.strftime('%B %d, %Y')
+        except:
+            pass
+        return date_str or ''
+    
+    def _format_article_story(self, story):
+        """Format article story content for HTML display"""
+        if not story:
+            return ""
+        
+        # Clean up HTML tags and format for better display
+        import re
+        
+        # First, handle ESPN's placeholder patterns which are actually control characters
+        # These appear as \x01, \x02, etc. (ASCII control characters 1-9)
+        def replace_control_char_placeholder(match):
+            char_code = ord(match.group(0))
+            # Create more descriptive replacements based on context
+            if char_code == 1:
+                return '[Player]'
+            elif char_code == 2:
+                return '[Player 2]'
+            elif char_code == 3:
+                return '[Team/Coach]'
+            elif char_code == 4:
+                return '[Coach]'
+            elif char_code == 5:
+                return '[Player 3]'
+            else:
+                return f'[Player {char_code}]'
+        
+        # Replace control character placeholders (ASCII 1-9)
+        story = re.sub(r'[\x01-\x09]', replace_control_char_placeholder, story)
+        
+        # Also handle any escaped backslash patterns as backup
+        def replace_text_placeholder(match):
+            num = match.group(1)
+            if num == '1':
+                return '[Player]'
+            elif num == '2':
+                return '[Player 2]'
+            elif num == '3':
+                return '[Team/Coach]'
+            else:
+                return f'[Player {num}]'
+        
+        story = re.sub(r'\\+(\d+)', replace_text_placeholder, story)
+        
+        # Handle broken or incomplete story content more gracefully
+        # Look for sentences that start with missing content
+        story = re.sub(r'^\s*—\s*\[Player\]', '[Player]', story, flags=re.MULTILINE)
+        story = re.sub(r'^\s*—\s*\\\d+', '[Player]', story, flags=re.MULTILINE)
+        
+        # Clean up any remaining orphaned dashes from broken content
+        story = re.sub(r'—\s*(?=\s*[A-Z])', '', story)
+        
+        # Replace HTML links with text only for now (keep the linked text but remove the link)
+        story = re.sub(r'<a[^>]*>(.*?)</a>', r'\\1', story)
+        
+        # Replace headline tags with proper HTML
+        story = re.sub(r'<hl2>(.*?)</hl2>', r'<h3 style="color: #2e7d32; margin: 20px 0 10px 0;">\\1</h3>', story)
+        
+        # Clean up extra whitespace and newlines
+        story = re.sub(r'\n\s*\n', '\n\n', story)  # Normalize paragraph breaks
+        story = re.sub(r'\r\n', '\n', story)  # Normalize line endings
+        
+        # Replace double newlines with paragraph breaks
+        story = story.replace('\n\n', '</p><p>')
+        
+        # Clean up any remaining whitespace issues
+        story = re.sub(r'\s+', ' ', story)  # Multiple spaces to single space
+        story = story.strip()
+        
+        # Wrap in paragraphs
+        if story:
+            story = f'<p>{story}</p>'
+        
+        return story
+    
+    def _format_leaders_html(self, leaders):
+        """Format leaders data for HTML display"""
+        html = ""
+        
+        for team_leaders in leaders:
+            team_name = team_leaders.get('team', {}).get('displayName', 'Team')
+            html += f'<div style="margin-bottom: 20px;"><h4 style="color: #2e7d32;">{team_name}</h4>'
+            
+            team_leader_data = team_leaders.get('leaders', [])
+            for category in team_leader_data:
+                category_name = category.get('displayName', 'Category')
+                html += f'<div class="leader-card">'
+                html += f'<div class="leader-category">{category_name}</div>'
+                
+                for leader in category.get('leaders', []):
+                    athlete = leader.get('athlete', {})
+                    display_value = leader.get('displayValue', leader.get('value', ''))
+                    html += f'<div class="leader-stat">{athlete.get("displayName", "Player")}: {display_value}</div>'
+                
+                html += '</div>'
+            
+            html += '</div>'
+        
+        return html
+    
+    def _format_scoring_plays_html(self, scoring_plays):
+        """Format scoring plays for HTML display"""
+        html = ""
+        current_period = None
+        
+        for play in scoring_plays:
+            period = play.get('period', {})
+            period_number = period.get('number', 1)
+            period_name = period.get('displayName', f'Period {period_number}')
+            
+            if current_period != period_number:
+                html += f'<div class="quarter">{period_name}</div>'
+                current_period = period_number
+            
+            team = play.get('team', {})
+            clock = play.get('clock', {}).get('displayValue', '')
+            text = play.get('text', '')
+            
+            html += f'<div class="play">'
+            html += f'<strong>{team.get("displayName", "Team")}</strong> - {clock}<br>'
+            html += f'{text}'
+            html += '</div>'
+        
+        return html
+    
+    def _format_boxscore_html(self, boxscore):
+        """Format boxscore data for HTML display - screen reader friendly"""
+        teams = boxscore.get('teams', [])
+        if not teams or len(teams) < 2:
+            return "<p>No team statistics available.</p>"
+        
+        # Extract team names
+        team1 = teams[0].get('team', {}).get('displayName', 'Team 1')
+        team2 = teams[1].get('team', {}).get('displayName', 'Team 2')
+        
+        # Get all statistics from both teams
+        team1_stats = teams[0].get('statistics', [])
+        team2_stats = teams[1].get('statistics', [])
+        
+        # Create a map of all available statistics
+        all_stats = {}
+        
+        # Process team 1 stats
+        for stat in team1_stats:
+            label = stat.get('label', '')
+            value = stat.get('displayValue', stat.get('value', ''))
+            if label:
+                all_stats[label] = {'team1': value, 'team2': '-'}
+        
+        # Process team 2 stats  
+        for stat in team2_stats:
+            label = stat.get('label', '')
+            value = stat.get('displayValue', stat.get('value', ''))
+            if label:
+                if label in all_stats:
+                    all_stats[label]['team2'] = value
+                else:
+                    all_stats[label] = {'team1': '-', 'team2': value}
+        
+        if not all_stats:
+            return "<p>No statistics available.</p>"
+        
+        # Create a clean, accessible 3-column table
+        html = '''
+        <table class="boxscore-table" role="table" aria-label="Team Statistics Comparison">
+            <thead>
+                <tr>
+                    <th scope="col">Statistic</th>
+                    <th scope="col">{team1}</th>
+                    <th scope="col">{team2}</th>
+                </tr>
+            </thead>
+            <tbody>
+        '''.format(team1=team1, team2=team2)
+        
+        # Add each statistic row
+        for stat_name, values in all_stats.items():
+            html += f'''
+                <tr>
+                    <th scope="row">{stat_name}</th>
+                    <td>{values['team1']}</td>
+                    <td>{values['team2']}</td>
+                </tr>
+            '''
+        
+        html += '''
+            </tbody>
+        </table>
+        '''
+        
+        return html
+    
+    def _format_drives_html(self, drives):
+        """Format drives data for HTML display - screen reader friendly"""
+        html = ""
+        
+        # Current drive
+        current = drives.get('current')
+        if current:
+            team = current.get('team', {})
+            team_name = team.get('displayName', 'Team')
+            plays = current.get('plays', 0)
+            yards = current.get('yards', 0)
+            
+            html += f'''
+            <div class="current-drive">
+                <h4>Current Drive</h4>
+                <table class="drive-table" role="table" aria-label="Current Drive Information">
+                    <tr><th scope="row">Team:</th><td>{team_name}</td></tr>
+                    <tr><th scope="row">Plays:</th><td>{plays}</td></tr>
+                    <tr><th scope="row">Yards:</th><td>{yards}</td></tr>
+                </table>
+            </div>
+            '''
+        
+        # Previous drives summary
+        previous = drives.get('previous', [])
+        if previous:
+            html += f'''
+            <div class="previous-drives">
+                <h4>Recent Drives ({len(previous)} total)</h4>
+                <table class="drives-summary-table" role="table" aria-label="Recent Drives Summary">
+                    <thead>
+                        <tr>
+                            <th scope="col">Team</th>
+                            <th scope="col">Plays</th>
+                            <th scope="col">Yards</th>
+                            <th scope="col">Result</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            '''
+            
+            # Show last 5 drives for readability
+            for drive in previous[-5:]:
+                team = drive.get('team', {})
+                team_name = team.get('displayName', 'Team')
+                result = drive.get('result', 'No result')
+                plays = drive.get('plays', 0)
+                yards = drive.get('yards', 0)
+                
+                html += f'''
+                    <tr>
+                        <th scope="row">{team_name}</th>
+                        <td>{plays}</td>
+                        <td>{yards}</td>
+                        <td>{result}</td>
+                    </tr>
+                '''
+            
+            html += '''
+                    </tbody>
+                </table>
+            </div>
+            '''
+        
+        if not html:
+            html = "<p>No drive information available.</p>"
+            
+        return html
+    
+    def _get_current_timestamp(self):
+        """Get current timestamp for wrap-up generation"""
+        from datetime import datetime
+        return datetime.now().strftime('%B %d, %Y at %I:%M %p')
+
     def _generate_game_log_html(self):
         """Generate HTML content for the complete game log"""
         # Determine what data we have and sport type
@@ -4795,7 +5481,7 @@ class GameDetailsView(BaseView):
         
         layout.addWidget(QLabel("News Headlines (🎯 = Game-specific, Enter or double-click to open in browser):"))
         layout.addWidget(news_list)
-    
+
     def keyPressEvent(self, event):
         """Handle key press events, but let dialog handle Escape when in modal context"""
         if event.key() == Qt.Key.Key_Escape:
