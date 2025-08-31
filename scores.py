@@ -420,6 +420,9 @@ class HomeView(BaseView):
     
     def on_show(self):
         self.set_focus_and_select_first(self.league_list)
+        # Update window title for home view
+        if self.parent_app:
+            self.parent_app.update_window_title()
     
     def refresh(self):
         """Refresh the league list"""
@@ -748,6 +751,9 @@ class LiveScoresView(BaseView):
     def on_show(self):
         """Called when view is shown"""
         self.set_focus_and_select_first(self.live_scores_list)
+        # Update window title for live scores view
+        if self.parent_app:
+            self.parent_app.update_window_title(["Live Scores"])
     
     def _show_api_error(self, message: str):
         """Show API error message to user"""
@@ -969,14 +975,29 @@ class LeagueView(BaseView):
     def _show_news_dialog(self):
         """Show news dialog"""
         try:
+            # Update window title to show we're viewing news
+            if self.parent_app:
+                self.parent_app.update_window_title(["News", self.league])
+            
             dialog = NewsDialog(self.news_headlines, self.league, self)
             dialog.exec()
+            
+            # Restore original title when dialog closes
+            if self.parent_app:
+                self.parent_app.update_window_title([self.league])
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to show news: {str(e)}")
+            # Restore original title on error
+            if self.parent_app:
+                self.parent_app.update_window_title([self.league])
     
     def _show_standings_dialog(self):
         """Show standings dialog with caching and fast background loading"""
         try:
+            # Update window title to show we're viewing standings
+            if self.parent_app:
+                self.parent_app.update_window_title(["Standings", self.league])
+            
             # Check cache first
             cache = DataCache()
             cached_data = cache.get_standings(self.league)
@@ -985,6 +1006,9 @@ class LeagueView(BaseView):
                 # Use cached data immediately
                 dialog = StandingsDialog(cached_data, self.league, self)
                 dialog.exec()
+                # Restore original title when dialog closes
+                if self.parent_app:
+                    self.parent_app.update_window_title([self.league])
             else:
                 # Load in background (now fast enough to not need loading dialog)
                 self.standings_loader = StandingsLoader(self.league)
@@ -1008,6 +1032,9 @@ class LeagueView(BaseView):
             # Show the dialog immediately (no loading dialog to close)
             dialog = StandingsDialog(standings_data, self.league, self)
             dialog.exec()
+            # Restore original title when dialog closes
+            if self.parent_app:
+                self.parent_app.update_window_title([self.league])
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to display standings: {str(e)}")
     
@@ -1015,6 +1042,10 @@ class LeagueView(BaseView):
         """Show statistics dialog with new flow: choose team/player → select stat → view results"""
         try:
             print(f"DEBUG: Starting _show_statistics_dialog for league: {self.league}")
+            
+            # Update window title to show we're viewing statistics
+            if self.parent_app:
+                self.parent_app.update_window_title(["Statistics", self.league])
             
             # Loop to allow returning to choice dialog
             while True:
@@ -1046,12 +1077,19 @@ class LeagueView(BaseView):
                 else:
                     print(f"DEBUG: StatisticsChoiceDialog was not accepted")
                     break  # Exit if choice dialog was cancelled
+            
+            # Restore original title when dialog closes
+            if self.parent_app:
+                self.parent_app.update_window_title([self.league])
                     
         except Exception as e:
             print(f"DEBUG: Exception in _show_statistics_dialog: {str(e)}")
             import traceback
             traceback.print_exc()
             QMessageBox.critical(self, "Error", f"Failed to display statistics: {str(e)}")
+            # Restore original title on error
+            if self.parent_app:
+                self.parent_app.update_window_title([self.league])
     
     def _on_standings_data_error(self, error_message):
         """Handle standings data loading error"""
@@ -1060,10 +1098,17 @@ class LeagueView(BaseView):
     def _show_teams_dialog(self):
         """Show teams dialog with simple tabbed interface"""
         try:
+            # Update window title to show we're viewing teams
+            if self.parent_app:
+                self.parent_app.update_window_title(["Teams", self.league])
+            
             standings_data = ApiService.get_standings(self.league)
             if not standings_data:
                 QMessageBox.information(self, "Teams", 
                                       f"No teams data available for {self.league}.")
+                # Restore original title
+                if self.parent_app:
+                    self.parent_app.update_window_title([self.league])
                 return
             
             # Filter data by league to avoid MLB/NFL mixing
@@ -1072,24 +1117,45 @@ class LeagueView(BaseView):
             
             dialog = SimpleTeamsDialog(filtered_data, self.league, self)
             dialog.exec()
+            
+            # Restore original title when dialog closes
+            if self.parent_app:
+                self.parent_app.update_window_title([self.league])
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to show teams: {str(e)}")
+            # Restore original title on error
+            if self.parent_app:
+                self.parent_app.update_window_title([self.league])
     
     def _show_venues_dialog(self):
         """Show venues dialog for the current league"""
         try:
+            # Update window title to show we're viewing venues
+            if self.parent_app:
+                self.parent_app.update_window_title(["Venues", self.league])
+            
             # Convert league to lowercase for venue service
             league_key = self.league.lower()
             venues_data = venue_service.get_venues_for_league(league_key)
             if not venues_data:
                 QMessageBox.information(self, "Venues", 
                                       f"No venue data available for {self.league}.")
+                # Restore original title
+                if self.parent_app:
+                    self.parent_app.update_window_title([self.league])
                 return
             
             dialog = VenuesDialog(venues_data, self.league, self)
             dialog.exec()
+            
+            # Restore original title when dialog closes
+            if self.parent_app:
+                self.parent_app.update_window_title([self.league])
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to show venues: {str(e)}")
+            # Restore original title on error
+            if self.parent_app:
+                self.parent_app.update_window_title([self.league])
     
     def _is_team_for_league(self, team_data: Dict, league: str) -> bool:
         """Check if team belongs to the specified league"""
@@ -1201,6 +1267,9 @@ class LeagueView(BaseView):
     
     def on_show(self):
         self.set_focus_and_select_first(self.scores_list)
+        # Update window title for league view
+        if self.parent_app and self.league:
+            self.parent_app.update_window_title([self.league])
 
 class GameDetailsView(BaseView):
     """View showing detailed information for a specific game"""
@@ -1683,9 +1752,14 @@ class GameDetailsView(BaseView):
 
     def _add_basic_game_info(self, details: Dict, raw_details: Dict = None):
         """Add basic game information to the details list"""
+        # Extract game information for window title
+        game_title_parts = []
+        
         # Display teams and records with interactive team names
         if 'teams' in details:
+            team_names = []
             for team in details['teams']:
+                team_names.append(team['name'])
                 home_away = " (Home)" if team['home_away'] == 'home' else " (Away)"
                 
                 # Use team_id directly from processed details (infrastructure fix)
@@ -1713,6 +1787,24 @@ class GameDetailsView(BaseView):
                 })
                 self.details_list.addItem(team_item)
                 self.details_list.addItem(f"  Record: {team['record']}")
+            
+            # Build game title with team names
+            if len(team_names) >= 2:
+                game_title_parts.append(f"{team_names[0]} vs {team_names[1]}")
+            elif len(team_names) == 1:
+                game_title_parts.append(team_names[0])
+        
+        # Add date/status information to title if available
+        if 'status' in details and details['status']:
+            # Only add non-generic status info
+            status = details['status']
+            if status not in ['Final', 'Scheduled', 'In Progress']:
+                game_title_parts.append(status)
+        
+        # Update window title with game-specific information
+        if self.parent_app and self.league:
+            title_context = game_title_parts + [self.league] if game_title_parts else ["Game Details", self.league]
+            self.parent_app.update_window_title(title_context)
         
         # Game status and timing
         if 'status' in details:
@@ -1915,6 +2007,10 @@ class GameDetailsView(BaseView):
     
     def on_show(self):
         self.set_focus_and_select_first(self.details_list)
+        # Update window title with game context (will be set after game data loads)
+        if self.parent_app and self.league:
+            # Initial title while loading
+            self.parent_app.update_window_title(["Game Details", self.league])
     
     def _add_standings_table_to_layout(self, layout, data):
         """Add standings table to layout"""
@@ -8145,6 +8241,10 @@ class SportsScoresApp(QWidget):
         super().__init__()
         self.setWindowTitle("Sports Scores")
         
+        # Initialize window title tracking
+        self.base_title = "Sports Scores"
+        self.current_context = []  # Stack for building breadcrumb-style titles
+        
         # Set proper window sizing behavior
         self.setMinimumSize(500, 300)  # Minimum usable size
         self.resize(WINDOW_WIDTH, WINDOW_HEIGHT)  # Initial size
@@ -8318,6 +8418,31 @@ class SportsScoresApp(QWidget):
             return True  # Default to include if we can't determine
         except:
             return True  # Default to include on error
+
+    def update_window_title(self, context_items=None):
+        """Update window title with breadcrumb-style context for accessibility
+        
+        Args:
+            context_items: List of context items from most specific to most general
+                          e.g., ["Standings", "MLB"] -> "MLB, Standings - Sports Scores"
+                          e.g., ["Yankees vs Red Sox", "MLB"] -> "Yankees vs Red Sox - MLB - Sports Scores"
+        """
+        if not context_items:
+            # Just show base title
+            self.setWindowTitle(self.base_title)
+            return
+            
+        # Build title following the pattern: most specific, then general context, then base
+        if len(context_items) == 1:
+            # Single context item: "{Context} - Sports Scores"
+            title = f"{context_items[0]} - {self.base_title}"
+        else:
+            # Multiple context items: reverse order for breadcrumb
+            # Most specific first, then increasingly general
+            breadcrumb_parts = list(reversed(context_items))
+            title = f"{', '.join(breadcrumb_parts)} - {self.base_title}"
+            
+        self.setWindowTitle(title)
 
     def _handle_startup_navigation(self):
         """Handle navigation based on startup parameters"""
