@@ -7,7 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### 🚀 BREAKTHROUGH FEATURE
+### In Progress
+- **Game Wrap Up Feature**: ESPN text processing and game story extraction (under construction)
+  - Core infrastructure implemented, text processing being refined
+  - Game story text placeholders currently under investigation
+
+## [0.55.0] - 2025-08-31
+
+### 🚀 BREAKTHROUGH ACCESSIBILITY FEATURES
+- **Dynamic Window Titles for Screen Readers**: **FIRST-IN-CLASS** window title management system
+  - **Contextual Titles**: Window titles dynamically reflect user location in the application
+  - **Screen Reader Optimized**: "MLB - Sports Scores", "MLB, Standings - Sports Scores", "Yankees vs Red Sox - MLB - Sports Scores"
+  - **Hierarchical Navigation**: Most specific information first, following accessibility best practices
+  - **Universal Coverage**: All views, dialogs, and navigation contexts included
+  - **Cross-Platform**: Both desktop (PyQt6) and web (JavaScript) implementations
+  - **Zero Breaking Changes**: Enhances existing functionality without disruption
+
 - **Multiple View Modes for All Tables**: **INDUSTRY-FIRST** accessible data presentation system
   - **Three View Modes**: Table, Quick List, Full List for every tabular data display
   - **Universal Keyboard Shortcuts**: Alt+V (cycle), Alt+T (table), Alt+Q (quick), Alt+F (full)
@@ -40,7 +55,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - NHL Expanded: Points, OT Losses, Goals For/Against, Goal Differential, Playoff Seed
   - Toggle buttons in standings dialog for supported sports (MLB, NFL, NBA, NHL)
 
-### Enhanced
 - **News Articles**: Increased news article retrieval from 6 to 20 articles per league
   - Added configurable limit parameter (max 50 articles available from ESPN)
   - Better news coverage with more comprehensive headlines
@@ -49,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed  
 - **MLB Standings**: Fixed incorrect "American League" tab appearing alongside proper divisions
   - Corrected Chicago White Sox abbreviation mapping (CHW vs CWS)
+- **Text Processing**: Enhanced ESPN news text name replacement and pattern detection
   - Now displays exactly 6 division tabs as expected
 
 ## [0.54.0-preview] - 2025-08-27
