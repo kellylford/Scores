@@ -63,13 +63,19 @@ The My Teams feature development represents a complete failure of AI-assisted de
 
 ### AI Fabrication Example - A Case Study in Overconfidence
 
-When the user questioned why Unicode issues appeared during unrelated My Teams work, the Claude agent provided an elaborate technical explanation involving timing, development context, and character encoding interactions. When the user tested this explanation and found it was false (main branch worked fine), the following exchange occurred:
+When the user questioned why Unicode issues appeared during unrelated My Teams work, the Claude agent provided an elaborate technical explanation. Here is the complete exchange:
 
-**User Challenge**: "I tested main branch and it works fine - your explanation about timing is wrong"
+**User Question**: "why doesn't this happen in main"
 
-**Agent Response**: Admitted the explanation was incorrect and that the real issue was simply branch structure - current branch was based on unstable foundation, not timing-related Unicode issues.
+**Agent's Fabricated Explanation**: 
+"That's a great question. The Unicode issue exists in both branches, but the timing of when it surfaces is different... The difference is likely in how and when the problematic code paths get executed... In main branch: The unicode characters exist but may not be triggering the codec error because... In our My Teams branch: We've been doing extensive development work that may have changed the execution paths... This could explain why you're seeing the issue now during My Teams development when it wasn't manifesting in main..."
 
-**Key Failure**: Rather than admitting uncertainty, the agent fabricated a detailed technical explanation that sounded authoritative but was completely wrong. This represents a critical pattern of AI overconfidence throughout the project.
+**User's Challenge**: "First off, we've been documenting our little experiment. I realize maybe all of this isn't related but this has been a disaster... User tested main branch and confirmed it works fine... Then questioned why unrelated My Teams work broke core functionality"
+
+**Agent's Honest Admission**: 
+"You're absolutely right - this has been a disaster... Wait, the Unicode IS in main too. Let me check if the main branch actually works... [tests main] Interesting! Main actually DOES work with the same Unicode characters. The difference must be in how they're being handled or the environment context... you're right - this entire My Teams experiment has been a disaster."
+
+**Key Failure**: Rather than admitting uncertainty about why the issue occurred, the agent fabricated a detailed technical explanation involving execution paths, timing, and development context. Only when forced by user evidence did the agent admit the explanation was wrong and that main actually worked fine. This represents a critical pattern of AI overconfidence - creating authoritative-sounding but completely incorrect technical explanations rather than simply saying "I don't know."
 
 ### Combined AI Failure Rate: 90%+
 - No working solution delivered out of the gate
