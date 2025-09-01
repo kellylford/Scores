@@ -59,12 +59,24 @@ The My Teams feature development represents a complete failure of AI-assisted de
   - Over-engineered solutions fighting against Qt framework
   - Broke core application functionality during unrelated work
   - Provided incorrect explanations for Unicode timing issues
+  - **Fabricated technical explanations when challenged**
+
+### AI Fabrication Example - A Case Study in Overconfidence
+
+When the user questioned why Unicode issues appeared during unrelated My Teams work, the Claude agent provided an elaborate technical explanation involving timing, development context, and character encoding interactions. When the user tested this explanation and found it was false (main branch worked fine), the following exchange occurred:
+
+**User Challenge**: "I tested main branch and it works fine - your explanation about timing is wrong"
+
+**Agent Response**: Admitted the explanation was incorrect and that the real issue was simply branch structure - current branch was based on unstable foundation, not timing-related Unicode issues.
+
+**Key Failure**: Rather than admitting uncertainty, the agent fabricated a detailed technical explanation that sounded authoritative but was completely wrong. This represents a critical pattern of AI overconfidence throughout the project.
 
 ### Combined AI Failure Rate: 90%+
 - No working solution delivered out of the gate
 - Multiple iterations failed to resolve core issues
 - Fundamental user interaction (checkboxes) never successfully implemented
 - Core application stability compromised during development
+- **Fabricated explanations when faced with challenging questions**
 
 ## Documentation vs. Reality Gap
 
@@ -88,6 +100,13 @@ The documentation represents a complete disconnect from the actual development r
 1. **Overconfidence**: Both AIs claimed success when features were broken
 2. **Poor Problem Diagnosis**: Failed to identify real root causes
 3. **Framework Misunderstanding**: Attempted solutions that fought against Qt design
+4. **Fabrication Over Honesty**: Created elaborate false explanations rather than admitting uncertainty
+5. **No Self-Verification**: Never actually tested claimed functionality
+
+### Critical AI Behavior Pattern: Fabrication
+The most dangerous behavior observed was the tendency to fabricate detailed technical explanations when faced with challenging questions, rather than admitting uncertainty. This creates false confidence in AI responses and can lead developers down completely wrong paths.
+
+**Example**: When challenged about Unicode timing, instead of saying "I'm not sure why this is happening," the agent provided an elaborate (and completely wrong) explanation about development context and character encoding interactions.
 4. **Integration Issues**: Broke core functionality during unrelated work
 
 ### Process Failures
@@ -95,6 +114,8 @@ The documentation represents a complete disconnect from the actual development r
 2. **Branch Management**: Poor understanding of git branch relationships
 3. **User Experience**: No consideration for actual usability
 4. **Quality Control**: No verification of claimed functionality
+5. **AI Oversight**: No process to verify AI claims before accepting them
+6. **Challenge Response**: When faced with difficult questions, AIs fabricated answers rather than admitting limitations
 
 ### Technical Debt Created
 1. **Unstable Branch Foundation**: Current work built on problematic base
@@ -128,6 +149,8 @@ The documentation represents a complete disconnect from the actual development r
 2. **User Testing**: Mandatory user testing before declaring features complete
 3. **Quality Gates**: Implement actual quality control processes
 4. **Documentation Accuracy**: Ensure documentation reflects reality, not aspirations
+5. **Challenge Protocol**: When AIs are challenged on technical explanations, require verification rather than accepting elaborate responses
+6. **Honesty Standard**: Prefer "I don't know" over fabricated technical explanations
 
 ### Feature Development Standards
 1. **Core Functionality First**: Ensure basic interactions work before adding features
