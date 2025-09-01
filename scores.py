@@ -362,6 +362,11 @@ class HomeView(BaseView):
         live_scores_item.setData(Qt.ItemDataRole.UserRole, "__live_scores__")
         self.league_list.addItem(live_scores_item)
         
+        # Add My Teams as the second item
+        my_teams_item = QListWidgetItem("My Teams")
+        my_teams_item.setData(Qt.ItemDataRole.UserRole, "__my_teams__")
+        self.league_list.addItem(my_teams_item)
+        
         # Add separator
         separator_item = QListWidgetItem("─" * 30)
         separator_item.setFlags(Qt.ItemFlag.NoItemFlags)  # Make it non-selectable
@@ -390,6 +395,12 @@ class HomeView(BaseView):
             # Open Live Scores view
             if self.parent_app:
                 self.parent_app.open_live_scores()
+            return
+        
+        if user_data == "__my_teams__":
+            # Open My Teams view
+            if self.parent_app:
+                self.parent_app.open_my_teams()
             return
 
         # For NFL/NCAAF, determine current week and show those games
@@ -8326,6 +8337,17 @@ class SportsScoresApp(QWidget):
             self._switch_to_view(live_scores_view, "live_scores", None)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open live scores: {e}")
+
+    def open_my_teams(self):
+        """Open My Teams view"""
+        try:
+            self._push_to_stack("home", None)
+            from views.my_teams_view import MyTeamsView
+            my_teams_view = MyTeamsView(self)
+            my_teams_view.setup_ui()
+            self._switch_to_view(my_teams_view, "my_teams", None)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to open My Teams: {e}")
 
     def open_game_details(self, game_id: str, from_live_scores=False):
         """Open game details view"""
