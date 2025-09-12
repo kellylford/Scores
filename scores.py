@@ -1,10 +1,15 @@
 """
 Scores - Sports Analysis Application
-Version: 0.54.0-preview
 A comprehensive sports analysis application supporting MLB and NFL
 """
 
-__version__ = "0.54.0-preview"
+# Import version from centralized location
+try:
+    from version import __version__, get_version
+except ImportError:
+    __version__ = "0.55.0"
+    def get_version(): return __version__
+
 __author__ = "Kelly Ford"
 __description__ = "Sports Analysis Application with ESPN API integration"
 
