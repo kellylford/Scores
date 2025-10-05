@@ -11,6 +11,7 @@ LEAGUES = {
     "WNBA": "basketball/wnba",
     "NCAAF": "football/college-football",
     "NCAAM": "basketball/mens-college-basketball",
+    "NCAAWB": "basketball/womens-college-basketball",
     "Soccer": "soccer/eng.1",  # English Premier League
     # Add more as needed
 }
@@ -28,28 +29,87 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
     is_historical_season = season is not None and season != current_year
     
     # Use dedicated team schedule endpoints for major sports
-    if league_key in ["MLB", "NFL", "NBA", "NCAAF"]:
+    if league_key in ["MLB", "NFL", "NBA", "NHL", "NCAAF"]:
         base_url = f"{BASE_URL}/{league_path}/teams/{team_id}/schedule"
         
-        # Use appropriate season parameters for each sport
-        if league_key == "NFL":
+        # For NBA, NHL, and MLB, we need to fetch all season types separately and combine
+        if league_key in ["NBA", "NHL", "MLB"]:
+            # Determine season year based on league
+            if league_key == "MLB":
+                season_year = season if season else 2025  # MLB uses calendar year
+            else:
+                season_year = season if season else 2026  # NBA/NHL use year+1 (2026 = 2025-26 season)
+            
+            all_events = []
+            
+            # Fetch all season types: 1=Preseason, 2=Regular Season, 3=Postseason
+            for season_type in [1, 2, 3]:
+                try:
+                    type_url = f"{base_url}?season={season_year}&seasontype={season_type}"
+                    resp = requests.get(type_url)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        events = data.get('events', [])
+                        all_events.extend(events)
+                except:
+                    pass  # Continue even if one season type fails
+            
+            # Sort all events by date
+            from datetime import datetime
+            try:
+                all_events.sort(key=lambda e: datetime.fromisoformat(e.get('date', '').replace('Z', '+00:00')))
+            except:
+                pass
+            
+            # Use the combined events list
+            events = all_events
+            
+        # For other sports, use specific seasontype or default behavior
+        elif league_key == "NFL":
             # NFL: Use specified season or default to 2025 regular season (seasontype=2)
             season_year = season if season else 2025
             url = f"{base_url}?season={season_year}&seasontype=2"
-        elif league_key == "NBA":
-            # NBA: Use specified season or default to 2025-26 season (2026 = 2025-26 season)
-            season_year = season if season else 2026
-            url = f"{base_url}?season={season_year}"
+            resp = requests.get(url)
+            if resp.status_code != 200:
+                return []
+            data = resp.json()
+            events = data.get('events', [])
         elif league_key == "NCAAF":
             # NCAAF: Use specified season or current year with seasontype=2 for regular season
+            from datetime import datetime
             season_year = season if season else datetime.now().year
             url = f"{base_url}?season={season_year}&seasontype=2"
-        else:  # MLB
-            # MLB: Use specified season or no season parameter for current
-            if season:
-                url = f"{base_url}?season={season}"
-            else:
-                url = base_url
+            resp = requests.get(url)
+            if resp.status_code != 200:
+                return []
+            data = resp.json()
+            events = data.get('events', [])
+        elif league_key in ["NCAAM", "NCAAWB"]:
+            # NCAA Basketball: Use year+1 format like NBA (2026 = 2025-26 season)
+            season_year = season if season else 2026
+            all_events = []
+            
+            # Fetch all season types: 1=Preseason, 2=Regular Season, 3=Postseason
+            for season_type in [1, 2, 3]:
+                try:
+                    type_url = f"{base_url}?season={season_year}&seasontype={season_type}"
+                    resp = requests.get(type_url)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        events = data.get('events', [])
+                        all_events.extend(events)
+                except:
+                    pass  # Continue even if one season type fails
+            
+            # Sort all events by date
+            from datetime import datetime
+            try:
+                all_events.sort(key=lambda e: datetime.fromisoformat(e.get('date', '').replace('Z', '+00:00')))
+            except:
+                pass
+            
+            # Use the combined events list
+            events = all_events
     else:
         # For other leagues, fall back to the date range approach
         today = datetime.now()
@@ -65,132 +125,120 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
             
         return parse_schedule_from_api(url, team_id, datetime.now(), season)
     
-    try:
-        resp = requests.get(url)
-        if resp.status_code != 200:
-            return []
-            
-        data = resp.json()
-        events = data.get('events', [])
-        
-        # NCAAF fallback: if current year has no games, try previous year with seasontype=2
-        if league_key == "NCAAF" and len(events) == 0:
-            from datetime import datetime
-            previous_year = datetime.now().year - 1
-            fallback_url = f"{BASE_URL}/{league_path}/teams/{team_id}/schedule?season={previous_year}&seasontype=2"
+    # NCAAF fallback: if current year has no games, try previous year with seasontype=2
+    if league_key == "NCAAF" and len(events) == 0:
+        from datetime import datetime
+        previous_year = datetime.now().year - 1
+        fallback_url = f"{BASE_URL}/{league_path}/teams/{team_id}/schedule?season={previous_year}&seasontype=2"
+        try:
+            fallback_resp = requests.get(fallback_url)
+            if fallback_resp.status_code == 200:
+                fallback_data = fallback_resp.json()
+                events = fallback_data.get('events', [])
+        except:
+            pass  # If fallback fails, continue with empty events
+    
+    schedule = []
+    today = datetime.now()
+    
+    for event in events:
+        # Parse event date
+        event_date_str = event.get('date', '')
+        if event_date_str:
             try:
-                fallback_resp = requests.get(fallback_url)
-                if fallback_resp.status_code == 200:
-                    fallback_data = fallback_resp.json()
-                    events = fallback_data.get('events', [])
+                event_date = datetime.fromisoformat(event_date_str.replace('Z', '+00:00'))
+                event_date = event_date.replace(tzinfo=None)
             except:
-                pass  # If fallback fails, continue with empty events
-        
-        schedule = []
-        today = datetime.now()
-        
-        for event in events:
-            # Parse event date
-            event_date_str = event.get('date', '')
-            if event_date_str:
-                try:
-                    event_date = datetime.fromisoformat(event_date_str.replace('Z', '+00:00'))
-                    event_date = event_date.replace(tzinfo=None)
-                except:
-                    continue
-            else:
                 continue
-                
-            # Get competition data
-            competitions = event.get('competitions', [])
-            if not competitions:
-                continue
-                
-            comp = competitions[0]
-            competitors = comp.get('competitors', [])
+        else:
+            continue
             
-            # Find home and away teams
-            home_team = away_team = None
-            home_score = away_score = ''
+        # Get competition data
+        competitions = event.get('competitions', [])
+        if not competitions:
+            continue
             
-            for competitor in competitors:
-                team_info = competitor.get('team', {})
-                if competitor.get('homeAway') == 'home':
-                    home_team = team_info.get('displayName', 'Unknown')
-                    score_data = competitor.get('score', '')
-                    if isinstance(score_data, dict):
-                        home_score = score_data.get('displayValue', '')
-                    else:
-                        home_score = str(score_data) if score_data else ''
+        comp = competitions[0]
+        competitors = comp.get('competitors', [])
+        
+        # Find home and away teams
+        home_team = away_team = None
+        home_score = away_score = ''
+        
+        for competitor in competitors:
+            team_info = competitor.get('team', {})
+            if competitor.get('homeAway') == 'home':
+                home_team = team_info.get('displayName', 'Unknown')
+                score_data = competitor.get('score', '')
+                if isinstance(score_data, dict):
+                    home_score = score_data.get('displayValue', '')
                 else:
-                    away_team = team_info.get('displayName', 'Unknown')
-                    score_data = competitor.get('score', '')
-                    if isinstance(score_data, dict):
-                        away_score = score_data.get('displayValue', '')
-                    else:
-                        away_score = str(score_data) if score_data else ''
-            
-            # Determine if this is home or away for our team
-            team_name = None
-            is_home = False
-            for competitor in competitors:
-                if competitor.get('team', {}).get('id') == team_id:
-                    team_name = competitor.get('team', {}).get('displayName', 'Unknown')
-                    is_home = competitor.get('homeAway') == 'home'
-                    break
-                    
-            if not team_name:
-                continue
-                
-            opponent = away_team if is_home else home_team
-            home_away = 'vs' if is_home else '@'
-            
-            # Get game status
-            status = comp.get('status', {})
-            status_type = status.get('type', {})
-            game_status = status_type.get('description', 'Unknown')
-            
-            # Get start time
-            start_time = 'TBD'
-            if 'shortDetail' in status_type:
-                start_time = status_type['shortDetail']
-            elif 'detail' in status_type:
-                start_time = status_type['detail']
-            
-            # Convert timezone to user's local time
-            start_time = convert_espn_time_to_local(start_time)
-            
-            # Get venue
-            venue = comp.get('venue', {})
-            venue_name = venue.get('fullName', 'TBD')
-            
-            # Determine date display format - include year for historical seasons
-            if is_historical_season:
-                date_display = event_date.strftime('%a, %b %d, %Y')
+                    home_score = str(score_data) if score_data else ''
             else:
-                date_display = event_date.strftime('%a, %b %d')
-            
-            schedule.append({
-                'date': event_date.strftime('%Y-%m-%d'),
-                'date_display': date_display,
-                'opponent': opponent,
-                'home_away': home_away,
-                'time': start_time,
-                'status': game_status,
-                'venue': venue_name,
-                'home_score': home_score,
-                'away_score': away_score,
-                'game_id': event.get('id', ''),
-                'is_today': event_date.date() == today.date()
-            })
-            
-        # Sort by date
-        schedule.sort(key=lambda x: x['date'])
-        return schedule
+                away_team = team_info.get('displayName', 'Unknown')
+                score_data = competitor.get('score', '')
+                if isinstance(score_data, dict):
+                    away_score = score_data.get('displayValue', '')
+                else:
+                    away_score = str(score_data) if score_data else ''
         
-    except Exception as e:
-        print(f"Error fetching team schedule: {e}")
-        return []
+        # Determine if this is home or away for our team
+        team_name = None
+        is_home = False
+        for competitor in competitors:
+            if competitor.get('team', {}).get('id') == team_id:
+                team_name = competitor.get('team', {}).get('displayName', 'Unknown')
+                is_home = competitor.get('homeAway') == 'home'
+                break
+                
+        if not team_name:
+            continue
+            
+        opponent = away_team if is_home else home_team
+        home_away = 'vs' if is_home else '@'
+        
+        # Get game status
+        status = comp.get('status', {})
+        status_type = status.get('type', {})
+        game_status = status_type.get('description', 'Unknown')
+        
+        # Get start time
+        start_time = 'TBD'
+        if 'shortDetail' in status_type:
+            start_time = status_type['shortDetail']
+        elif 'detail' in status_type:
+            start_time = status_type['detail']
+        
+        # Convert timezone to user's local time
+        start_time = convert_espn_time_to_local(start_time)
+        
+        # Get venue
+        venue = comp.get('venue', {})
+        venue_name = venue.get('fullName', 'TBD')
+        
+        # Determine date display format - include year for historical seasons
+        if is_historical_season:
+            date_display = event_date.strftime('%a, %b %d, %Y')
+        else:
+            date_display = event_date.strftime('%a, %b %d')
+        
+        schedule.append({
+            'date': event_date.strftime('%Y-%m-%d'),
+            'date_display': date_display,
+            'opponent': opponent,
+            'home_away': home_away,
+            'time': start_time,
+            'status': game_status,
+            'venue': venue_name,
+            'home_score': home_score,
+            'away_score': away_score,
+            'game_id': event.get('id', ''),
+            'is_today': event_date.date() == today.date()
+        })
+        
+    # Sort by date
+    schedule.sort(key=lambda x: x['date'])
+    return schedule
 
 def get_mlb_full_season_schedule(league_path, team_id, today):
     """Get full MLB season using monthly API calls to avoid 100-event limit"""
@@ -1441,6 +1489,10 @@ def get_standings(league_key):
         return _get_nhl_standings_fast()
     elif league_key == "NCAAF":
         return _get_ncaaf_standings_fast()
+    elif league_key == "NCAAM":
+        return _get_ncaam_standings_fast()
+    elif league_key == "NCAAWB":
+        return _get_ncaawb_standings_fast()
     else:
         # Fallback to original method for other leagues
         return _get_standings_original(league_key)
@@ -2083,6 +2135,128 @@ def _get_ncaaf_standings_fast():
     except Exception as e:
         print(f"Error in fast NCAAF standings: {e}")
         return _get_standings_original("NCAAF")
+
+def _get_ncaam_standings_fast():
+    """Fast NCAA Men's Basketball standings using dedicated endpoint"""
+    try:
+        url = "https://site.api.espn.com/apis/v2/sports/basketball/mens-college-basketball/standings"
+        resp = requests.get(url)
+        
+        if resp.status_code != 200:
+            return []
+        
+        data = resp.json()
+        standings = []
+        
+        # Process each conference
+        for conference in data.get('children', []):
+            conf_name = conference.get('name', 'Independent')
+            conf_standings = conference.get('standings', {})
+            entries = conf_standings.get('entries', [])
+            
+            for entry in entries:
+                team_info = entry.get('team', {})
+                stats = entry.get('stats', [])
+                
+                # Create stats lookup
+                stats_dict = {}
+                for stat in stats:
+                    stats_dict[stat.get('name', '')] = stat.get('value', 0)
+                
+                # Extract team data
+                team_name = team_info.get('displayName', 'Unknown')
+                team_id = str(team_info.get('id', ''))
+                abbreviation = team_info.get('abbreviation', '')
+                
+                # Get wins/losses from stats
+                wins = int(stats_dict.get('wins', 0))
+                losses = int(stats_dict.get('losses', 0))
+                win_pct = stats_dict.get('winPercent', 0.0)
+                
+                team_data = {
+                    "team_name": team_name,
+                    "team_id": team_id,
+                    "abbreviation": abbreviation,
+                    "wins": wins,
+                    "losses": losses,
+                    "win_percentage": f"{win_pct:.3f}",
+                    "games_back": "—",  # College basketball doesn't use games back
+                    "division": conf_name,  # Conference name as division
+                    "streak": "",
+                    "logo": team_info.get("logos", [{}])[0].get("href", "") if team_info.get("logos") else ""
+                }
+                
+                standings.append(team_data)
+        
+        # Sort by conference, then by wins
+        standings.sort(key=lambda x: (x["division"], -x["wins"], x["losses"]))
+        
+        return standings
+        
+    except Exception as e:
+        print(f"Error in fast NCAAM standings: {e}")
+        return _get_standings_original("NCAAM")
+
+def _get_ncaawb_standings_fast():
+    """Fast NCAA Women's Basketball standings using dedicated endpoint"""
+    try:
+        url = "https://site.api.espn.com/apis/v2/sports/basketball/womens-college-basketball/standings"
+        resp = requests.get(url)
+        
+        if resp.status_code != 200:
+            return []
+        
+        data = resp.json()
+        standings = []
+        
+        # Process each conference
+        for conference in data.get('children', []):
+            conf_name = conference.get('name', 'Independent')
+            conf_standings = conference.get('standings', {})
+            entries = conf_standings.get('entries', [])
+            
+            for entry in entries:
+                team_info = entry.get('team', {})
+                stats = entry.get('stats', [])
+                
+                # Create stats lookup
+                stats_dict = {}
+                for stat in stats:
+                    stats_dict[stat.get('name', '')] = stat.get('value', 0)
+                
+                # Extract team data
+                team_name = team_info.get('displayName', 'Unknown')
+                team_id = str(team_info.get('id', ''))
+                abbreviation = team_info.get('abbreviation', '')
+                
+                # Get wins/losses from stats
+                wins = int(stats_dict.get('wins', 0))
+                losses = int(stats_dict.get('losses', 0))
+                win_pct = stats_dict.get('winPercent', 0.0)
+                
+                team_data = {
+                    "team_name": team_name,
+                    "team_id": team_id,
+                    "abbreviation": abbreviation,
+                    "wins": wins,
+                    "losses": losses,
+                    "win_percentage": f"{win_pct:.3f}",
+                    "games_back": "—",  # College basketball doesn't use games back
+                    "division": conf_name,  # Conference name as division
+                    "streak": "",
+                    "logo": team_info.get("logos", [{}])[0].get("href", "") if team_info.get("logos") else ""
+                }
+                
+                standings.append(team_data)
+        
+        # Sort by conference, then by wins
+        standings.sort(key=lambda x: (x["division"], -x["wins"], x["losses"]))
+        
+        return standings
+        
+    except Exception as e:
+        print(f"Error in fast NCAAWB standings: {e}")
+        return _get_standings_original("NCAAWB")
 
 def _get_standings_original(league_key):
     """Original standings method (slower but works for all leagues)"""

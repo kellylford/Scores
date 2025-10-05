@@ -963,7 +963,7 @@ class LeagueView(BaseView):
                 self._show_api_error(f"Failed to load scores: {str(e)}")
 
     def _add_common_sections(self):
-        if self.league in ["MLB", "NFL", "NBA", "NHL", "NCAAF"]:
+        if self.league in ["MLB", "NFL", "NBA", "NHL", "NCAAF", "NCAAM", "NCAAWB"]:
             self.scores_list.addItem("--- Standings ---")
             standings_item = self.scores_list.item(self.scores_list.count()-1)
             standings_item.setData(Qt.ItemDataRole.UserRole, "__standings__")
@@ -6578,7 +6578,7 @@ class StandingsDialog(QDialog):
             has_divisions = len(self.standings_data.divisions) > 1 or any(
                 d != "League" for d in self.standings_data.divisions
             )
-            if has_divisions and self.league in ["MLB", "NFL", "NBA", "NHL", "NCAAF", "NCAAB", "NCAAM", "NCAAW", "WNBA"]:
+            if has_divisions and self.league in ["MLB", "NFL", "NBA", "NHL", "NCAAF", "NCAAM", "NCAAWB", "WNBA"]:
                 self._build_division_tabs(layout)
             else:
                 self.single_table = self._create_single_standings_table(self.standings_data.teams)
