@@ -14,6 +14,7 @@ __author__ = "Kelly Ford"
 __description__ = "Sports Analysis Application with ESPN API integration"
 
 import sys
+import argparse
 import webbrowser
 import time
 from datetime import datetime, timedelta
@@ -963,7 +964,7 @@ class LeagueView(BaseView):
                 self._show_api_error(f"Failed to load scores: {str(e)}")
 
     def _add_common_sections(self):
-        if self.league in ["MLB", "NFL", "NBA", "NHL", "NCAAF", "NCAAM", "NCAAWB"]:
+        if self.league in ["MLB", "NFL", "NBA", "WNBA", "NHL", "NCAAF", "NCAAM", "NCAAWB"]:
             self.scores_list.addItem("--- Standings ---")
             standings_item = self.scores_list.item(self.scores_list.count()-1)
             standings_item.setData(Qt.ItemDataRole.UserRole, "__standings__")
@@ -8568,6 +8569,88 @@ class SportsScoresApp(QWidget):
 
 
 if __name__ == "__main__":
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(
+        description="Sports Scores Application - View live scores, standings, and team information",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  scores                    Launch home screen
+  scores --live             Launch directly to Live Scores view (shorthand)
+  scores --live-scores      Launch directly to Live Scores view (all sports)
+  scores --mlb              Launch directly to MLB games
+  scores --nfl              Launch directly to NFL games  
+  scores --mlb-teams        Launch directly to MLB teams view
+  scores --nfl-standings    Launch directly to NFL standings view
+        """)
+    
+    # Create mutually exclusive group for sports
+    sports_group = parser.add_mutually_exclusive_group()
+    
+    # Live Scores view (all sports)
+    sports_group.add_argument('--live-scores', action='store_true', help='Launch directly to Live Scores view (all sports)')
+    sports_group.add_argument('--live', action='store_true', help='Launch directly to Live Scores view (shorthand for --live-scores)')
+    
+    # Sports game views
+    sports_group.add_argument('--mlb', action='store_true', help='Launch to MLB games view')
+    sports_group.add_argument('--nfl', action='store_true', help='Launch to NFL games view') 
+    sports_group.add_argument('--nba', action='store_true', help='Launch to NBA games view')
+    sports_group.add_argument('--wnba', action='store_true', help='Launch to WNBA games view')
+    sports_group.add_argument('--nhl', action='store_true', help='Launch to NHL games view')
+    sports_group.add_argument('--ncaaf', action='store_true', help='Launch to NCAA Football games view')
+    sports_group.add_argument('--ncaam', action='store_true', help='Launch to NCAA Men\'s Basketball games view')
+    sports_group.add_argument('--ncaawb', action='store_true', help='Launch to NCAA Women\'s Basketball games view')
+    
+    # Teams views
+    sports_group.add_argument('--mlb-teams', action='store_true', help='Launch to MLB teams view')
+    sports_group.add_argument('--nfl-teams', action='store_true', help='Launch to NFL teams view')
+    sports_group.add_argument('--nba-teams', action='store_true', help='Launch to NBA teams view')
+    sports_group.add_argument('--wnba-teams', action='store_true', help='Launch to WNBA teams view')
+    sports_group.add_argument('--nhl-teams', action='store_true', help='Launch to NHL teams view')
+    sports_group.add_argument('--ncaaf-teams', action='store_true', help='Launch to NCAA Football teams view')
+    sports_group.add_argument('--ncaam-teams', action='store_true', help='Launch to NCAA Men\'s Basketball teams view')
+    sports_group.add_argument('--ncaawb-teams', action='store_true', help='Launch to NCAA Women\'s Basketball teams view')
+    
+    # Standings views
+    sports_group.add_argument('--mlb-standings', action='store_true', help='Launch to MLB standings view')
+    sports_group.add_argument('--nfl-standings', action='store_true', help='Launch to NFL standings view')
+    sports_group.add_argument('--nba-standings', action='store_true', help='Launch to NBA standings view')
+    sports_group.add_argument('--wnba-standings', action='store_true', help='Launch to WNBA standings view')
+    sports_group.add_argument('--nhl-standings', action='store_true', help='Launch to NHL standings view')
+    sports_group.add_argument('--ncaaf-standings', action='store_true', help='Launch to NCAA Football standings view')
+    sports_group.add_argument('--ncaam-standings', action='store_true', help='Launch to NCAA Men\'s Basketball standings view')
+    sports_group.add_argument('--ncaawb-standings', action='store_true', help='Launch to NCAA Women\'s Basketball standings view')
+    
+    args = parser.parse_args()
+    
+    # Determine startup parameters
+    startup_params = None
+    
+    # Check for live scores view (both --live-scores and --live)
+    if getattr(args, 'live_scores', False) or getattr(args, 'live', False):
+        startup_params = {'action': 'live_scores'}
+    
+    # Check for league game views
+    for sport in ['mlb', 'nfl', 'nba', 'wnba', 'nhl', 'ncaaf', 'ncaam', 'ncaawb']:
+        if getattr(args, sport, False):
+            startup_params = {'action': 'league', 'league': sport.upper()}
+            break
+    
+    # Check for teams views
+    if not startup_params:
+        for sport in ['mlb', 'nfl', 'nba', 'wnba', 'nhl', 'ncaaf', 'ncaam', 'ncaawb']:
+            if getattr(args, f'{sport}_teams', False):
+                startup_params = {'action': 'teams', 'league': sport.upper()}
+                break
+    
+    # Check for standings views  
+    if not startup_params:
+        for sport in ['mlb', 'nfl', 'nba', 'wnba', 'nhl', 'ncaaf', 'ncaam', 'ncaawb']:
+            if getattr(args, f'{sport}_standings', False):
+                startup_params = {'action': 'standings', 'league': sport.upper()}
+                break
+    
+    # Launch the application
     app = QApplication(sys.argv)
-    window = SportsScoresApp()
+    window = SportsScoresApp(startup_params=startup_params)
     sys.exit(app.exec())

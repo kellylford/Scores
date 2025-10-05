@@ -1485,6 +1485,8 @@ def get_standings(league_key):
         return _get_nfl_standings_fast()
     elif league_key == "NBA":
         return _get_nba_standings_fast()
+    elif league_key == "WNBA":
+        return _get_wnba_standings_fast()
     elif league_key == "NHL":
         return _get_nhl_standings_fast()
     elif league_key == "NCAAF":
@@ -1878,6 +1880,97 @@ def _get_nba_standings_fast():
     except Exception as e:
         print(f"Error in fast NBA standings: {e}")
         return _get_standings_original("NBA")
+
+def _get_wnba_standings_fast():
+    """Fast WNBA standings using dedicated endpoint"""
+    try:
+        url = "https://site.api.espn.com/apis/v2/sports/basketball/wnba/standings"
+        resp = requests.get(url)
+        
+        if resp.status_code != 200:
+            return []
+        
+        data = resp.json()
+        standings = []
+        division_teams = {}
+        
+        # Process conferences (Eastern/Western)
+        for conference in data.get('children', []):
+            conf_name = conference.get('name', '')
+            
+            for entry in conference.get('standings', {}).get('entries', []):
+                team = entry.get('team', {})
+                team_id = team.get('id', '')
+                team_name = team.get('displayName', team.get('name', ''))
+                
+                # Get stats
+                stats = entry.get('stats', [])
+                stats_dict = {}
+                for stat in stats:
+                    key = stat.get('name')
+                    value = stat.get('value')
+                    if key and value is not None:
+                        stats_dict[key] = value
+                
+                team_info = team
+                abbreviation = team_info.get('abbreviation', '')
+                
+                # Get wins/losses from stats
+                wins = int(stats_dict.get('wins', 0))
+                losses = int(stats_dict.get('losses', 0))
+                win_pct = stats_dict.get('winPercent', 0.0)
+                
+                # WNBA just uses conference as division
+                division = conf_name
+                
+                team_data = {
+                    "team_name": team_name,
+                    "team_id": team_id,
+                    "abbreviation": abbreviation,
+                    "wins": wins,
+                    "losses": losses,
+                    "win_percentage": f"{win_pct:.3f}",
+                    "games_back": "0.0",
+                    "division": division,
+                    "streak": "",
+                    "logo": team_info.get("logos", [{}])[0].get("href", "") if team_info.get("logos") else "",
+                    "avg_points_for": float(stats_dict.get('avgPointsFor', 0.0)),
+                    "avg_points_against": float(stats_dict.get('avgPointsAgainst', 0.0)),
+                    "point_differential": int(stats_dict.get('pointDifferential', 0)),
+                }
+                
+                standings.append(team_data)
+                
+                if division not in division_teams:
+                    division_teams[division] = []
+                division_teams[division].append(team_data)
+        
+        # Calculate games back for each conference
+        for division, teams in division_teams.items():
+            teams.sort(key=lambda x: (-x["wins"], x["losses"]))
+            
+            if teams:
+                leader = teams[0]
+                leader_wins = leader["wins"]
+                leader_losses = leader["losses"]
+                
+                for i, team in enumerate(teams):
+                    if i == 0:
+                        team["games_back"] = "—"
+                    else:
+                        team_wins = team["wins"]
+                        team_losses = team["losses"]
+                        games_back = ((leader_wins - team_wins) + (team_losses - leader_losses)) / 2
+                        team["games_back"] = f"{games_back:.1f}" if games_back > 0 else "0.0"
+        
+        # Sort by conference, then by wins
+        standings.sort(key=lambda x: (x["division"], -x["wins"], x["losses"]))
+        
+        return standings
+        
+    except Exception as e:
+        print(f"Error in fast WNBA standings: {e}")
+        return _get_standings_original("WNBA")
 
 def _get_nba_fresh_standings():
     """Create fresh NBA standings with all teams at 0-0 for new season"""
