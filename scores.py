@@ -6251,6 +6251,16 @@ class GameDetailsDialog(QDialog):
         layout.addLayout(button_layout)
         self.setLayout(layout)
     
+    def update_window_title(self, context_parts=None):
+        """Update dialog window title with context information"""
+        if context_parts:
+            # Build title from context parts
+            title = " - ".join(str(part) for part in context_parts)
+            self.setWindowTitle(title)
+        else:
+            # Default title
+            self.setWindowTitle(f"Game Details - {self.league}")
+    
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
             self.accept()

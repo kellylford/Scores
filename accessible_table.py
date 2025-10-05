@@ -554,6 +554,31 @@ class AccessibleTable(QWidget):
     def horizontalHeader(self):
         """Get the horizontal header"""
         return self.table_widget.horizontalHeader()
+    
+    def setHorizontalHeaderLabels(self, labels: List[str]):
+        """Set the horizontal header labels"""
+        self.table_widget.setHorizontalHeaderLabels(labels)
+    
+    # Expose table widget signals for compatibility
+    @property
+    def itemActivated(self):
+        """Signal emitted when an item is activated (double-clicked or Enter pressed)"""
+        return self.table_widget.itemActivated
+    
+    @property
+    def itemClicked(self):
+        """Signal emitted when an item is clicked"""
+        return self.table_widget.itemClicked
+    
+    @property
+    def itemSelectionChanged(self):
+        """Signal emitted when the item selection changes"""
+        return self.table_widget.itemSelectionChanged
+    
+    @property
+    def currentCellChanged(self):
+        """Signal emitted when the current cell changes"""
+        return self.table_widget.currentCellChanged
 
 
 class StandingsTable(AccessibleTable):
