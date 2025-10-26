@@ -1,0 +1,473 @@
+"""
+Football Audio Mapper - Sonify NFL plays and drives
+Maps play yardage, type, and game situation to audio frequencies and patterns
+"""
+
+import math
+from typing import Dict, List, Tuple, Optional
+from dataclasses import dataclass
+
+@dataclass
+class PlayAudioConfig:
+    """Configuration for a single play's audio"""
+    frequency: float  # Hz
+    duration: float   # seconds
+    volume: float     # 0.0 to 1.0
+    wave_type: str    # 'sine', 'square', 'sawtooth', 'triangle'
+    attack: float     # seconds
+    decay: float      # seconds
+    
+class FootballAudioMapper:
+    """
+    Maps NFL play data to audio parameters
+    
+    Philosophy:
+    - Yardage maps to pitch (higher yards = higher pitch)
+    - Play type affects timbre (wave shape)
+    - Game situation affects volume/intensity
+    - Drives create musical phrases
+    """
+    
+    # Frequency ranges for different play outcomes
+    FREQ_TOUCHDOWN = 880.0       # A5 - celebration
+    FREQ_BIG_GAIN = 659.25       # E5 - 20+ yards
+    FREQ_FIRST_DOWN = 523.25     # C5 - 10+ yards
+    FREQ_GOOD_GAIN = 440.0       # A4 - 5-9 yards
+    FREQ_SHORT_GAIN = 349.23     # F4 - 1-4 yards
+    FREQ_NO_GAIN = 261.63        # C4 - 0 yards
+    FREQ_LOSS = 196.0            # G3 - negative yards
+    FREQ_TURNOVER = 130.81       # C3 - interception/fumble
+    
+    # Play type wave forms
+    WAVE_RUSH = 'square'         # Percussive for running plays
+    WAVE_PASS = 'sine'           # Smooth for passes
+    WAVE_KICK = 'triangle'       # Special teams
+    WAVE_SCORE = 'sawtooth'      # Scoring plays (bright)
+    WAVE_TURNOVER = 'square'     # Negative events
+    
+    def __init__(self):
+        """Initialize the football audio mapper"""
+        self.base_duration = 0.3  # seconds per play
+        self.base_volume = 0.6
+        
+    def map_play_to_audio(self, play: Dict) -> PlayAudioConfig:
+        """
+        Convert a single play to audio parameters
+        
+        Args:
+            play: Play data from ESPN API with keys like:
+                - statYardage: Yards gained/lost
+                - type: {text: 'Rush', 'Pass Reception', etc.}
+                - scoringPlay: Boolean
+                - start/end: Field position data
+                
+        Returns:
+            PlayAudioConfig with audio parameters
+        """
+        yardage = play.get('statYardage', 0)
+        play_type = play.get('type', {}).get('text', '')
+        is_scoring = play.get('scoringPlay', False)
+        score_value = play.get('scoreValue', 0)
+        
+        # Determine frequency based on yardage and scoring
+        frequency = self._yardage_to_frequency(yardage, is_scoring, score_value)
+        
+        # Determine wave type based on play type
+        wave_type = self._play_type_to_wave(play_type, is_scoring)
+        
+        # Duration based on significance
+        duration = self._calculate_duration(yardage, is_scoring)
+        
+        # Volume based on game situation and play importance
+        volume = self._calculate_volume(play, yardage, is_scoring)
+        
+        # Envelope (attack/decay) for expressiveness
+        attack, decay = self._calculate_envelope(play_type, is_scoring)
+        
+        return PlayAudioConfig(
+            frequency=frequency,
+            duration=duration,
+            volume=volume,
+            wave_type=wave_type,
+            attack=attack,
+            decay=decay
+        )
+    
+    def _yardage_to_frequency(self, yardage: int, is_scoring: bool, score_value: int) -> float:
+        """
+        Map yardage to frequency
+        
+        Scale: Bigger plays = higher pitches
+        Special handling for scores and turnovers
+        """
+        if is_scoring and score_value > 0:
+            # Touchdown or field goal
+            return self.FREQ_TOUCHDOWN
+        elif 'interception' in str(yardage).lower() or 'fumble' in str(yardage).lower():
+            # Turnover
+            return self.FREQ_TURNOVER
+        elif yardage >= 40:
+            # Huge play - really high
+            return self.FREQ_TOUCHDOWN
+        elif yardage >= 20:
+            # Big play
+            return self.FREQ_BIG_GAIN
+        elif yardage >= 10:
+            # First down range
+            return self.FREQ_FIRST_DOWN
+        elif yardage >= 5:
+            # Good gain
+            return self.FREQ_GOOD_GAIN
+        elif yardage >= 1:
+            # Short gain
+            return self.FREQ_SHORT_GAIN
+        elif yardage == 0:
+            # No gain
+            return self.FREQ_NO_GAIN
+        else:
+            # Loss - map negative yards to lower frequencies
+            # -1 to -10 yards maps to range below NO_GAIN
+            freq = self.FREQ_LOSS - (abs(yardage) * 10)
+            return max(freq, 100.0)  # Don't go too low
+    
+    def _play_type_to_wave(self, play_type: str, is_scoring: bool) -> str:
+        """Map play type to waveform"""
+        if is_scoring:
+            return self.WAVE_SCORE
+        
+        play_lower = play_type.lower()
+        
+        if 'rush' in play_lower or 'run' in play_lower:
+            return self.WAVE_RUSH
+        elif 'pass' in play_lower or 'reception' in play_lower:
+            return self.WAVE_PASS
+        elif 'kick' in play_lower or 'punt' in play_lower:
+            return self.WAVE_KICK
+        elif 'interception' in play_lower or 'fumble' in play_lower:
+            return self.WAVE_TURNOVER
+        elif 'sack' in play_lower:
+            return self.WAVE_TURNOVER
+        else:
+            return 'sine'  # Default
+    
+    def _calculate_duration(self, yardage: int, is_scoring: bool) -> float:
+        """
+        Calculate note duration based on play significance
+        Bigger plays = longer notes
+        """
+        if is_scoring:
+            return self.base_duration * 3.0  # Long celebration
+        elif abs(yardage) >= 20:
+            return self.base_duration * 2.0  # Big play
+        elif abs(yardage) >= 10:
+            return self.base_duration * 1.5  # First down
+        else:
+            return self.base_duration
+    
+    def _calculate_volume(self, play: Dict, yardage: int, is_scoring: bool) -> float:
+        """
+        Calculate volume based on play importance and game situation
+        """
+        volume = self.base_volume
+        
+        # Boost for big plays
+        if is_scoring:
+            volume = 1.0
+        elif abs(yardage) >= 20:
+            volume = 0.9
+        elif abs(yardage) >= 10:
+            volume = 0.8
+        
+        # Boost for critical downs
+        end_data = play.get('end', {})
+        down = end_data.get('down', 0)
+        if down == 3 or down == 4:
+            volume = min(volume * 1.2, 1.0)
+        
+        # Boost for red zone (inside 20)
+        yards_to_endzone = end_data.get('yardsToEndzone', 100)
+        if yards_to_endzone <= 20:
+            volume = min(volume * 1.1, 1.0)
+        
+        return volume
+    
+    def _calculate_envelope(self, play_type: str, is_scoring: bool) -> Tuple[float, float]:
+        """
+        Calculate attack and decay times for note envelope
+        
+        Returns:
+            (attack, decay) in seconds
+        """
+        play_lower = play_type.lower()
+        
+        if is_scoring:
+            # Scoring plays: slow attack, long decay for celebration
+            return (0.1, 0.5)
+        elif 'rush' in play_lower:
+            # Quick attack for running plays
+            return (0.01, 0.1)
+        elif 'pass' in play_lower:
+            # Moderate attack for passes
+            return (0.05, 0.15)
+        elif 'kick' in play_lower or 'punt' in play_lower:
+            # Sustained for kicks
+            return (0.05, 0.2)
+        else:
+            # Default
+            return (0.05, 0.1)
+    
+    def map_drive_to_audio_sequence(self, drive: Dict) -> List[PlayAudioConfig]:
+        """
+        Map an entire drive to a sequence of audio configs
+        
+        This creates a "musical phrase" from a drive
+        
+        Args:
+            drive: Drive data with 'plays' list
+            
+        Returns:
+            List of PlayAudioConfig objects
+        """
+        plays = drive.get('plays', [])
+        audio_sequence = []
+        
+        for play in plays:
+            # Skip non-action plays (timeouts, penalties, etc.)
+            play_type = play.get('type', {}).get('text', '').lower()
+            if 'timeout' in play_type or 'penalty' in play_type:
+                continue
+            
+            config = self.map_play_to_audio(play)
+            audio_sequence.append(config)
+        
+        return audio_sequence
+    
+    def get_drive_summary(self, drive: Dict) -> Dict:
+        """
+        Get a text summary of drive audio characteristics
+        
+        Useful for UI display
+        """
+        plays = drive.get('plays', [])
+        total_plays = len(plays)
+        
+        # Count play types
+        rushes = sum(1 for p in plays if 'rush' in p.get('type', {}).get('text', '').lower())
+        passes = sum(1 for p in plays if 'pass' in p.get('type', {}).get('text', '').lower())
+        
+        # Calculate total yardage
+        total_yards = sum(p.get('statYardage', 0) for p in plays)
+        
+        # Check for scoring
+        scoring_play = any(p.get('scoringPlay', False) for p in plays)
+        
+        # Get drive result - can be string or dict
+        result_data = drive.get('result', 'Unknown')
+        if isinstance(result_data, dict):
+            drive_result = result_data.get('text', 'Unknown')
+        else:
+            drive_result = str(result_data)
+        
+        return {
+            'total_plays': total_plays,
+            'rushes': rushes,
+            'passes': passes,
+            'total_yards': total_yards,
+            'scoring': scoring_play,
+            'result': drive_result,
+            'duration_estimate': total_plays * self.base_duration
+        }
+    
+    def create_game_flow_audio(self, all_drives: List[Dict], team_id: str = None) -> List[PlayAudioConfig]:
+        """
+        Create audio for an entire game or one team's drives
+        
+        Args:
+            all_drives: List of drive dictionaries
+            team_id: Optional team ID to filter (only that team's drives)
+            
+        Returns:
+            Complete audio sequence for the game/team
+        """
+        audio_sequence = []
+        
+        for drive in all_drives:
+            # Filter by team if requested
+            if team_id and drive.get('team', {}).get('id') != team_id:
+                continue
+            
+            # Add drive's plays
+            drive_audio = self.map_drive_to_audio_sequence(drive)
+            audio_sequence.extend(drive_audio)
+            
+            # Add brief silence between drives
+            silence = PlayAudioConfig(
+                frequency=0,
+                duration=0.2,
+                volume=0,
+                wave_type='sine',
+                attack=0,
+                decay=0
+            )
+            audio_sequence.append(silence)
+        
+        return audio_sequence
+    
+    def get_interesting_plays(self, drives: List[Dict], min_yards: int = 20) -> List[Dict]:
+        """
+        Extract interesting/big plays from drives
+        
+        Useful for creating highlight reels
+        
+        Args:
+            drives: List of drive dictionaries
+            min_yards: Minimum yardage to be considered "interesting"
+            
+        Returns:
+            List of play dictionaries
+        """
+        interesting = []
+        
+        for drive in drives:
+            for play in drive.get('plays', []):
+                yardage = play.get('statYardage', 0)
+                is_scoring = play.get('scoringPlay', False)
+                play_type = play.get('type', {}).get('text', '').lower()
+                
+                # Big plays
+                if abs(yardage) >= min_yards:
+                    interesting.append(play)
+                # Scoring plays
+                elif is_scoring:
+                    interesting.append(play)
+                # Turnovers
+                elif 'interception' in play_type or 'fumble' in play_type:
+                    interesting.append(play)
+                # Sacks
+                elif 'sack' in play_type:
+                    interesting.append(play)
+        
+        return interesting
+
+
+class FootballDrivePlayer:
+    """
+    Helper class to play back football drives with timing information
+    Useful for UI integration
+    """
+    
+    def __init__(self):
+        self.mapper = FootballAudioMapper()
+    
+    def prepare_drive_playback(self, drive: Dict) -> Dict:
+        """
+        Prepare a drive for audio playback with timing
+        
+        Returns:
+            Dictionary with audio configs and timing information
+        """
+        audio_sequence = self.mapper.map_drive_to_audio_sequence(drive)
+        summary = self.mapper.get_drive_summary(drive)
+        
+        # Calculate timing for each play
+        timing = []
+        current_time = 0.0
+        
+        for i, config in enumerate(audio_sequence):
+            timing.append({
+                'start_time': current_time,
+                'end_time': current_time + config.duration,
+                'config': config
+            })
+            current_time += config.duration + 0.05  # Small gap between plays
+        
+        return {
+            'audio_sequence': audio_sequence,
+            'timing': timing,
+            'summary': summary,
+            'total_duration': current_time
+        }
+    
+    def get_play_description(self, play: Dict, config: PlayAudioConfig) -> str:
+        """
+        Create a human-readable description of what the audio represents
+        """
+        yardage = play.get('statYardage', 0)
+        play_type = play.get('type', {}).get('text', 'Play')
+        text = play.get('text', '')
+        
+        # Truncate long descriptions
+        if len(text) > 60:
+            text = text[:57] + '...'
+        
+        return f"{play_type}: {yardage} yards | {config.frequency:.0f}Hz {config.wave_type} | {text}"
+
+
+# Example usage and testing
+if __name__ == "__main__":
+    # Example play data (from ESPN API)
+    example_plays = [
+        {
+            'statYardage': 16,
+            'type': {'text': 'Pass Reception'},
+            'scoringPlay': False,
+            'text': 'C.Wentz pass deep left to J.Jefferson to MIN 32 for 16 yards',
+            'end': {'down': 1, 'yardsToEndzone': 68}
+        },
+        {
+            'statYardage': 2,
+            'type': {'text': 'Rush'},
+            'scoringPlay': False,
+            'text': 'J.Mason left tackle to MIN 34 for 2 yards',
+            'end': {'down': 2, 'yardsToEndzone': 66}
+        },
+        {
+            'statYardage': 0,
+            'type': {'text': 'Pass Incompletion'},
+            'scoringPlay': False,
+            'text': 'C.Wentz pass incomplete short right',
+            'end': {'down': 3, 'yardsToEndzone': 66}
+        },
+        {
+            'statYardage': 45,
+            'type': {'text': 'Pass Reception'},
+            'scoringPlay': True,
+            'scoreValue': 6,
+            'text': 'K.Vidal pass from Herbert for 45 yard touchdown!',
+            'end': {'down': 0, 'yardsToEndzone': 0}
+        }
+    ]
+    
+    mapper = FootballAudioMapper()
+    
+    print("Football Audio Mapper Test")
+    print("=" * 60)
+    print()
+    
+    for i, play in enumerate(example_plays, 1):
+        config = mapper.map_play_to_audio(play)
+        print(f"Play {i}: {play['text'][:50]}")
+        print(f"  Yardage: {play['statYardage']} yards")
+        print(f"  Audio: {config.frequency:.1f}Hz {config.wave_type} wave")
+        print(f"  Duration: {config.duration:.2f}s, Volume: {config.volume:.2f}")
+        print(f"  Envelope: attack={config.attack:.3f}s, decay={config.decay:.3f}s")
+        print()
+    
+    # Test drive sequence
+    example_drive = {
+        'plays': example_plays,
+        'result': {'text': 'Touchdown'}
+    }
+    
+    player = FootballDrivePlayer()
+    playback_data = player.prepare_drive_playback(example_drive)
+    
+    print("\nDrive Summary:")
+    print("=" * 60)
+    summary = playback_data['summary']
+    print(f"Total plays: {summary['total_plays']}")
+    print(f"Rushes: {summary['rushes']}, Passes: {summary['passes']}")
+    print(f"Total yards: {summary['total_yards']}")
+    print(f"Scoring drive: {summary['scoring']}")
+    print(f"Result: {summary['result']}")
+    print(f"Audio duration: {playback_data['total_duration']:.2f} seconds")
