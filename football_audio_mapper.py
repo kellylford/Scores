@@ -16,6 +16,7 @@ class PlayAudioConfig:
     wave_type: str    # 'sine', 'square', 'sawtooth', 'triangle'
     attack: float     # seconds
     decay: float      # seconds
+    field_position: Optional[float] = None  # 0-100, where 0=left endzone, 50=center, 100=right endzone
     
 class FootballAudioMapper:
     """
@@ -84,13 +85,17 @@ class FootballAudioMapper:
         # Envelope (attack/decay) for expressiveness
         attack, decay = self._calculate_envelope(play_type, is_scoring)
         
+        # Calculate field position for stereo panning
+        field_position = self._calculate_field_position(play)
+        
         return PlayAudioConfig(
             frequency=frequency,
             duration=duration,
             volume=volume,
             wave_type=wave_type,
             attack=attack,
-            decay=decay
+            decay=decay,
+            field_position=field_position
         )
     
     def _yardage_to_frequency(self, yardage: int, is_scoring: bool, score_value: int) -> float:
@@ -216,6 +221,66 @@ class FootballAudioMapper:
             # Default
             return (0.05, 0.1)
     
+    def _calculate_field_position(self, play: Dict) -> Optional[float]:
+        """
+        Calculate field position for stereo panning based on play data
+        
+        Maps field position to 0-100 scale with enhanced stereo separation:
+        - 0 = left speaker (team's own territory)
+        - 50 = center (midfield)
+        - 100 = right speaker (opponent's territory)
+        
+        Uses 2x multiplier to make stereo movement more apparent
+        
+        Args:
+            play: Play data from ESPN API
+            
+        Returns:
+            Field position 0-100, or None if position can't be determined
+        """
+        # Try to get starting field position
+        start = play.get('start', {})
+        yards_to_endzone = start.get('yardsToEndzone')
+        
+        if yards_to_endzone is not None:
+            # yardsToEndzone is distance to opponent's endzone (0-100)
+            # Convert to 0-100 scale where 100 = opponent's endzone
+            field_position = 100 - yards_to_endzone
+            
+            # Apply 2x multiplier centered at midfield (50) for more dramatic stereo
+            # This expands the stereo field so movements are more noticeable
+            # Formula: (position - 50) * 2 + 50
+            enhanced_position = (field_position - 50) * 2.0 + 50
+            
+            # Clamp to valid range 0-100
+            result = max(0, min(100, enhanced_position))
+            
+            # Log to file
+            with open('drive_audio_debug.log', 'a') as log:
+                log.write(f"  [FIELD_POS] yardsToEndzone={yards_to_endzone} -> raw={field_position} -> enhanced={result:.1f}\n")
+            
+            print(f"Debug: Field position calc - yardsToEndzone={yards_to_endzone} -> raw={field_position} -> enhanced={result:.1f}")
+            return result
+        
+        # Fallback: try to parse field position from play text
+        text = play.get('text', '').lower()
+        
+        # Look for yard line references like "to MIN 32" or "at DAL 15"
+        import re
+        
+        # Pattern for "to TEAM XX" or "at TEAM XX" 
+        yard_pattern = r'(?:to|at)\s+[a-z]{2,4}\s+(\d+)'
+        match = re.search(yard_pattern, text)
+        
+        if match:
+            yard_line = int(match.group(1))
+            # Assume this is yards from the team's own goal line
+            # Convert to 0-100 scale
+            return min(100, yard_line)
+        
+        # If we can't determine position, return center field
+        return 50.0
+    
     def map_drive_to_audio_sequence(self, drive: Dict) -> List[PlayAudioConfig]:
         """
         Map an entire drive to a sequence of audio configs
@@ -232,10 +297,25 @@ class FootballAudioMapper:
         audio_sequence = []
         
         for play in plays:
-            # Skip non-action plays (timeouts, penalties, etc.)
+            # Skip non-action plays (timeouts, penalties, warnings, quarter ends, etc.)
             play_type = play.get('type', {}).get('text', '').lower()
-            if 'timeout' in play_type or 'penalty' in play_type:
+            play_text = play.get('text', '').lower()
+            
+            # Skip administrative plays without actual field action
+            skip_keywords = ['timeout', 'penalty', 'warning', 'end quarter', 'end half', 
+                           'end game', 'two-minute warning', 'coin toss']
+            
+            if any(keyword in play_type for keyword in skip_keywords):
                 continue
+            if any(keyword in play_text for keyword in skip_keywords):
+                continue
+            
+            # Skip plays with no yardage (likely administrative)
+            stat_yardage = play.get('statYardage')
+            if stat_yardage is None or stat_yardage == 0:
+                # Check if it's a real play with a type (pass/rush/kick)
+                if not any(action in play_type for action in ['pass', 'rush', 'run', 'kick', 'punt', 'field goal']):
+                    continue
             
             config = self.map_play_to_audio(play)
             audio_sequence.append(config)

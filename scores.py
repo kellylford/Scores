@@ -73,6 +73,17 @@ except ImportError:
     AUDIO_AVAILABLE = False
     AudioPitchMapper = None
 
+# Football audio system for drive audio playback
+try:
+    from football_audio_mapper import FootballAudioMapper, FootballDrivePlayer
+    from audio_player import AudioPlayer
+    FOOTBALL_AUDIO_AVAILABLE = True
+except ImportError:
+    FOOTBALL_AUDIO_AVAILABLE = False
+    FootballAudioMapper = None
+    FootballDrivePlayer = None
+    AudioPlayer = None
+
 # Constants
 DETAIL_FIELDS = ["boxscore", "plays", "drives", "leaders", "standings", "odds", "injuries", "broadcasts", "news", "gameInfo"]
 BASEBALL_STAT_HEADERS = ["Player", "Position", "AB", "R", "H", "RBI", "BB", "SO", "AVG"]
@@ -382,6 +393,16 @@ class HomeView(BaseView):
         for league in leagues:
             self.league_list.addItem(league)
         
+        # Add separator before Audio Tutorial
+        separator_item2 = QListWidgetItem("─" * 30)
+        separator_item2.setFlags(Qt.ItemFlag.NoItemFlags)  # Make it non-selectable
+        self.league_list.addItem(separator_item2)
+        
+        # Add Audio Tutorial section as last item
+        audio_tutorial_item = QListWidgetItem("🎵 Audio Tutorial")
+        audio_tutorial_item.setData(Qt.ItemDataRole.UserRole, "__audio_tutorial__")
+        self.league_list.addItem(audio_tutorial_item)
+        
         self.league_list.itemActivated.connect(self._on_league_selected)
         self.layout.addWidget(self.league_list)
         
@@ -396,6 +417,11 @@ class HomeView(BaseView):
             # Open Live Scores view
             if self.parent_app:
                 self.parent_app.open_live_scores()
+            return
+        elif user_data == "__audio_tutorial__":
+            # Open Audio Tutorial view
+            if self.parent_app:
+                self.parent_app.open_audio_tutorial()
             return
 
         # For NFL/NCAAF, determine current week and show those games
@@ -462,6 +488,7 @@ class LiveScoresView(BaseView):
         self.monitored_games = set()  # Track games being monitored for notifications
         self.game_data = {}  # Store complete game data for notifications
         self.current_time = datetime.now()
+        self.current_date = datetime.now().date()  # Add date tracking
         
         # Initialize Windows UIA notification helper
         self.notification_helper = WindowsNotificationHelper()
@@ -475,17 +502,44 @@ class LiveScoresView(BaseView):
         }
         self.current_refresh_interval = 60000  # Default to 1 minute
         
-        self.setup_ui()
-        
-        # Setup auto-refresh timer for live updates
+        # Setup auto-refresh timer for live updates (create before setup_ui)
         self.refresh_timer = QTimer()
         self.refresh_timer.timeout.connect(self.refresh_live_scores)
+        
+        self.setup_ui()
+        
+        # Start the timer after UI is set up
         self._update_refresh_timer()
     
     def setup_ui(self):
         # Header with current time
         self.time_label = QLabel()
         self.layout.addWidget(self.time_label)
+        
+        # Date navigation controls
+        date_layout = QHBoxLayout()
+        
+        # Previous day button
+        self.prev_day_btn = QPushButton("< Previous Day")
+        self.prev_day_btn.clicked.connect(self._previous_day)
+        self.prev_day_btn.setAccessibleName("Previous Day")
+        self.prev_day_btn.setAccessibleDescription("Go to previous day")
+        date_layout.addWidget(self.prev_day_btn)
+        
+        # Current date label  
+        self.date_label = QLabel()
+        self.date_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.date_label.setStyleSheet("font-weight: bold;")
+        date_layout.addWidget(self.date_label)
+        
+        # Next day button
+        self.next_day_btn = QPushButton("Next Day >")
+        self.next_day_btn.clicked.connect(self._next_day)
+        self.next_day_btn.setAccessibleName("Next Day")
+        self.next_day_btn.setAccessibleDescription("Go to next day")
+        date_layout.addWidget(self.next_day_btn)
+        
+        self.layout.addLayout(date_layout)
         
         self.layout.addWidget(QLabel("Live Scores - All Sports:"))
         
@@ -504,8 +558,8 @@ class LiveScoresView(BaseView):
         refresh_layout.addStretch()  # Push combo to the left
         self.layout.addLayout(refresh_layout)
         
-        # Instructions for manual refresh
-        info_label = QLabel("Press 'F5' to refresh manually")
+        # Instructions for manual refresh and navigation
+        info_label = QLabel("Press 'F5' to refresh manually • Use ← → arrow keys, buttons, or Alt+P/Alt+N to navigate dates")
         info_label.setStyleSheet("color: #666; font-style: italic;")
         self.layout.addWidget(info_label)
         
@@ -516,17 +570,64 @@ class LiveScoresView(BaseView):
         self.layout.addWidget(self.live_scores_list)
         
         self._add_nav_buttons()
+        self._update_date_display()
         self.load_live_scores()
     
+    def _update_date_display(self):
+        """Update the date label and refresh controls based on current date"""
+        from datetime import datetime
+        
+        today = datetime.now().date()
+        date_str = self.current_date.strftime("%A, %B %d, %Y")
+        
+        if self.current_date == today:
+            self.date_label.setText(f"Today - {date_str}")
+            self.date_label.setStyleSheet("font-weight: bold; color: green;")
+            # Enable auto-refresh for today
+            self.refresh_combo.setEnabled(True)
+            self._update_refresh_timer()
+        else:
+            self.date_label.setText(f"{date_str}")
+            self.date_label.setStyleSheet("font-weight: bold; color: #666;")
+            # Disable auto-refresh for other dates
+            self.refresh_timer.stop()
+            self.refresh_combo.setEnabled(False)
+    
+    def _previous_day(self):
+        """Navigate to previous day"""
+        from datetime import timedelta
+        self.current_date -= timedelta(days=1)
+        self._update_date_display()
+        self.load_live_scores()
+    
+    def _next_day(self):
+        """Navigate to next day"""
+        from datetime import timedelta
+        self.current_date += timedelta(days=1)
+        self._update_date_display()
+        self.load_live_scores()
+
     def keyPressEvent(self, event):
         """Handle key press events"""
         if event.modifiers() == Qt.KeyboardModifier.AltModifier and event.key() == Qt.Key.Key_M:
             self._toggle_monitoring()
+        elif event.modifiers() == Qt.KeyboardModifier.AltModifier and event.key() == Qt.Key.Key_P:
+            # Navigate to previous day (Alt+P)
+            self._previous_day()
+        elif event.modifiers() == Qt.KeyboardModifier.AltModifier and event.key() == Qt.Key.Key_N:
+            # Navigate to next day (Alt+N)
+            self._next_day()
         elif event.key() == Qt.Key.Key_F5:
             # Provide feedback for manual refresh
             if hasattr(self, 'refresh_combo') and self.refresh_combo.currentText() == "Manual (F5 only)":
                 self.notification_helper.announce("Refreshing live scores manually")
             self.refresh_live_scores()
+        elif event.key() == Qt.Key.Key_Left:
+            # Navigate to previous day
+            self._previous_day()
+        elif event.key() == Qt.Key.Key_Right:
+            # Navigate to next day
+            self._next_day()
         else:
             super().keyPressEvent(event)
     
@@ -594,12 +695,16 @@ class LiveScoresView(BaseView):
         self._update_time_label()  # Update the display immediately
     
     def _update_refresh_timer(self):
-        """Update the refresh timer based on current interval"""
+        """Update the refresh timer based on current interval and date"""
+        from datetime import datetime
+        
         self.refresh_timer.stop()
         
-        if self.current_refresh_interval > 0:
+        # Only enable auto-refresh if viewing today's date
+        today = datetime.now().date()
+        if self.current_date == today and self.current_refresh_interval > 0:
             self.refresh_timer.start(self.current_refresh_interval)
-        # If interval is 0 (manual mode), timer stays stopped
+        # If interval is 0 (manual mode) or not viewing today, timer stays stopped
     
     def _on_game_selected(self, item):
         """Handle game selection - open game details"""
@@ -613,85 +718,185 @@ class LiveScoresView(BaseView):
                 self.parent_app.open_game_details(game_id, from_live_scores=True)
     
     def load_live_scores(self):
-        """Load live scores from all sports"""
+        """Load and display live, upcoming, and completed games from all sports."""
+        from datetime import datetime
+        
         self.live_scores_list.clear()
         self.game_data.clear()
         self._update_time_label()
         
         try:
-            live_games = ApiService.get_live_scores_all_sports()
+            today = datetime.now().date()
+            is_today = (self.current_date == today)
             
-            if not live_games:
-                self.live_scores_list.addItem("No live games currently in progress.")
+            # Get live games only if viewing today
+            live_games = []
+            if is_today:
+                live_games = ApiService.get_live_scores_all_sports()
+            
+            # Get all games for the current date to find upcoming and completed ones
+            current_date_games = self._get_today_games_all_sports()
+            
+            # Categorize games
+            live_games_dict = {game.get('id', ''): game for game in live_games}
+            upcoming_games = []
+            completed_games = []
+            
+            for game in current_date_games:
+                game_id = game.get('game_id', '')
+                if game_id not in live_games_dict:
+                    # Check if game is upcoming or completed
+                    state = game.get('state', '')
+                    if state == 'upcoming':
+                        upcoming_games.append(game)
+                    elif state == 'completed':
+                        completed_games.append(game)
+            
+            # Sort upcoming games by start time (closest first)
+            upcoming_games.sort(key=lambda g: g.get('start_time', ''))
+            
+            total_games = len(live_games) + len(upcoming_games) + len(completed_games)
+            
+            if total_games == 0:
+                date_desc = "today" if is_today else self.current_date.strftime("%B %d, %Y")
+                self.live_scores_list.addItem(f"No games on {date_desc}.")
                 return
             
-            # Group games by league for better organization
-            games_by_league = {}
-            for game in live_games:
-                league = game.get("league", "Unknown")
-                if league not in games_by_league:
-                    games_by_league[league] = []
-                games_by_league[league].append(game)
-            
-            # Add games to list, organized by league
-            for league in sorted(games_by_league.keys()):
-                # Always show league headers for consistency
-                league_item = QListWidgetItem(f"--- {league} ---")
-                league_item.setBackground(QColor(240, 240, 240))
-                self.live_scores_list.addItem(league_item)
+            # Section 1: Live Games (only show if viewing today)
+            if live_games and is_today:
+                section_header = QListWidgetItem("=== LIVE GAMES ===")
+                section_header.setBackground(QColor(200, 255, 200))  # Light green background
+                self.live_scores_list.addItem(section_header)
                 
-                for game in games_by_league[league]:
-                    game_id = game.get("id", "")
-                    game_name = game.get("name", "Unknown Game")
-                    status = game.get("status", "")
-                    teams = game.get("teams", [])
-                    recent_play = game.get("recent_play", "")
-                    game_league = game.get("league", "")
+                # Group live games by league for better organization
+                games_by_league = {}
+                for game in live_games:
+                    league = game.get("league", "Unknown")
+                    if league not in games_by_league:
+                        games_by_league[league] = []
+                    games_by_league[league].append(game)
+                
+                for league in sorted(games_by_league.keys()):
+                    # Add league header
+                    league_item = QListWidgetItem(f"--- {league} ---")
+                    league_item.setBackground(QColor(240, 240, 240))
+                    self.live_scores_list.addItem(league_item)
                     
-                    # Build display text
-                    display_text = f"{game_name}"
-                    if teams and len(teams) >= 2:
-                        team1, team2 = teams[0], teams[1]
-                        score1 = team1.get("score", "")
-                        score2 = team2.get("score", "")
-                        if score1 and score2:
-                            display_text += f" - {score1}-{score2}"
-                    
-                    if status and game_league not in ["NFL", "NCAAF"]:
-                        display_text += f" ({status})"
-                    
-                    # Enhanced display for different sports
-                    if recent_play:
-                        if game_league in ["NFL", "NCAAF"]:
-                            # Enhanced football display with two-line format
-                            display_text = self._format_enhanced_football(game_name, teams, status, recent_play, game_id)
-                        elif game_league == "MLB":
-                            # Enhanced baseball display with base runners, count, and batter info
-                            display_text = self._format_enhanced_baseball(game_name, teams, status, recent_play, game_id)
-                        else:
-                            display_text += f" | {recent_play[:50]}"  # Truncate long plays for other sports
-                    else:
-                        # Standard format for games without enhanced play info
-                        if status:
-                            display_text += f" ({status})"
-                    
-                    # Note: Monitoring functionality available via Alt+M but not displayed
-                    # if game_id in self.monitored_games:
-                    #     display_text += " - monitoring"
-                    
-                    item = QListWidgetItem(display_text)
-                    item.setData(Qt.ItemDataRole.UserRole, game)  # Store full game data
-                    self.live_scores_list.addItem(item)
-                    
-                    # Store game data for monitoring
-                    if game_id:
-                        self.game_data[game_id] = game
+                    for game in games_by_league[league]:
+                        game_id = game.get("id", "")
+                        game_name = game.get("name", "Unknown Game")
+                        status = game.get("status", "")
+                        teams = game.get("teams", [])
+                        recent_play = game.get("recent_play", "")
+                        game_league = game.get("league", "")
                         
+                        # Build display text (keeping existing live game formatting)
+                        display_text = f"{game_name}"
+                        if teams and len(teams) >= 2:
+                            team1, team2 = teams[0], teams[1]
+                            score1 = team1.get("score", "")
+                            score2 = team2.get("score", "")
+                            if score1 and score2:
+                                display_text += f" - {score1}-{score2}"
+                        
+                        if status and game_league not in ["NFL", "NCAAF"]:
+                            display_text += f" ({status})"
+                        
+                        # Enhanced display for different sports
+                        if recent_play:
+                            if game_league in ["NFL", "NCAAF"]:
+                                # Enhanced football display with two-line format
+                                display_text = self._format_enhanced_football(game_name, teams, status, recent_play, game_id)
+                            elif game_league == "MLB":
+                                # Enhanced baseball display with base runners, count, and batter info
+                                display_text = self._format_enhanced_baseball(game_name, teams, status, recent_play, game_id)
+                            else:
+                                display_text += f" | {recent_play[:50]}"  # Truncate long plays for other sports
+                        else:
+                            # Standard format for games without enhanced play info
+                            if status:
+                                display_text += f" ({status})"
+                        
+                        item = QListWidgetItem(display_text)
+                        item.setData(Qt.ItemDataRole.UserRole, game)  # Store full game data
+                        self.live_scores_list.addItem(item)
+                        
+                        # Store game data for monitoring
+                        if game_id:
+                            self.game_data[game_id] = game
+                
+                # Add spacing after live games
+                self.live_scores_list.addItem("")
+            
+            # Section 2: Upcoming Games
+            if upcoming_games:
+                section_header = QListWidgetItem("=== UPCOMING GAMES ===")
+                section_header.setBackground(QColor(255, 255, 200))  # Light yellow background
+                self.live_scores_list.addItem(section_header)
+                
+                # Group upcoming games by league
+                upcoming_by_league = {}
+                for game in upcoming_games:
+                    league = game.get('league', 'Unknown')
+                    if league not in upcoming_by_league:
+                        upcoming_by_league[league] = []
+                    upcoming_by_league[league].append(game)
+                
+                for league in sorted(upcoming_by_league.keys()):
+                    # Add league header
+                    league_item = QListWidgetItem(f"--- {league} ---")
+                    league_item.setBackground(QColor(240, 240, 240))
+                    self.live_scores_list.addItem(league_item)
+                    
+                    for game in upcoming_by_league[league]:
+                        display_text = self._format_game_display(game)
+                        item = QListWidgetItem(display_text)
+                        item.setData(Qt.ItemDataRole.UserRole, game.get('raw_data', game))
+                        self.live_scores_list.addItem(item)
+                
+                # Add spacing after upcoming games
+                self.live_scores_list.addItem("")
+            
+            # Section 3: Completed Games
+            if completed_games:
+                section_header = QListWidgetItem("=== COMPLETED GAMES ===")
+                section_header.setBackground(QColor(220, 220, 220))  # Light gray background
+                self.live_scores_list.addItem(section_header)
+                
+                # Group completed games by league
+                completed_by_league = {}
+                for game in completed_games:
+                    league = game.get('league', 'Unknown')
+                    if league not in completed_by_league:
+                        completed_by_league[league] = []
+                    completed_by_league[league].append(game)
+                
+                for league in sorted(completed_by_league.keys()):
+                    # Add league header
+                    league_item = QListWidgetItem(f"--- {league} ---")
+                    league_item.setBackground(QColor(240, 240, 240))
+                    self.live_scores_list.addItem(league_item)
+                    
+                    for game in completed_by_league[league]:
+                        display_text = self._format_game_display(game)
+                        item = QListWidgetItem(display_text)
+                        item.setData(Qt.ItemDataRole.UserRole, game.get('raw_data', game))
+                        self.live_scores_list.addItem(item)
+                
         except Exception as e:
             self._show_api_error(f"Failed to load live scores: {str(e)}")
     
     def refresh_live_scores(self):
         """Refresh live scores and check for changes in monitored games"""
+        from datetime import datetime
+        
+        # Only allow refresh if viewing today's date
+        today = datetime.now().date()
+        if self.current_date != today:
+            # For non-today dates, just reload the static data
+            self.load_live_scores()
+            return
+        
         old_scores = {}
         
         # Capture current scores for monitored games
@@ -739,6 +944,113 @@ class LiveScoresView(BaseView):
             # Also update the UI
             self.time_label.setText(f"SCORE UPDATE: {game_name} - {score_text}")
             QTimer.singleShot(5000, self._update_time_label)  # Reset after 5 seconds
+    
+    def _get_today_games_all_sports(self):
+        """Get all games for the current date from all sports"""
+        from models.game import GameData
+        
+        all_games = []
+        
+        # List of supported leagues  
+        leagues = ["NFL", "NBA", "MLB", "NHL", "NCAAF", "NCAAM", "WNBA", "NCAAWB"]
+        
+        for league in leagues:
+            try:
+                # Get scores for current date for this league
+                scores_data = ApiService.get_scores(league, self.current_date)
+                for game_raw in scores_data:
+                    # Create GameData object for consistent formatting
+                    game = GameData(game_raw, league)
+                    # Convert to format expected by live scores view
+                    game_dict = {
+                        'game_id': game_raw.get('id', ''),
+                        'league': league,
+                        'name': game.name,
+                        'teams': game.teams,
+                        'status': game.status,
+                        'start_time': game.start_time,
+                        'display_text': game.get_display_text(),
+                        'raw_data': game_raw,
+                        'game_data': game  # Keep reference to GameData object
+                    }
+                    
+                    # Determine game state for categorization
+                    status_lower = game.status.lower() if game.status else ''
+                    if status_lower in ['in progress', 'live']:
+                        game_dict['state'] = 'live'
+                    elif status_lower in ['final', 'completed']:
+                        game_dict['state'] = 'completed'
+                    elif status_lower in ['scheduled', 'upcoming']:
+                        game_dict['state'] = 'upcoming'
+                    else:
+                        # Try to determine from raw data
+                        raw_status = game_raw.get('status', {})
+                        if isinstance(raw_status, dict):
+                            type_info = raw_status.get('type', {})
+                            state = type_info.get('state', '').lower()
+                            if state == 'in':
+                                game_dict['state'] = 'live'
+                            elif state == 'post':
+                                game_dict['state'] = 'completed'
+                            elif state == 'pre':
+                                game_dict['state'] = 'upcoming'
+                            else:
+                                game_dict['state'] = 'unknown'
+                        else:
+                            game_dict['state'] = 'unknown'
+                    
+                    all_games.append(game_dict)
+            except Exception as e:
+                print(f"Error fetching {league} games: {e}")
+                continue
+        
+        return all_games
+
+    def _format_game_display(self, game):
+        """Format a game for display in the list using GameData if available"""
+        try:
+            # Use the pre-formatted display text if available
+            if 'display_text' in game and game['display_text']:
+                return game['display_text']
+            
+            # Use GameData object if available
+            if 'game_data' in game and game['game_data']:
+                return game['game_data'].get_display_text()
+            
+            # Fallback to manual formatting
+            home_team = game.get('home_team', {})
+            away_team = game.get('away_team', {})
+            home_score = game.get('home_score', '')
+            away_score = game.get('away_score', '')
+            status = game.get('status', '')
+            clock = game.get('clock', '')
+            period = game.get('period', '')
+            
+            # Build team display
+            home_name = home_team.get('name', home_team.get('abbreviation', 'TBD'))
+            away_name = away_team.get('name', away_team.get('abbreviation', 'TBD'))
+            
+            # Format scores if available
+            if home_score and away_score:
+                team_display = f"{away_name} {away_score} vs {home_name} {home_score}"
+            else:
+                team_display = f"{away_name} vs {home_name}"
+            
+            # Add status/timing info
+            if status and clock:
+                if period:
+                    status_display = f"[{period} - {clock}]"
+                else:
+                    status_display = f"[{status} - {clock}]"
+            elif status:
+                status_display = f"[{status}]"
+            else:
+                status_display = ""
+            
+            return f"{team_display} {status_display}".strip()
+        except Exception as e:
+            print(f"Error formatting game display: {e}")
+            return str(game)
     
     def _add_nav_buttons(self):
         """Add navigation buttons"""
@@ -853,6 +1165,290 @@ class LiveScoresView(BaseView):
     def refresh(self):
         """Refresh the live scores"""
         self.refresh_live_scores()
+
+class AudioTutorialView(BaseView):
+    """View showing audio tutorial with sample plays for baseball and football"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setup_ui()
+    
+    def setup_ui(self):
+        self.layout.addWidget(QLabel("🎵 Audio Tutorial"))
+        
+        # Add description
+        description = QLabel(
+            "Learn how the audio system works with sample plays from baseball and football.\n"
+            "Each sport uses audio to represent different aspects of the game:\n\n"
+            "⚾ Baseball: Pitch types, locations, and strike zone positioning\n"
+            "🏈 Football: Play types, yardage, and field position (left to right stereo)"
+        )
+        description.setWordWrap(True)
+        description.setStyleSheet("margin: 10px 0; color: #666;")
+        self.layout.addWidget(description)
+        
+        # Create tutorial selection list
+        self.tutorial_list = QListWidget()
+        self.tutorial_list.setAccessibleName("Audio Tutorial Selection")
+        self.tutorial_list.setAccessibleDescription("Select a sport to learn about its audio features")
+        
+        # Add baseball tutorial
+        baseball_item = QListWidgetItem("⚾ Baseball Audio Tutorial")
+        baseball_item.setData(Qt.ItemDataRole.UserRole, "baseball")
+        self.tutorial_list.addItem(baseball_item)
+        
+        # Add football tutorial
+        football_item = QListWidgetItem("🏈 Football Audio Tutorial")
+        football_item.setData(Qt.ItemDataRole.UserRole, "football")
+        self.tutorial_list.addItem(football_item)
+        
+        self.tutorial_list.itemActivated.connect(self._on_tutorial_selected)
+        self.layout.addWidget(self.tutorial_list)
+        
+        self._add_nav_buttons()
+    
+    def _on_tutorial_selected(self, item):
+        """Handle tutorial selection"""
+        tutorial_type = item.data(Qt.ItemDataRole.UserRole)
+        
+        if tutorial_type == "baseball":
+            if self.parent_app:
+                self.parent_app.open_baseball_audio_tutorial()
+        elif tutorial_type == "football":
+            if self.parent_app:
+                self.parent_app.open_football_audio_tutorial()
+
+class BaseballAudioTutorialView(BaseView):
+    """Baseball audio tutorial with sample pitches and explanations"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setup_ui()
+    
+    def setup_ui(self):
+        self.layout.addWidget(QLabel("⚾ Baseball Audio Tutorial"))
+        
+        # Add description
+        description = QLabel(
+            "Baseball audio maps pitch characteristics to sound:\n\n"
+            "🎯 Pitch Location: Stereo positioning represents strike zone location\n"
+            "🎵 Pitch Type: Different wave forms (fastball=square, curve=sine, etc.)\n"
+            "📏 Velocity: Higher velocity = higher pitch frequency\n"
+            "⚾ Outcome: Strikes, balls, hits have distinct audio signatures"
+        )
+        description.setWordWrap(True)
+        description.setStyleSheet("margin: 10px 0; color: #666;")
+        self.layout.addWidget(description)
+        
+        # Create sample pitches list
+        if AUDIO_AVAILABLE:
+            self.pitches_list = QListWidget()
+            self.pitches_list.setAccessibleName("Sample Baseball Pitches")
+            self.pitches_list.setAccessibleDescription("Sample pitches demonstrating different audio characteristics. Press Enter to play.")
+            
+            # Add sample pitches
+            samples = [
+                ("Strike - Fastball Center", "95 mph fastball down the middle", "fastball", "center", "strike"),
+                ("Ball - Curveball Low", "78 mph curveball below the zone", "curveball", "low", "ball"),
+                ("Hit - Slider Outside", "84 mph slider hit for single", "slider", "outside", "hit"),
+                ("Strike - Changeup Corner", "82 mph changeup on the corner", "changeup", "corner", "strike"),
+                ("Ball - Fastball High", "97 mph fastball above the zone", "fastball", "high", "ball")
+            ]
+            
+            for title, description, pitch_type, location, outcome in samples:
+                item = QListWidgetItem(f"{title}\n   {description}")
+                item.setData(Qt.ItemDataRole.UserRole, {
+                    'pitch_type': pitch_type,
+                    'location': location,
+                    'outcome': outcome,
+                    'description': description
+                })
+                self.pitches_list.addItem(item)
+            
+            self.pitches_list.itemActivated.connect(self._play_sample_pitch)
+            self.layout.addWidget(self.pitches_list)
+            
+            # Add instructions
+            instructions = QLabel("💡 Press Enter on any pitch to hear its audio representation")
+            instructions.setStyleSheet("color: #0066cc; font-style: italic; margin: 10px 0;")
+            self.layout.addWidget(instructions)
+        else:
+            no_audio_label = QLabel("❌ Audio system not available")
+            no_audio_label.setStyleSheet("color: #cc0000; font-weight: bold;")
+            self.layout.addWidget(no_audio_label)
+        
+        self._add_nav_buttons()
+    
+    def _play_sample_pitch(self, item):
+        """Play audio for a sample pitch"""
+        if not AUDIO_AVAILABLE:
+            return
+            
+        pitch_data = item.data(Qt.ItemDataRole.UserRole)
+        print(f"Playing sample pitch: {pitch_data['description']}")
+        
+        # Create a simple pitch audio demonstration
+        # (This would integrate with the existing pitch audio system)
+        try:
+            # For now, just provide feedback
+            title = self.parent().windowTitle() if self.parent() else "Tutorial"
+            if hasattr(self.parent(), 'setWindowTitle'):
+                original_title = self.parent().windowTitle()
+                self.parent().setWindowTitle(f"[Audio] {pitch_data['description']}")
+                QTimer.singleShot(2000, lambda: self.parent().setWindowTitle(original_title))
+            
+            print(f"Pitch audio demo: {pitch_data['pitch_type']} at {pitch_data['location']} ({pitch_data['outcome']})")
+        except Exception as e:
+            print(f"Sample pitch audio error: {e}")
+
+class FootballAudioTutorialView(BaseView):
+    """Football audio tutorial with sample drives and explanations"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setup_ui()
+    
+    def setup_ui(self):
+        self.layout.addWidget(QLabel("🏈 Football Audio Tutorial"))
+        
+        # Add description
+        description = QLabel(
+            "Football audio maps drive progression to sound:\n\n"
+            "📍 Field Position: Left speaker = own endzone, Right speaker = opponent endzone\n"
+            "🎵 Play Type: Rush=square wave, Pass=sine wave, Scoring=sawtooth\n"
+            "📏 Yardage: Bigger gains = higher pitch frequencies\n"
+            "🏈 Drive Flow: Audio pans left-to-right as team moves down field"
+        )
+        description.setWordWrap(True)
+        description.setStyleSheet("margin: 10px 0; color: #666;")
+        self.layout.addWidget(description)
+        
+        # Create sample drives list
+        if FOOTBALL_AUDIO_AVAILABLE:
+            self.drives_list = QListWidget()
+            self.drives_list.setAccessibleName("Sample Football Drives")
+            self.drives_list.setAccessibleDescription("Sample drives demonstrating different audio characteristics. Press Enter to play.")
+            
+            # Add sample drives
+            samples = [
+                ("Touchdown Drive", "7 plays, 75 yards - demonstrates field progression", "touchdown"),
+                ("Short Drive - Field Goal", "4 plays, 18 yards ending in field goal", "field_goal"),
+                ("Failed Drive - Punt", "3 plays, 8 yards ending in punt", "punt"),
+                ("Big Play Drive", "2 plays, 65 yards with long pass", "big_play"),
+                ("Turnover Drive", "5 plays ending in interception", "turnover")
+            ]
+            
+            for title, description, drive_type in samples:
+                item = QListWidgetItem(f"{title}\n   {description}")
+                item.setData(Qt.ItemDataRole.UserRole, {
+                    'drive_type': drive_type,
+                    'description': description
+                })
+                self.drives_list.addItem(item)
+            
+            self.drives_list.itemActivated.connect(self._play_sample_drive)
+            self.layout.addWidget(self.drives_list)
+            
+            # Add instructions
+            instructions = QLabel("💡 Press Enter on any drive to hear its audio representation")
+            instructions.setStyleSheet("color: #0066cc; font-style: italic; margin: 10px 0;")
+            self.layout.addWidget(instructions)
+        else:
+            no_audio_label = QLabel("❌ Football audio system not available")
+            no_audio_label.setStyleSheet("color: #cc0000; font-weight: bold;")
+            self.layout.addWidget(no_audio_label)
+        
+        self._add_nav_buttons()
+    
+    def _play_sample_drive(self, item):
+        """Play audio for a sample drive"""
+        if not FOOTBALL_AUDIO_AVAILABLE:
+            return
+            
+        drive_data = item.data(Qt.ItemDataRole.UserRole)
+        print(f"Playing sample drive: {drive_data['description']}")
+        
+        # Create sample drive audio using the actual football audio system
+        try:
+            # Create sample drive data based on drive type
+            sample_drive = self._create_sample_drive(drive_data['drive_type'])
+            
+            # Use the actual football audio mapper
+            from football_audio_mapper import FootballAudioMapper
+            from audio_player import AudioPlayer
+            
+            mapper = FootballAudioMapper()
+            player = AudioPlayer()
+            
+            # Generate and play the audio
+            audio_sequence = mapper.map_drive_to_audio_sequence(sample_drive)
+            if audio_sequence:
+                # Extract field positions
+                field_positions = [config.field_position for config in audio_sequence if config.field_position is not None]
+                if len(field_positions) == len(audio_sequence):
+                    field_positions_param = field_positions
+                else:
+                    field_positions_param = None
+                
+                # Provide user feedback
+                if hasattr(self.parent(), 'setWindowTitle'):
+                    original_title = self.parent().windowTitle()
+                    self.parent().setWindowTitle(f"[Audio] {drive_data['description']}")
+                    QTimer.singleShot(3000, lambda: self.parent().setWindowTitle(original_title))
+                
+                # Play the audio
+                player.play_audio_sequence(audio_sequence, silence_between=0.1, field_positions=field_positions_param)
+                print(f"Sample drive audio complete: {len(audio_sequence)} plays")
+        except Exception as e:
+            print(f"Sample drive audio error: {e}")
+    
+    def _create_sample_drive(self, drive_type):
+        """Create sample drive data for demonstration"""
+        if drive_type == "touchdown":
+            return {
+                "team": {"displayName": "Tutorial Team"},
+                "description": "7 plays, 75 yards, TOUCHDOWN",
+                "plays": [
+                    {"text": "QB pass short right for 12 yards", "statYardage": 12, "type": {"text": "Pass Reception"}, "start": {"yardsToEndzone": 75}},
+                    {"text": "RB rush up middle for 5 yards", "statYardage": 5, "type": {"text": "Rush"}, "start": {"yardsToEndzone": 63}},
+                    {"text": "QB pass deep left for 25 yards", "statYardage": 25, "type": {"text": "Pass Reception"}, "start": {"yardsToEndzone": 58}},
+                    {"text": "RB rush right end for 8 yards", "statYardage": 8, "type": {"text": "Rush"}, "start": {"yardsToEndzone": 33}},
+                    {"text": "QB pass short middle for 7 yards", "statYardage": 7, "type": {"text": "Pass Reception"}, "start": {"yardsToEndzone": 25}},
+                    {"text": "RB rush left tackle for 3 yards", "statYardage": 3, "type": {"text": "Rush"}, "start": {"yardsToEndzone": 18}},
+                    {"text": "QB pass right corner for 15 yards TOUCHDOWN", "statYardage": 15, "type": {"text": "Pass Reception"}, "start": {"yardsToEndzone": 15}, "scoringPlay": True}
+                ]
+            }
+        elif drive_type == "field_goal":
+            return {
+                "team": {"displayName": "Tutorial Team"},
+                "description": "4 plays, 18 yards, FIELD GOAL",
+                "plays": [
+                    {"text": "RB rush up middle for 4 yards", "statYardage": 4, "type": {"text": "Rush"}, "start": {"yardsToEndzone": 35}},
+                    {"text": "QB pass short right for 8 yards", "statYardage": 8, "type": {"text": "Pass Reception"}, "start": {"yardsToEndzone": 31}},
+                    {"text": "RB rush left end for 6 yards", "statYardage": 6, "type": {"text": "Rush"}, "start": {"yardsToEndzone": 23}},
+                    {"text": "25-yard field goal GOOD", "statYardage": 0, "type": {"text": "Field Goal Good"}, "start": {"yardsToEndzone": 17}, "scoringPlay": True}
+                ]
+            }
+        elif drive_type == "big_play":
+            return {
+                "team": {"displayName": "Tutorial Team"},
+                "description": "2 plays, 65 yards, TOUCHDOWN",
+                "plays": [
+                    {"text": "QB pass deep middle for 45 yards", "statYardage": 45, "type": {"text": "Pass Reception"}, "start": {"yardsToEndzone": 65}},
+                    {"text": "RB rush right end for 20 yards TOUCHDOWN", "statYardage": 20, "type": {"text": "Rush"}, "start": {"yardsToEndzone": 20}, "scoringPlay": True}
+                ]
+            }
+        else:
+            # Default short drive
+            return {
+                "team": {"displayName": "Tutorial Team"},
+                "description": "3 plays, 8 yards, PUNT",
+                "plays": [
+                    {"text": "RB rush up middle for 3 yards", "statYardage": 3, "type": {"text": "Rush"}, "start": {"yardsToEndzone": 75}},
+                    {"text": "QB pass incomplete", "statYardage": 0, "type": {"text": "Pass Incompletion"}, "start": {"yardsToEndzone": 72}},
+                    {"text": "QB pass short right for 5 yards", "statYardage": 5, "type": {"text": "Pass Reception"}, "start": {"yardsToEndzone": 72}}
+                ]
+            }
 
 class LeagueView(BaseView):
     """View showing scores for a specific league"""
@@ -1299,9 +1895,24 @@ class GameDetailsView(BaseView):
                 print(f"Audio initialization failed: {e}")
                 self.audio_mapper = None
         
+        # Initialize football audio system for football leagues
+        self.football_audio_mapper = None
+        self.football_audio_player = None
+        if FOOTBALL_AUDIO_AVAILABLE and league in ["NFL", "NCAAF"]:
+            try:
+                self.football_audio_mapper = FootballAudioMapper()
+                self.football_audio_player = AudioPlayer()
+                print(f"Debug: Football audio system initialized for {league}")
+            except Exception as e:
+                print(f"Debug: Failed to initialize football audio: {e}")
+                self.football_audio_mapper = None
+        
         self.setup_ui()
     
     def setup_ui(self):
+        # Set focus policy to allow keyboard events
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        
         self.layout.addWidget(QLabel("Game Details:"))
         
         self.details_list = QListWidget()
@@ -1326,15 +1937,22 @@ class GameDetailsView(BaseView):
     
     def keyPressEvent(self, event):
         """Handle key press events for game details view"""
+        print(f"Debug: GameDetailsView keyPressEvent - key: {event.key()}, modifiers: {event.modifiers()}")
+        print(f"Debug: Current focus widget: {self.focusWidget()}")
+        
         if event.key() == Qt.Key.Key_Return or event.key() == Qt.Key.Key_Enter:
+            print("Debug: Enter/Return key detected")
             # If details list has focus and an item is selected, activate it
             if self.details_list.hasFocus():
                 current_item = self.details_list.currentItem()
                 if current_item:
                     self._on_detail_item_selected(current_item)
                     return
+        else:
+            print(f"Debug: Other key - key: {event.key()}, modifiers: {event.modifiers()}")
         
         # Call parent to handle other keys (F5, Escape, etc.)
+        print("Debug: Calling parent keyPressEvent")
         super().keyPressEvent(event)
     
     def _on_detail_item_selected(self, item):
@@ -1571,6 +2189,133 @@ class GameDetailsView(BaseView):
             QTimer.singleShot(FOCUS_DELAY_MS, set_focus_to_table)
         
         dlg.exec()
+    
+    def _play_drive_audio(self):
+        """Play audio for the currently focused drive (called from GameDetailsView)"""
+        try:
+            # Write to debug log
+            with open('drive_audio_debug.log', 'a') as log:
+                import datetime
+                log.write(f"\n{'='*60}\n")
+                log.write(f"Drive Audio Call - {datetime.datetime.now()}\n")
+                log.write(f"{'='*60}\n")
+                
+                print("Debug: GameDetailsView _play_drive_audio called")
+                log.write("_play_drive_audio CALLED\n")
+                
+                # Check if we have football audio available
+                if not self.football_audio_mapper or not self.football_audio_player:
+                    print("Debug: Football audio not available or not initialized")
+                    log.write("ERROR: Football audio not initialized\n")
+                    return
+                
+                # Get drives data from current_drives_data if available
+                if not hasattr(self, 'current_drives_data') or not self.current_drives_data:
+                    print("Debug: No current_drives_data available")
+                    log.write("ERROR: No current_drives_data\n")
+                    return
+                
+                drives_data = self.current_drives_data
+                print(f"Debug: Found drives_data with keys: {list(drives_data.keys())}")
+                
+                # Get a drive to play (current or first previous)
+                current_drive = drives_data.get("current")
+                previous_drives = drives_data.get("previous", [])
+                
+                test_drive = None
+                if current_drive:
+                    test_drive = current_drive
+                    print("Debug: Using current drive")
+                    log.write("Using CURRENT drive\n")
+                elif previous_drives:
+                    test_drive = previous_drives[0]
+                    print(f"Debug: Using first of {len(previous_drives)} previous drives")
+                    log.write(f"Using first of {len(previous_drives)} PREVIOUS drives\n")
+                
+                if not test_drive:
+                    print("Debug: No drives available for audio")
+                    log.write("ERROR: No drives available\n")
+                    return
+                
+                # Get drive info for user feedback
+                team_info = test_drive.get("team", {})
+                team_name = team_info.get("displayName", "Unknown Team")
+                description = test_drive.get("description", "Drive")
+                print(f"Debug: Playing drive: {team_name} - {description}")
+                log.write(f"Drive: {team_name} - {description}\n")
+                
+                # Check if drive has plays
+                plays = test_drive.get('plays', [])
+                if not plays:
+                    print("Debug: Drive has no plays")
+                    log.write("ERROR: Drive has no plays\n")
+                    return
+                
+                print(f"Debug: Drive has {len(plays)} plays")
+                log.write(f"Drive has {len(plays)} plays\n")
+                
+                # Log each play detail
+                for i, play in enumerate(plays, 1):
+                    play_text = play.get('text', 'Unknown')[:60]
+                    yardage = play.get('statYardage', 'N/A')
+                    start = play.get('start', {})
+                    yards_to_endzone = start.get('yardsToEndzone', 'N/A')
+                    log.write(f"  Play {i}: {play_text}\n")
+                    log.write(f"    Yardage: {yardage}, YardsToEndzone: {yards_to_endzone}\n")
+                
+                # Generate and play audio
+                audio_sequence = self.football_audio_mapper.map_drive_to_audio_sequence(test_drive)
+                if not audio_sequence:
+                    print("Debug: No audio sequence generated")
+                    log.write("ERROR: No audio sequence generated\n")
+                    return
+                
+                print(f"Debug: Generated {len(audio_sequence)} audio configs")
+                log.write(f"Generated {len(audio_sequence)} audio configs\n")
+                print(f"Playing {len(audio_sequence)} plays as a drive sequence...")
+                
+                # Extract field positions for stereo panning
+                field_positions = [config.field_position for config in audio_sequence if config.field_position is not None]
+                
+                # Only use field positions if we have them for all plays
+                if len(field_positions) == len(audio_sequence):
+                    print(f"Debug: Using stereo field positioning for {len(field_positions)} plays")
+                    log.write(f"Using stereo positioning for {len(field_positions)} plays:\n")
+                    for i, pos in enumerate(field_positions):
+                        print(f"Debug: Play {i+1} at field position {pos:.1f}")
+                        log.write(f"  Play {i+1}: field_position={pos:.1f}\n")
+                else:
+                    print(f"Debug: No stereo positioning (only {len(field_positions)} of {len(audio_sequence)} plays have positions)")
+                    log.write(f"No stereo positioning ({len(field_positions)}/{len(audio_sequence)} have positions)\n")
+                    field_positions = None
+                
+                # Provide user feedback in window title
+                if hasattr(self, 'parent') and hasattr(self.parent, 'setWindowTitle'):
+                    original_title = self.parent.windowTitle()
+                    stereo_text = " with stereo positioning" if field_positions else ""
+                    self.parent.setWindowTitle(f"[Audio] Playing {team_name} drive{stereo_text}...")
+                    
+                    # Play the audio with field positions
+                    log.write("CALLING play_audio_sequence\n")
+                    self.football_audio_player.play_audio_sequence(audio_sequence, silence_between=0.1, field_positions=field_positions)
+                    log.write("COMPLETED play_audio_sequence\n")
+                    
+                    # Restore title after a delay
+                    QTimer.singleShot(3000, lambda: self.parent.setWindowTitle(original_title))
+                else:
+                    # Play without title feedback
+                    log.write("CALLING play_audio_sequence (no title)\n")
+                    self.football_audio_player.play_audio_sequence(audio_sequence, silence_between=0.1, field_positions=field_positions)
+                    log.write("COMPLETED play_audio_sequence (no title)\n")
+                
+                print("Debug: Drive audio playback completed")
+                log.write("Drive audio playback COMPLETED\n")
+            
+        except Exception as e:
+            print(f"Debug: Drive audio error: {e}")
+            import traceback
+            traceback.print_exc()
+
     
     def load_game_details(self):
         """Load detailed game information"""
@@ -2671,17 +3416,63 @@ class GameDetailsView(BaseView):
         export_btn.setAccessibleDescription("Export the complete game log as an HTML file")
         export_btn.clicked.connect(self._export_game_log)
         export_btn.setMaximumWidth(150)
+        # Prevent the button from taking focus away from the drives list
+        export_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         header_layout.addWidget(export_btn)
         header_layout.addStretch()  # Push button to the left
         
         layout.addLayout(header_layout)
         
+        # Add instruction for football audio if available
+        if FOOTBALL_AUDIO_AVAILABLE and self.league in ["NFL", "NCAAF"]:
+            audio_instruction = QLabel("💡 Select a drive and press Alt+P to play drive audio")
+            audio_instruction.setStyleSheet("color: #666; font-style: italic; margin: 5px 0;")
+            layout.addWidget(audio_instruction)
+        
         # Create tree widget for drives
         drives_tree = QTreeWidget()
         sport_name = "NFL/NCAAF" if self.league in ["NFL", "NCAAF"] else "Football"
         drives_tree.setAccessibleName(f"{sport_name} Drives Tree")
-        drives_tree.setAccessibleDescription(f"Hierarchical view of {sport_name} drives organized by quarter. Use up/down arrows to navigate, left/right to expand/collapse.")
+        
+        # Add audio instruction for football games
+        audio_instruction = ""
+        if FOOTBALL_AUDIO_AVAILABLE and self.league in ["NFL", "NCAAF"]:
+            audio_instruction = " Press Alt+P to play drive audio."
+        
+        drives_tree.setAccessibleDescription(f"Hierarchical view of {sport_name} drives organized by quarter. Use up/down arrows to navigate, left/right to expand/collapse.{audio_instruction}")
         drives_tree.setHeaderLabels(["Drive Summary"])
+        
+        # Add custom keyPressEvent handler for drives tree (like baseball does for plays)
+        def on_drives_key_press(event):
+            # Write keypress to debug log
+            with open('drive_audio_debug.log', 'a') as log:
+                import datetime
+                log.write(f"\n[KEYPRESS] {datetime.datetime.now()}\n")
+                log.write(f"Key: {event.key()}, Modifiers: {event.modifiers()}\n")
+                
+                print(f"Debug: Drives tree keyPressEvent - key: {event.key()}, modifiers: {event.modifiers()}")
+                current_item = drives_tree.currentItem()
+                
+                if event.key() == Qt.Key.Key_P and event.modifiers() == Qt.KeyboardModifier.AltModifier:
+                    # Alt+P for drive audio (works on drive items)
+                    print(f"Debug: Alt+P detected in drives tree! Current item: {current_item}")
+                    log.write("Alt+P DETECTED\n")
+                    if current_item and FOOTBALL_AUDIO_AVAILABLE and self.league in ["NFL", "NCAAF"]:
+                        print("Debug: Triggering drive audio from tree widget (ONCE)")
+                        log.write("Calling _play_drive_audio\n")
+                        self._play_drive_audio()
+                        log.write("Returned from _play_drive_audio\n")
+                        event.accept()
+                        print("Debug: Event accepted, returning from keyPressEvent")
+                        log.write("Event accepted and returning\n")
+                        return
+                
+                # Fall back to default behavior
+                log.write("Falling back to default keyPressEvent\n")
+            drives_tree.__class__.keyPressEvent(drives_tree, event)
+        
+        # Override the tree's keyPressEvent (same pattern as baseball audio)
+        drives_tree.keyPressEvent = on_drives_key_press
         
         # Group drives by quarter for better organization
         quarter_groups = {}
@@ -2769,6 +3560,9 @@ class GameDetailsView(BaseView):
                     
                     drive_item = QTreeWidgetItem([enhanced_summary])
                     drive_item.setExpanded(False)  # Collapsed by default
+                    
+                    # Store the drive data for audio playback
+                    drive_item.setData(0, Qt.ItemDataRole.UserRole, drive)
                     
                     # Apply accessibility-compliant background color
                     drive_item.setBackground(0, result_info['color'])
@@ -2870,6 +3664,20 @@ class GameDetailsView(BaseView):
                         drive_item.addChild(play_item)
         
         layout.addWidget(drives_tree)
+        
+        # Set focus to the drives tree for proper keyboard navigation and Alt+P functionality
+        drives_tree.setFocus()
+        # Ensure the tree can receive keyboard events
+        drives_tree.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        
+        # Select the first drive by default for better user experience
+        if drives_tree.topLevelItemCount() > 0:
+            first_quarter = drives_tree.topLevelItem(0)
+            if first_quarter.childCount() > 0:
+                first_drive = first_quarter.child(0)
+                drives_tree.setCurrentItem(first_drive)
+                # Expand the first quarter so users can see the drives
+                first_quarter.setExpanded(True)
     
     def _detect_sport_type(self, data):
         """Detect sport type from play data or current league"""
@@ -6230,6 +7038,19 @@ class GameDetailsDialog(QDialog):
         # Add config attribute that GameDetailsView expects
         self.config = {league: ["standings", "leaders", "boxscore", "injuries", "news"]}
         
+        # Initialize football audio system if available
+        self.audio_mapper = None
+        self.audio_player = None
+        self.drive_player = None
+        if FOOTBALL_AUDIO_AVAILABLE and league in ["NFL", "NCAAF"]:
+            try:
+                self.audio_mapper = FootballAudioMapper()
+                self.audio_player = AudioPlayer()
+                self.drive_player = FootballDrivePlayer()  # FootballDrivePlayer doesn't take parameters
+            except Exception as e:
+                print(f"Failed to initialize football audio: {e}")
+                self.audio_mapper = None
+        
         self.setWindowTitle(f"Game Details - {league}")
         self.setMinimumSize(800, 600)
         self.resize(1000, 700)
@@ -6266,7 +7087,178 @@ class GameDetailsDialog(QDialog):
         if event.key() == Qt.Key.Key_Escape:
             self.accept()
             return
+        elif (event.modifiers() == Qt.KeyboardModifier.AltModifier and 
+              event.key() == Qt.Key.Key_P and 
+              self.drive_player and 
+              self.league in ["NFL", "NCAAF"]):
+            self._play_focused_drive_audio()
+            return
         super().keyPressEvent(event)
+    
+    def _play_focused_drive_audio(self):
+        """Play audio for the currently focused drive"""
+        try:
+            self._show_audio_message("Attempting to play drive audio...")
+            print("Debug: Starting drive audio playback")
+            
+            # Check if audio system is available
+            if not self.audio_mapper or not self.audio_player:
+                self._show_audio_message("Audio system not available")
+                print("Debug: Audio system not initialized")
+                return
+            
+            # Get the currently focused drive data
+            current_drive = self._get_focused_drive_data()
+            if not current_drive:
+                self._show_audio_message("No drive data found")
+                print("Debug: No drive data available")
+                return
+            
+            print(f"Debug: Found drive data: {current_drive.get('team', {}).get('displayName', 'Unknown')} - {current_drive.get('description', 'No description')}")
+            
+            # Get drive summary for user feedback
+            drive_summary = self._get_drive_summary(current_drive)
+            self._show_audio_message(f"Playing drive audio: {drive_summary}")
+            print(f"Debug: Drive summary: {drive_summary}")
+            
+            # Check if drive has plays
+            plays = current_drive.get('plays', [])
+            if not plays:
+                self._show_audio_message("No plays found in drive")
+                print("Debug: Drive has no plays")
+                return
+            
+            print(f"Debug: Drive has {len(plays)} plays")
+            
+            # Generate the audio sequence for the drive
+            audio_sequence = self.audio_mapper.map_drive_to_audio_sequence(current_drive)
+            
+            if not audio_sequence:
+                self._show_audio_message("No audio data generated for this drive")
+                print("Debug: Audio mapper returned empty sequence")
+                return
+            
+            print(f"Debug: Generated {len(audio_sequence)} audio configs")
+            
+            # Play the entire audio sequence at once (with proper stereo positioning)
+            print(f"Playing {len(audio_sequence)} plays as a drive sequence...")
+            self._show_audio_message(f"Playing {len(audio_sequence)} plays...")
+            
+            self.audio_player.play_audio_sequence(audio_sequence, silence_between=0.1)
+            
+            self._show_audio_message("Drive audio playback completed")
+            print("Debug: Audio playback completed successfully")
+            
+        except Exception as e:
+            self._show_audio_message(f"Audio playback error: {str(e)}")
+            print(f"Debug: Full error: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _get_focused_drive_data(self):
+        """Extract drive data from currently focused item in the drives tree"""
+        print("Debug: Attempting to get focused drive data")
+        
+        # Get the drives data from the game details view
+        if not hasattr(self.game_details_view, 'current_drives_data'):
+            print("Debug: Game details view has no current_drives_data attribute")
+            return None
+        
+        drives_data = self.game_details_view.current_drives_data
+        if not drives_data:
+            print("Debug: current_drives_data is empty")
+            return None
+        
+        print(f"Debug: Found drives_data with keys: {list(drives_data.keys())}")
+        
+        # Find the drives tree widget
+        drives_tree = None
+        all_trees = self.game_details_view.findChildren(QTreeWidget)
+        print(f"Debug: Found {len(all_trees)} QTreeWidget children")
+        
+        for i, widget in enumerate(all_trees):
+            accessible_name = widget.accessibleName()
+            print(f"Debug: Tree {i}: accessibleName = '{accessible_name}'")
+            if "drives" in accessible_name.lower():
+                drives_tree = widget
+                print(f"Debug: Selected drives tree: {accessible_name}")
+                break
+        
+        if not drives_tree:
+            print("Debug: No drives tree found, using fallback")
+            # Fallback: return the first available drive
+            current_drive = drives_data.get("current")
+            if current_drive:
+                print("Debug: Fallback - returning current drive")
+                return current_drive
+            previous_drives = drives_data.get("previous", [])
+            if previous_drives:
+                print(f"Debug: Fallback - returning first of {len(previous_drives)} previous drives")
+                return previous_drives[0]
+            print("Debug: Fallback - no drives available")
+            return None
+        
+        # Get currently selected item from the tree
+        current_item = drives_tree.currentItem()
+        if not current_item:
+            print("Debug: No item currently selected in drives tree")
+            # No item selected, return first available drive
+            current_drive = drives_data.get("current")
+            if current_drive:
+                print("Debug: No selection - returning current drive")
+                return current_drive
+            previous_drives = drives_data.get("previous", [])
+            if previous_drives:
+                print(f"Debug: No selection - returning first of {len(previous_drives)} previous drives")
+                return previous_drives[0]
+            print("Debug: No selection - no drives available")
+            return None
+        
+        print(f"Debug: Current item text: '{current_item.text(0)}'")
+        
+        # Try to get drive data from the tree item
+        drive_data = current_item.data(0, Qt.ItemDataRole.UserRole)
+        if drive_data:
+            print("Debug: Found drive data in current item")
+            return drive_data
+        
+        # Check parent item (in case a play is selected under a drive)
+        parent_item = current_item.parent()
+        if parent_item:
+            print(f"Debug: Checking parent item: '{parent_item.text(0)}'")
+            parent_drive_data = parent_item.data(0, Qt.ItemDataRole.UserRole)
+            if parent_drive_data:
+                print("Debug: Found drive data in parent item")
+                return parent_drive_data
+        
+        print("Debug: No drive data in selected item or parent, using fallback")
+        # Fallback: return first available drive
+        current_drive = drives_data.get("current")
+        if current_drive:
+            print("Debug: Final fallback - returning current drive")
+            return current_drive
+        previous_drives = drives_data.get("previous", [])
+        if previous_drives:
+            print(f"Debug: Final fallback - returning first of {len(previous_drives)} previous drives")
+            return previous_drives[0]
+        print("Debug: Final fallback - no drives available")
+        return None
+        return None
+    
+    def _get_drive_summary(self, drive):
+        """Get a brief summary of the drive for user feedback"""
+        team_info = drive.get("team", {})
+        team_name = team_info.get("displayName", "Unknown Team")
+        description = drive.get("description", "Drive")
+        return f"{team_name} - {description}"
+    
+    def _show_audio_message(self, message):
+        """Show temporary message about audio playback"""
+        print(f"Football Audio: {message}")
+        # Also try to show in window title temporarily
+        original_title = self.windowTitle()
+        self.setWindowTitle(f"[Audio] {message}")
+        QTimer.singleShot(3000, lambda: self.setWindowTitle(original_title))
 
 
 class TeamScheduleDialog(QDialog):
@@ -8342,6 +9334,33 @@ class SportsScoresApp(QWidget):
             self._switch_to_view(live_scores_view, "live_scores", None)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open live scores: {e}")
+
+    def open_audio_tutorial(self):
+        """Open audio tutorial view"""
+        try:
+            self._push_to_stack("home", None)
+            audio_tutorial_view = AudioTutorialView(self)
+            self._switch_to_view(audio_tutorial_view, "audio_tutorial", None)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to open audio tutorial: {e}")
+
+    def open_baseball_audio_tutorial(self):
+        """Open baseball audio tutorial view"""
+        try:
+            self._push_to_stack("audio_tutorial", None)
+            baseball_tutorial_view = BaseballAudioTutorialView(self)
+            self._switch_to_view(baseball_tutorial_view, "baseball_tutorial", None)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to open baseball audio tutorial: {e}")
+
+    def open_football_audio_tutorial(self):
+        """Open football audio tutorial view"""
+        try:
+            self._push_to_stack("audio_tutorial", None)
+            football_tutorial_view = FootballAudioTutorialView(self)
+            self._switch_to_view(football_tutorial_view, "football_tutorial", None)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to open football audio tutorial: {e}")
 
     def open_game_details(self, game_id: str, from_live_scores=False):
         """Open game details view"""
