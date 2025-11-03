@@ -1219,7 +1219,10 @@ class AudioTutorialView(BaseView):
         self.tutorial_list.itemActivated.connect(self._on_tutorial_selected)
         self.layout.addWidget(self.tutorial_list)
         
-        self._add_nav_buttons()
+        # Add back button
+        back_btn = QPushButton("Back to Main Menu (Escape)")
+        back_btn.clicked.connect(lambda: self.parent_app.go_back() if self.parent_app else None)
+        self.layout.addWidget(back_btn)
     
     def _on_tutorial_selected(self, item):
         """Handle tutorial selection"""
@@ -1291,7 +1294,10 @@ class BaseballAudioTutorialView(BaseView):
             no_audio_label.setStyleSheet("color: #cc0000; font-weight: bold;")
             self.layout.addWidget(no_audio_label)
         
-        self._add_nav_buttons()
+        # Add back button
+        back_btn = QPushButton("Back to Audio Tutorial (Escape)")
+        back_btn.clicked.connect(lambda: self.parent_app.go_back() if self.parent_app else None)
+        self.layout.addWidget(back_btn)
     
     def _play_sample_pitch(self, item):
         """Play audio for a sample pitch"""
@@ -1372,7 +1378,10 @@ class FootballAudioTutorialView(BaseView):
             no_audio_label.setStyleSheet("color: #cc0000; font-weight: bold;")
             self.layout.addWidget(no_audio_label)
         
-        self._add_nav_buttons()
+        # Add back button
+        back_btn = QPushButton("Back to Audio Tutorial (Escape)")
+        back_btn.clicked.connect(lambda: self.parent_app.go_back() if self.parent_app else None)
+        self.layout.addWidget(back_btn)
     
     def _play_sample_drive(self, item):
         """Play audio for a sample drive"""
