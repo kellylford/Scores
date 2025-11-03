@@ -1224,6 +1224,10 @@ class AudioTutorialView(BaseView):
         back_btn.clicked.connect(lambda: self.parent_app.go_back() if self.parent_app else None)
         self.layout.addWidget(back_btn)
     
+    def on_show(self):
+        """Set focus to list when view is shown"""
+        QTimer.singleShot(100, lambda: self.tutorial_list.setFocus())
+    
     def _on_tutorial_selected(self, item):
         """Handle tutorial selection"""
         tutorial_type = item.data(Qt.ItemDataRole.UserRole)
@@ -1299,6 +1303,11 @@ class BaseballAudioTutorialView(BaseView):
         back_btn.clicked.connect(lambda: self.parent_app.go_back() if self.parent_app else None)
         self.layout.addWidget(back_btn)
     
+    def on_show(self):
+        """Set focus to list when view is shown"""
+        if AUDIO_AVAILABLE and hasattr(self, 'pitches_list'):
+            QTimer.singleShot(100, lambda: self.pitches_list.setFocus())
+    
     def _play_sample_pitch(self, item):
         """Play audio for a sample pitch"""
         if not AUDIO_AVAILABLE:
@@ -1346,25 +1355,46 @@ class FootballAudioTutorialView(BaseView):
         # Create sample drives list
         if FOOTBALL_AUDIO_AVAILABLE:
             self.drives_list = QListWidget()
-            self.drives_list.setAccessibleName("Sample Football Drives")
-            self.drives_list.setAccessibleDescription("Sample drives demonstrating different audio characteristics. Press Enter to play.")
+            self.drives_list.setAccessibleName("Sample Football Drives and Plays")
+            self.drives_list.setAccessibleDescription("Sample drives and individual plays demonstrating different audio characteristics. Press Enter to play.")
             
-            # Add sample drives
+            # Add sample drives and single plays
             samples = [
-                ("Touchdown Drive", "7 plays, 75 yards - demonstrates field progression", "touchdown"),
-                ("Short Drive - Field Goal", "4 plays, 18 yards ending in field goal", "field_goal"),
-                ("Failed Drive - Punt", "3 plays, 8 yards ending in punt", "punt"),
-                ("Big Play Drive", "2 plays, 65 yards with long pass", "big_play"),
-                ("Turnover Drive", "5 plays ending in interception", "turnover")
+                ("=== Full Drives ===", "", "separator"),
+                ("Touchdown Drive", "7 plays, 75 yards starting from own 25 - demonstrates field progression", "touchdown"),
+                ("Short Drive - Field Goal", "4 plays, 18 yards starting from opponent 35 - ends in field goal", "field_goal"),
+                ("Failed Drive - Punt", "3 plays, 8 yards starting from own 20 - ends in punt", "punt"),
+                ("Big Play Drive", "2 plays, 65 yards starting from own 30 - includes long pass", "big_play"),
+                ("Turnover Drive", "5 plays starting from midfield - ends in interception", "turnover"),
+                ("=== Single Plays ===", "", "separator"),
+                ("Short Run", "3 yard rush up the middle - low pitch from midfield", "single_short_run"),
+                ("Medium Run", "12 yard rush off tackle - medium pitch from midfield", "single_medium_run"),
+                ("Long Run", "35 yard rush breakaway - high pitch from midfield", "single_long_run"),
+                ("Short Pass", "5 yard pass completion - sine wave from midfield", "single_short_pass"),
+                ("Medium Pass", "18 yard pass completion - medium sine wave from midfield", "single_medium_pass"),
+                ("Long Pass", "40 yard deep pass - high sine wave from midfield", "single_long_pass"),
+                ("Sack", "7 yard sack (loss) - lower pitch from midfield", "single_sack"),
+                ("Field Goal", "25 yard field goal - scoring sound from midfield", "single_field_goal"),
+                ("Touchdown Pass", "15 yard touchdown pass - highest pitch scoring sound from midfield", "single_touchdown")
             ]
             
             for title, description, drive_type in samples:
-                item = QListWidgetItem(f"{title}\n   {description}")
-                item.setData(Qt.ItemDataRole.UserRole, {
-                    'drive_type': drive_type,
-                    'description': description
-                })
-                self.drives_list.addItem(item)
+                if drive_type == "separator":
+                    # Add separator items that aren't selectable
+                    item = QListWidgetItem(title)
+                    item.setFlags(Qt.ItemFlag.NoItemFlags)  # Make it non-selectable
+                    font = QFont()
+                    font.setBold(True)
+                    item.setFont(font)
+                    self.drives_list.addItem(item)
+                else:
+                    # Regular selectable items
+                    item = QListWidgetItem(f"{title}\n   {description}")
+                    item.setData(Qt.ItemDataRole.UserRole, {
+                        'drive_type': drive_type,
+                        'description': description
+                    })
+                    self.drives_list.addItem(item)
             
             self.drives_list.itemActivated.connect(self._play_sample_drive)
             self.layout.addWidget(self.drives_list)
@@ -1382,6 +1412,11 @@ class FootballAudioTutorialView(BaseView):
         back_btn = QPushButton("Back to Audio Tutorial (Escape)")
         back_btn.clicked.connect(lambda: self.parent_app.go_back() if self.parent_app else None)
         self.layout.addWidget(back_btn)
+    
+    def on_show(self):
+        """Set focus to list when view is shown"""
+        if FOOTBALL_AUDIO_AVAILABLE and hasattr(self, 'drives_list'):
+            QTimer.singleShot(100, lambda: self.drives_list.setFocus())
     
     def _play_sample_drive(self, item):
         """Play audio for a sample drive"""
@@ -1427,6 +1462,7 @@ class FootballAudioTutorialView(BaseView):
     
     def _create_sample_drive(self, drive_type):
         """Create sample drive data for demonstration"""
+        # Full drives
         if drive_type == "touchdown":
             return {
                 "team": {"displayName": "Tutorial Team"},
@@ -1459,6 +1495,79 @@ class FootballAudioTutorialView(BaseView):
                 "plays": [
                     {"text": "QB pass deep middle for 45 yards", "statYardage": 45, "type": {"text": "Pass Reception"}, "start": {"yardsToEndzone": 65}},
                     {"text": "RB rush right end for 20 yards TOUCHDOWN", "statYardage": 20, "type": {"text": "Rush"}, "start": {"yardsToEndzone": 20}, "scoringPlay": True}
+                ]
+            }
+        # Single play samples - all start at midfield (50 yards to endzone)
+        elif drive_type == "single_short_run":
+            return {
+                "team": {"displayName": "Tutorial Team"},
+                "description": "Single Play: 3 yard run",
+                "plays": [
+                    {"text": "RB rush up middle for 3 yards", "statYardage": 3, "type": {"text": "Rush"}, "start": {"yardsToEndzone": 50}}
+                ]
+            }
+        elif drive_type == "single_medium_run":
+            return {
+                "team": {"displayName": "Tutorial Team"},
+                "description": "Single Play: 12 yard run",
+                "plays": [
+                    {"text": "RB rush off tackle for 12 yards", "statYardage": 12, "type": {"text": "Rush"}, "start": {"yardsToEndzone": 50}}
+                ]
+            }
+        elif drive_type == "single_long_run":
+            return {
+                "team": {"displayName": "Tutorial Team"},
+                "description": "Single Play: 35 yard run",
+                "plays": [
+                    {"text": "RB rush breakaway for 35 yards", "statYardage": 35, "type": {"text": "Rush"}, "start": {"yardsToEndzone": 50}}
+                ]
+            }
+        elif drive_type == "single_short_pass":
+            return {
+                "team": {"displayName": "Tutorial Team"},
+                "description": "Single Play: 5 yard pass",
+                "plays": [
+                    {"text": "QB pass short for 5 yards", "statYardage": 5, "type": {"text": "Pass Reception"}, "start": {"yardsToEndzone": 50}}
+                ]
+            }
+        elif drive_type == "single_medium_pass":
+            return {
+                "team": {"displayName": "Tutorial Team"},
+                "description": "Single Play: 18 yard pass",
+                "plays": [
+                    {"text": "QB pass for 18 yards", "statYardage": 18, "type": {"text": "Pass Reception"}, "start": {"yardsToEndzone": 50}}
+                ]
+            }
+        elif drive_type == "single_long_pass":
+            return {
+                "team": {"displayName": "Tutorial Team"},
+                "description": "Single Play: 40 yard deep pass",
+                "plays": [
+                    {"text": "QB deep pass for 40 yards", "statYardage": 40, "type": {"text": "Pass Reception"}, "start": {"yardsToEndzone": 50}}
+                ]
+            }
+        elif drive_type == "single_sack":
+            return {
+                "team": {"displayName": "Tutorial Team"},
+                "description": "Single Play: 7 yard sack",
+                "plays": [
+                    {"text": "QB sacked for 7 yard loss", "statYardage": -7, "type": {"text": "Sack"}, "start": {"yardsToEndzone": 50}}
+                ]
+            }
+        elif drive_type == "single_field_goal":
+            return {
+                "team": {"displayName": "Tutorial Team"},
+                "description": "Single Play: 25 yard field goal",
+                "plays": [
+                    {"text": "25-yard field goal GOOD", "statYardage": 0, "type": {"text": "Field Goal Good"}, "start": {"yardsToEndzone": 50}, "scoringPlay": True}
+                ]
+            }
+        elif drive_type == "single_touchdown":
+            return {
+                "team": {"displayName": "Tutorial Team"},
+                "description": "Single Play: 15 yard touchdown pass",
+                "plays": [
+                    {"text": "QB pass for 15 yards TOUCHDOWN", "statYardage": 15, "type": {"text": "Pass Reception"}, "start": {"yardsToEndzone": 50}, "scoringPlay": True}
                 ]
             }
         else:
