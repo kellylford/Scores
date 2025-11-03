@@ -851,7 +851,14 @@ class LiveScoresView(BaseView):
                     for game in upcoming_by_league[league]:
                         display_text = self._format_game_display(game)
                         item = QListWidgetItem(display_text)
-                        item.setData(Qt.ItemDataRole.UserRole, game.get('raw_data', game))
+                        # Prepare game data in format expected by _on_game_selected
+                        game_data = game.get('raw_data', game)
+                        if 'game_id' in game and 'id' not in game_data:
+                            # Add id field if missing
+                            game_data = dict(game_data) if isinstance(game_data, dict) else {}
+                            game_data['id'] = game.get('game_id')
+                            game_data['league'] = game.get('league')
+                        item.setData(Qt.ItemDataRole.UserRole, game_data)
                         self.live_scores_list.addItem(item)
                 
                 # Add spacing after upcoming games
@@ -880,7 +887,14 @@ class LiveScoresView(BaseView):
                     for game in completed_by_league[league]:
                         display_text = self._format_game_display(game)
                         item = QListWidgetItem(display_text)
-                        item.setData(Qt.ItemDataRole.UserRole, game.get('raw_data', game))
+                        # Prepare game data in format expected by _on_game_selected
+                        game_data = game.get('raw_data', game)
+                        if 'game_id' in game and 'id' not in game_data:
+                            # Add id field if missing
+                            game_data = dict(game_data) if isinstance(game_data, dict) else {}
+                            game_data['id'] = game.get('game_id')
+                            game_data['league'] = game.get('league')
+                        item.setData(Qt.ItemDataRole.UserRole, game_data)
                         self.live_scores_list.addItem(item)
                 
         except Exception as e:
