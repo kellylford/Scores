@@ -1346,7 +1346,8 @@ class FootballAudioTutorialView(BaseView):
             "📍 Field Position: Left speaker = own endzone, Right speaker = opponent endzone\n"
             "🎵 Play Type: Rush=square wave, Pass=sine wave, Scoring=sawtooth\n"
             "📏 Yardage: Bigger gains = higher pitch frequencies\n"
-            "🏈 Drive Flow: Audio pans left-to-right as team moves down field"
+            "🏈 Drive Flow: Audio pans left-to-right as team moves down field\n\n"
+            "⌨️ In game drives: Alt+P = single play, Alt+S = full drive sequence"
         )
         description.setWordWrap(True)
         description.setStyleSheet("margin: 10px 0; color: #666;")
@@ -1400,7 +1401,7 @@ class FootballAudioTutorialView(BaseView):
             self.layout.addWidget(self.drives_list)
             
             # Add instructions
-            instructions = QLabel("💡 Press Enter on any drive to hear its audio representation")
+            instructions = QLabel("💡 Press Enter on any drive or play to hear its audio representation")
             instructions.setStyleSheet("color: #0066cc; font-style: italic; margin: 10px 0;")
             self.layout.addWidget(instructions)
         else:
@@ -2454,6 +2455,72 @@ class GameDetailsView(BaseView):
             
         except Exception as e:
             print(f"Debug: Drive audio error: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _play_single_play_audio(self, play):
+        """Play audio for a single play
+        
+        Args:
+            play: Play data dict from the tree item
+        """
+        try:
+            print("Debug: GameDetailsView _play_single_play_audio called")
+            
+            # Check if we have football audio available
+            if not self.football_audio_mapper or not self.football_audio_player:
+                print("Debug: Football audio not available or not initialized")
+                return
+            
+            if not play:
+                print("Debug: No play data provided")
+                return
+            
+            # Get play info for user feedback
+            play_text = play.get('text', 'Unknown play')[:60]
+            yardage = play.get('statYardage', 0)
+            print(f"Debug: Playing single play: {play_text} ({yardage} yards)")
+            
+            # Create a single-play "drive" structure for the audio mapper
+            single_play_drive = {
+                "team": {"displayName": ""},
+                "description": play_text,
+                "plays": [play]
+            }
+            
+            # Generate audio for this single play
+            audio_sequence = self.football_audio_mapper.map_drive_to_audio_sequence(single_play_drive)
+            if not audio_sequence:
+                print("Debug: No audio sequence generated for play")
+                return
+            
+            print(f"Debug: Generated audio for single play")
+            
+            # Extract field position for stereo panning
+            field_positions = [config.field_position for config in audio_sequence if config.field_position is not None]
+            if len(field_positions) == len(audio_sequence):
+                field_positions_param = field_positions
+            else:
+                field_positions_param = None
+            
+            # Provide user feedback in window title
+            if hasattr(self, 'parent') and hasattr(self.parent, 'setWindowTitle'):
+                original_title = self.parent.windowTitle()
+                self.parent.setWindowTitle(f"[Audio] Playing: {play_text}")
+                
+                # Play the audio
+                self.football_audio_player.play_audio_sequence(audio_sequence, silence_between=0, field_positions=field_positions_param)
+                
+                # Restore title after a delay
+                QTimer.singleShot(2000, lambda: self.parent.setWindowTitle(original_title))
+            else:
+                # Play without title feedback
+                self.football_audio_player.play_audio_sequence(audio_sequence, silence_between=0, field_positions=field_positions_param)
+            
+            print("Debug: Single play audio playback completed")
+            
+        except Exception as e:
+            print(f"Debug: Single play audio error: {e}")
             import traceback
             traceback.print_exc()
 
@@ -3589,8 +3656,25 @@ class GameDetailsView(BaseView):
             current_item = drives_tree.currentItem()
             
             if event.key() == Qt.Key.Key_P and event.modifiers() == Qt.KeyboardModifier.AltModifier:
-                # Alt+P for drive audio (works on drive items)
+                # Alt+P for single play audio (only works on play items)
                 print(f"Debug: Alt+P detected! Current item: {current_item}")
+                if current_item and FOOTBALL_AUDIO_AVAILABLE and self.league in ["NFL", "NCAAF"]:
+                    # Check if this is a play item (has a parent = it's a child)
+                    if current_item.parent():
+                        # This is a play item - get play data
+                        play_data = current_item.data(0, Qt.ItemDataRole.UserRole)
+                        if play_data:
+                            print(f"Debug: Playing single play")
+                            self._play_single_play_audio(play_data)
+                            event.accept()
+                            return
+                        else:
+                            print("Debug: No play data found on play item")
+                    else:
+                        print("Debug: Alt+P only works on individual plays, use Alt+S for full drive")
+            elif event.key() == Qt.Key.Key_S and event.modifiers() == Qt.KeyboardModifier.AltModifier:
+                # Alt+S for full drive audio (works on both drive and play items)
+                print(f"Debug: Alt+S detected! Current item: {current_item}")
                 if current_item and FOOTBALL_AUDIO_AVAILABLE and self.league in ["NFL", "NCAAF"]:
                     # Get the drive data from the selected tree item
                     # If a play is selected, get the parent drive item
@@ -3693,6 +3777,8 @@ class GameDetailsView(BaseView):
                                 play_text = f"[{clock_display}] {play_text}"
                         
                         play_item = QTreeWidgetItem([play_text])
+                        # Store play data for audio playback
+                        play_item.setData(0, Qt.ItemDataRole.UserRole, play)
                         kickoff_item.addChild(play_item)
                 else:
                     # Create enhanced drive summary node with scoring information
@@ -3793,6 +3879,9 @@ class GameDetailsView(BaseView):
                                 play_text = f"[{clock_display}] {play_text}"
                         
                         play_item = QTreeWidgetItem([play_text])
+                        
+                        # Store play data for audio playback
+                        play_item.setData(0, Qt.ItemDataRole.UserRole, play)
                         
                         # Highlight scoring plays
                         if play.get("scoringPlay"):
