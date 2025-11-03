@@ -2213,8 +2213,12 @@ class GameDetailsView(BaseView):
         
         dlg.exec()
     
-    def _play_drive_audio(self):
-        """Play audio for the currently focused drive (called from GameDetailsView)"""
+    def _play_drive_audio(self, drive=None):
+        """Play audio for the currently focused drive (called from GameDetailsView)
+        
+        Args:
+            drive: Optional drive data dict. If not provided, uses current/first previous drive.
+        """
         try:
             # Write to debug log
             with open('drive_audio_debug.log', 'a') as log:
@@ -2232,28 +2236,33 @@ class GameDetailsView(BaseView):
                     log.write("ERROR: Football audio not initialized\n")
                     return
                 
-                # Get drives data from current_drives_data if available
-                if not hasattr(self, 'current_drives_data') or not self.current_drives_data:
-                    print("Debug: No current_drives_data available")
-                    log.write("ERROR: No current_drives_data\n")
-                    return
-                
-                drives_data = self.current_drives_data
-                print(f"Debug: Found drives_data with keys: {list(drives_data.keys())}")
-                
-                # Get a drive to play (current or first previous)
-                current_drive = drives_data.get("current")
-                previous_drives = drives_data.get("previous", [])
-                
-                test_drive = None
-                if current_drive:
-                    test_drive = current_drive
-                    print("Debug: Using current drive")
-                    log.write("Using CURRENT drive\n")
-                elif previous_drives:
-                    test_drive = previous_drives[0]
-                    print(f"Debug: Using first of {len(previous_drives)} previous drives")
-                    log.write(f"Using first of {len(previous_drives)} PREVIOUS drives\n")
+                # Use provided drive or get from current_drives_data
+                test_drive = drive
+                if not test_drive:
+                    # Get drives data from current_drives_data if available
+                    if not hasattr(self, 'current_drives_data') or not self.current_drives_data:
+                        print("Debug: No current_drives_data available")
+                        log.write("ERROR: No current_drives_data\n")
+                        return
+                    
+                    drives_data = self.current_drives_data
+                    print(f"Debug: Found drives_data with keys: {list(drives_data.keys())}")
+                    
+                    # Get a drive to play (current or first previous)
+                    current_drive = drives_data.get("current")
+                    previous_drives = drives_data.get("previous", [])
+                    
+                    if current_drive:
+                        test_drive = current_drive
+                        print("Debug: Using current drive")
+                        log.write("Using CURRENT drive\n")
+                    elif previous_drives:
+                        test_drive = previous_drives[0]
+                        print(f"Debug: Using first of {len(previous_drives)} previous drives")
+                        log.write(f"Using first of {len(previous_drives)} PREVIOUS drives\n")
+                else:
+                    print("Debug: Using provided drive data")
+                    log.write("Using PROVIDED drive data\n")
                 
                 if not test_drive:
                     print("Debug: No drives available for audio")
@@ -3481,14 +3490,21 @@ class GameDetailsView(BaseView):
                     print(f"Debug: Alt+P detected in drives tree! Current item: {current_item}")
                     log.write("Alt+P DETECTED\n")
                     if current_item and FOOTBALL_AUDIO_AVAILABLE and self.league in ["NFL", "NCAAF"]:
-                        print("Debug: Triggering drive audio from tree widget (ONCE)")
-                        log.write("Calling _play_drive_audio\n")
-                        self._play_drive_audio()
-                        log.write("Returned from _play_drive_audio\n")
-                        event.accept()
-                        print("Debug: Event accepted, returning from keyPressEvent")
-                        log.write("Event accepted and returning\n")
-                        return
+                        # Get the drive data from the selected tree item
+                        drive_data = current_item.data(0, Qt.ItemDataRole.UserRole)
+                        if drive_data:
+                            print("Debug: Triggering drive audio from tree widget (ONCE)")
+                            log.write("Calling _play_drive_audio with selected drive\n")
+                            self._play_drive_audio(drive_data)
+                            log.write("Returned from _play_drive_audio\n")
+                            event.accept()
+                            print("Debug: Event accepted, returning from keyPressEvent")
+                            log.write("Event accepted and returning\n")
+                            return
+                        else:
+                            print("Debug: No drive data on selected item")
+                            log.write("No drive data on selected item\n")
+
                 
                 # Fall back to default behavior
                 log.write("Falling back to default keyPressEvent\n")

@@ -296,30 +296,42 @@ class FootballAudioMapper:
         plays = drive.get('plays', [])
         audio_sequence = []
         
-        for play in plays:
+        print(f"\n=== DEBUG: Processing drive with {len(plays)} total plays ===")
+        
+        for i, play in enumerate(plays, 1):
             # Skip non-action plays (timeouts, penalties, warnings, quarter ends, etc.)
             play_type = play.get('type', {}).get('text', '').lower()
             play_text = play.get('text', '').lower()
+            stat_yardage = play.get('statYardage')
+            
+            print(f"Play {i}: type='{play_type}', yardage={stat_yardage}, text='{play_text[:50]}'")
             
             # Skip administrative plays without actual field action
             skip_keywords = ['timeout', 'penalty', 'warning', 'end quarter', 'end half', 
                            'end game', 'two-minute warning', 'coin toss']
             
             if any(keyword in play_type for keyword in skip_keywords):
+                print(f"  -> SKIPPED (type has skip keyword)")
                 continue
             if any(keyword in play_text for keyword in skip_keywords):
+                print(f"  -> SKIPPED (text has skip keyword)")
                 continue
             
             # Skip plays with no yardage (likely administrative)
-            stat_yardage = play.get('statYardage')
+            # BUT: Include plays with 0 yardage if they have a real play type (like incomplete pass, sack)
             if stat_yardage is None or stat_yardage == 0:
-                # Check if it's a real play with a type (pass/rush/kick)
-                if not any(action in play_type for action in ['pass', 'rush', 'run', 'kick', 'punt', 'field goal']):
+                # Check if it's a real play with a type (pass/rush/kick/sack)
+                if not any(action in play_type for action in ['pass', 'rush', 'run', 'kick', 'punt', 'field goal', 'sack']):
+                    print(f"  -> SKIPPED (no/zero yardage and not a real play type)")
                     continue
+                else:
+                    print(f"  -> KEPT despite 0 yardage (has real play type: {play_type})")
             
+            print(f"  -> INCLUDED in audio sequence")
             config = self.map_play_to_audio(play)
             audio_sequence.append(config)
         
+        print(f"=== Result: {len(audio_sequence)} plays in audio sequence ===\n")
         return audio_sequence
     
     def get_drive_summary(self, drive: Dict) -> Dict:
