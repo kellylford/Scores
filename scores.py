@@ -3476,38 +3476,33 @@ class GameDetailsView(BaseView):
         
         # Add custom keyPressEvent handler for drives tree (like baseball does for plays)
         def on_drives_key_press(event):
-            # Write keypress to debug log
-            with open('drive_audio_debug.log', 'a') as log:
-                import datetime
-                log.write(f"\n[KEYPRESS] {datetime.datetime.now()}\n")
-                log.write(f"Key: {event.key()}, Modifiers: {event.modifiers()}\n")
-                
-                print(f"Debug: Drives tree keyPressEvent - key: {event.key()}, modifiers: {event.modifiers()}")
-                current_item = drives_tree.currentItem()
-                
-                if event.key() == Qt.Key.Key_P and event.modifiers() == Qt.KeyboardModifier.AltModifier:
-                    # Alt+P for drive audio (works on drive items)
-                    print(f"Debug: Alt+P detected in drives tree! Current item: {current_item}")
-                    log.write("Alt+P DETECTED\n")
-                    if current_item and FOOTBALL_AUDIO_AVAILABLE and self.league in ["NFL", "NCAAF"]:
-                        # Get the drive data from the selected tree item
-                        drive_data = current_item.data(0, Qt.ItemDataRole.UserRole)
-                        if drive_data:
-                            print("Debug: Triggering drive audio from tree widget (ONCE)")
-                            log.write("Calling _play_drive_audio with selected drive\n")
-                            self._play_drive_audio(drive_data)
-                            log.write("Returned from _play_drive_audio\n")
-                            event.accept()
-                            print("Debug: Event accepted, returning from keyPressEvent")
-                            log.write("Event accepted and returning\n")
-                            return
-                        else:
-                            print("Debug: No drive data on selected item")
-                            log.write("No drive data on selected item\n")
-
-                
-                # Fall back to default behavior
-                log.write("Falling back to default keyPressEvent\n")
+            print(f"Debug: Drives tree keyPressEvent - key: {event.key()}, modifiers: {event.modifiers()}")
+            current_item = drives_tree.currentItem()
+            
+            if event.key() == Qt.Key.Key_P and event.modifiers() == Qt.KeyboardModifier.AltModifier:
+                # Alt+P for drive audio (works on drive items)
+                print(f"Debug: Alt+P detected! Current item: {current_item}")
+                if current_item and FOOTBALL_AUDIO_AVAILABLE and self.league in ["NFL", "NCAAF"]:
+                    # Get the drive data from the selected tree item
+                    # If a play is selected, get the parent drive item
+                    drive_item = current_item
+                    drive_data = drive_item.data(0, Qt.ItemDataRole.UserRole)
+                    
+                    # If no data on current item, check if it's a child (play) and get parent (drive)
+                    if not drive_data and drive_item.parent():
+                        drive_item = drive_item.parent()
+                        drive_data = drive_item.data(0, Qt.ItemDataRole.UserRole)
+                        print(f"Debug: Trying parent for drive data")
+                    
+                    if drive_data:
+                        print(f"Debug: Playing drive with {len(drive_data.get('plays', []))} plays")
+                        self._play_drive_audio(drive_data)
+                        event.accept()
+                        return
+                    else:
+                        print("Debug: No drive data found")
+            
+            # Fall back to default behavior
             drives_tree.__class__.keyPressEvent(drives_tree, event)
         
         # Override the tree's keyPressEvent (same pattern as baseball audio)
