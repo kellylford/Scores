@@ -343,5 +343,343 @@
     "name": "String Pluck",
     "description": "Plucked string instrument",
     "play_type": "custom"
+  },
+  "Glass Chime": {
+    "frequency": 1760.0,
+    "wave_type": "sine",
+    "duration": 2.0,
+    "volume": 0.15,
+    "attack": 0.001,
+    "decay": 0.8,
+    "sustain": 0.2,
+    "release": 1.0,
+    "harmonics": {
+      "enabled": true,
+      "octave_volume": 0.3,
+      "fifth_volume": 0.5,
+      "sub_bass_volume": 0.0
+    },
+    "blending": {
+      "enabled": true,
+      "blend_ratio": 0.3
+    },
+    "name": "Glass Chime",
+    "description": "Delicate high-pitched glass-like tone",
+    "play_type": "custom"
+  },
+  "Dark Pad": {
+    "frequency": 82.4,
+    "wave_type": "triangle",
+    "duration": 3.0,
+    "volume": 0.25,
+    "attack": 0.5,
+    "decay": 0.3,
+    "sustain": 0.8,
+    "release": 1.2,
+    "harmonics": {
+      "enabled": true,
+      "octave_volume": 0.2,
+      "fifth_volume": 0.15,
+      "sub_bass_volume": 0.3
+    },
+    "blending": {
+      "enabled": true,
+      "blend_ratio": 0.7
+    },
+    "name": "Dark Pad",
+    "description": "Deep, mysterious ambient pad",
+    "play_type": "custom"
+  },
+  "Metallic Clang": {
+    "frequency": 350.0,
+    "wave_type": "square",
+    "duration": 0.4,
+    "volume": 0.3,
+    "attack": 0.001,
+    "decay": 0.25,
+    "sustain": 0.1,
+    "release": 0.1,
+    "harmonics": {
+      "enabled": true,
+      "octave_volume": 0.6,
+      "fifth_volume": 0.5,
+      "sub_bass_volume": 0.0
+    },
+    "blending": {
+      "enabled": false,
+      "blend_ratio": 0.0
+    },
+    "name": "Metallic Clang",
+    "description": "Sharp metallic percussion",
+    "play_type": "custom"
+  },
+  "Soft Tom": {
+    "frequency": 120.0,
+    "wave_type": "sine",
+    "duration": 0.5,
+    "volume": 0.35,
+    "attack": 0.005,
+    "decay": 0.3,
+    "sustain": 0.2,
+    "release": 0.15,
+    "harmonics": {
+      "enabled": true,
+      "octave_volume": 0.15,
+      "fifth_volume": 0.0,
+      "sub_bass_volume": 0.4
+    },
+    "blending": {
+      "enabled": true,
+      "blend_ratio": 0.5
+    },
+    "name": "Soft Tom",
+    "description": "Mellow tom drum sound",
+    "play_type": "custom"
+  },
+  "Bright Lead": {
+    "frequency": 880.0,
+    "wave_type": "sawtooth",
+    "duration": 0.6,
+    "volume": 0.28,
+    "attack": 0.01,
+    "decay": 0.08,
+    "sustain": 0.7,
+    "release": 0.12,
+    "harmonics": {
+      "enabled": true,
+      "octave_volume": 0.5,
+      "fifth_volume": 0.3,
+      "sub_bass_volume": 0.0
+    },
+    "blending": {
+      "enabled": true,
+      "blend_ratio": 0.3
+    },
+    "name": "Bright Lead",
+    "description": "Cutting lead synth sound",
+    "play_type": "custom"
+  },
+  "Underwater": {
+    "frequency": 65.4,
+    "wave_type": "sine",
+    "duration": 2.5,
+    "volume": 0.2,
+    "attack": 0.8,
+    "decay": 0.5,
+    "sustain": 0.6,
+    "release": 1.0,
+    "harmonics": {
+      "enabled": true,
+      "octave_volume": 0.1,
+      "fifth_volume": 0.2,
+      "sub_bass_volume": 0.5
+    },
+    "blending": {
+      "enabled": true,
+      "blend_ratio": 0.6
+    },
+    "name": "Underwater",
+    "description": "Deep submerged ambient tone",
+    "play_type": "custom"
+  },
+  "Electric Bell": {
+    "frequency": 440.0,
+    "wave_type": "sine",
+    "duration": 1.5,
+    "volume": 0.3,
+    "attack": 0.005,
+    "decay": 0.4,
+    "sustain": 0.3,
+    "release": 0.8,
+    "harmonics": {
+      "enabled": false,
+      "octave_volume": 0.0,
+      "fifth_volume": 0.0,
+      "sub_bass_volume": 0.0
+    },
+    "blending": {
+      "enabled": false,
+      "blend_ratio": 0.5
+    },
+    "advanced": {
+      "enabled": true,
+      "synthesis_type": "fm",
+      "fm_mod_ratio": 1.4,
+      "fm_mod_index": 5.0,
+      "noise_type": "white",
+      "noise_filter_enabled": false,
+      "noise_filter_type": "bandpass",
+      "noise_filter_low": 2000,
+      "noise_filter_high": 8000,
+      "lfo_enabled": false,
+      "lfo_frequency": 5.0,
+      "lfo_depth": 0.3,
+      "echo_enabled": false,
+      "echo_delay": 0.3,
+      "echo_feedback": 0.4
+    },
+    "name": "Electric Bell",
+    "description": "FM synthesis bell sound (ratio 1.4, index 5)",
+    "play_type": "custom"
+  },
+  "Plucked Bass": {
+    "frequency": 110.0,
+    "wave_type": "sine",
+    "duration": 0.8,
+    "volume": 0.35,
+    "attack": 0.001,
+    "decay": 0.2,
+    "sustain": 0.4,
+    "release": 0.2,
+    "harmonics": {
+      "enabled": false,
+      "octave_volume": 0.0,
+      "fifth_volume": 0.0,
+      "sub_bass_volume": 0.0
+    },
+    "blending": {
+      "enabled": false,
+      "blend_ratio": 0.5
+    },
+    "advanced": {
+      "enabled": true,
+      "synthesis_type": "karplus",
+      "fm_mod_ratio": 1.4,
+      "fm_mod_index": 5.0,
+      "noise_type": "white",
+      "noise_filter_enabled": false,
+      "noise_filter_type": "bandpass",
+      "noise_filter_low": 2000,
+      "noise_filter_high": 8000,
+      "lfo_enabled": false,
+      "lfo_frequency": 5.0,
+      "lfo_depth": 0.3,
+      "echo_enabled": true,
+      "echo_delay": 0.2,
+      "echo_feedback": 0.3
+    },
+    "name": "Plucked Bass",
+    "description": "Karplus-Strong plucked string with echo",
+    "play_type": "custom"
+  },
+  "Hi-Hat": {
+    "frequency": 8000.0,
+    "wave_type": "sine",
+    "duration": 0.1,
+    "volume": 0.25,
+    "attack": 0.001,
+    "decay": 0.03,
+    "sustain": 0.1,
+    "release": 0.05,
+    "harmonics": {
+      "enabled": false,
+      "octave_volume": 0.0,
+      "fifth_volume": 0.0,
+      "sub_bass_volume": 0.0
+    },
+    "blending": {
+      "enabled": false,
+      "blend_ratio": 0.5
+    },
+    "advanced": {
+      "enabled": true,
+      "synthesis_type": "noise",
+      "fm_mod_ratio": 1.4,
+      "fm_mod_index": 5.0,
+      "noise_type": "white",
+      "noise_filter_enabled": true,
+      "noise_filter_type": "highpass",
+      "noise_filter_low": 8000,
+      "noise_filter_high": 12000,
+      "lfo_enabled": false,
+      "lfo_frequency": 5.0,
+      "lfo_depth": 0.3,
+      "echo_enabled": false,
+      "echo_delay": 0.3,
+      "echo_feedback": 0.4
+    },
+    "name": "Hi-Hat",
+    "description": "Filtered white noise percussion",
+    "play_type": "custom"
+  },
+  "Electric Piano": {
+    "frequency": 261.63,
+    "wave_type": "sine",
+    "duration": 1.2,
+    "volume": 0.3,
+    "attack": 0.002,
+    "decay": 0.3,
+    "sustain": 0.5,
+    "release": 0.4,
+    "harmonics": {
+      "enabled": false,
+      "octave_volume": 0.0,
+      "fifth_volume": 0.0,
+      "sub_bass_volume": 0.0
+    },
+    "blending": {
+      "enabled": false,
+      "blend_ratio": 0.5
+    },
+    "advanced": {
+      "enabled": true,
+      "synthesis_type": "fm",
+      "fm_mod_ratio": 14.0,
+      "fm_mod_index": 3.0,
+      "noise_type": "white",
+      "noise_filter_enabled": false,
+      "noise_filter_type": "bandpass",
+      "noise_filter_low": 2000,
+      "noise_filter_high": 8000,
+      "lfo_enabled": false,
+      "lfo_frequency": 5.0,
+      "lfo_depth": 0.3,
+      "echo_enabled": false,
+      "echo_delay": 0.3,
+      "echo_feedback": 0.4
+    },
+    "name": "Electric Piano",
+    "description": "FM synthesis E-Piano (ratio 14, index 3)",
+    "play_type": "custom"
+  },
+  "Ocean Wave": {
+    "frequency": 200.0,
+    "wave_type": "sine",
+    "duration": 3.0,
+    "volume": 0.2,
+    "attack": 0.5,
+    "decay": 0.5,
+    "sustain": 0.6,
+    "release": 1.5,
+    "harmonics": {
+      "enabled": false,
+      "octave_volume": 0.0,
+      "fifth_volume": 0.0,
+      "sub_bass_volume": 0.0
+    },
+    "blending": {
+      "enabled": false,
+      "blend_ratio": 0.5
+    },
+    "advanced": {
+      "enabled": true,
+      "synthesis_type": "noise",
+      "fm_mod_ratio": 1.4,
+      "fm_mod_index": 5.0,
+      "noise_type": "pink",
+      "noise_filter_enabled": true,
+      "noise_filter_type": "bandpass",
+      "noise_filter_low": 500,
+      "noise_filter_high": 2000,
+      "lfo_enabled": true,
+      "lfo_frequency": 0.5,
+      "lfo_depth": 0.4,
+      "echo_enabled": false,
+      "echo_delay": 0.3,
+      "echo_feedback": 0.4
+    },
+    "name": "Ocean Wave",
+    "description": "Pink noise with LFO tremolo simulating waves",
+    "play_type": "custom"
   }
 }

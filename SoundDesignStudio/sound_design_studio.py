@@ -41,6 +41,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from enhanced_audio_player import EnhancedAudioPlayer
 from football_audio_mapper import PlayAudioConfig
+from SoundDesignStudio.advanced_synthesis import AdvancedSynthesis
 
 
 class SoundDesignStudio(QMainWindow):
@@ -69,6 +70,9 @@ class SoundDesignStudio(QMainWindow):
         self.setup_shortcuts()
         self.load_presets_from_file()
         self.update_sound_description()
+        
+        # Initialize advanced controls visibility based on default synth type
+        self._update_advanced_controls_visibility()
     
     def _default_config(self):
         """Create default sound configuration."""
@@ -90,6 +94,26 @@ class SoundDesignStudio(QMainWindow):
             'blending': {
                 'enabled': True,
                 'blend_ratio': 0.5
+            },
+            'advanced': {
+                'enabled': False,
+                'synthesis_type': 'fm',  # 'fm', 'noise', 'karplus'
+                # FM Synthesis
+                'fm_mod_ratio': 1.4,
+                'fm_mod_index': 5.0,
+                # Noise
+                'noise_type': 'white',  # 'white', 'pink', 'brown'
+                'noise_filter_enabled': False,
+                'noise_filter_type': 'bandpass',  # 'bandpass', 'highpass', 'lowpass'
+                'noise_filter_low': 2000.0,
+                'noise_filter_high': 8000.0,
+                # Effects
+                'lfo_enabled': False,
+                'lfo_frequency': 5.0,
+                'lfo_depth': 0.3,
+                'echo_enabled': False,
+                'echo_delay': 0.3,
+                'echo_feedback': 0.4
             },
             'name': 'Untitled Sound',
             'description': '',
@@ -326,6 +350,173 @@ class SoundDesignStudio(QMainWindow):
         
         blending_layout.addStretch()
         tabs.addTab(blending_tab, "🌊 Blending")
+        
+        # Tab 5: Advanced Synthesis
+        advanced_tab = QWidget()
+        advanced_layout = QVBoxLayout(advanced_tab)
+        
+        self.advanced_enabled = QCheckBox("Enable Advanced Synthesis")
+        self.advanced_enabled.setChecked(False)
+        self.advanced_enabled.setAccessibleName("Enable advanced synthesis")
+        self.advanced_enabled.setAccessibleDescription("Enable or disable advanced synthesis techniques like FM, noise, and effects")
+        self.advanced_enabled.stateChanged.connect(self._on_advanced_toggled)
+        advanced_layout.addWidget(self.advanced_enabled)
+        
+        # Synthesis type selector
+        synth_type_group = QGroupBox("Synthesis Type")
+        synth_type_layout = QVBoxLayout()
+        synth_type_layout.addWidget(QLabel("Choose advanced synthesis method:"))
+        self.synth_type_combo = QComboBox()
+        self.synth_type_combo.addItems(['fm', 'noise', 'karplus'])
+        self.synth_type_combo.setAccessibleName("Synthesis type")
+        self.synth_type_combo.setAccessibleDescription("Choose synthesis method: FM (bells, electric piano), Noise (percussion, atmospheres), Karplus-Strong (plucked strings)")
+        self.synth_type_combo.currentTextChanged.connect(self._on_synth_type_changed)
+        synth_type_layout.addWidget(self.synth_type_combo)
+        synth_type_group.setLayout(synth_type_layout)
+        advanced_layout.addWidget(synth_type_group)
+        
+        # FM Synthesis controls
+        self.fm_group = QGroupBox("FM Synthesis Parameters")
+        fm_layout = QVBoxLayout()
+        
+        fm_ratio_group = self._create_double_slider_control(
+            "Modulator Ratio",
+            0.5, 5.0, 1.4, 0.1,
+            callback=self._on_fm_ratio_changed
+        )
+        self.controls['fm_ratio'] = fm_ratio_group
+        fm_layout.addWidget(fm_ratio_group)
+        
+        fm_index_group = self._create_double_slider_control(
+            "Modulation Index",
+            0.0, 10.0, 5.0, 0.5,
+            callback=self._on_fm_index_changed
+        )
+        self.controls['fm_index'] = fm_index_group
+        fm_layout.addWidget(fm_index_group)
+        
+        fm_desc = QLabel(
+            "FM Synthesis (Frequency Modulation):\n"
+            "• Ratio 1.4, Index 5 = Bell\n"
+            "• Ratio 14, Index 3 = Electric Piano\n"
+            "• Ratio 1, Index 5 = Brass\n"
+            "• Ratio 0.5, Index 2 = Organ"
+        )
+        fm_desc.setWordWrap(True)
+        fm_desc.setStyleSheet("color: #666; font-size: 9pt; margin: 10px;")
+        fm_layout.addWidget(fm_desc)
+        self.fm_group.setLayout(fm_layout)
+        advanced_layout.addWidget(self.fm_group)
+        
+        # Noise controls
+        self.noise_group = QGroupBox("Noise Generator")
+        noise_layout = QVBoxLayout()
+        
+        noise_layout.addWidget(QLabel("Noise Type:"))
+        self.noise_type_combo = QComboBox()
+        self.noise_type_combo.addItems(['white', 'pink', 'brown'])
+        self.noise_type_combo.setAccessibleName("Noise type")
+        self.noise_type_combo.setAccessibleDescription("White (hi-hat), Pink (ocean), Brown (thunder)")
+        self.noise_type_combo.currentTextChanged.connect(self._on_noise_type_changed)
+        noise_layout.addWidget(self.noise_type_combo)
+        
+        self.noise_filter_enabled = QCheckBox("Enable Noise Filter")
+        self.noise_filter_enabled.setAccessibleName("Enable noise filter")
+        self.noise_filter_enabled.stateChanged.connect(self._on_noise_filter_toggled)
+        noise_layout.addWidget(self.noise_filter_enabled)
+        
+        noise_layout.addWidget(QLabel("Filter Type:"))
+        self.noise_filter_combo = QComboBox()
+        self.noise_filter_combo.addItems(['bandpass', 'highpass', 'lowpass'])
+        self.noise_filter_combo.setAccessibleName("Filter type")
+        self.noise_filter_combo.currentTextChanged.connect(self._on_noise_filter_type_changed)
+        noise_layout.addWidget(self.noise_filter_combo)
+        
+        filter_low_group = self._create_slider_control(
+            "Filter Low Cutoff (Hz)",
+            100, 10000, 2000,
+            callback=self._on_filter_low_changed,
+            suffix=" Hz"
+        )
+        self.controls['filter_low'] = filter_low_group
+        noise_layout.addWidget(filter_low_group)
+        
+        filter_high_group = self._create_slider_control(
+            "Filter High Cutoff (Hz)",
+            100, 10000, 8000,
+            callback=self._on_filter_high_changed,
+            suffix=" Hz"
+        )
+        self.controls['filter_high'] = filter_high_group
+        noise_layout.addWidget(filter_high_group)
+        
+        noise_desc = QLabel(
+            "Noise types:\n"
+            "• White: Hi-hats, cymbals\n"
+            "• Pink: Ocean, wind\n"
+            "• Brown: Thunder, rumble"
+        )
+        noise_desc.setWordWrap(True)
+        noise_desc.setStyleSheet("color: #666; font-size: 9pt; margin: 10px;")
+        noise_layout.addWidget(noise_desc)
+        self.noise_group.setLayout(noise_layout)
+        advanced_layout.addWidget(self.noise_group)
+        
+        # Effects controls
+        effects_group = QGroupBox("Effects")
+        effects_layout = QVBoxLayout()
+        
+        # LFO
+        self.lfo_enabled = QCheckBox("Enable LFO Tremolo")
+        self.lfo_enabled.setAccessibleName("Enable LFO tremolo")
+        self.lfo_enabled.stateChanged.connect(self._on_lfo_toggled)
+        effects_layout.addWidget(self.lfo_enabled)
+        
+        lfo_freq_group = self._create_double_slider_control(
+            "LFO Frequency",
+            0.5, 10.0, 5.0, 0.5,
+            callback=self._on_lfo_freq_changed
+        )
+        self.controls['lfo_freq'] = lfo_freq_group
+        effects_layout.addWidget(lfo_freq_group)
+        
+        lfo_depth_group = self._create_slider_control(
+            "LFO Depth",
+            0, 100, 30,
+            callback=self._on_lfo_depth_changed,
+            suffix="%"
+        )
+        self.controls['lfo_depth'] = lfo_depth_group
+        effects_layout.addWidget(lfo_depth_group)
+        
+        # Echo
+        self.echo_enabled = QCheckBox("Enable Echo/Delay")
+        self.echo_enabled.setAccessibleName("Enable echo delay")
+        self.echo_enabled.stateChanged.connect(self._on_echo_toggled)
+        effects_layout.addWidget(self.echo_enabled)
+        
+        echo_delay_group = self._create_double_slider_control(
+            "Echo Delay Time",
+            0.05, 1.0, 0.3, 0.05,
+            callback=self._on_echo_delay_changed
+        )
+        self.controls['echo_delay'] = echo_delay_group
+        effects_layout.addWidget(echo_delay_group)
+        
+        echo_feedback_group = self._create_slider_control(
+            "Echo Feedback",
+            0, 90, 40,
+            callback=self._on_echo_feedback_changed,
+            suffix="%"
+        )
+        self.controls['echo_feedback'] = echo_feedback_group
+        effects_layout.addWidget(echo_feedback_group)
+        
+        effects_group.setLayout(effects_layout)
+        advanced_layout.addWidget(effects_group)
+        
+        advanced_layout.addStretch()
+        tabs.addTab(advanced_tab, "⚡ Advanced")
         
         left_layout.addWidget(tabs)
         
@@ -687,6 +878,87 @@ class SoundDesignStudio(QMainWindow):
     def _on_description_changed(self):
         self.current_config['description'] = self.description_input.toPlainText()
     
+    # Advanced synthesis callbacks
+    def _on_advanced_toggled(self, state):
+        self.current_config['advanced']['enabled'] = bool(state)
+        self.update_sound_description()
+    
+    def _on_synth_type_changed(self, synth_type):
+        self.current_config['advanced']['synthesis_type'] = synth_type
+        self._update_advanced_controls_visibility()
+        self.update_sound_description()
+    
+    def _update_advanced_controls_visibility(self):
+        """Show/hide synthesis parameter groups based on selected type."""
+        # Check if advanced key exists (older presets may not have it)
+        if 'advanced' not in self.current_config:
+            # Hide all advanced groups for presets without advanced synthesis
+            self.fm_group.setVisible(False)
+            self.noise_group.setVisible(False)
+            return
+        
+        synth_type = self.current_config['advanced']['synthesis_type']
+        
+        # Show/hide FM parameters
+        self.fm_group.setVisible(synth_type == 'fm')
+        
+        # Show/hide Noise parameters
+        self.noise_group.setVisible(synth_type == 'noise')
+        
+        # Karplus-Strong has no extra parameters (just uses frequency from Basic tab)
+    
+    def _on_fm_ratio_changed(self, value):
+        self.current_config['advanced']['fm_mod_ratio'] = value
+        self.update_sound_description()
+    
+    def _on_fm_index_changed(self, value):
+        self.current_config['advanced']['fm_mod_index'] = value
+        self.update_sound_description()
+    
+    def _on_noise_type_changed(self, noise_type):
+        self.current_config['advanced']['noise_type'] = noise_type
+        self.update_sound_description()
+    
+    def _on_noise_filter_toggled(self, state):
+        self.current_config['advanced']['noise_filter_enabled'] = bool(state)
+        self.update_sound_description()
+    
+    def _on_noise_filter_type_changed(self, filter_type):
+        self.current_config['advanced']['noise_filter_type'] = filter_type
+        self.update_sound_description()
+    
+    def _on_filter_low_changed(self, value):
+        self.current_config['advanced']['noise_filter_low'] = value
+        self.update_sound_description()
+    
+    def _on_filter_high_changed(self, value):
+        self.current_config['advanced']['noise_filter_high'] = value
+        self.update_sound_description()
+    
+    def _on_lfo_toggled(self, state):
+        self.current_config['advanced']['lfo_enabled'] = bool(state)
+        self.update_sound_description()
+    
+    def _on_lfo_freq_changed(self, value):
+        self.current_config['advanced']['lfo_frequency'] = value
+        self.update_sound_description()
+    
+    def _on_lfo_depth_changed(self, value):
+        self.current_config['advanced']['lfo_depth'] = value / 100.0
+        self.update_sound_description()
+    
+    def _on_echo_toggled(self, state):
+        self.current_config['advanced']['echo_enabled'] = bool(state)
+        self.update_sound_description()
+    
+    def _on_echo_delay_changed(self, value):
+        self.current_config['advanced']['echo_delay'] = value
+        self.update_sound_description()
+    
+    def _on_echo_feedback_changed(self, value):
+        self.current_config['advanced']['echo_feedback'] = value / 100.0
+        self.update_sound_description()
+    
     def update_sound_description(self):
         """Update the computed sound description."""
         config = self.current_config
@@ -744,6 +1016,14 @@ class SoundDesignStudio(QMainWindow):
         import copy
         self.previous_config = copy.deepcopy(self.current_config)
         
+        # Check if advanced synthesis is enabled
+        if self.current_config['advanced']['enabled']:
+            self._play_advanced_sound()
+        else:
+            self._play_basic_sound()
+    
+    def _play_basic_sound(self):
+        """Play using basic waveform synthesis."""
         # Create PlayAudioConfig from current settings
         play_config = PlayAudioConfig(
             frequency=self.current_config['frequency'],
@@ -766,6 +1046,148 @@ class SoundDesignStudio(QMainWindow):
         
         # Play the sound
         self.audio_player.play_single_play(play_config, field_position=50)
+    
+    def _play_advanced_sound(self):
+        """Play using advanced synthesis techniques."""
+        import numpy as np
+        import wave
+        import tempfile
+        import winsound
+        
+        config = self.current_config
+        adv = config['advanced']
+        sample_rate = 44100
+        duration = config['duration']
+        
+        # Generate base sound based on synthesis type
+        synth_type = adv['synthesis_type']
+        freq = config['frequency']
+        
+        if synth_type == 'fm':
+            # FM Synthesis
+            carrier_freq = freq
+            modulator_freq = freq * adv['fm_mod_ratio']
+            audio = AdvancedSynthesis.generate_fm_synthesis(
+                carrier_freq,
+                modulator_freq,
+                adv['fm_mod_index'],
+                duration,
+                sample_rate
+            )
+            synth_desc = f"FM (ratio={adv['fm_mod_ratio']:.1f}, index={adv['fm_mod_index']:.1f})"
+            
+        elif synth_type == 'noise':
+            # Noise Generation
+            noise_type = adv['noise_type']
+            if noise_type == 'white':
+                audio = AdvancedSynthesis.generate_white_noise(duration, sample_rate)
+            elif noise_type == 'pink':
+                audio = AdvancedSynthesis.generate_pink_noise(duration, sample_rate)
+            else:  # brown
+                audio = AdvancedSynthesis.generate_brown_noise(duration, sample_rate)
+            
+            # Apply filter if enabled
+            if adv['noise_filter_enabled']:
+                filter_type = adv['noise_filter_type']
+                low_cutoff = adv['noise_filter_low']
+                high_cutoff = adv['noise_filter_high']
+                
+                if filter_type == 'bandpass':
+                    audio = AdvancedSynthesis.apply_bandpass_filter(audio, low_cutoff, high_cutoff, sample_rate)
+                elif filter_type == 'highpass':
+                    audio = AdvancedSynthesis.apply_highpass_filter(audio, low_cutoff, sample_rate)
+                else:  # lowpass
+                    audio = AdvancedSynthesis.apply_lowpass_filter(audio, high_cutoff, sample_rate)
+            
+            synth_desc = f"{noise_type.capitalize()} Noise"
+            if adv['noise_filter_enabled']:
+                synth_desc += f" + {adv['noise_filter_type']} filter"
+        
+        elif synth_type == 'karplus':
+            # Karplus-Strong (plucked string)
+            audio = AdvancedSynthesis.karplus_strong(freq, duration, sample_rate)
+            synth_desc = "Karplus-Strong (plucked string)"
+        
+        # Apply LFO if enabled
+        if adv['lfo_enabled']:
+            audio = AdvancedSynthesis.apply_lfo(
+                audio,
+                adv['lfo_frequency'],
+                adv['lfo_depth'],
+                'tremolo',
+                sample_rate
+            )
+            synth_desc += f" + LFO tremolo"
+        
+        # Apply echo if enabled
+        if adv['echo_enabled']:
+            audio = AdvancedSynthesis.apply_simple_echo(
+                audio,
+                adv['echo_delay'],
+                adv['echo_feedback'],
+                sample_rate
+            )
+            synth_desc += f" + echo"
+        
+        # Apply ADSR envelope
+        attack = config['attack']
+        decay = config['decay']
+        sustain = config['sustain']
+        release = config['release']
+        
+        attack_samples = int(attack * sample_rate)
+        decay_samples = int(decay * sample_rate)
+        release_samples = int(release * sample_rate)
+        sustain_samples = len(audio) - attack_samples - decay_samples - release_samples
+        
+        if sustain_samples < 0:
+            sustain_samples = 0
+        
+        # Create ADSR envelope
+        envelope = np.concatenate([
+            np.linspace(0, 1, attack_samples),  # Attack
+            np.linspace(1, sustain, decay_samples),  # Decay
+            np.full(sustain_samples, sustain),  # Sustain
+            np.linspace(sustain, 0, release_samples)  # Release
+        ])
+        
+        # Ensure envelope matches audio length
+        if len(envelope) > len(audio):
+            envelope = envelope[:len(audio)]
+        elif len(envelope) < len(audio):
+            audio = audio[:len(envelope)]
+        
+        audio = audio * envelope
+        
+        # Apply volume
+        audio = audio * config['volume']
+        
+        # Normalize to prevent clipping
+        max_val = np.abs(audio).max()
+        if max_val > 0:
+            audio = audio / max_val * 0.9
+        
+        # Convert to int16 for WAV file
+        audio_int = (audio * 32767).astype(np.int16)
+        
+        # Show what we're playing
+        status = f"Playing: {config['name']} - {synth_desc} @ {freq:.0f}Hz"
+        print(status)
+        self.statusBar().showMessage(status, 3000)
+        
+        # Write to temporary WAV file and play using winsound (same as basic player)
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.wav', mode='wb')
+        temp_filename = temp_file.name
+        temp_file.close()
+        
+        with wave.open(temp_filename, 'wb') as wav_file:
+            wav_file.setnchannels(1)  # Mono
+            wav_file.setsampwidth(2)  # 16-bit
+            wav_file.setframerate(sample_rate)
+            wav_file.writeframes(audio_int.tobytes())
+        
+        # Play the audio using winsound (non-blocking)
+        winsound.PlaySound(temp_filename, winsound.SND_FILENAME | winsound.SND_ASYNC)
     
     def show_current_settings(self):
         """Show current settings in a list box (Ctrl+I for Info)."""
@@ -938,6 +1360,11 @@ class SoundDesignStudio(QMainWindow):
             # Deep copy to avoid reference issues with nested dicts
             import copy
             self.current_config = copy.deepcopy(self.presets[preset_name])
+            
+            # Ensure 'advanced' key exists for older presets
+            if 'advanced' not in self.current_config:
+                self.current_config['advanced'] = self._default_config()['advanced']
+            
             self.load_config_to_ui(self.current_config)
             print(f"Loaded preset: {preset_name}")
             # Play the loaded preset automatically so user hears it
@@ -1042,12 +1469,91 @@ class SoundDesignStudio(QMainWindow):
             self.controls['blend_ratio'].spinbox.setValue(int(config['blending']['blend_ratio'] * 100))
             self.controls['blend_ratio'].spinbox.blockSignals(False)
         
+        # Update advanced synthesis
+        if 'advanced' in config:
+            adv = config['advanced']
+            
+            self.advanced_enabled.blockSignals(True)
+            self.advanced_enabled.setChecked(adv.get('enabled', False))
+            self.advanced_enabled.blockSignals(False)
+            
+            self.synth_type_combo.blockSignals(True)
+            self.synth_type_combo.setCurrentText(adv.get('synthesis_type', 'fm'))
+            self.synth_type_combo.blockSignals(False)
+            
+            # FM parameters
+            if 'fm_ratio' in self.controls:
+                self.controls['fm_ratio'].spinbox.blockSignals(True)
+                self.controls['fm_ratio'].spinbox.setValue(adv.get('fm_mod_ratio', 1.4))
+                self.controls['fm_ratio'].spinbox.blockSignals(False)
+            
+            if 'fm_index' in self.controls:
+                self.controls['fm_index'].spinbox.blockSignals(True)
+                self.controls['fm_index'].spinbox.setValue(adv.get('fm_mod_index', 5.0))
+                self.controls['fm_index'].spinbox.blockSignals(False)
+            
+            # Noise parameters
+            self.noise_type_combo.blockSignals(True)
+            self.noise_type_combo.setCurrentText(adv.get('noise_type', 'white'))
+            self.noise_type_combo.blockSignals(False)
+            
+            self.noise_filter_enabled.blockSignals(True)
+            self.noise_filter_enabled.setChecked(adv.get('noise_filter_enabled', False))
+            self.noise_filter_enabled.blockSignals(False)
+            
+            self.noise_filter_combo.blockSignals(True)
+            self.noise_filter_combo.setCurrentText(adv.get('noise_filter_type', 'bandpass'))
+            self.noise_filter_combo.blockSignals(False)
+            
+            if 'filter_low' in self.controls:
+                self.controls['filter_low'].spinbox.blockSignals(True)
+                self.controls['filter_low'].spinbox.setValue(adv.get('noise_filter_low', 2000))
+                self.controls['filter_low'].spinbox.blockSignals(False)
+            
+            if 'filter_high' in self.controls:
+                self.controls['filter_high'].spinbox.blockSignals(True)
+                self.controls['filter_high'].spinbox.setValue(adv.get('noise_filter_high', 8000))
+                self.controls['filter_high'].spinbox.blockSignals(False)
+            
+            # LFO parameters
+            self.lfo_enabled.blockSignals(True)
+            self.lfo_enabled.setChecked(adv.get('lfo_enabled', False))
+            self.lfo_enabled.blockSignals(False)
+            
+            if 'lfo_freq' in self.controls:
+                self.controls['lfo_freq'].spinbox.blockSignals(True)
+                self.controls['lfo_freq'].spinbox.setValue(adv.get('lfo_frequency', 5.0))
+                self.controls['lfo_freq'].spinbox.blockSignals(False)
+            
+            if 'lfo_depth' in self.controls:
+                self.controls['lfo_depth'].spinbox.blockSignals(True)
+                self.controls['lfo_depth'].spinbox.setValue(int(adv.get('lfo_depth', 0.3) * 100))
+                self.controls['lfo_depth'].spinbox.blockSignals(False)
+            
+            # Echo parameters
+            self.echo_enabled.blockSignals(True)
+            self.echo_enabled.setChecked(adv.get('echo_enabled', False))
+            self.echo_enabled.blockSignals(False)
+            
+            if 'echo_delay' in self.controls:
+                self.controls['echo_delay'].spinbox.blockSignals(True)
+                self.controls['echo_delay'].spinbox.setValue(adv.get('echo_delay', 0.3))
+                self.controls['echo_delay'].spinbox.blockSignals(False)
+            
+            if 'echo_feedback' in self.controls:
+                self.controls['echo_feedback'].spinbox.blockSignals(True)
+                self.controls['echo_feedback'].spinbox.setValue(int(adv.get('echo_feedback', 0.4) * 100))
+                self.controls['echo_feedback'].spinbox.blockSignals(False)
+        
         # Unblock signals
         self.name_input.blockSignals(False)
         self.description_input.blockSignals(False)
         self.wave_combo.blockSignals(False)
         self.harmonics_enabled.blockSignals(False)
         self.blending_enabled.blockSignals(False)
+        
+        # Update advanced controls visibility based on loaded synthesis type
+        self._update_advanced_controls_visibility()
         
         # Update the display
         self.update_sound_description()
