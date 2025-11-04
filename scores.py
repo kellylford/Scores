@@ -77,12 +77,21 @@ except ImportError:
 try:
     from football_audio_mapper import FootballAudioMapper, FootballDrivePlayer
     from audio_player import AudioPlayer
+    from enhanced_audio_player import EnhancedAudioPlayer
+    from hybrid_audio_player import HybridAudioPlayer
     FOOTBALL_AUDIO_AVAILABLE = True
-except ImportError:
+    HYBRID_AUDIO_AVAILABLE = True
+    ENHANCED_AUDIO_AVAILABLE = True
+except ImportError as e:
     FOOTBALL_AUDIO_AVAILABLE = False
+    HYBRID_AUDIO_AVAILABLE = False
+    ENHANCED_AUDIO_AVAILABLE = False
     FootballAudioMapper = None
     FootballDrivePlayer = None
     AudioPlayer = None
+    EnhancedAudioPlayer = None
+    HybridAudioPlayer = None
+    HybridAudioPlayer = None
 
 # Constants
 DETAIL_FIELDS = ["boxscore", "plays", "drives", "leaders", "standings", "odds", "injuries", "broadcasts", "news", "gameInfo"]
@@ -1347,11 +1356,30 @@ class FootballAudioTutorialView(BaseView):
             "🎵 Play Type: Rush=square wave, Pass=sine wave, Scoring=sawtooth\n"
             "📏 Yardage: Bigger gains = higher pitch frequencies\n"
             "🏈 Drive Flow: Audio pans left-to-right as team moves down field\n\n"
-            "⌨️ In game drives: Alt+P = single play, Alt+S = full drive sequence"
+            "⌨️ In game drives: Alt+P = single play, Alt+S = full drive sequence\n"
+            "🎙️ Hybrid Mode: Combines narration + musical tones for accessibility"
         )
         description.setWordWrap(True)
         description.setStyleSheet("margin: 10px 0; color: #666;")
         self.layout.addWidget(description)
+        
+        # Add audio mode selector
+        if HYBRID_AUDIO_AVAILABLE:
+            mode_layout = QHBoxLayout()
+            mode_label = QLabel("Audio Mode:")
+            mode_layout.addWidget(mode_label)
+            
+            self.audio_mode_combo = QComboBox()
+            self.audio_mode_combo.addItem("🎵 Tones Only (Original)", "tones_only")
+            self.audio_mode_combo.addItem("🎙️ Narration + Tones (Hybrid)", "hybrid")
+            self.audio_mode_combo.addItem("🗣️ Narration Only", "narration_only")
+            self.audio_mode_combo.setCurrentIndex(1)  # Default to hybrid
+            self.audio_mode_combo.setAccessibleName("Audio Mode Selection")
+            self.audio_mode_combo.setAccessibleDescription("Choose how football audio is presented: tones only, hybrid with narration, or narration only")
+            mode_layout.addWidget(self.audio_mode_combo)
+            mode_layout.addStretch()
+            
+            self.layout.addLayout(mode_layout)
         
         # Create sample drives list
         if FOOTBALL_AUDIO_AVAILABLE:
@@ -1361,39 +1389,43 @@ class FootballAudioTutorialView(BaseView):
             
             # Add sample drives and single plays
             samples = [
-                ("=== Full Drives ===", "", "separator"),
+                ("=== PLAY TYPE DEMONSTRATIONS ===", "", "separator"),
+                ("🏃 Rush Play - Short (3 yards)", "Square wave, low pitch - RB rush up middle from midfield", "single_short_run"),
+                ("🏃 Rush Play - Medium (12 yards)", "Square wave, medium pitch - RB rush off tackle from midfield", "single_medium_run"),
+                ("🏃 Rush Play - Long (35 yards)", "Square wave, high pitch - RB breakaway run from midfield", "single_long_run"),
+                ("🎯 Pass Play - Short (5 yards)", "Sine wave, low pitch - QB pass short from midfield", "single_short_pass"),
+                ("🎯 Pass Play - Medium (18 yards)", "Sine wave, medium pitch - QB pass for first down from midfield", "single_medium_pass"),
+                ("🎯 Pass Play - Long (40 yards)", "Sine wave, high pitch - QB deep pass from midfield", "single_long_pass"),
+                ("⚠️ Sack (7 yard loss)", "Sine wave, lower pitch - QB sacked for loss from midfield", "single_sack"),
+                ("🏈 Field Goal (25 yards)", "Sawtooth wave, scoring - Field goal good from midfield", "single_field_goal"),
+                ("🎉 Touchdown Pass (15 yards)", "Sawtooth wave, highest pitch - TD pass from midfield", "single_touchdown"),
+                ("", "", "separator"),
+                ("=== FULL DRIVE DEMONSTRATIONS ===", "", "separator"),
                 ("Touchdown Drive", "7 plays, 75 yards starting from own 25 - demonstrates field progression", "touchdown"),
+                ("Long Sustained Drive", "11 plays, 99 yards from goal line - demonstrates full field stereo panning", "long_drive"),
                 ("Short Drive - Field Goal", "4 plays, 18 yards starting from opponent 35 - ends in field goal", "field_goal"),
                 ("Failed Drive - Punt", "3 plays, 8 yards starting from own 20 - ends in punt", "punt"),
                 ("Big Play Drive", "2 plays, 65 yards starting from own 30 - includes long pass", "big_play"),
                 ("Turnover Drive", "5 plays starting from midfield - ends in interception", "turnover"),
-                ("=== Single Plays ===", "", "separator"),
-                ("Short Run", "3 yard rush up the middle - low pitch from midfield", "single_short_run"),
-                ("Medium Run", "12 yard rush off tackle - medium pitch from midfield", "single_medium_run"),
-                ("Long Run", "35 yard rush breakaway - high pitch from midfield", "single_long_run"),
-                ("Short Pass", "5 yard pass completion - sine wave from midfield", "single_short_pass"),
-                ("Medium Pass", "18 yard pass completion - medium sine wave from midfield", "single_medium_pass"),
-                ("Long Pass", "40 yard deep pass - high sine wave from midfield", "single_long_pass"),
-                ("Sack", "7 yard sack (loss) - lower pitch from midfield", "single_sack"),
-                ("Field Goal", "25 yard field goal - scoring sound from midfield", "single_field_goal"),
-                ("Touchdown Pass", "15 yard touchdown pass - highest pitch scoring sound from midfield", "single_touchdown")
             ]
             
             for title, description, drive_type in samples:
                 if drive_type == "separator":
                     # Add separator items that aren't selectable
-                    item = QListWidgetItem(title)
-                    item.setFlags(Qt.ItemFlag.NoItemFlags)  # Make it non-selectable
-                    font = QFont()
-                    font.setBold(True)
-                    item.setFont(font)
-                    self.drives_list.addItem(item)
+                    if title:  # Only add non-empty separators
+                        item = QListWidgetItem(title)
+                        item.setFlags(Qt.ItemFlag.NoItemFlags)  # Make it non-selectable
+                        font = QFont()
+                        font.setBold(True)
+                        item.setFont(font)
+                        self.drives_list.addItem(item)
                 else:
                     # Regular selectable items
                     item = QListWidgetItem(f"{title}\n   {description}")
                     item.setData(Qt.ItemDataRole.UserRole, {
                         'drive_type': drive_type,
-                        'description': description
+                        'description': description,
+                        'title': title
                     })
                     self.drives_list.addItem(item)
             
@@ -1418,6 +1450,13 @@ class FootballAudioTutorialView(BaseView):
         """Set focus to list when view is shown"""
         if FOOTBALL_AUDIO_AVAILABLE and hasattr(self, 'drives_list'):
             QTimer.singleShot(100, lambda: self.drives_list.setFocus())
+            self.drives_list.setFocus()
+            # Set the current row to the first selectable item
+            for i in range(self.drives_list.count()):
+                item = self.drives_list.item(i)
+                if item.flags() & Qt.ItemFlag.ItemIsEnabled and item.flags() & Qt.ItemFlag.ItemIsSelectable:
+                    self.drives_list.setCurrentRow(i)
+                    break
     
     def _play_sample_drive(self, item):
         """Play audio for a sample drive"""
@@ -1425,41 +1464,105 @@ class FootballAudioTutorialView(BaseView):
             return
             
         drive_data = item.data(Qt.ItemDataRole.UserRole)
-        print(f"Playing sample drive: {drive_data['description']}")
+        title = drive_data.get('title', 'Sample')
+        print(f"Playing sample: {title}")
         
-        # Create sample drive audio using the actual football audio system
+        # Create sample drive data based on drive type
         try:
-            # Create sample drive data based on drive type
             sample_drive = self._create_sample_drive(drive_data['drive_type'])
             
-            # Use the actual football audio mapper
-            from football_audio_mapper import FootballAudioMapper
-            from audio_player import AudioPlayer
+            # Check audio mode
+            audio_mode = "hybrid"  # Default
+            if HYBRID_AUDIO_AVAILABLE and hasattr(self, 'audio_mode_combo'):
+                audio_mode = self.audio_mode_combo.currentData()
             
-            mapper = FootballAudioMapper()
-            player = AudioPlayer()
-            
-            # Generate and play the audio
-            audio_sequence = mapper.map_drive_to_audio_sequence(sample_drive)
-            if audio_sequence:
-                # Extract field positions
-                field_positions = [config.field_position for config in audio_sequence if config.field_position is not None]
-                if len(field_positions) == len(audio_sequence):
-                    field_positions_param = field_positions
+            if audio_mode != "tones_only" and HYBRID_AUDIO_AVAILABLE:
+                # Use hybrid audio system
+                hybrid_player = HybridAudioPlayer()
+                
+                # Convert plays to simplified format
+                simplified_plays = []
+                for play in sample_drive.get('plays', []):
+                    play_text = play.get('text', '')
+                    play_type_text = play.get('type', {}).get('text', 'Rush')
+                    
+                    # Determine simplified type
+                    if 'Pass' in play_type_text:
+                        simple_type = 'pass'
+                    elif 'Rush' in play_type_text:
+                        simple_type = 'rush'
+                    elif 'Field Goal' in play_type_text:
+                        simple_type = 'field_goal'
+                    elif 'Sack' in play_type_text:
+                        simple_type = 'sack'
+                    else:
+                        simple_type = 'rush'
+                    
+                    simplified_play = {
+                        'description': play_text,
+                        'yardage': play.get('statYardage', 0),
+                        'type': simple_type,
+                        'yardsToEndzone': play.get('start', {}).get('yardsToEndzone', 50),
+                        'isScoringPlay': play.get('scoringPlay', False)
+                    }
+                    simplified_plays.append(simplified_play)
+                
+                # Set preferences based on mode
+                if audio_mode == "narration_only":
+                    hybrid_player.set_preference('tones_enabled', False)
+                    hybrid_player.set_preference('narration_enabled', True)
+                else:  # hybrid
+                    hybrid_player.set_preference('tones_enabled', True)
+                    hybrid_player.set_preference('narration_enabled', True)
+                
+                # Play using appropriate mode
+                if len(simplified_plays) == 1:
+                    # Single play - use single play mode with narration
+                    hybrid_player.play_single_play(simplified_plays[0], with_narration=True)
                 else:
-                    field_positions_param = None
+                    # Multiple plays - use sequence mode
+                    hybrid_player.play_drive_sequence(simplified_plays, mode='sequence')
                 
-                # Provide user feedback
-                if hasattr(self.parent(), 'setWindowTitle'):
-                    original_title = self.parent().windowTitle()
-                    self.parent().setWindowTitle(f"[Audio] {drive_data['description']}")
-                    QTimer.singleShot(3000, lambda: self.parent().setWindowTitle(original_title))
+                hybrid_player.cleanup()
+                print(f"Hybrid audio complete for: {title}")
                 
-                # Play the audio
-                player.play_audio_sequence(audio_sequence, silence_between=0.1, field_positions=field_positions_param)
-                print(f"Sample drive audio complete: {len(audio_sequence)} plays")
+            else:
+                # Use enhanced tone-only audio system
+                from football_audio_mapper import FootballAudioMapper
+                from enhanced_audio_player import EnhancedAudioPlayer
+                
+                mapper = FootballAudioMapper()
+                player = EnhancedAudioPlayer()  # Use enhanced audio for better sound
+                
+                # Generate and play the audio
+                audio_sequence = mapper.map_drive_to_audio_sequence(sample_drive)
+                if audio_sequence:
+                    # Extract field positions (start and end)
+                    field_positions = [config.field_position for config in audio_sequence if config.field_position is not None]
+                    end_field_positions = [config.end_field_position for config in audio_sequence if config.end_field_position is not None]
+                    
+                    # Only use field positions if all plays have them
+                    if len(field_positions) == len(audio_sequence):
+                        field_positions_param = field_positions
+                    else:
+                        field_positions_param = None
+                    
+                    # Only use end positions if all plays have them
+                    if len(end_field_positions) == len(audio_sequence):
+                        end_field_positions_param = end_field_positions
+                    else:
+                        end_field_positions_param = None
+                    
+                    # Play the audio with animated stereo
+                    player.play_audio_sequence(audio_sequence, silence_between=0.1, 
+                                             field_positions=field_positions_param,
+                                             end_field_positions=end_field_positions_param)
+                    print(f"Tone-only audio complete: {len(audio_sequence)} plays")
+                    
         except Exception as e:
             print(f"Sample drive audio error: {e}")
+            import traceback
+            traceback.print_exc()
     
     def _create_sample_drive(self, drive_type):
         """Create sample drive data for demonstration"""
@@ -1476,6 +1579,24 @@ class FootballAudioTutorialView(BaseView):
                     {"text": "QB pass short middle for 7 yards", "statYardage": 7, "type": {"text": "Pass Reception"}, "start": {"yardsToEndzone": 25}},
                     {"text": "RB rush left tackle for 3 yards", "statYardage": 3, "type": {"text": "Rush"}, "start": {"yardsToEndzone": 18}},
                     {"text": "QB pass right corner for 15 yards TOUCHDOWN", "statYardage": 15, "type": {"text": "Pass Reception"}, "start": {"yardsToEndzone": 15}, "scoringPlay": True}
+                ]
+            }
+        elif drive_type == "long_drive":
+            return {
+                "team": {"displayName": "Tutorial Team"},
+                "description": "11 plays, 99 yards - Full field stereo demonstration",
+                "plays": [
+                    {"text": "RB rush up middle for 4 yards", "statYardage": 4, "type": {"text": "Rush"}, "start": {"yardsToEndzone": 99}},
+                    {"text": "QB pass short right for 6 yards", "statYardage": 6, "type": {"text": "Pass Reception"}, "start": {"yardsToEndzone": 95}},
+                    {"text": "RB rush off tackle for 8 yards", "statYardage": 8, "type": {"text": "Rush"}, "start": {"yardsToEndzone": 89}},
+                    {"text": "QB pass middle for 12 yards", "statYardage": 12, "type": {"text": "Pass Reception"}, "start": {"yardsToEndzone": 81}},
+                    {"text": "RB rush left end for 9 yards", "statYardage": 9, "type": {"text": "Rush"}, "start": {"yardsToEndzone": 69}},
+                    {"text": "QB pass deep left for 18 yards - CROSSES MIDFIELD", "statYardage": 18, "type": {"text": "Pass Reception"}, "start": {"yardsToEndzone": 60}},
+                    {"text": "RB rush right tackle for 7 yards", "statYardage": 7, "type": {"text": "Rush"}, "start": {"yardsToEndzone": 42}},
+                    {"text": "QB pass short middle for 11 yards", "statYardage": 11, "type": {"text": "Pass Reception"}, "start": {"yardsToEndzone": 35}},
+                    {"text": "RB rush up middle for 5 yards", "statYardage": 5, "type": {"text": "Rush"}, "start": {"yardsToEndzone": 24}},
+                    {"text": "QB pass right for 13 yards", "statYardage": 13, "type": {"text": "Pass Reception"}, "start": {"yardsToEndzone": 19}},
+                    {"text": "RB rush left for 5 yards", "statYardage": 5, "type": {"text": "Rush"}, "start": {"yardsToEndzone": 6}}
                 ]
             }
         elif drive_type == "field_goal":
@@ -2034,7 +2155,7 @@ class GameDetailsView(BaseView):
         if FOOTBALL_AUDIO_AVAILABLE and league in ["NFL", "NCAAF"]:
             try:
                 self.football_audio_mapper = FootballAudioMapper()
-                self.football_audio_player = AudioPlayer()
+                self.football_audio_player = EnhancedAudioPlayer()  # Use enhanced audio for better sound
                 print(f"Debug: Football audio system initialized for {league}")
             except Exception as e:
                 print(f"Debug: Failed to initialize football audio: {e}")
@@ -7277,7 +7398,7 @@ class GameDetailsDialog(QDialog):
         if FOOTBALL_AUDIO_AVAILABLE and league in ["NFL", "NCAAF"]:
             try:
                 self.audio_mapper = FootballAudioMapper()
-                self.audio_player = AudioPlayer()
+                self.audio_player = EnhancedAudioPlayer()  # Use enhanced audio for better sound
                 self.drive_player = FootballDrivePlayer()  # FootballDrivePlayer doesn't take parameters
             except Exception as e:
                 print(f"Failed to initialize football audio: {e}")
@@ -9588,10 +9709,17 @@ class SportsScoresApp(QWidget):
     def open_football_audio_tutorial(self):
         """Open football audio tutorial view"""
         try:
+            print("DEBUG: open_football_audio_tutorial called")
             self._push_to_stack("audio_tutorial", None)
+            print("DEBUG: Creating FootballAudioTutorialView...")
             football_tutorial_view = FootballAudioTutorialView(self)
+            print(f"DEBUG: View created, has drives_list: {hasattr(football_tutorial_view, 'drives_list')}")
             self._switch_to_view(football_tutorial_view, "football_tutorial", None)
+            print("DEBUG: View switched successfully")
         except Exception as e:
+            print(f"DEBUG: Exception occurred: {e}")
+            import traceback
+            traceback.print_exc()
             QMessageBox.critical(self, "Error", f"Failed to open football audio tutorial: {e}")
 
     def open_game_details(self, game_id: str, from_live_scores=False):

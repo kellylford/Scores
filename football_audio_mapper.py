@@ -16,7 +16,9 @@ class PlayAudioConfig:
     wave_type: str    # 'sine', 'square', 'sawtooth', 'triangle'
     attack: float     # seconds
     decay: float      # seconds
-    field_position: Optional[float] = None  # 0-100, where 0=left endzone, 50=center, 100=right endzone
+    field_position: Optional[float] = None  # 0-100, start position (0=left endzone, 50=center, 100=right endzone)
+    end_field_position: Optional[float] = None  # 0-100, end position (for animated panning)
+    play_type: Optional[str] = None  # For enhanced audio: 'rush', 'pass', 'touchdown', 'field_goal', 'sack', etc.
     
 class FootballAudioMapper:
     """
@@ -85,8 +87,9 @@ class FootballAudioMapper:
         # Envelope (attack/decay) for expressiveness
         attack, decay = self._calculate_envelope(play_type, is_scoring)
         
-        # Calculate field position for stereo panning
+        # Calculate field position for stereo panning (start and end)
         field_position = self._calculate_field_position(play)
+        end_field_position = self._calculate_end_field_position(play, yardage)
         
         return PlayAudioConfig(
             frequency=frequency,
@@ -95,7 +98,8 @@ class FootballAudioMapper:
             wave_type=wave_type,
             attack=attack,
             decay=decay,
-            field_position=field_position
+            field_position=field_position,
+            end_field_position=end_field_position
         )
     
     def _yardage_to_frequency(self, yardage: int, is_scoring: bool, score_value: int) -> float:
@@ -275,6 +279,50 @@ class FootballAudioMapper:
         
         # If we can't determine position, return center field
         return 50.0
+    
+    def _calculate_end_field_position(self, play: Dict, yardage: int) -> Optional[float]:
+        """
+        Calculate ending field position after the play completes.
+        This creates animated stereo panning from start to end position.
+        
+        Args:
+            play: Play data from ESPN API
+            yardage: Yards gained/lost on the play
+            
+        Returns:
+            End field position 0-100, or None if can't be determined
+        """
+        # Get the starting position
+        start_position = self._calculate_field_position(play)
+        if start_position is None:
+            return None
+        
+        # Try to get end position from play data (if available)
+        end = play.get('end', {})
+        end_yards_to_endzone = end.get('yardsToEndzone')
+        
+        if end_yards_to_endzone is not None:
+            # Use actual end position from API
+            end_position = 100 - end_yards_to_endzone
+            result = max(0, min(100, end_position))
+            print(f"Debug: End position from API - yardsToEndzone={end_yards_to_endzone} -> position={result:.1f}")
+            return result
+        
+        # Calculate end position from start + yardage
+        # Convert start position (0-100) to yards to endzone
+        start_yards_to_endzone = 100 - start_position
+        
+        # Subtract yardage (positive yardage moves toward endzone, negative moves away)
+        end_yards_to_endzone = start_yards_to_endzone - yardage
+        
+        # Clamp to field boundaries
+        end_yards_to_endzone = max(0, min(100, end_yards_to_endzone))
+        
+        # Convert back to 0-100 position
+        end_position = 100 - end_yards_to_endzone
+        
+        print(f"Debug: End position calculated - yardage={yardage}, start={start_position:.1f} -> end={end_position:.1f}")
+        return end_position
     
     def map_drive_to_audio_sequence(self, drive: Dict) -> List[PlayAudioConfig]:
         """

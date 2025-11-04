@@ -22,13 +22,15 @@ class AudioPlayer:
         self.temp_files = []
         self.stereo_enabled = True  # Enable stereo field position audio
     
-    def generate_tone(self, config: PlayAudioConfig, field_position: Optional[int] = None) -> np.ndarray:
+    def generate_tone(self, config: PlayAudioConfig, field_position: Optional[int] = None, 
+                     end_field_position: Optional[int] = None) -> np.ndarray:
         """
         Generate audio samples for a single play based on config.
         
         Args:
             config: PlayAudioConfig with frequency, wave_type, duration, volume, attack, decay
-            field_position: Yard line (0-100, where 0=left endzone, 50=center, 100=right endzone)
+            field_position: Starting yard line (0-100, where 0=left endzone, 50=center, 100=right endzone)
+            end_field_position: Ending yard line (if provided, audio will pan from start to end)
             
         Returns:
             numpy array of audio samples (stereo if field_position provided, mono otherwise)
@@ -69,7 +71,14 @@ class AudioPlayer:
         
         # Apply stereo panning if field position provided
         if field_position is not None and self.stereo_enabled:
-            left_channel, right_channel = self._apply_stereo_pan(wave_data, field_position)
+            if end_field_position is not None and end_field_position != field_position:
+                # Animate from start to end position
+                left_channel, right_channel = self._apply_animated_stereo_pan(
+                    wave_data, field_position, end_field_position
+                )
+            else:
+                # Static position
+                left_channel, right_channel = self._apply_stereo_pan(wave_data, field_position)
             # Stack channels: shape (num_samples, 2)
             stereo_data = np.column_stack([left_channel, right_channel])
             return stereo_data
@@ -108,6 +117,43 @@ class AudioPlayer:
         
         return left_channel, right_channel
     
+    def _apply_animated_stereo_pan(self, mono_data: np.ndarray, start_position: int, end_position: int) -> tuple:
+        """
+        Apply animated stereo panning that moves from start to end position.
+        
+        Args:
+            mono_data: Mono audio samples
+            start_position: Starting yard line (0-100)
+            end_position: Ending yard line (0-100)
+        
+        Returns:
+            (left_channel, right_channel) tuple with animated panning
+        """
+        num_samples = len(mono_data)
+        
+        # Create position trajectory from start to end
+        # Normalize to pan values (-1.0 to 1.0)
+        start_pan = (start_position - 50) / 50.0
+        end_pan = (end_position - 50) / 50.0
+        
+        # Clip to valid range
+        start_pan = np.clip(start_pan, -1.0, 1.0)
+        end_pan = np.clip(end_pan, -1.0, 1.0)
+        
+        # Create smooth trajectory
+        pan_trajectory = np.linspace(start_pan, end_pan, num_samples)
+        
+        # Convert pan trajectory to left/right volumes using equal power panning
+        angles = (pan_trajectory + 1.0) * np.pi / 4  # Maps -1..1 to 0..pi/2
+        left_volumes = np.cos(angles)
+        right_volumes = np.sin(angles)
+        
+        # Apply panning
+        left_channel = mono_data * left_volumes
+        right_channel = mono_data * right_volumes
+        
+        return left_channel, right_channel
+    
     def generate_silence(self, duration: float, stereo: bool = False) -> np.ndarray:
         """Generate silence for the specified duration."""
         num_samples = int(self.SAMPLE_RATE * duration)
@@ -116,15 +162,18 @@ class AudioPlayer:
         return np.zeros(num_samples)
     
     def play_audio_sequence(self, configs: List[PlayAudioConfig], silence_between: float = 0.1, 
-                           field_positions: Optional[List[int]] = None):
+                           field_positions: Optional[List[int]] = None,
+                           end_field_positions: Optional[List[int]] = None):
         """
         Generate and play a sequence of audio configs (like a drive).
         
         Args:
             configs: List of PlayAudioConfig objects
             silence_between: Silence duration between plays (seconds)
-            field_positions: List of yard line positions (0-100) for each play.
+            field_positions: List of starting yard line positions (0-100) for each play.
                            If provided, enables stereo panning.
+            end_field_positions: List of ending yard line positions (0-100) for each play.
+                               If provided, audio will pan from start to end during each play.
         """
         if not configs:
             print("No audio to play!")
@@ -134,6 +183,11 @@ class AudioPlayer:
         if field_positions and len(field_positions) != len(configs):
             print(f"Warning: {len(configs)} configs but {len(field_positions)} positions. Disabling stereo.")
             field_positions = None
+            end_field_positions = None
+        
+        if end_field_positions and len(end_field_positions) != len(configs):
+            print(f"Warning: {len(configs)} configs but {len(end_field_positions)} end positions. Ignoring end positions.")
+            end_field_positions = None
         
         # Determine if we're generating stereo
         is_stereo = field_positions is not None and self.stereo_enabled
@@ -143,7 +197,8 @@ class AudioPlayer:
         segments = []
         for i, config in enumerate(configs):
             field_pos = field_positions[i] if field_positions else None
-            audio_data = self.generate_tone(config, field_position=field_pos)
+            end_field_pos = end_field_positions[i] if end_field_positions else None
+            audio_data = self.generate_tone(config, field_position=field_pos, end_field_position=end_field_pos)
             segments.append(audio_data)
             
             if silence_between > 0:
@@ -190,10 +245,13 @@ class AudioPlayer:
         except Exception as e:
             print(f"Error playing audio: {e}")
     
-    def play_single_play(self, config: PlayAudioConfig, field_position: Optional[int] = None):
+    def play_single_play(self, config: PlayAudioConfig, field_position: Optional[int] = None,
+                        end_field_position: Optional[int] = None):
         """Play audio for a single play."""
         field_positions = [field_position] if field_position is not None else None
-        self.play_audio_sequence([config], silence_between=0, field_positions=field_positions)
+        end_field_positions = [end_field_position] if end_field_position is not None else None
+        self.play_audio_sequence([config], silence_between=0, field_positions=field_positions,
+                                end_field_positions=end_field_positions)
     
     def cleanup(self):
         """Clean up temporary audio files."""
