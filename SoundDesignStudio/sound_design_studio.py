@@ -28,7 +28,7 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QSlider, QComboBox, QPushButton, QGroupBox, QTextEdit,
     QCheckBox, QSpinBox, QDoubleSpinBox, QListWidget, QListWidgetItem,
-    QMessageBox, QFileDialog, QTabWidget, QGridLayout, QLineEdit
+    QMessageBox, QFileDialog, QTabWidget, QGridLayout, QLineEdit, QDialog
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QKeySequence, QShortcut
@@ -768,31 +768,72 @@ class SoundDesignStudio(QMainWindow):
         self.audio_player.play_single_play(play_config, field_position=50)
     
     def show_current_settings(self):
-        """Show current settings in a message box (Ctrl+I for Info)."""
+        """Show current settings in a list box (Ctrl+I for Info)."""
         config = self.current_config
-        msg = f"""Current Sound Settings:
-
-Name: {config['name']}
-Frequency: {config['frequency']:.0f} Hz
-Waveform: {config['wave_type']}
-Duration: {config['duration']:.2f}s
-Volume: {config['volume']*100:.0f}%
-
-Envelope:
-  Attack: {config['attack']*1000:.0f}ms
-  Decay: {config['decay']*1000:.0f}ms
-  Sustain: {config['sustain']*100:.0f}%
-  Release: {config['release']*1000:.0f}ms
-
-Harmonics: {'Enabled' if config['harmonics']['enabled'] else 'Disabled'}
-  Octave: {config['harmonics']['octave_volume']*100:.0f}%
-  Fifth: {config['harmonics']['fifth_volume']*100:.0f}%
-  Sub-bass: {config['harmonics']['sub_bass_volume']*100:.0f}%
-
-Blending: {'Enabled' if config['blending']['enabled'] else 'Disabled'}
-  Ratio: {config['blending']['blend_ratio']*100:.0f}%"""
         
-        QMessageBox.information(self, "Current Settings", msg)
+        # Create a custom dialog with a list box
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Current Sound Settings")
+        dialog.setMinimumWidth(500)
+        dialog.setMinimumHeight(400)
+        
+        layout = QVBoxLayout(dialog)
+        
+        # Create list widget
+        settings_list = QListWidget()
+        settings_list.setAccessibleName("Sound settings list")
+        settings_list.setAccessibleDescription("Current sound configuration. Use arrow keys to navigate through settings.")
+        
+        # Add settings as individual list items
+        settings_items = [
+            "=== BASIC PARAMETERS ===",
+            f"Name: {config['name']}",
+            f"Frequency: {config['frequency']:.0f} Hz",
+            f"Waveform: {config['wave_type']}",
+            f"Duration: {config['duration']:.2f} seconds",
+            f"Volume: {config['volume']*100:.0f}%",
+            "",
+            "=== ENVELOPE (ADSR) ===",
+            f"Attack: {config['attack']*1000:.0f} ms",
+            f"Decay: {config['decay']*1000:.0f} ms",
+            f"Sustain: {config['sustain']*100:.0f}%",
+            f"Release: {config['release']*1000:.0f} ms",
+            "",
+            f"=== HARMONICS: {'ENABLED' if config['harmonics']['enabled'] else 'DISABLED'} ===",
+            f"Octave volume: {config['harmonics']['octave_volume']*100:.0f}%",
+            f"Fifth volume: {config['harmonics']['fifth_volume']*100:.0f}%",
+            f"Sub-bass volume: {config['harmonics']['sub_bass_volume']*100:.0f}%",
+            "",
+            f"=== BLENDING: {'ENABLED' if config['blending']['enabled'] else 'DISABLED'} ===",
+            f"Blend ratio: {config['blending']['blend_ratio']*100:.0f}%"
+        ]
+        
+        for item_text in settings_items:
+            item = QListWidgetItem(item_text)
+            # Make header items non-selectable (visual separation)
+            if item_text.startswith("===") or item_text == "":
+                item.setFlags(Qt.ItemFlag.NoItemFlags)
+                font = item.font()
+                font.setBold(True)
+                item.setFont(font)
+            settings_list.addItem(item)
+        
+        # Select first selectable item
+        settings_list.setCurrentRow(1)  # Skip header, select "Name:"
+        
+        layout.addWidget(settings_list)
+        
+        # Add close button
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        close_btn = QPushButton("Close")
+        close_btn.setAccessibleName("Close settings dialog")
+        close_btn.clicked.connect(dialog.accept)
+        close_btn.setDefault(True)
+        button_layout.addWidget(close_btn)
+        layout.addLayout(button_layout)
+        
+        dialog.exec()
     
     def compare_sounds(self):
         """Play previous sound then current sound for A/B comparison."""
