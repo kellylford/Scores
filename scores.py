@@ -1788,11 +1788,14 @@ class GameDetailsView(BaseView):
                 self.details_list.addItem(team_item)
                 self.details_list.addItem(f"  Record: {team['record']}")
             
-            # Build game title with team names
-            if len(team_names) >= 2:
-                game_title_parts.append(f"{team_names[0]} vs {team_names[1]}")
-            elif len(team_names) == 1:
-                game_title_parts.append(team_names[0])
+            # Build game title with team names - ensure away team first, home team second
+            sorted_teams = sorted(details['teams'], key=lambda t: 0 if t['home_away'] == 'away' else 1)
+            sorted_names = [t['name'] for t in sorted_teams]
+            
+            if len(sorted_names) >= 2:
+                game_title_parts.append(f"{sorted_names[0]} at {sorted_names[1]}")
+            elif len(sorted_names) == 1:
+                game_title_parts.append(sorted_names[0])
         
         # Add date/status information to title if available
         if 'status' in details and details['status']:
