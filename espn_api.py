@@ -426,22 +426,32 @@ def get_live_scores_all_sports():
                     # Extract team information from competitors
                     competitors = comp.get("competitors", [])
                     teams = []
-                    team_names = []
+                    home_team_name = None
+                    away_team_name = None
                     
                     for competitor in competitors:
                         score = competitor.get("score", "0")
                         team = competitor.get("team", {})
                         team_name = team.get("displayName", team.get("name", team.get("abbreviation", "Unknown")))
-                        team_names.append(team_name)
+                        home_away = competitor.get("homeAway", "")
                         
                         teams.append({
                             "name": team_name,
                             "score": str(score)
                         })
+                        
+                        # Track home and away teams
+                        if home_away == "home":
+                            home_team_name = team_name
+                        elif home_away == "away":
+                            away_team_name = team_name
                     
-                    # Create game name from team names
-                    if len(team_names) >= 2:
-                        game_name = f"{team_names[0]} at {team_names[1]}"
+                    # Create game name from team names (away at home)
+                    if away_team_name and home_team_name:
+                        game_name = f"{away_team_name} at {home_team_name}"
+                    elif len(teams) >= 2:
+                        # Fallback if homeAway not available
+                        game_name = f"{teams[0]['name']} at {teams[1]['name']}"
                     else:
                         game_name = event.get("name", "Unknown Game")
                     
@@ -1042,21 +1052,58 @@ def extract_meaningful_game_info(details):
         competitors = comp.get('competitors', [])
         teams = []
         scores = []
+        
+        # First, separate home and away teams
+        home_team = None
+        away_team = None
+        
         for competitor in competitors:
             team = competitor.get('team', {})
             record = competitor.get('record', [])
             score = competitor.get('score', '')
             team_info = {
                 'name': team.get('displayName', 'Unknown'),
-                'team_id': team.get('id', ''),  # ADD THE TEAM ID!
+                'team_id': team.get('id', ''),
                 'abbreviation': team.get('abbreviation', 'N/A'),
                 'record': record[0].get('summary', 'N/A') if record else 'N/A',
                 'home_away': competitor.get('homeAway', 'unknown'),
                 'score': score
             }
-            teams.append(team_info)
-            if score:
-                scores.append(f"{team.get('name', team.get('abbreviation', 'Unknown'))}: {score}")
+            
+            if competitor.get('homeAway') == 'home':
+                home_team = team_info
+            elif competitor.get('homeAway') == 'away':
+                away_team = team_info
+        
+        # Add teams in correct order: away first, then home
+        if away_team:
+            teams.append(away_team)
+            if away_team['score']:
+                scores.append(f"{away_team['name']}: {away_team['score']}")
+        if home_team:
+            teams.append(home_team)
+            if home_team['score']:
+                scores.append(f"{home_team['name']}: {home_team['score']}")
+        
+        # If homeAway wasn't available, add any remaining teams
+        if len(teams) < len(competitors):
+            for competitor in competitors:
+                team = competitor.get('team', {})
+                if team.get('id') not in [t.get('team_id') for t in teams]:
+                    record = competitor.get('record', [])
+                    score = competitor.get('score', '')
+                    team_info = {
+                        'name': team.get('displayName', 'Unknown'),
+                        'team_id': team.get('id', ''),
+                        'abbreviation': team.get('abbreviation', 'N/A'),
+                        'record': record[0].get('summary', 'N/A') if record else 'N/A',
+                        'home_away': competitor.get('homeAway', 'unknown'),
+                        'score': score
+                    }
+                    teams.append(team_info)
+                    if score:
+                        scores.append(f"{team.get('name', team.get('abbreviation', 'Unknown'))}: {score}")
+        
         info['teams'] = teams
         info['scores'] = scores
         

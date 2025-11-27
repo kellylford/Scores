@@ -78,12 +78,32 @@ class GameData:
         
         # Build team and score display
         if self.teams:
-            display_parts = []
+            # Sort teams to ensure away team is first, home team is second
+            away_team = None
+            home_team = None
+            
             for t in self.teams:
-                abbrev = t.get("name") or t.get("abbreviation", "?")
-                score = t.get("score")
-                display_parts.append(f"{abbrev}{' ' + score if score else ''}")
-            parts.append(" vs ".join(display_parts))
+                if t.get("home_away") == "away":
+                    away_team = t
+                elif t.get("home_away") == "home":
+                    home_team = t
+            
+            # Build display with proper away @ home ordering
+            display_parts = []
+            if away_team and home_team:
+                # Standard case: we have both home and away identified
+                for team in [away_team, home_team]:
+                    abbrev = team.get("name") or team.get("abbreviation", "?")
+                    score = team.get("score")
+                    display_parts.append(f"{abbrev}{' ' + score if score else ''}")
+            else:
+                # Fallback: home_away not available, use teams as-is
+                for t in self.teams:
+                    abbrev = t.get("name") or t.get("abbreviation", "?")
+                    score = t.get("score")
+                    display_parts.append(f"{abbrev}{' ' + score if score else ''}")
+            
+            parts.append(" at ".join(display_parts))
         else:
             parts.append(self.name)
         
