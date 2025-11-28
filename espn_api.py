@@ -372,6 +372,68 @@ def get_live_scores_all_sports():
                 is_live = state == "in" or "progress" in description
                 
                 if is_live:
+                    # Extract basic game information
+                    game_id = event.get("id", "")
+                    
+                    # Extract team information from competitors
+                    competitors = comp.get("competitors", [])
+                    teams = []
+                    home_team_name = None
+                    away_team_name = None
+                    
+                    for competitor in competitors:
+                        score = competitor.get("score", "0")
+                        team = competitor.get("team", {})
+                        team_name = team.get("displayName", team.get("name", team.get("abbreviation", "Unknown")))
+                        home_away = competitor.get("homeAway", "")
+                        
+                        teams.append({
+                            "name": team_name,
+                            "score": str(score)
+                        })
+                        
+                        # Track home and away teams
+                        if home_away == "home":
+                            home_team_name = team_name
+                        elif home_away == "away":
+                            away_team_name = team_name
+                    
+                    # Create game name from team names (away at home)
+                    if away_team_name and home_team_name:
+                        game_name = f"{away_team_name} at {home_team_name}"
+                    elif len(teams) >= 2:
+                        # Fallback if homeAway not available
+                        game_name = f"{teams[0]['name']} at {teams[1]['name']}"
+                    else:
+                        game_name = event.get("name", "Unknown Game")
+                    
+                    # Extract basic status information
+                    status_text = type_info.get("shortDetail", type_info.get("detail", "In Progress"))
+                    
+                    # Now get detailed play information for live games only
+                    recent_play = status_text  # Default fallback
+                    try:
+                        # This is the key: only call detailed API for confirmed live games
+                        game_details = get_game_details(league_key, game_id)
+                        detailed_play = extract_recent_play(game_details, league_key)
+                        if detailed_play and len(detailed_play.strip()) > len(status_text.strip()):
+                            # Use detailed play if it's more informative than basic status
+                            recent_play = detailed_play
+                    except Exception as e:
+                        # If detailed call fails, continue with basic status
+                        print(f"Failed to get details for {game_name}: {e}")
+                        pass
+                    
+                    game = {
+                        "id": game_id,
+                        "name": game_name,
+                        "league": league_key,
+                        "status": status_text,
+                        "teams": teams,
+                        "recent_play": recent_play
+                    }
+                    
+                    live_games.append(game)
                     
         except Exception as e:
             # Continue with other leagues if one fails
