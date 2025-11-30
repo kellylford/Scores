@@ -648,8 +648,9 @@ class LiveScoresView(BaseView):
 
             # Section 1: Live Games
             if live_games:
-                section_header = QListWidgetItem("=== LIVE GAMES ===")
+                section_header = QListWidgetItem("LIVE GAMES")
                 section_header.setBackground(QColor(200, 255, 200))  # Light green background
+                section_header.setData(Qt.ItemDataRole.AccessibleTextRole, "LIVE GAMES")
                 self.live_scores_list.addItem(section_header)
                 
                 # Group live games by league for better organization
@@ -664,6 +665,7 @@ class LiveScoresView(BaseView):
                     # Add league header
                     league_item = QListWidgetItem(f"--- {league} ---")
                     league_item.setBackground(QColor(240, 240, 240))
+                    league_item.setData(Qt.ItemDataRole.AccessibleTextRole, f"{league} games")
                     self.live_scores_list.addItem(league_item)
                     
                     for game in games_by_league[league]:
@@ -693,13 +695,16 @@ class LiveScoresView(BaseView):
                             elif game_league == "MLB":
                                 display_text = self._format_enhanced_baseball(game_name, teams, status, recent_play, game_id)
                             else:
-                                display_text += f" | {recent_play[:50]}"
+                                display_text += f" | {recent_play}"
                         else:
                             if status:
                                 display_text += f" ({status})"
                         
                         item = QListWidgetItem(display_text)
                         item.setData(Qt.ItemDataRole.UserRole, game)
+                        # Set full text for screen readers via tooltip and WhatsThis to prevent ellipsis truncation
+                        item.setToolTip(display_text)
+                        item.setWhatsThis(display_text)
                         self.live_scores_list.addItem(item)
                         
                         if game_id:
@@ -709,8 +714,9 @@ class LiveScoresView(BaseView):
 
             # Section 2: Upcoming Games
             if upcoming_games:
-                section_header = QListWidgetItem("=== UPCOMING GAMES ===")
+                section_header = QListWidgetItem("UPCOMING GAMES")
                 section_header.setBackground(QColor(255, 255, 200))  # Light yellow background
+                section_header.setData(Qt.ItemDataRole.AccessibleTextRole, "UPCOMING GAMES")
                 self.live_scores_list.addItem(section_header)
                 
                 # Group upcoming games by league
@@ -724,6 +730,7 @@ class LiveScoresView(BaseView):
                 for league in sorted(upcoming_by_league.keys()):
                     league_item = QListWidgetItem(f"--- {league} ---")
                     league_item.setBackground(QColor(240, 240, 240))
+                    league_item.setData(Qt.ItemDataRole.AccessibleTextRole, f"{league} games")
                     self.live_scores_list.addItem(league_item)
                     
                     for game in upcoming_by_league[league]:
@@ -736,14 +743,18 @@ class LiveScoresView(BaseView):
                             game_data['id'] = game.get('game_id')
                             game_data['league'] = game.get('league')
                         item.setData(Qt.ItemDataRole.UserRole, game_data)
+                        # Set full text for screen readers via tooltip and WhatsThis to prevent ellipsis truncation
+                        item.setToolTip(display_text)
+                        item.setWhatsThis(display_text)
                         self.live_scores_list.addItem(item)
                 
                 self.live_scores_list.addItem("")
 
             # Section 3: Completed Games
             if completed_games:
-                section_header = QListWidgetItem("=== COMPLETED GAMES ===")
+                section_header = QListWidgetItem("COMPLETED GAMES")
                 section_header.setBackground(QColor(220, 220, 220))  # Light gray background
+                section_header.setData(Qt.ItemDataRole.AccessibleTextRole, "COMPLETED GAMES")
                 self.live_scores_list.addItem(section_header)
                 
                 # Group completed games by league
@@ -757,6 +768,7 @@ class LiveScoresView(BaseView):
                 for league in sorted(completed_by_league.keys()):
                     league_item = QListWidgetItem(f"--- {league} ---")
                     league_item.setBackground(QColor(240, 240, 240))
+                    league_item.setData(Qt.ItemDataRole.AccessibleTextRole, f"{league} games")
                     self.live_scores_list.addItem(league_item)
                     
                     for game in completed_by_league[league]:
@@ -769,6 +781,9 @@ class LiveScoresView(BaseView):
                             game_data['id'] = game.get('game_id')
                             game_data['league'] = game.get('league')
                         item.setData(Qt.ItemDataRole.UserRole, game_data)
+                        # Set full text for screen readers via tooltip and WhatsThis to prevent ellipsis truncation
+                        item.setToolTip(display_text)
+                        item.setWhatsThis(display_text)
                         self.live_scores_list.addItem(item)
                         
         except Exception as e:
@@ -983,9 +998,9 @@ class LiveScoresView(BaseView):
             # Fallback to basic format if something goes wrong
             score_text = f"{teams[0].get('name', '')} {teams[0].get('score', '')} - {teams[1].get('name', '')} {teams[1].get('score', '')}"
             if status:
-                return f"{score_text} ({status}) | {recent_play[:50]}"
+                return f"{score_text} ({status}) | {recent_play}"
             else:
-                return f"{score_text} | {recent_play[:50]}"
+                return f"{score_text} | {recent_play}"
 
     def _format_enhanced_baseball(self, game_name, teams, status, recent_play, game_id):
         """Format enhanced baseball display with base runners, count, and batter info"""
@@ -1030,9 +1045,9 @@ class LiveScoresView(BaseView):
             # Fallback to basic format if something goes wrong
             score_text = f"{teams[0].get('name', '')} {teams[0].get('score', '')} - {teams[1].get('name', '')} {teams[1].get('score', '')}"
             if status:
-                return f"{score_text} ({status}) | {recent_play[:50]}"
+                return f"{score_text} ({status}) | {recent_play}"
             else:
-                return f"{score_text} | {recent_play[:50]}"
+                return f"{score_text} | {recent_play}"
 
     def refresh(self):
         """Refresh the live scores"""
@@ -1116,10 +1131,14 @@ class LeagueView(BaseView):
                         list_item = self.scores_list.item(self.scores_list.count()-1)
                         if list_item:
                             list_item.setData(Qt.ItemDataRole.UserRole, game_raw.get("id"))
+                            # Set full text for screen readers via tooltip and WhatsThis to prevent ellipsis truncation
+                            list_item.setToolTip(item_text)
+                            list_item.setWhatsThis(item_text)
                 if self.news_headlines:
                     self.scores_list.addItem("--- News Headlines ---")
                     news_item = self.scores_list.item(self.scores_list.count()-1)
                     news_item.setData(Qt.ItemDataRole.UserRole, "__news__")
+                    news_item.setData(Qt.ItemDataRole.AccessibleTextRole, "News Headlines")
                 self._add_common_sections()
             except Exception as e:
                 self._show_api_error(f"Failed to load scores: {str(e)}")
@@ -1139,10 +1158,14 @@ class LeagueView(BaseView):
                         list_item = self.scores_list.item(self.scores_list.count()-1)
                         if list_item:
                             list_item.setData(Qt.ItemDataRole.UserRole, game_raw.get("id"))
+                            # Set full text for screen readers via tooltip and WhatsThis to prevent ellipsis truncation
+                            list_item.setToolTip(item_text)
+                            list_item.setWhatsThis(item_text)
                 if self.news_headlines:
                     self.scores_list.addItem("--- News Headlines ---")
                     news_item = self.scores_list.item(self.scores_list.count()-1)
                     news_item.setData(Qt.ItemDataRole.UserRole, "__news__")
+                    news_item.setData(Qt.ItemDataRole.AccessibleTextRole, "News Headlines")
                 self._add_common_sections()
             except Exception as e:
                 self._show_api_error(f"Failed to load scores: {str(e)}")
@@ -1152,15 +1175,19 @@ class LeagueView(BaseView):
             self.scores_list.addItem("--- Standings ---")
             standings_item = self.scores_list.item(self.scores_list.count()-1)
             standings_item.setData(Qt.ItemDataRole.UserRole, "__standings__")
+            standings_item.setData(Qt.ItemDataRole.AccessibleTextRole, "Standings")
             self.scores_list.addItem("--- Statistics ---")
             statistics_item = self.scores_list.item(self.scores_list.count()-1)
             statistics_item.setData(Qt.ItemDataRole.UserRole, "__statistics__")
+            statistics_item.setData(Qt.ItemDataRole.AccessibleTextRole, "Statistics")
             self.scores_list.addItem("--- Teams ---")
             teams_item = self.scores_list.item(self.scores_list.count()-1)
             teams_item.setData(Qt.ItemDataRole.UserRole, "__teams__")
+            teams_item.setData(Qt.ItemDataRole.AccessibleTextRole, "Teams")
             self.scores_list.addItem("--- Venues ---")
             venues_item = self.scores_list.item(self.scores_list.count()-1)
             venues_item.setData(Qt.ItemDataRole.UserRole, "__venues__")
+            venues_item.setData(Qt.ItemDataRole.AccessibleTextRole, "Venues")
 
     def _show_news_dialog(self):
         """Show news dialog"""
