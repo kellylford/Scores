@@ -378,22 +378,32 @@ def get_live_scores_all_sports():
                     # Extract team information from competitors
                     competitors = comp.get("competitors", [])
                     teams = []
-                    team_names = []
+                    home_team_name = None
+                    away_team_name = None
                     
                     for competitor in competitors:
                         score = competitor.get("score", "0")
                         team = competitor.get("team", {})
                         team_name = team.get("displayName", team.get("name", team.get("abbreviation", "Unknown")))
-                        team_names.append(team_name)
+                        home_away = competitor.get("homeAway", "")
                         
                         teams.append({
                             "name": team_name,
                             "score": str(score)
                         })
+                        
+                        # Track home and away teams
+                        if home_away == "home":
+                            home_team_name = team_name
+                        elif home_away == "away":
+                            away_team_name = team_name
                     
-                    # Create game name from team names
-                    if len(team_names) >= 2:
-                        game_name = f"{team_names[0]} at {team_names[1]}"
+                    # Create game name from team names (away at home)
+                    if away_team_name and home_team_name:
+                        game_name = f"{away_team_name} at {home_team_name}"
+                    elif len(teams) >= 2:
+                        # Fallback if homeAway not available
+                        game_name = f"{teams[0]['name']} at {teams[1]['name']}"
                     else:
                         game_name = event.get("name", "Unknown Game")
                     

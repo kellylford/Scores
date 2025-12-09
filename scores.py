@@ -607,79 +607,169 @@ class LiveScoresView(BaseView):
                 self.parent_app.open_game_details(game_id, from_live_scores=True)
     
     def load_live_scores(self):
-        """Load live scores from all sports"""
+        """Load and display live, upcoming, and completed games from all sports."""
+        from datetime import datetime
+
         self.live_scores_list.clear()
         self.game_data.clear()
         self._update_time_label()
-        
+
         try:
+            today = datetime.now().date()
+            
+            # Get live games
             live_games = ApiService.get_live_scores_all_sports()
             
-            if not live_games:
-                self.live_scores_list.addItem("No live games currently in progress.")
+            # Get all games for today
+            current_date_games = self._get_today_games_all_sports()
+            
+            # Categorize games
+            live_games_dict = {game.get('id', ''): game for game in live_games}
+            upcoming_games = []
+            completed_games = []
+
+            for game in current_date_games:
+                game_id = game.get('game_id', '')
+                if game_id not in live_games_dict:
+                    # Check if game is upcoming or completed
+                    state = game.get('state', '')
+                    if state == 'upcoming':
+                        upcoming_games.append(game)
+                    elif state == 'completed':
+                        completed_games.append(game)
+
+            # Sort upcoming games by start time (closest first)
+            upcoming_games.sort(key=lambda g: g.get('start_time', ''))
+            
+            total_games = len(live_games) + len(upcoming_games) + len(completed_games)
+            if total_games == 0:
+                self.live_scores_list.addItem(f"No games on {today.strftime('%B %d, %Y')}.")
                 return
-            
-            # Group games by league for better organization
-            games_by_league = {}
-            for game in live_games:
-                league = game.get("league", "Unknown")
-                if league not in games_by_league:
-                    games_by_league[league] = []
-                games_by_league[league].append(game)
-            
-            # Add games to list, organized by league
-            for league in sorted(games_by_league.keys()):
-                # Always show league headers for consistency
-                league_item = QListWidgetItem(f"--- {league} ---")
-                league_item.setBackground(QColor(240, 240, 240))
-                self.live_scores_list.addItem(league_item)
+
+            # Section 1: Live Games
+            if live_games:
+                section_header = QListWidgetItem("=== LIVE GAMES ===")
+                section_header.setBackground(QColor(200, 255, 200))  # Light green background
+                self.live_scores_list.addItem(section_header)
                 
-                for game in games_by_league[league]:
-                    game_id = game.get("id", "")
-                    game_name = game.get("name", "Unknown Game")
-                    status = game.get("status", "")
-                    teams = game.get("teams", [])
-                    recent_play = game.get("recent_play", "")
-                    game_league = game.get("league", "")
+                # Group live games by league for better organization
+                games_by_league = {}
+                for game in live_games:
+                    league = game.get("league", "Unknown")
+                    if league not in games_by_league:
+                        games_by_league[league] = []
+                    games_by_league[league].append(game)
+                
+                for league in sorted(games_by_league.keys()):
+                    # Add league header
+                    league_item = QListWidgetItem(f"--- {league} ---")
+                    league_item.setBackground(QColor(240, 240, 240))
+                    self.live_scores_list.addItem(league_item)
                     
-                    # Build display text
-                    display_text = f"{game_name}"
-                    if teams and len(teams) >= 2:
-                        team1, team2 = teams[0], teams[1]
-                        score1 = team1.get("score", "")
-                        score2 = team2.get("score", "")
-                        if score1 and score2:
-                            display_text += f" - {score1}-{score2}"
-                    
-                    if status and game_league not in ["NFL", "NCAAF"]:
-                        display_text += f" ({status})"
-                    
-                    # Enhanced display for different sports
-                    if recent_play:
-                        if game_league in ["NFL", "NCAAF"]:
-                            # Enhanced football display with two-line format
-                            display_text = self._format_enhanced_football(game_name, teams, status, recent_play, game_id)
-                        elif game_league == "MLB":
-                            # Enhanced baseball display with base runners, count, and batter info
-                            display_text = self._format_enhanced_baseball(game_name, teams, status, recent_play, game_id)
-                        else:
-                            display_text += f" | {recent_play[:50]}"  # Truncate long plays for other sports
-                    else:
-                        # Standard format for games without enhanced play info
-                        if status:
+                    for game in games_by_league[league]:
+                        game_id = game.get("id", "")
+                        game_name = game.get("name", "Unknown Game")
+                        status = game.get("status", "")
+                        teams = game.get("teams", [])
+                        recent_play = game.get("recent_play", "")
+                        game_league = game.get("league", "")
+                        
+                        # Build display text
+                        display_text = f"{game_name}"
+                        if teams and len(teams) >= 2:
+                            team1, team2 = teams[0], teams[1]
+                            score1 = team1.get("score", "")
+                            score2 = team2.get("score", "")
+                            if score1 and score2:
+                                display_text += f" - {score1}-{score2}"
+                        
+                        if status and game_league not in ["NFL", "NCAAF"]:
                             display_text += f" ({status})"
+                        
+                        # Enhanced display for different sports
+                        if recent_play:
+                            if game_league in ["NFL", "NCAAF"]:
+                                display_text = self._format_enhanced_football(game_name, teams, status, recent_play, game_id)
+                            elif game_league == "MLB":
+                                display_text = self._format_enhanced_baseball(game_name, teams, status, recent_play, game_id)
+                            else:
+                                display_text += f" | {recent_play[:50]}"
+                        else:
+                            if status:
+                                display_text += f" ({status})"
+                        
+                        item = QListWidgetItem(display_text)
+                        item.setData(Qt.ItemDataRole.UserRole, game)
+                        self.live_scores_list.addItem(item)
+                        
+                        if game_id:
+                            self.game_data[game_id] = game
+                
+                self.live_scores_list.addItem("")
+
+            # Section 2: Upcoming Games
+            if upcoming_games:
+                section_header = QListWidgetItem("=== UPCOMING GAMES ===")
+                section_header.setBackground(QColor(255, 255, 200))  # Light yellow background
+                self.live_scores_list.addItem(section_header)
+                
+                # Group upcoming games by league
+                upcoming_by_league = {}
+                for game in upcoming_games:
+                    league = game.get('league', 'Unknown')
+                    if league not in upcoming_by_league:
+                        upcoming_by_league[league] = []
+                    upcoming_by_league[league].append(game)
+                
+                for league in sorted(upcoming_by_league.keys()):
+                    league_item = QListWidgetItem(f"--- {league} ---")
+                    league_item.setBackground(QColor(240, 240, 240))
+                    self.live_scores_list.addItem(league_item)
                     
-                    # Note: Monitoring functionality available via Alt+M but not displayed
-                    # if game_id in self.monitored_games:
-                    #     display_text += " - monitoring"
+                    for game in upcoming_by_league[league]:
+                        display_text = self._format_game_display(game)
+                        item = QListWidgetItem(display_text)
+                        # Prepare game data in format expected by _on_game_selected
+                        game_data = game.get('raw_data', game)
+                        if 'game_id' in game and 'id' not in game_data:
+                            game_data = dict(game_data) if isinstance(game_data, dict) else {}
+                            game_data['id'] = game.get('game_id')
+                            game_data['league'] = game.get('league')
+                        item.setData(Qt.ItemDataRole.UserRole, game_data)
+                        self.live_scores_list.addItem(item)
+                
+                self.live_scores_list.addItem("")
+
+            # Section 3: Completed Games
+            if completed_games:
+                section_header = QListWidgetItem("=== COMPLETED GAMES ===")
+                section_header.setBackground(QColor(220, 220, 220))  # Light gray background
+                self.live_scores_list.addItem(section_header)
+                
+                # Group completed games by league
+                completed_by_league = {}
+                for game in completed_games:
+                    league = game.get('league', 'Unknown')
+                    if league not in completed_by_league:
+                        completed_by_league[league] = []
+                    completed_by_league[league].append(game)
+                
+                for league in sorted(completed_by_league.keys()):
+                    league_item = QListWidgetItem(f"--- {league} ---")
+                    league_item.setBackground(QColor(240, 240, 240))
+                    self.live_scores_list.addItem(league_item)
                     
-                    item = QListWidgetItem(display_text)
-                    item.setData(Qt.ItemDataRole.UserRole, game)  # Store full game data
-                    self.live_scores_list.addItem(item)
-                    
-                    # Store game data for monitoring
-                    if game_id:
-                        self.game_data[game_id] = game
+                    for game in completed_by_league[league]:
+                        display_text = self._format_game_display(game)
+                        item = QListWidgetItem(display_text)
+                        # Prepare game data in format expected by _on_game_selected
+                        game_data = game.get('raw_data', game)
+                        if 'game_id' in game and 'id' not in game_data:
+                            game_data = dict(game_data) if isinstance(game_data, dict) else {}
+                            game_data['id'] = game.get('game_id')
+                            game_data['league'] = game.get('league')
+                        item.setData(Qt.ItemDataRole.UserRole, game_data)
+                        self.live_scores_list.addItem(item)
                         
         except Exception as e:
             self._show_api_error(f"Failed to load live scores: {str(e)}")
@@ -760,6 +850,106 @@ class LiveScoresView(BaseView):
         error_label = QLabel(f"Error: {message}")
         error_label.setStyleSheet("color: red; font-weight: bold;")
         self.layout.addWidget(error_label)
+    
+    def _get_today_games_all_sports(self):
+        """Get all games for the current date from all sports"""
+        from models.game import GameData
+        from datetime import datetime
+
+        all_games = []
+        today = datetime.now().date()
+
+        # List of supported leagues
+        leagues = ["NFL", "NBA", "MLB", "NHL", "NCAAF", "NCAAM", "WNBA", "NCAAWB"]
+        
+        for league in leagues:
+            try:
+                # Get scores for current date for this league
+                scores_data = ApiService.get_scores(league, today)
+                for game_raw in scores_data:
+                    # Create GameData object for consistent formatting
+                    game = GameData(game_raw, league)
+                    # Convert to format expected by live scores view
+                    game_dict = {
+                        'game_id': game_raw.get('id', ''),
+                        'league': league,
+                        'name': game.name,
+                        'teams': game.teams,
+                        'status': game.status,
+                        'start_time': game.start_time,
+                        'display_text': game.get_display_text(),
+                        'raw_data': game_raw,
+                        'game_data': game  # Keep reference to GameData object
+                    }
+
+                    # Determine game state for categorization
+                    status_lower = game.status.lower() if game.status else ''
+                    if status_lower in ['in progress', 'live']:
+                        game_dict['state'] = 'live'
+                    elif status_lower in ['final', 'completed']:
+                        game_dict['state'] = 'completed'
+                    elif status_lower in ['scheduled', 'upcoming']:
+                        game_dict['state'] = 'upcoming'
+                    else:
+                        # Try to determine from raw data
+                        raw_status = game_raw.get('status', {})
+                        if isinstance(raw_status, dict):
+                            type_info = raw_status.get('type', {})
+                            state = type_info.get('state', '').lower()
+                            if state == 'in':
+                                game_dict['state'] = 'live'
+                            elif state == 'post':
+                                game_dict['state'] = 'completed'
+                            elif state == 'pre':
+                                game_dict['state'] = 'upcoming'
+                            else:
+                                game_dict['state'] = 'unknown'
+                        else:
+                            game_dict['state'] = 'unknown'
+                    
+                    all_games.append(game_dict)
+            except Exception as e:
+                print(f"Error fetching {league} games: {e}")
+                continue
+
+        return all_games
+
+    def _format_game_display(self, game):
+        """Format a game for display in the list using GameData if available"""
+        try:
+            # Use the pre-formatted display text if available
+            if 'display_text' in game and game['display_text']:
+                return game['display_text']
+
+            # Use GameData object if available
+            if 'game_data' in game and game['game_data']:
+                return game['game_data'].get_display_text()
+            
+            # Fallback to manual formatting
+            home_team = game.get('home_team', {})
+            away_team = game.get('away_team', {})
+            home_score = game.get('home_score', '')
+            away_score = game.get('away_score', '')
+            status = game.get('status', '')
+            
+            # Build team display
+            home_name = home_team.get('name', home_team.get('abbreviation', 'TBD'))
+            away_name = away_team.get('name', away_team.get('abbreviation', 'TBD'))
+            
+            # Format scores if available
+            if home_score and away_score:
+                team_display = f"{away_name} {away_score} at {home_name} {home_score}"
+            else:
+                team_display = f"{away_name} at {home_name}"
+            
+            # Add status info
+            if status:
+                return f"{team_display} ({status})"
+            else:
+                return team_display
+        except Exception as e:
+            print(f"Error formatting game display: {e}")
+            return game.get('name', 'Unknown Game')
     
     def _format_enhanced_football(self, game_name, teams, status, recent_play, game_id):
         """Format enhanced football display with two-line format"""
@@ -1812,11 +2002,14 @@ class GameDetailsView(BaseView):
                 self.details_list.addItem(team_item)
                 self.details_list.addItem(f"  Record: {team['record']}")
             
-            # Build game title with team names
-            if len(team_names) >= 2:
-                game_title_parts.append(f"{team_names[0]} vs {team_names[1]}")
-            elif len(team_names) == 1:
-                game_title_parts.append(team_names[0])
+            # Build game title with team names - ensure away team first, home team second
+            sorted_teams = sorted(details['teams'], key=lambda t: 0 if t['home_away'] == 'away' else 1)
+            sorted_names = [t['name'] for t in sorted_teams]
+            
+            if len(sorted_names) >= 2:
+                game_title_parts.append(f"{sorted_names[0]} at {sorted_names[1]}")
+            elif len(sorted_names) == 1:
+                game_title_parts.append(sorted_names[0])
         
         # Add date/status information to title if available
         if 'status' in details and details['status']:
