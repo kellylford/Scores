@@ -838,13 +838,16 @@ def get_available_seasons(league_key):
         # For other leagues, return last 10 years as a reasonable default
         return [(year, f"{year} Season") for year in range(current_year, current_year - 10, -1)]
 
-def get_scores(league_key, date=None, week=None):
+def get_scores(league_key, date=None, week=None, seasontype=None):
     league_path = LEAGUES.get(league_key)
     if not league_path:
         return []
 
     url = f"{BASE_URL}/{league_path}/scoreboard"
     params = []
+    # Add seasontype parameter (2=regular season, 3=postseason)
+    if seasontype is not None:
+        params.append(f"seasontype={seasontype}")
     # Add week parameter for football leagues
     if week is not None and league_key in ("NFL", "NCAAF"):
         params.append(f"week={week}")
@@ -916,11 +919,12 @@ def get_scores(league_key, date=None, week=None):
             team_scores.append(team_info)
         
         scores.append({
-            "id": eid, 
-            "name": name, 
+            "id": eid,
+            "name": name,
             "start_time": start_time,
             "status": game_status,
-            "teams": team_scores
+            "teams": team_scores,
+            "competitions": [comp]  # Include raw competition data for bowl names
         })
     return scores
 

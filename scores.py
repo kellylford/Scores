@@ -905,6 +905,8 @@ class LeagueView(BaseView):
             self._show_teams_dialog(); return
         if data == "__venues__":
             self._show_venues_dialog(); return
+        if data == "__bowls__":
+            self._show_bowls_and_playoffs(); return
         if data and isinstance(data, str) and self.parent_app:
             self.parent_app.open_game_details(data)
 
@@ -971,6 +973,12 @@ class LeagueView(BaseView):
             self.scores_list.addItem("--- Venues ---")
             venues_item = self.scores_list.item(self.scores_list.count()-1)
             venues_item.setData(Qt.ItemDataRole.UserRole, "__venues__")
+            
+            # Add Bowls & Playoffs for NCAAF
+            if self.league == "NCAAF":
+                self.scores_list.addItem("--- Bowls & Playoffs ---")
+                bowls_item = self.scores_list.item(self.scores_list.count()-1)
+                bowls_item.setData(Qt.ItemDataRole.UserRole, "__bowls__")
 
     def _show_news_dialog(self):
         """Show news dialog"""
@@ -1157,6 +1165,22 @@ class LeagueView(BaseView):
             if self.parent_app:
                 self.parent_app.update_window_title([self.league])
     
+    def _show_bowls_and_playoffs(self):
+        """Show Bowls & Playoffs view for NCAAF"""
+        try:
+            # Update window title
+            if self.parent_app:
+                self.parent_app.update_window_title(["Bowls & Playoffs", self.league])
+            
+            dialog = BowlsAndPlayoffsDialog(self.league, self)
+            dialog.exec()
+            
+            # Restore original title
+            if self.parent_app:
+                self.parent_app.update_window_title([self.league])
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to show bowls & playoffs: {str(e)}")
+
     def _is_team_for_league(self, team_data: Dict, league: str) -> bool:
         """Check if team belongs to the specified league"""
         team_name = team_data.get('team_name', '')
@@ -8242,6 +8266,147 @@ class VenueDetailsDialog(QDialog):
             self.accept()
             return
         super().keyPressEvent(event)
+
+
+class BowlsAndPlayoffsDialog(QDialog):
+    """Dialog for viewing NCAA Football Bowl Games and College Football Playoff"""
+    
+    def __init__(self, league: str, parent=None):
+        super().__init__(parent)
+        self.league = league
+        self.parent_app = parent
+        self.setWindowTitle(f"{league} Bowls & Playoffs")
+        self.resize(900, 700)
+        self.setup_ui()
+    
+    def setup_ui(self):
+        layout = QVBoxLayout()
+        
+        # Header
+        header_label = QLabel("College Football Playoff & Bowl Games")
+        header_label.setStyleSheet("font-weight: bold; font-size: 14px; margin: 10px 0;")
+        layout.addWidget(header_label)
+        
+        # List of bowl games
+        self.bowl_list = QListWidget()
+        self.bowl_list.itemActivated.connect(self.on_bowl_game_selected)
+        layout.addWidget(self.bowl_list)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        button_layout.addStretch()
+        button_layout.addWidget(close_btn)
+        layout.addLayout(button_layout)
+        
+        self.setLayout(layout)
+        self.load_bowl_games()
+    
+    def load_bowl_games(self):
+        """Load bowl games and CFP from ESPN API"""
+        try:
+            from services.api_service import ApiService
+            # Get postseason games (seasontype=3)
+            games_data = ApiService.get_scores(self.league, seasontype=3)
+            
+            if not games_data:
+                self.bowl_list.addItem("No bowl games or playoff games found.")
+                return
+            
+            # Categorize games by competition type
+            categories = {
+                'Championship': [],  # type 33
+                'Semifinals': [],     # type 35
+                'Quarterfinals': [],  # type 40 (Major Bowl)
+                'First Round': [],    # type 42 (Bowl Game) - early playoff games
+                'Other Bowls': []     # Other bowl games
+            }
+            
+            for game in games_data:
+                comp_type = game.get('competitions', [{}])[0].get('type', {}).get('id')
+                comp_name = game.get('competitions', [{}])[0].get('type', {}).get('text', '')
+                
+                if comp_type == 33:  # Championship
+                    categories['Championship'].append(game)
+                elif comp_type == 35:  # Semifinal
+                    categories['Semifinals'].append(game)
+                elif comp_type == 40:  # Major Bowl (Quarterfinals)
+                    categories['Quarterfinals'].append(game)
+                elif comp_type == 42:  # Bowl Game
+                    # Check if it's part of CFP or regular bowl
+                    notes = game.get('competitions', [{}])[0].get('notes', [])
+                    if notes and 'first round' in notes[0].get('headline', '').lower():
+                        categories['First Round'].append(game)
+                    else:
+                        categories['Other Bowls'].append(game)
+                else:
+                    categories['Other Bowls'].append(game)
+            
+            # Display categories in order
+            for category_name in ['Championship', 'Semifinals', 'Quarterfinals', 'First Round', 'Other Bowls']:
+                games = categories[category_name]
+                if games:
+                    # Add category header
+                    header_item = QListWidgetItem(f"=== {category_name} ===")
+                    header_item.setFlags(Qt.ItemFlag.NoItemFlags)  # Not selectable
+                    font = header_item.font()
+                    font.setBold(True)
+                    header_item.setFont(font)
+                    self.bowl_list.addItem(header_item)
+                    
+                    # Add games in this category
+                    for game in games:
+                        self._add_game_item(game)
+                    
+                    # Add spacing
+                    self.bowl_list.addItem("")
+        
+        except Exception as e:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.critical(self, "Error", f"Failed to load bowl games: {str(e)}")
+    
+    def _add_game_item(self, game):
+        """Add a game item to the list"""
+        from models.game import GameData
+
+        # Get bowl/playoff information
+        comp = game.get('competitions', [{}])[0]
+        notes = comp.get('notes', [])
+        comp_type = comp.get('type', {})
+        comp_type_text = comp_type.get('text', '')
+        
+        # Get bowl name from notes or use competition type
+        bowl_name = ''
+        if notes and notes[0].get('headline'):
+            bowl_name = notes[0].get('headline', '')
+        elif comp_type_text and comp_type_text != 'Standard':
+            bowl_name = comp_type_text
+        
+        # Create game data object for display
+        game_obj = GameData(game, self.league)
+        item_text = game_obj.get_display_text()
+        
+        # Format with bowl/playoff name prominently at the start
+        if bowl_name:
+            # Check if it's a playoff game
+            comp_type_id = comp_type.get('id')
+            if comp_type_id in [33, 35, 40]:  # Championship, Semifinal, Major Bowl (Quarterfinals)
+                item_text = f"[{bowl_name}] {item_text}"
+            else:
+                item_text = f"{bowl_name} - {item_text}"
+        
+        list_item = QListWidgetItem(item_text)
+        list_item.setData(Qt.ItemDataRole.UserRole, game.get("id"))
+        self.bowl_list.addItem(list_item)
+
+    def on_bowl_game_selected(self, item):
+        """Handle selection of a bowl game"""
+        game_id = item.data(Qt.ItemDataRole.UserRole)
+        if game_id and self.parent_app and hasattr(self.parent_app, 'parent_app'):
+            # Close this dialog and open game details
+            self.accept()
+            self.parent_app.parent_app.open_game_details(game_id)
 
 
 class SportsScoresApp(QWidget):
