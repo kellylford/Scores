@@ -84,6 +84,22 @@ NEWS_DIALOG_HEIGHT = 500
 STANDINGS_DIALOG_WIDTH = 900
 STANDINGS_DIALOG_HEIGHT = 600
 
+def format_league_name(league_code: str) -> str:
+    """Convert league abbreviation to full display name with gender and sport"""
+    league_names = {
+        "MLB": "MLB",
+        "NFL": "NFL",
+        "NBA": "NBA",
+        "NHL": "NHL",
+        "WNBA": "WNBA",
+        "NCAAF": "NCAA Football",
+        "NCAAM": "NCAA Men's Basketball",
+        "NCAAWB": "NCAA Women's Basketball",
+        "NCAAH": "NCAA Men's Hockey",
+        "NCAAWH": "NCAA Women's Hockey"
+    }
+    return league_names.get(league_code, league_code)
+
 def get_pitch_location(horizontal: int, vertical: int, batter_side: str = None) -> str:
     """Convert pitch coordinates to accessible location description
     
@@ -374,7 +390,9 @@ class HomeView(BaseView):
             return
         
         for league in leagues:
-            self.league_list.addItem(league)
+            item = QListWidgetItem(format_league_name(league))
+            item.setData(Qt.ItemDataRole.UserRole, league)  # Store original code for lookups
+            self.league_list.addItem(item)
         
         self.league_list.itemActivated.connect(self._on_league_selected)
         self.layout.addWidget(self.league_list)
@@ -383,7 +401,6 @@ class HomeView(BaseView):
         self._add_nav_buttons()
     
     def _on_league_selected(self, item):
-        league = item.text()
         user_data = item.data(Qt.ItemDataRole.UserRole)
         
         if user_data == "__live_scores__":
@@ -392,6 +409,9 @@ class HomeView(BaseView):
                 self.parent_app.open_live_scores()
             return
 
+        # Use the stored league code (not the formatted display text)
+        league = user_data if user_data else item.text()
+        
         # For NFL/NCAAF, determine current week and show those games
         if league in ("NFL", "NCAAF"):
             try:
@@ -444,7 +464,9 @@ class HomeView(BaseView):
             return
         
         for league in leagues:
-            self.league_list.addItem(league)
+            item = QListWidgetItem(format_league_name(league))
+            item.setData(Qt.ItemDataRole.UserRole, league)  # Store original code for lookups
+            self.league_list.addItem(item)
         
         self.set_focus_and_select_first(self.league_list)
 
@@ -662,7 +684,7 @@ class LiveScoresView(BaseView):
                 
                 for league in sorted(games_by_league.keys()):
                     # Add league header
-                    league_item = QListWidgetItem(f"--- {league} ---")
+                    league_item = QListWidgetItem(f"--- {format_league_name(league)} ---")
                     league_item.setBackground(QColor(240, 240, 240))
                     self.live_scores_list.addItem(league_item)
                     
@@ -722,7 +744,7 @@ class LiveScoresView(BaseView):
                     upcoming_by_league[league].append(game)
                 
                 for league in sorted(upcoming_by_league.keys()):
-                    league_item = QListWidgetItem(f"--- {league} ---")
+                    league_item = QListWidgetItem(f"--- {format_league_name(league)} ---")
                     league_item.setBackground(QColor(240, 240, 240))
                     self.live_scores_list.addItem(league_item)
                     
@@ -755,7 +777,7 @@ class LiveScoresView(BaseView):
                     completed_by_league[league].append(game)
                 
                 for league in sorted(completed_by_league.keys()):
-                    league_item = QListWidgetItem(f"--- {league} ---")
+                    league_item = QListWidgetItem(f"--- {format_league_name(league)} ---")
                     league_item.setBackground(QColor(240, 240, 240))
                     self.live_scores_list.addItem(league_item)
                     
@@ -1072,7 +1094,7 @@ class LeagueView(BaseView):
         self.date_label = QLabel()
         self.layout.addWidget(self.date_label)
 
-        self.layout.addWidget(QLabel(f"Scores for {self.league}:"))
+        self.layout.addWidget(QLabel(f"Scores for {format_league_name(self.league)}:"))
 
         self.scores_list = QListWidget()
         self.scores_list.setAccessibleName("Scores List")
@@ -6505,12 +6527,14 @@ class GameDetailsDialog(QDialog):
     def update_window_title(self, context_parts=None):
         """Update dialog window title with context information"""
         if context_parts:
+            # Format league names in context parts
+            formatted_parts = [format_league_name(part) if part in ["MLB", "NFL", "NBA", "NHL", "WNBA", "NCAAF", "NCAAM", "NCAAWB", "NCAAH", "NCAAWH"] else part for part in context_parts]
             # Build title from context parts
-            title = " - ".join(str(part) for part in context_parts)
+            title = " - ".join(str(part) for part in formatted_parts)
             self.setWindowTitle(title)
         else:
             # Default title
-            self.setWindowTitle(f"Game Details - {self.league}")
+            self.setWindowTitle(f"Game Details - {format_league_name(self.league)}")
     
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
@@ -9011,15 +9035,18 @@ class SportsScoresApp(QWidget):
             # Just show base title
             self.setWindowTitle(self.base_title)
             return
+        
+        # Format league names in context items
+        formatted_items = [format_league_name(item) if item in ["MLB", "NFL", "NBA", "NHL", "WNBA", "NCAAF", "NCAAM", "NCAAWB", "NCAAH", "NCAAWH"] else item for item in context_items]
             
         # Build title following the pattern: most specific, then general context, then base
-        if len(context_items) == 1:
+        if len(formatted_items) == 1:
             # Single context item: "{Context} - Sports Scores"
-            title = f"{context_items[0]} - {self.base_title}"
+            title = f"{formatted_items[0]} - {self.base_title}"
         else:
             # Multiple context items: reverse order for breadcrumb
             # Most specific first, then increasingly general
-            breadcrumb_parts = list(reversed(context_items))
+            breadcrumb_parts = list(reversed(formatted_items))
             title = f"{', '.join(breadcrumb_parts)} - {self.base_title}"
             
         self.setWindowTitle(title)
