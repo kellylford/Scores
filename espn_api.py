@@ -12,6 +12,8 @@ LEAGUES = {
     "NCAAF": "football/college-football",
     "NCAAM": "basketball/mens-college-basketball",
     "NCAAWB": "basketball/womens-college-basketball",
+    "NCAAH": "hockey/mens-college-hockey",
+    "NCAAWH": "hockey/womens-college-hockey",
     "Soccer": "soccer/eng.1",  # English Premier League
     # Add more as needed
 }
@@ -29,16 +31,16 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
     is_historical_season = season is not None and season != current_year
     
     # Use dedicated team schedule endpoints for major sports
-    if league_key in ["MLB", "NFL", "NBA", "NHL", "NCAAF"]:
+    if league_key in ["MLB", "NFL", "NBA", "NHL", "NCAAF", "NCAAH", "NCAAWH"]:
         base_url = f"{BASE_URL}/{league_path}/teams/{team_id}/schedule"
         
-        # For NBA, NHL, and MLB, we need to fetch all season types separately and combine
-        if league_key in ["NBA", "NHL", "MLB"]:
+        # For NBA, NHL, MLB, and NCAA Hockey, we need to fetch all season types separately and combine
+        if league_key in ["NBA", "NHL", "MLB", "NCAAH", "NCAAWH"]:
             # Determine season year based on league
             if league_key == "MLB":
                 season_year = season if season else 2025  # MLB uses calendar year
             else:
-                season_year = season if season else 2026  # NBA/NHL use year+1 (2026 = 2025-26 season)
+                season_year = season if season else 2026  # NBA/NHL/NCAA Hockey use year+1 (2026 = 2025-26 season)
             
             all_events = []
             
@@ -1491,6 +1493,59 @@ def format_complex_data(key, value):
     
     return str(value)[:100] + ("..." if len(str(value)) > 100 else "")
 
+def get_rankings(league_key):
+    """Get current poll/ranking data for a specific league
+    
+    Returns a dict with structure:
+    {
+        'polls': [
+            {
+                'name': 'AP Top 25',
+                'type': 'ap', 
+                'shortName': 'AP Poll',
+                'headline': 'Poll headline',
+                'ranks': [
+                    {
+                        'current': 1,
+                        'previous': 2,
+                        'points': 1650,
+                        'recordSummary': '13-0',
+                        'team': {
+                            'id': '84',
+                            'location': 'Indiana',
+                            'nickname': 'Hoosiers',
+                            'displayName': 'Indiana Hoosiers',
+                            'abbreviation': 'IND',
+                            'logos': [...],
+                            'color': '990000'
+                        }
+                    },
+                    ...
+                ]
+            },
+            ...
+        ]
+    }
+    """
+    league_path = LEAGUES.get(league_key)
+    if not league_path:
+        return {'polls': []}
+    
+    try:
+        url = f"{BASE_URL}/{league_path}/rankings"
+        resp = requests.get(url)
+        
+        if resp.status_code != 200:
+            return {'polls': []}
+        
+        data = resp.json()
+        polls = data.get('rankings', [])
+        
+        return {'polls': polls}
+    except Exception as e:
+        print(f"Failed to fetch rankings for {league_key}: {e}")
+        return {'polls': []}
+
 def get_standings(league_key):
     """Get current standings for a specific league using optimized API endpoint"""
     if league_key == "MLB":
@@ -1507,6 +1562,10 @@ def get_standings(league_key):
         return _get_ncaam_standings_fast()
     elif league_key == "NCAAWB":
         return _get_ncaawb_standings_fast()
+    elif league_key == "NCAAH":
+        return _get_ncaah_standings_fast()
+    elif league_key == "NCAAWH":
+        return _get_ncaawh_standings_fast()
     else:
         # Fallback to original method for other leagues
         return _get_standings_original(league_key)
@@ -2271,6 +2330,219 @@ def _get_ncaawb_standings_fast():
     except Exception as e:
         print(f"Error in fast NCAAWB standings: {e}")
         return _get_standings_original("NCAAWB")
+
+def _get_ncaah_standings_fast():
+    """Fast NCAA Men's Hockey standings with conference support"""
+    try:
+        # First, get conference name mapping from standings endpoint
+        standings_url = "https://site.api.espn.com/apis/v2/sports/hockey/mens-college-hockey/standings"
+        conf_map = {}
+        
+        resp = requests.get(standings_url)
+        if resp.status_code == 200:
+            data = resp.json()
+            conferences = data.get('children', [])
+            
+            # Build conference ID to name mapping
+            for conf in conferences:
+                conf_id = conf.get('id')
+                conf_name = conf.get('name', 'Unknown')
+                if conf_id:
+                    conf_map[str(conf_id)] = conf_name
+            
+            # Check if standings has meaningful data (more than just 1-2 teams)
+            total_entries = sum(len(conf.get('standings', {}).get('entries', [])) for conf in conferences)
+            
+            if total_entries > 10:  # If we have substantial standings data
+                standings = []
+                for conference in conferences:
+                    conf_name = conference.get('name', 'Independent')
+                    entries = conference.get('standings', {}).get('entries', [])
+                    
+                    for entry in entries:
+                        team_info = entry.get('team', {})
+                        stats_list = entry.get('stats', [])
+                        
+                        # Create stats lookup - handle both 'value' and 'displayValue'
+                        stats = {}
+                        for stat in stats_list:
+                            stat_name = stat.get('name', '')
+                            stat_value = stat.get('value', stat.get('displayValue', 0))
+                            stats[stat_name] = stat_value
+                        
+                        # Extract team data
+                        wins = int(float(stats.get('wins', 0)))
+                        losses = int(float(stats.get('losses', 0)))
+                        total_games = wins + losses
+                        win_pct = (wins / total_games) if total_games > 0 else 0.0
+                        
+                        team_data = {
+                            "team_name": team_info.get('displayName', 'Unknown'),
+                            "team_id": str(team_info.get('id', '')),
+                            "abbreviation": team_info.get('abbreviation', ''),
+                            "wins": wins,
+                            "losses": losses,
+                            "win_percentage": f"{win_pct:.3f}",
+                            "games_back": "—",
+                            "division": conf_name,
+                            "streak": "",
+                            "logo": team_info.get("logos", [{}])[0].get("href", "") if team_info.get("logos") else ""
+                        }
+                        standings.append(team_data)
+                
+                # Sort by conference, then by wins (descending), then losses (ascending)
+                standings.sort(key=lambda x: (x["division"], -x["wins"], x["losses"]))
+                return standings
+        
+        # Fall back to teams endpoint with conference lookup
+        # Note: ESPN's hockey data is incomplete - records not available in API
+        teams_url = "https://site.api.espn.com/apis/site/v2/sports/hockey/mens-college-hockey/teams?limit=200"
+        resp = requests.get(teams_url)
+        
+        if resp.status_code != 200:
+            return []
+        
+        data = resp.json()
+        teams = data.get("sports", [{}])[0].get("leagues", [{}])[0].get("teams", [])
+        
+        # Note: Due to ESPN API limitations, we show teams without records
+        # Conference grouping would require 50+ individual API calls which is too slow
+        # Teams are shown alphabetically in a single group
+        standings = []
+        for team_entry in teams:
+            team = team_entry.get("team", {})
+            team_id = str(team.get("id", ""))
+            
+            team_data = {
+                "team_name": team.get("displayName", "Unknown"),
+                "team_id": team_id,
+                "abbreviation": team.get("abbreviation", ""),
+                "wins": 0,
+                "losses": 0,
+                "win_percentage": "0.000",
+                "games_back": "—",
+                "division": "NCAA Men's Hockey",
+                "streak": "",
+                "logo": team.get("logos", [{}])[0].get("href", "") if team.get("logos") else ""
+            }
+            standings.append(team_data)
+        
+        # Sort by conference, then by team name
+        standings.sort(key=lambda x: (x["division"], x["team_name"]))
+        return standings
+        
+    except Exception as e:
+        print(f"Error in NCAAH standings: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
+
+def _get_ncaawh_standings_fast():
+    """Fast NCAA Women's Hockey standings with conference support"""
+    try:
+        # First, get conference name mapping from standings endpoint
+        standings_url = "https://site.api.espn.com/apis/v2/sports/hockey/womens-college-hockey/standings"
+        conf_map = {}
+        
+        resp = requests.get(standings_url)
+        if resp.status_code == 200:
+            data = resp.json()
+            conferences = data.get('children', [])
+            
+            # Build conference ID to name mapping
+            for conf in conferences:
+                conf_id = conf.get('id')
+                conf_name = conf.get('name', 'Unknown')
+                if conf_id:
+                    conf_map[str(conf_id)] = conf_name
+            
+            # Check if standings has meaningful data (more than just 1-2 teams)
+            total_entries = sum(len(conf.get('standings', {}).get('entries', [])) for conf in conferences)
+            
+            if total_entries > 10:  # If we have substantial standings data
+                standings = []
+                for conference in conferences:
+                    conf_name = conference.get('name', 'Independent')
+                    entries = conference.get('standings', {}).get('entries', [])
+                    
+                    for entry in entries:
+                        team_info = entry.get('team', {})
+                        stats_list = entry.get('stats', [])
+                        
+                        # Create stats lookup - handle both 'value' and 'displayValue'
+                        stats = {}
+                        for stat in stats_list:
+                            stat_name = stat.get('name', '')
+                            stat_value = stat.get('value', stat.get('displayValue', 0))
+                            stats[stat_name] = stat_value
+                        
+                        # Extract team data
+                        wins = int(float(stats.get('wins', 0)))
+                        losses = int(float(stats.get('losses', 0)))
+                        total_games = wins + losses
+                        win_pct = (wins / total_games) if total_games > 0 else 0.0
+                        
+                        team_data = {
+                            "team_name": team_info.get('displayName', 'Unknown'),
+                            "team_id": str(team_info.get('id', '')),
+                            "abbreviation": team_info.get('abbreviation', ''),
+                            "wins": wins,
+                            "losses": losses,
+                            "win_percentage": f"{win_pct:.3f}",
+                            "games_back": "—",
+                            "division": conf_name,
+                            "streak": "",
+                            "logo": team_info.get("logos", [{}])[0].get("href", "") if team_info.get("logos") else ""
+                        }
+                        standings.append(team_data)
+                
+                # Sort by conference, then by wins (descending), then losses (ascending)
+                standings.sort(key=lambda x: (x["division"], -x["wins"], x["losses"]))
+                return standings
+        
+        # Fall back to teams endpoint with conference lookup
+        # NOTE: Wisconsin Badgers women's hockey is missing from ESPN's teams endpoint (API limitation)
+        # NOTE: ESPN's hockey data is incomplete - records not available in API
+        teams_url = "https://site.api.espn.com/apis/site/v2/sports/hockey/womens-college-hockey/teams?limit=200"
+        resp = requests.get(teams_url)
+        
+        if resp.status_code != 200:
+            return []
+        
+        data = resp.json()
+        teams = data.get("sports", [{}])[0].get("leagues", [{}])[0].get("teams", [])
+        
+        # Note: Due to ESPN API limitations, we show teams without records
+        # Conference grouping would require 44+ individual API calls which is too slow
+        # Teams are shown alphabetically in a single group
+        standings = []
+        for team_entry in teams:
+            team = team_entry.get("team", {})
+            team_id = str(team.get("id", ""))
+            
+            team_data = {
+                "team_name": team.get("displayName", "Unknown"),
+                "team_id": team_id,
+                "abbreviation": team.get("abbreviation", ""),
+                "wins": 0,
+                "losses": 0,
+                "win_percentage": "0.000",
+                "games_back": "—",
+                "division": "NCAA Women's Hockey",
+                "streak": "",
+                "logo": team.get("logos", [{}])[0].get("href", "") if team.get("logos") else ""
+            }
+            standings.append(team_data)
+        
+        # Sort by conference, then by team name
+        standings.sort(key=lambda x: (x["division"], x["team_name"]))
+        return standings
+        
+    except Exception as e:
+        print(f"Error in NCAAWH standings: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
 
 def _get_standings_original(league_key):
     """Original standings method (slower but works for all leagues)"""

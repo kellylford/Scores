@@ -1089,6 +1089,8 @@ class LeagueView(BaseView):
             self._show_news_dialog(); return
         if data == "__standings__":
             self._show_standings_dialog(); return
+        if data == "__polls__":
+            self._show_polls_dialog(); return
         if data == "__statistics__":
             self._show_statistics_dialog(); return
         if data == "__teams__":
@@ -1150,10 +1152,17 @@ class LeagueView(BaseView):
                 self._show_api_error(f"Failed to load scores: {str(e)}")
 
     def _add_common_sections(self):
-        if self.league in ["MLB", "NFL", "NBA", "NHL", "NCAAF", "NCAAM", "NCAAWB"]:
+        if self.league in ["MLB", "NFL", "NBA", "NHL", "NCAAF", "NCAAM", "NCAAWB", "NCAAH", "NCAAWH"]:
             self.scores_list.addItem("--- Standings ---")
             standings_item = self.scores_list.item(self.scores_list.count()-1)
             standings_item.setData(Qt.ItemDataRole.UserRole, "__standings__")
+            
+            # Add Polls for NCAA sports (have ranking data)
+            if self.league in ["NCAAF", "NCAAM", "NCAAWB", "NCAAH", "NCAAWH"]:
+                self.scores_list.addItem("--- Polls ---")
+                polls_item = self.scores_list.item(self.scores_list.count()-1)
+                polls_item.setData(Qt.ItemDataRole.UserRole, "__polls__")
+            
             self.scores_list.addItem("--- Statistics ---")
             statistics_item = self.scores_list.item(self.scores_list.count()-1)
             statistics_item.setData(Qt.ItemDataRole.UserRole, "__statistics__")
@@ -1235,6 +1244,36 @@ class LeagueView(BaseView):
                 self.parent_app.update_window_title([self.league])
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to display standings: {str(e)}")
+    
+    def _show_polls_dialog(self):
+        """Show polls/rankings dialog"""
+        try:
+            # Update window title to show we're viewing polls
+            if self.parent_app:
+                self.parent_app.update_window_title(["Polls", self.league])
+            
+            # Get rankings data
+            polls_data = ApiService.get_rankings(self.league)
+            
+            if not polls_data or not polls_data.get('polls'):
+                QMessageBox.information(self, "Polls", 
+                                      f"No poll data available for {self.league}.")
+                # Restore original title
+                if self.parent_app:
+                    self.parent_app.update_window_title([self.league])
+                return
+            
+            dialog = PollsDialog(polls_data, self.league, self)
+            dialog.exec()
+            
+            # Restore original title when dialog closes
+            if self.parent_app:
+                self.parent_app.update_window_title([self.league])
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to show polls: {str(e)}")
+            # Restore original title on error
+            if self.parent_app:
+                self.parent_app.update_window_title([self.league])
     
     def _show_statistics_dialog(self):
         """Show statistics dialog with new flow: choose team/player → select stat → view results"""
@@ -6932,6 +6971,179 @@ class StandingsDialog(QDialog):
                     if hasattr(w, "table"):
                         w.table.setFocus()  # type: ignore[attr-defined]
                     event.accept(); return
+        super().keyPressEvent(event)
+
+
+class PollsTable(AccessibleTable):
+    """Specialized table for displaying poll rankings"""
+    
+    def __init__(self, parent=None, poll_name: str = "Poll", is_hockey: bool = False):
+        super().__init__(
+            parent=parent,
+            accessible_name=f"{poll_name} Rankings",
+            accessible_description=f"{poll_name} rankings table showing team positions and records"
+        )
+        self.poll_name = poll_name
+        self.is_hockey = is_hockey
+        
+        # Setup columns
+        if is_hockey:
+            headers = ["Rank", "Team", "Record (W-L-T)", "Points", "Previous"]
+        else:
+            headers = ["Rank", "Team", "Record", "Points", "Previous"]
+        
+        self.setup_columns(headers, stretch_column=1)  # Team name stretches
+    
+    def populate_poll(self, ranks: List[Dict], set_focus: bool = True):
+        """
+        Populate table with poll ranking data.
+        
+        Args:
+            ranks: List of rank dictionaries from poll data
+            set_focus: Whether to set focus to first cell after populating
+        """
+        if not ranks:
+            self.table_widget.setRowCount(0)
+            return
+        
+        rows = []
+        for rank_data in ranks:
+            current_rank = rank_data.get('current', 0)
+            previous_rank = rank_data.get('previous', 0)
+            points = rank_data.get('points', 0)
+            record = rank_data.get('recordSummary', 'N/A')
+            
+            team_info = rank_data.get('team', {})
+            # Construct team name from location and name/nickname
+            location = team_info.get('location', '')
+            name = team_info.get('name', team_info.get('nickname', ''))
+            if location and name:
+                team_name = f"{location} {name}"
+            else:
+                team_name = location or name or team_info.get('displayName', 'Unknown')
+            
+            # Points display
+            points_str = f"{points:.0f}" if points > 0 else ""
+            
+            # Previous rank with movement indicator
+            if previous_rank == 0:
+                prev_str = "NR"  # Not Ranked
+            elif previous_rank > current_rank:
+                prev_str = f"{previous_rank} ↑"
+            elif previous_rank < current_rank:
+                prev_str = f"{previous_rank} ↓"
+            else:
+                prev_str = f"{previous_rank} —"
+            
+            row = [str(current_rank), team_name, record, points_str, prev_str]
+            rows.append(row)
+        
+        self.populate_data(rows, set_focus)
+
+
+class PollsDialog(QDialog):
+    """Dialog for displaying poll/ranking data with multi-tab view"""
+    
+    def __init__(self, polls_data: Dict, league: str, parent=None):
+        super().__init__(parent)
+        self.polls_data = polls_data
+        self.league = league
+        self.setWindowTitle(f"{league} Polls & Rankings")
+        self.resize(STANDINGS_DIALOG_WIDTH, STANDINGS_DIALOG_HEIGHT)
+        self.tab_widget: QTabWidget | None = None
+        self.setup_ui()
+    
+    def setup_ui(self):
+        layout = QVBoxLayout()
+        
+        polls = self.polls_data.get('polls', [])
+        
+        if not polls:
+            layout.addWidget(QLabel(f"No poll data available for {self.league}."))
+        elif len(polls) == 1:
+            # Single poll - just show the table
+            table = self._create_poll_table(polls[0])
+            layout.addWidget(QLabel(f"{polls[0].get('name', 'Rankings')}:"))
+            layout.addWidget(table)
+            table.setFocus()
+        else:
+            # Multiple polls - use tabs
+            self._build_poll_tabs(layout, polls)
+        
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        layout.addWidget(close_btn)
+        self.setLayout(layout)
+    
+    def _build_poll_tabs(self, layout: QVBoxLayout, polls: List[Dict]):
+        """Build tabbed interface for multiple polls"""
+        self.tab_widget = QTabWidget()
+        self.tab_widget.setAccessibleName("Poll Rankings")
+        self.tab_widget.setAccessibleDescription("Rankings from different polls. Use arrow keys to navigate between polls.")
+        
+        for poll in polls:
+            poll_name = poll.get('shortName', poll.get('name', 'Poll'))
+            table = self._create_poll_table(poll)
+            
+            # Wrap table in a widget
+            tab_widget = QWidget()
+            tab_layout = QVBoxLayout()
+            tab_layout.addWidget(table)
+            tab_widget.setLayout(tab_layout)
+            tab_widget.table = table  # Store reference for focus management
+            
+            self.tab_widget.addTab(tab_widget, poll_name)
+        
+        layout.addWidget(self.tab_widget)
+        
+        # Set focus on first table
+        if self.tab_widget.count() > 0:
+            first_widget = self.tab_widget.widget(0)
+            if hasattr(first_widget, 'table'):
+                first_widget.table.setFocus()
+    
+    def _create_poll_table(self, poll: Dict) -> PollsTable:
+        """Create an accessible table for a single poll"""
+        # Determine if this is hockey (has ties in record)
+        is_hockey = self.league in ["NCAAH", "NCAAWH"]
+        
+        poll_name = poll.get('shortName', poll.get('name', 'Poll'))
+        table = PollsTable(parent=self, poll_name=poll_name, is_hockey=is_hockey)
+        
+        # Get rankings and populate
+        ranks = poll.get('ranks', [])
+        table.populate_poll(ranks, set_focus=True)
+        
+        return table
+    
+    def keyPressEvent(self, event):
+        """Handle keyboard shortcuts"""
+        if event.key() == Qt.Key.Key_Escape:
+            self.reject()
+            return
+        
+        # Tab navigation between polls
+        if self.tab_widget:
+            if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+                if event.key() == Qt.Key.Key_Tab:
+                    # Next tab
+                    i = (self.tab_widget.currentIndex() + 1) % self.tab_widget.count()
+                    self.tab_widget.setCurrentIndex(i)
+                    w = self.tab_widget.widget(i)
+                    if hasattr(w, "table"):
+                        w.table.setFocus()
+                    event.accept()
+                    return
+                elif event.key() == Qt.Key.Key_Backtab:
+                    # Previous tab
+                    i = (self.tab_widget.currentIndex() - 1) % self.tab_widget.count()
+                    self.tab_widget.setCurrentIndex(i)
+                    w = self.tab_widget.widget(i)
+                    if hasattr(w, "table"):
+                        w.table.setFocus()
+                    event.accept()
+                    return
+        
         super().keyPressEvent(event)
 
 

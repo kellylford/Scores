@@ -73,3 +73,8 @@ class ApiService:
     def get_team_statistics(league: str) -> Dict:
         """Get only team statistics for a league (faster)"""
         return ApiService._call(espn_api.get_team_statistics, league)
+    
+    @staticmethod
+    def get_rankings(league: str) -> Dict:
+        """Get poll/ranking data for a league"""
+        return ApiService._call(espn_api.get_rankings, league)
