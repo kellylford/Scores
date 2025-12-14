@@ -1493,6 +1493,59 @@ def format_complex_data(key, value):
     
     return str(value)[:100] + ("..." if len(str(value)) > 100 else "")
 
+def get_rankings(league_key):
+    """Get current poll/ranking data for a specific league
+    
+    Returns a dict with structure:
+    {
+        'polls': [
+            {
+                'name': 'AP Top 25',
+                'type': 'ap', 
+                'shortName': 'AP Poll',
+                'headline': 'Poll headline',
+                'ranks': [
+                    {
+                        'current': 1,
+                        'previous': 2,
+                        'points': 1650,
+                        'recordSummary': '13-0',
+                        'team': {
+                            'id': '84',
+                            'location': 'Indiana',
+                            'nickname': 'Hoosiers',
+                            'displayName': 'Indiana Hoosiers',
+                            'abbreviation': 'IND',
+                            'logos': [...],
+                            'color': '990000'
+                        }
+                    },
+                    ...
+                ]
+            },
+            ...
+        ]
+    }
+    """
+    league_path = LEAGUES.get(league_key)
+    if not league_path:
+        return {'polls': []}
+    
+    try:
+        url = f"{BASE_URL}/{league_path}/rankings"
+        resp = requests.get(url)
+        
+        if resp.status_code != 200:
+            return {'polls': []}
+        
+        data = resp.json()
+        polls = data.get('rankings', [])
+        
+        return {'polls': polls}
+    except Exception as e:
+        print(f"Failed to fetch rankings for {league_key}: {e}")
+        return {'polls': []}
+
 def get_standings(league_key):
     """Get current standings for a specific league using optimized API endpoint"""
     if league_key == "MLB":
