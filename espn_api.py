@@ -1509,6 +1509,10 @@ def get_standings(league_key):
         return _get_ncaam_standings_fast()
     elif league_key == "NCAAWB":
         return _get_ncaawb_standings_fast()
+    elif league_key == "NCAAH":
+        return _get_ncaah_standings_fast()
+    elif league_key == "NCAAWH":
+        return _get_ncaawh_standings_fast()
     else:
         # Fallback to original method for other leagues
         return _get_standings_original(league_key)
@@ -2273,6 +2277,120 @@ def _get_ncaawb_standings_fast():
     except Exception as e:
         print(f"Error in fast NCAAWB standings: {e}")
         return _get_standings_original("NCAAWB")
+
+def _get_ncaah_standings_fast():
+    """Fast NCAA Men's Hockey standings using teams endpoint"""
+    try:
+        # NCAA Hockey standings endpoint has minimal data early season, use teams endpoint
+        url = "https://site.api.espn.com/apis/site/v2/sports/hockey/mens-college-hockey/teams"
+        resp = requests.get(url)
+        
+        if resp.status_code != 200:
+            return []
+        
+        data = resp.json()
+        standings = []
+        
+        # Navigate through teams structure
+        sports = data.get("sports", [])
+        if not sports:
+            return []
+        
+        leagues = sports[0].get("leagues", [])
+        if not leagues:
+            return []
+        
+        teams = leagues[0].get("teams", [])
+        
+        # Process each team
+        for team_entry in teams:
+            team = team_entry.get("team", {})
+            
+            team_name = team.get("displayName", "Unknown")
+            team_id = str(team.get("id", ""))
+            abbreviation = team.get("abbreviation", "")
+            
+            # Teams endpoint doesn't include conference info, use "All Teams" as division
+            team_data = {
+                "team_name": team_name,
+                "team_id": team_id,
+                "abbreviation": abbreviation,
+                "wins": 0,
+                "losses": 0,
+                "win_percentage": "0.000",
+                "games_back": "—",
+                "division": "NCAA Men's Hockey",  # No conference data available
+                "streak": "",
+                "logo": team.get("logos", [{}])[0].get("href", "") if team.get("logos") else ""
+            }
+            
+            standings.append(team_data)
+        
+        # Sort by team name
+        standings.sort(key=lambda x: x["team_name"])
+        
+        return standings
+        
+    except Exception as e:
+        print(f"Error in fast NCAAH standings: {e}")
+        return []
+
+def _get_ncaawh_standings_fast():
+    """Fast NCAA Women's Hockey standings using teams endpoint"""
+    try:
+        # NCAA Hockey standings endpoint has minimal data early season, use teams endpoint
+        url = "https://site.api.espn.com/apis/site/v2/sports/hockey/womens-college-hockey/teams"
+        resp = requests.get(url)
+        
+        if resp.status_code != 200:
+            return []
+        
+        data = resp.json()
+        standings = []
+        
+        # Navigate through teams structure
+        sports = data.get("sports", [])
+        if not sports:
+            return []
+        
+        leagues = sports[0].get("leagues", [])
+        if not leagues:
+            return []
+        
+        teams = leagues[0].get("teams", [])
+        
+        # Process each team
+        for team_entry in teams:
+            team = team_entry.get("team", {})
+            
+            team_name = team.get("displayName", "Unknown")
+            team_id = str(team.get("id", ""))
+            abbreviation = team.get("abbreviation", "")
+            
+            # Teams endpoint doesn't include conference info, use "All Teams" as division
+            team_data = {
+                "team_name": team_name,
+                "team_id": team_id,
+                "abbreviation": abbreviation,
+                "wins": 0,
+                "losses": 0,
+                "win_percentage": "0.000",
+                "games_back": "—",
+                "division": "NCAA Women's Hockey",  # No conference data available
+                "streak": "",
+                "logo": team.get("logos", [{}])[0].get("href", "") if team.get("logos") else ""
+            }
+            
+            standings.append(team_data)
+        
+        # Sort by team name
+        standings.sort(key=lambda x: x["team_name"])
+        
+        return standings
+        
+    except Exception as e:
+        print(f"Error in fast NCAAWH standings: {e}")
+        return []
 
 def _get_standings_original(league_key):
     """Original standings method (slower but works for all leagues)"""
