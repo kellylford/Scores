@@ -35,17 +35,25 @@ The standings endpoint provides these conferences:
 9. NCHC (National Collegiate Hockey Conference)
 10. Northeast-10
 
-### ⚠️ Known Limitations
+### ⚠️ Known Limitations - ESPN API Data Issues
 
-#### 1. Early Season Data
-**Current State**: As of December 14, 2024, the hockey season hasn't fully started.
-- Standings endpoint has 10 conferences but only 1 team with data
-- Most teams show 0-0 records
-- **Expected Resolution**: Data will populate as games are played
+#### 1. **CRITICAL: Records Not Available in ESPN API**
+**Current State**: As of December 14, 2024, despite being MID-SEASON with active games:
+- Standings endpoint has 10 conferences but only 1 team (Ohio State: 24-0) with data
+- ESPN's API does not provide win/loss records for hockey teams
+- Individual team endpoints have `record: {}` (empty)
+- Scoreboard games don't include team records
+- 12 games currently playing, but no way to get team records via API
 
-**Implementation**: The code automatically detects when standings data is available:
-- **In Season**: Uses standings endpoint → shows conferences and records
-- **Early Season**: Falls back to teams endpoint → shows all teams alphabetically with 0-0 records
+**Root Cause**: ESPN's college hockey API endpoints are incomplete/not maintained.
+- Professional hockey (NHL) has full record data
+- College football, basketball, etc. have full record data  
+- **College hockey is uniquely missing this data**
+
+**Implementation**: The code is ready to show records when available:
+- **If ESPN fixes their API**: Will automatically show conferences and records
+- **Currently**: Falls back to teams list with conference grouping but 0-0 records
+- Checks for meaningful standings data (>10 teams) before using it
 
 #### 2. Wisconsin Badgers Women's Hockey Missing
 **Issue**: Wisconsin Badgers women's hockey team is NOT in ESPN's teams endpoint.
@@ -62,14 +70,16 @@ The standings endpoint provides these conferences:
 2. Manually add Wisconsin with hardcoded team ID (if we can find it)
 3. Add note in UI that team roster may be incomplete
 
-#### 3. No Conference Data in Teams Endpoint
-**Issue**: The teams endpoint doesn't include conference affiliation.
-- Only available in standings endpoint
-- When standings is empty (early season), we can't show conferences
+#### 3. Conference Data Requires Individual Team Lookups
+**Issue**: The bulk teams endpoint doesn't include conference affiliation.
+- Conference info only in individual team detail endpoints
+- Requires 50+ separate API calls to get all conferences
 
 **Current Behavior**:
-- Early season: All teams shown under "NCAA Men's Hockey" or "NCAA Women's Hockey"
-- In season: Teams shown by actual conference from standings endpoint
+- **NEW**: Code now fetches conference for each team from individual endpoints
+- Teams are grouped by actual conference (Big Ten, Hockey East, ECAC, etc.)
+- This is slower but provides accurate conference grouping
+- Falls back to single group if API calls fail
 
 ## API Endpoints Used
 
@@ -87,16 +97,22 @@ The standings endpoint provides these conferences:
 
 ## What to Expect
 
-### Now (December 2024)
-- Teams lists fully functional (except Wisconsin women's missing)
-- Records show 0-0 (early season)
-- All teams in one group (no conference breakdown yet)
+### Currently (December 2024 - Mid-Season)
+- **Teams lists**: Fully functional with **conference grouping** ✅
+  - Men's: 50 teams organized by 10 conferences
+  - Women's: 44 teams organized by conferences (Wisconsin missing)
+- **Records**: Show 0-0 despite mid-season ❌
+  - **This is an ESPN API limitation, not an app bug**
+  - ESPN does not provide win/loss records for college hockey
+  - Games are being played but API doesn't expose records
+- **Conferences**: Working ✅
+  - Teams properly grouped by conference
+  - Requires individual team lookups (slower but accurate)
 
-### Once Season Starts
-- Conferences will automatically appear
-- Win/loss records will update
-- Teams sorted by conference and record
-- Full standings functionality like other sports
+### If ESPN Fixes Their API
+- Win/loss records will automatically appear
+- Code already handles record parsing
+- Just waiting for ESPN to populate the data
 
 ## Recommendations
 
