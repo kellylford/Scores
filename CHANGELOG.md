@@ -14,21 +14,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.65.0] - 2025-12-14
 
+### Added
+- **NCAA Hockey Support**: Complete Men's and Women's Hockey coverage
+  - NCAA Men's Hockey (NCAAH): 50 teams across 10+ conferences
+  - NCAA Women's Hockey (NCAAWH): 44 teams with conference standings
+  - Live games, scores, and play-by-play details
+  - Full team listings with schedule navigation
+  - Conference-based standings (Hockey East, Big Ten, ECAC, NCHC, CCHA, CHA, Atlantic Hockey America, etc.)
+  - Hockey-specific record format handling (W-L-T)
+
+- **Polls & Rankings Feature**: Official poll tracking for all NCAA sports
+  - NCAA Football: CFP Rankings, CFP Seedings, AP Poll, Coaches Poll (4 polls)
+  - NCAA Men's Basketball: AP Poll, Coaches Poll (2 polls)
+  - NCAA Women's Basketball: AP Poll, Coaches Poll (2 polls)
+  - NCAA Men's Hockey: USA Hockey Poll, USCHO Poll (2 polls)
+  - NCAA Women's Hockey: USA Hockey Poll, USCHO Poll (2 polls)
+  - Multi-tab interface for sports with multiple polls
+  - Rank change indicators (↑/↓) showing movement from previous week
+  - Displays rank, team, record, points, and previous rank
+  - Accessible table format with keyboard navigation (Ctrl+Tab between polls)
+
 ### Changed
 - **Enhanced League Name Display**: All league abbreviations now display with full, descriptive names
   - Main league selection screen shows complete sport names with gender designation
-  - Live scores section headers use formatted league names (e.g., "NCAA Women's Hockey" instead of "NCAAWH")
+  - Live scores section headers use formatted league names
   - Window titles display full sport names in breadcrumb navigation
-  - Score view labels show formatted league names
-  - Game detail dialogs include full sport names in titles
-  - Improved accessibility for screen readers and new users
-  - Gender-specific sports now explicitly labeled (Men's/Women's)
-  - Applied to: NCAAWH → NCAA Women's Hockey, NCAAWB → NCAA Women's Basketball, NCAAH → NCAA Men's Hockey, NCAAM → NCAA Men's Basketball, NCAAF → NCAA Football
+  - Applied to: NCAA Women's Hockey, NCAA Men's Hockey, NCAA Women's Basketball, NCAA Men's Basketball, NCAA Football
 
 ### Technical
+- Added `get_rankings()` API endpoint integration for poll data
+- Created `PollsDialog` component with multi-tab support
+- Implemented hockey conference structure parsing
 - Added `format_league_name()` utility function for consistent name formatting
 - Internal API calls maintain efficient abbreviation codes for performance
-- Backward compatible with all existing functionality
 
 ## [0.55.0] - 2025-08-31
 

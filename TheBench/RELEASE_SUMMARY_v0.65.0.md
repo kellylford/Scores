@@ -1,33 +1,41 @@
 # Scores v0.65.0 - Quick Release Summary
 
-## 🎯 Accessibility Enhancement Release
+## 🎯 Major Features Release
 
-### What Changed
-Full sport name display throughout the application for better clarity and accessibility.
+### What's New
+NCAA Hockey support and comprehensive polls/rankings for all college sports.
 
 ### Key Features
-✅ **NCAA Women's Hockey** instead of NCAAWH  
-✅ **NCAA Women's Basketball** instead of NCAAWB  
-✅ **NCAA Men's Hockey** instead of NCAAH  
-✅ **NCAA Men's Basketball** instead of NCAAM  
-✅ **NCAA Football** instead of NCAAF  
 
-### Where You'll See It
-- Main league selection screen
-- Live scores section headers
-- Window titles
-- All in-app labels and headers
+#### 🏒 NCAA Hockey
+✅ **NCAA Men's Hockey** - 50 teams, 10+ conferences  
+✅ **NCAA Women's Hockey** - 44 teams  
+✅ Live games, standings, teams, and schedules  
+✅ Conference-based standings display  
+✅ Full game details and play-by-play  
+
+#### 📊 Polls & Rankings
+✅ **NCAA Football** - 4 polls (CFP, CFP Seedings, AP, Coaches)  
+✅ **NCAA Basketball** - 2 polls each (Men's & Women's)  
+✅ **NCAA Hockey** - 2 polls each (USA Hockey, USCHO)  
+✅ Multi-tab interface with rank tracking  
+✅ Shows movement indicators (↑/↓)  
+
+#### 🎨 Better Sport Names
+✅ Full descriptive names throughout the app  
+✅ "NCAA Women's Hockey" instead of NCAAWH  
+✅ Applied to menus, headers, and window titles  
+
+### How to Access
+- **Hockey**: Select NCAA Men's or Women's Hockey from main menu
+- **Polls**: Choose "Polls" from any NCAA sport's game view
+- **All Features**: Available immediately upon launch
 
 ### Benefits
-- Clearer for new users
-- Better screen reader support
-- No ambiguity about sport or gender
-- More professional appearance
-
-### Technical
-- Backward compatible
-- No performance impact
-- Full coverage across all UI elements
+- Expanded sports coverage to include hockey
+- Official poll tracking for college sports fans
+- Clearer interface with full sport names
+- Consistent accessible design
 
 ---
 

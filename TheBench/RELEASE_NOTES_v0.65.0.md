@@ -1,83 +1,92 @@
 # Scores v0.65.0 Release Notes
 
-## 🎯 Accessibility Enhancement Release
+## 🎯 Major Features Release
 
-This release focuses on improving clarity and accessibility by spelling out sport names and gender designations throughout the application interface.
+This release adds significant new sports coverage with NCAA Hockey support and comprehensive poll/ranking displays for all college sports.
 
 ### ✨ What's New
 
-#### Enhanced League Name Display
-**Better Clarity for All Users** - League abbreviations now display with full, descriptive names:
+#### 🏒 NCAA Hockey Support (Men's & Women's)
+**Preliminary hockey Coverage** - The start of support for NCAA Men's and Women's Hockey:
+- **Live Games & Scores** - Real-time game updates for both divisions
+- **Team Listings** - Browse all NCAA hockey teams (50 men's, 44 women's teams)
+- **Full Game Details** - Box scores, play-by-play, and team statistics
+- **Schedule Navigation** - View any date's hockey games
 
-- **NCAA Women's Hockey** (formerly NCAAWH)
-- **NCAA Women's Basketball** (formerly NCAAWB)
-- **NCAA Men's Hockey** (formerly NCAAH)
-- **NCAA Men's Basketball** (formerly NCAAM)
-- **NCAA Football** (formerly NCAAF)
+#### 📊 Polls & Rankings Feature
+**Official Poll Tracking** - View official polls and rankings for all NCAA sports:
 
-This enhancement affects:
-- **Main League Selection Screen**: Clear sport names when choosing which sport to view
-- **Live Scores Section Headers**: Organized game listings with descriptive headers
-- **Window Titles**: Full sport names in title bar for better context awareness
-- **In-App Labels**: All sport references now use complete, unambiguous names
+**NCAA Football (4 Polls):**
+- College Football Playoff Rankings (25 teams)
+- CFP Playoff Seedings (12 teams)
+- AP Top 25 Poll
+- AFCA Coaches Poll
 
-### 🔍 Why This Matters
+**NCAA Basketball (2 Polls Each):**
+- Men's & Women's AP Poll (25 teams)
+- Men's & Women's Coaches Poll (25 teams)
 
-#### Accessibility Benefits
-- **Screen Reader Friendly**: Full names are immediately understandable without needing to know abbreviations
-- **New User Experience**: No learning curve for understanding sport abbreviations
-- **Gender Clarity**: Explicit designation of men's and women's sports removes ambiguity
-- **Context Awareness**: Window titles and headers now provide complete information at a glance
+**NCAA Hockey (2 Polls Each):**
+- Men's & Women's USA Hockey Poll (20/15 teams)
+- Men's & Women's USCHO Poll (20/15 teams)
 
-#### Real-World Impact
-Before this release, users saw:
-```
---- NCAAWH ---
-Michigan vs Wisconsin
-```
+**Poll Features:**
+- Multi-tab interface when multiple polls available
+- Shows rank, team, record, points, and previous rank
+- Movement indicators (↑/↓) for rank changes
+- Accessible table format with keyboard navigation
+- Ctrl+Tab to switch between poll tabs
+- Use Alt+Q (Quick List), Alt+F (Full List), or Alt+T (Table) to switch between view modes for tables
 
-Now they see:
-```
---- NCAA Women's Hockey ---
-Michigan vs Wisconsin
-```
+### 🎨 User Experience Improvements
 
-This makes the interface:
-- More welcoming to new users
-- Easier to navigate with assistive technologies
-- Clearer when multitasking or quickly checking scores
-- More professional and polished
+#### Clearer Sport Names
+League abbreviations now display with full, descriptive names throughout the app:
+- NCAA Women's Hockey (NCAAWH)
+- NCAA Men's Hockey (NCAAH)
+- NCAA Women's Basketball (NCAAWB)
+- NCAA Men's Basketball (NCAAM)
+- NCAA Football (NCAAF)
 
-### 🎨 Technical Details
-
-All changes maintain backward compatibility:
-- Internal API calls still use efficient abbreviation codes
-- No performance impact from longer display names
-- Consistent formatting across all interface elements
-- Comprehensive coverage of main screen, dialogs, and window titles
+Applied to: main menu, live scores headers, window titles, and all labels.
 
 ### 🚀 Getting Started
 
 **For New Users:**
 1. Download and launch Scores v0.65.0
-2. Notice the clear, descriptive sport names on the main selection screen
-3. Choose your sport and enjoy organized, well-labeled game listings
+2. Select NCAA Men's or Women's Hockey from the main menu
+3. Access Polls from any NCAA sport's game view
+4. Explore live games, standings, and team schedules
 
 **For Existing Users:**
-No action needed - you'll immediately see the clearer sport names throughout the application.
+- New hockey sports appear in your league selection list
+- Look for "Polls" option in NCAA sport views
+- All existing features continue to work as before
 
 ### 📋 Full Change List
 
+#### Added
+- Full NCAA Men's Hockey (NCAAH) support with 50 teams across 10+ conferences
+- Full NCAA Women's Hockey (NCAAWH) support with 44 teams
+- Polls/Rankings display for all NCAA sports (Football, Basketball, Hockey)
+- Multi-tab poll interface supporting 2-4 polls per sport
+- Poll rank change indicators and movement tracking
+
 #### Changed
-- Main league selection list now displays full sport names with gender designation
+- Main league selection displays full descriptive sport names
 - Live scores section headers use complete league names
-- Window titles show full sport names in breadcrumb navigation
-- Score view headers display formatted league names
-- Game detail dialogs include full sport names in titles
+- Window titles show formatted sport names
+- All UI labels spell out sport names with gender designation
+
+#### Technical
+- Added `get_rankings()` API endpoint integration
+- Created `PollsDialog` component with accessible table support
+- Implemented hockey conference structure parsing
+- Added format_league_name() utility for consistent naming
 
 ### 🎯 What's Next
 
-We continue to focus on accessibility and user experience improvements. Future releases will bring more enhancements to make Scores the most accessible sports application available.
+Future releases will continue expanding sports coverage and adding new analysis features. Stay tuned for more updates!
 
 ---
 
