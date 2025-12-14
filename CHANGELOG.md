@@ -12,6 +12,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Core infrastructure implemented, text processing being refined
   - Game story text placeholders currently under investigation
 
+## [0.65.0] - 2025-12-14
+
+### Changed
+- **Enhanced League Name Display**: All league abbreviations now display with full, descriptive names
+  - Main league selection screen shows complete sport names with gender designation
+  - Live scores section headers use formatted league names (e.g., "NCAA Women's Hockey" instead of "NCAAWH")
+  - Window titles display full sport names in breadcrumb navigation
+  - Score view labels show formatted league names
+  - Game detail dialogs include full sport names in titles
+  - Improved accessibility for screen readers and new users
+  - Gender-specific sports now explicitly labeled (Men's/Women's)
+  - Applied to: NCAAWH → NCAA Women's Hockey, NCAAWB → NCAA Women's Basketball, NCAAH → NCAA Men's Hockey, NCAAM → NCAA Men's Basketball, NCAAF → NCAA Football
+
+### Technical
+- Added `format_league_name()` utility function for consistent name formatting
+- Internal API calls maintain efficient abbreviation codes for performance
+- Backward compatible with all existing functionality
+
 ## [0.55.0] - 2025-08-31
 
 ### 🚀 BREAKTHROUGH ACCESSIBILITY FEATURES
