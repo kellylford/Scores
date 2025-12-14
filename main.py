@@ -42,6 +42,8 @@ Examples:
     sports_group.add_argument('--ncaaf', action='store_true', help='Launch to NCAA Football games view')
     sports_group.add_argument('--ncaam', action='store_true', help='Launch to NCAA Men\'s Basketball games view')
     sports_group.add_argument('--ncaawb', action='store_true', help='Launch to NCAA Women\'s Basketball games view')
+    sports_group.add_argument('--ncaah', action='store_true', help='Launch to NCAA Men\'s Hockey games view')
+    sports_group.add_argument('--ncaawh', action='store_true', help='Launch to NCAA Women\'s Hockey games view')
     
     # Teams views
     sports_group.add_argument('--mlb-teams', action='store_true', help='Launch to MLB teams view')
@@ -51,6 +53,8 @@ Examples:
     sports_group.add_argument('--ncaaf-teams', action='store_true', help='Launch to NCAA Football teams view')
     sports_group.add_argument('--ncaam-teams', action='store_true', help='Launch to NCAA Men\'s Basketball teams view')
     sports_group.add_argument('--ncaawb-teams', action='store_true', help='Launch to NCAA Women\'s Basketball teams view')
+    sports_group.add_argument('--ncaah-teams', action='store_true', help='Launch to NCAA Men\'s Hockey teams view')
+    sports_group.add_argument('--ncaawh-teams', action='store_true', help='Launch to NCAA Women\'s Hockey teams view')
     
     # Standings views
     sports_group.add_argument('--mlb-standings', action='store_true', help='Launch to MLB standings view')
@@ -60,6 +64,8 @@ Examples:
     sports_group.add_argument('--ncaaf-standings', action='store_true', help='Launch to NCAA Football standings view')
     sports_group.add_argument('--ncaam-standings', action='store_true', help='Launch to NCAA Men\'s Basketball standings view')
     sports_group.add_argument('--ncaawb-standings', action='store_true', help='Launch to NCAA Women\'s Basketball standings view')
+    sports_group.add_argument('--ncaah-standings', action='store_true', help='Launch to NCAA Men\'s Hockey standings view')
+    sports_group.add_argument('--ncaawh-standings', action='store_true', help='Launch to NCAA Women\'s Hockey standings view')
     
     return parser.parse_args()
 
@@ -70,17 +76,17 @@ def determine_startup_params(args):
         return {'action': 'live_scores'}
     
     # Check for league game views
-    for sport in ['mlb', 'nfl', 'nba', 'nhl', 'ncaaf', 'ncaam', 'ncaawb']:
+    for sport in ['mlb', 'nfl', 'nba', 'nhl', 'ncaaf', 'ncaam', 'ncaawb', 'ncaah', 'ncaawh']:
         if getattr(args, sport, False):
             return {'action': 'league', 'league': sport.upper()}
     
     # Check for teams views
-    for sport in ['mlb', 'nfl', 'nba', 'nhl', 'ncaaf', 'ncaam', 'ncaawb']:
+    for sport in ['mlb', 'nfl', 'nba', 'nhl', 'ncaaf', 'ncaam', 'ncaawb', 'ncaah', 'ncaawh']:
         if getattr(args, f'{sport}_teams', False):
             return {'action': 'teams', 'league': sport.upper()}
     
     # Check for standings views  
-    for sport in ['mlb', 'nfl', 'nba', 'nhl', 'ncaaf', 'ncaam', 'ncaawb']:
+    for sport in ['mlb', 'nfl', 'nba', 'nhl', 'ncaaf', 'ncaam', 'ncaawb', 'ncaah', 'ncaawh']:
         if getattr(args, f'{sport}_standings', False):
             return {'action': 'standings', 'league': sport.upper()}
     
@@ -116,16 +122,28 @@ Examples:
     sports_group.add_argument('--nba', action='store_true', help='Launch to NBA games view')
     sports_group.add_argument('--nhl', action='store_true', help='Launch to NHL games view')
     sports_group.add_argument('--ncaaf', action='store_true', help='Launch to NCAA Football games view')
+    sports_group.add_argument('--ncaam', action='store_true', help='Launch to NCAA Men\'s Basketball games view')
+    sports_group.add_argument('--ncaawb', action='store_true', help='Launch to NCAA Women\'s Basketball games view')
+    sports_group.add_argument('--ncaah', action='store_true', help='Launch to NCAA Men\'s Hockey games view')
+    sports_group.add_argument('--ncaawh', action='store_true', help='Launch to NCAA Women\'s Hockey games view')
     sports_group.add_argument('--mlb-teams', action='store_true', help='Launch to MLB teams view')
     sports_group.add_argument('--nfl-teams', action='store_true', help='Launch to NFL teams view')
     sports_group.add_argument('--nba-teams', action='store_true', help='Launch to NBA teams view')
     sports_group.add_argument('--nhl-teams', action='store_true', help='Launch to NHL teams view')
     sports_group.add_argument('--ncaaf-teams', action='store_true', help='Launch to NCAA Football teams view')
+    sports_group.add_argument('--ncaam-teams', action='store_true', help='Launch to NCAA Men\'s Basketball teams view')
+    sports_group.add_argument('--ncaawb-teams', action='store_true', help='Launch to NCAA Women\'s Basketball teams view')
+    sports_group.add_argument('--ncaah-teams', action='store_true', help='Launch to NCAA Men\'s Hockey teams view')
+    sports_group.add_argument('--ncaawh-teams', action='store_true', help='Launch to NCAA Women\'s Hockey teams view')
     sports_group.add_argument('--mlb-standings', action='store_true', help='Launch to MLB standings view')
     sports_group.add_argument('--nfl-standings', action='store_true', help='Launch to NFL standings view')
     sports_group.add_argument('--nba-standings', action='store_true', help='Launch to NBA standings view')
     sports_group.add_argument('--nhl-standings', action='store_true', help='Launch to NHL standings view')
     sports_group.add_argument('--ncaaf-standings', action='store_true', help='Launch to NCAA Football standings view')
+    sports_group.add_argument('--ncaam-standings', action='store_true', help='Launch to NCAA Men\'s Basketball standings view')
+    sports_group.add_argument('--ncaawb-standings', action='store_true', help='Launch to NCAA Women\'s Basketball standings view')
+    sports_group.add_argument('--ncaah-standings', action='store_true', help='Launch to NCAA Men\'s Hockey standings view')
+    sports_group.add_argument('--ncaawh-standings', action='store_true', help='Launch to NCAA Women\'s Hockey standings view')
 
     # If --help or -h is present, print help and exit before launching the app
     if '--help' in sys.argv or '-h' in sys.argv:

@@ -12,6 +12,8 @@ LEAGUES = {
     "NCAAF": "football/college-football",
     "NCAAM": "basketball/mens-college-basketball",
     "NCAAWB": "basketball/womens-college-basketball",
+    "NCAAH": "hockey/mens-college-hockey",
+    "NCAAWH": "hockey/womens-college-hockey",
     "Soccer": "soccer/eng.1",  # English Premier League
     # Add more as needed
 }
@@ -29,16 +31,16 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
     is_historical_season = season is not None and season != current_year
     
     # Use dedicated team schedule endpoints for major sports
-    if league_key in ["MLB", "NFL", "NBA", "NHL", "NCAAF"]:
+    if league_key in ["MLB", "NFL", "NBA", "NHL", "NCAAF", "NCAAH", "NCAAWH"]:
         base_url = f"{BASE_URL}/{league_path}/teams/{team_id}/schedule"
         
-        # For NBA, NHL, and MLB, we need to fetch all season types separately and combine
-        if league_key in ["NBA", "NHL", "MLB"]:
+        # For NBA, NHL, MLB, and NCAA Hockey, we need to fetch all season types separately and combine
+        if league_key in ["NBA", "NHL", "MLB", "NCAAH", "NCAAWH"]:
             # Determine season year based on league
             if league_key == "MLB":
                 season_year = season if season else 2025  # MLB uses calendar year
             else:
-                season_year = season if season else 2026  # NBA/NHL use year+1 (2026 = 2025-26 season)
+                season_year = season if season else 2026  # NBA/NHL/NCAA Hockey use year+1 (2026 = 2025-26 season)
             
             all_events = []
             
