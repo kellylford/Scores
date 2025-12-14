@@ -39,6 +39,7 @@ class AccessibleTable(QWidget):
         self._headers = []
         self._data = []
         self._current_view = self.VIEW_TABLE
+        self._needs_data_sync = False
         
         # Setup the view container and individual views
         self._setup_view_container()
@@ -177,6 +178,10 @@ class AccessibleTable(QWidget):
         """Switch to the specified view mode with focus management"""
         if view_mode == self._current_view:
             return
+        
+        # Sync data from table if needed before switching to list views
+        if self._needs_data_sync and (view_mode == self.VIEW_QUICK_LIST or view_mode == self.VIEW_FULL_LIST):
+            self._sync_data_from_table()
             
         # Get current position before switching
         current_row = self._get_current_row()
@@ -518,8 +523,26 @@ class AccessibleTable(QWidget):
         return self.table_widget.item(row, column)
         
     def setItem(self, row: int, column: int, item):
-        """Set the item at the specified row and column"""
+        """Set the item at the specified row and column and sync internal data"""
         self.table_widget.setItem(row, column, item)
+        # Mark that data needs to be synced
+        self._needs_data_sync = True
+        
+    def _sync_data_from_table(self):
+        """Sync internal _data list from table widget contents"""
+        self._data = []
+        for row in range(self.table_widget.rowCount()):
+            row_data = []
+            for col in range(self.table_widget.columnCount()):
+                item = self.table_widget.item(row, col)
+                row_data.append(item.text() if item else "")
+            self._data.append(row_data)
+        
+        # Refresh list views if we have headers
+        if self._headers:
+            self._populate_list_views(self._data)
+        
+        self._needs_data_sync = False
         
     def currentRow(self):
         """Get the current row in the active view"""
@@ -556,8 +579,12 @@ class AccessibleTable(QWidget):
         return self.table_widget.horizontalHeader()
     
     def setHorizontalHeaderLabels(self, labels: List[str]):
-        """Set the horizontal header labels"""
+        """Set the horizontal header labels and update internal headers list"""
+        self._headers = labels.copy()
         self.table_widget.setHorizontalHeaderLabels(labels)
+        # If data already exists, refresh the list views
+        if self._data:
+            self._populate_list_views(self._data)
     
     # Expose table widget signals for compatibility
     @property
