@@ -2352,25 +2352,13 @@ def _get_ncaah_standings_fast():
         data = resp.json()
         teams = data.get("sports", [{}])[0].get("leagues", [{}])[0].get("teams", [])
         
+        # Note: Due to ESPN API limitations, we show teams without records
+        # Conference grouping would require 50+ individual API calls which is too slow
+        # Teams are shown alphabetically in a single group
         standings = []
         for team_entry in teams:
             team = team_entry.get("team", {})
             team_id = str(team.get("id", ""))
-            
-            # Try to get conference from individual team endpoint (cached by requests)
-            conf_name = "NCAA Men's Hockey"
-            try:
-                team_detail_url = f"https://site.api.espn.com/apis/site/v2/sports/hockey/mens-college-hockey/teams/{team_id}"
-                team_resp = requests.get(team_detail_url, timeout=2)
-                if team_resp.status_code == 200:
-                    team_detail = team_resp.json()
-                    groups = team_detail.get('team', {}).get('groups', {})
-                    if isinstance(groups, dict):
-                        parent_id = groups.get('parent', {}).get('id')
-                        if parent_id and str(parent_id) in conf_map:
-                            conf_name = conf_map[str(parent_id)]
-            except:
-                pass  # Use default if lookup fails
             
             team_data = {
                 "team_name": team.get("displayName", "Unknown"),
@@ -2380,7 +2368,7 @@ def _get_ncaah_standings_fast():
                 "losses": 0,
                 "win_percentage": "0.000",
                 "games_back": "—",
-                "division": conf_name,
+                "division": "NCAA Men's Hockey",
                 "streak": "",
                 "logo": team.get("logos", [{}])[0].get("href", "") if team.get("logos") else ""
             }
@@ -2471,25 +2459,13 @@ def _get_ncaawh_standings_fast():
         data = resp.json()
         teams = data.get("sports", [{}])[0].get("leagues", [{}])[0].get("teams", [])
         
+        # Note: Due to ESPN API limitations, we show teams without records
+        # Conference grouping would require 44+ individual API calls which is too slow
+        # Teams are shown alphabetically in a single group
         standings = []
         for team_entry in teams:
             team = team_entry.get("team", {})
             team_id = str(team.get("id", ""))
-            
-            # Try to get conference from individual team endpoint (cached by requests)
-            conf_name = "NCAA Women's Hockey"
-            try:
-                team_detail_url = f"https://site.api.espn.com/apis/site/v2/sports/hockey/womens-college-hockey/teams/{team_id}"
-                team_resp = requests.get(team_detail_url, timeout=2)
-                if team_resp.status_code == 200:
-                    team_detail = team_resp.json()
-                    groups = team_detail.get('team', {}).get('groups', {})
-                    if isinstance(groups, dict):
-                        parent_id = groups.get('parent', {}).get('id')
-                        if parent_id and str(parent_id) in conf_map:
-                            conf_name = conf_map[str(parent_id)]
-            except:
-                pass  # Use default if lookup fails
             
             team_data = {
                 "team_name": team.get("displayName", "Unknown"),
@@ -2499,7 +2475,7 @@ def _get_ncaawh_standings_fast():
                 "losses": 0,
                 "win_percentage": "0.000",
                 "games_back": "—",
-                "division": conf_name,
+                "division": "NCAA Women's Hockey",
                 "streak": "",
                 "logo": team.get("logos", [{}])[0].get("href", "") if team.get("logos") else ""
             }
