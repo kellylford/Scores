@@ -613,12 +613,15 @@ class StandingsTable(AccessibleTable):
     
     BASIC_HEADERS = ["Pos", "Team", "W", "L", "PCT", "GB", "Streak"]
     
+    # Sport-specific basic headers (for sports with ties)
+    BASIC_HEADERS_WITH_TIES = ["Pos", "Team", "W", "L", "T", "PCT", "GB", "Streak"]
+    
     # Sport-specific expanded headers
     EXPANDED_HEADERS = {
         "MLB": ["Pos", "Team", "W", "L", "PCT", "GB", "Streak", "R", "RA", "Diff", "Home", "Road", "Playoff%", "Magic#"],
-        "NFL": ["Pos", "Team", "W", "L", "PCT", "GB", "Streak", "PF", "PA", "Diff", "Div Rec", "Seed"],
+        "NFL": ["Pos", "Team", "W", "L", "T", "PCT", "GB", "Streak", "PF", "PA", "Diff", "Div Rec", "Seed"],
         "NBA": ["Pos", "Team", "W", "L", "PCT", "GB", "Streak", "PPG", "OppPPG", "Diff", "DivW%", "Seed"],
-        "NHL": ["Pos", "Team", "W", "L", "PCT", "GB", "Streak", "Pts", "OTL", "GF", "GA", "Diff", "Seed"],
+        "NHL": ["Pos", "Team", "W", "L", "OTL", "PCT", "GB", "Streak", "Pts", "GF", "GA", "Diff", "Seed"],
         "default": BASIC_HEADERS
     }
     
@@ -634,7 +637,11 @@ class StandingsTable(AccessibleTable):
         self.division_name = division_name
         
         # Setup columns based on view mode
-        headers = self.EXPANDED_HEADERS.get(league, self.BASIC_HEADERS) if expanded else self.BASIC_HEADERS
+        if expanded:
+            headers = self.EXPANDED_HEADERS.get(league, self.BASIC_HEADERS)
+        else:
+            # Use ties column for NFL in basic view
+            headers = self.BASIC_HEADERS_WITH_TIES if league == "NFL" else self.BASIC_HEADERS
         self.setup_columns(headers, stretch_column=1)  # Team name stretches
     
     def set_expanded_view(self, expanded: bool):
@@ -648,7 +655,12 @@ class StandingsTable(AccessibleTable):
         current_col = self.currentColumn()
             
         self.expanded = expanded
-        headers = self.EXPANDED_HEADERS.get(self.league, self.BASIC_HEADERS) if expanded else self.BASIC_HEADERS
+        
+        # Get appropriate headers
+        if expanded:
+            headers = self.EXPANDED_HEADERS.get(self.league, self.BASIC_HEADERS)
+        else:
+            headers = self.BASIC_HEADERS_WITH_TIES if self.league == "NFL" else self.BASIC_HEADERS
         
         # Clear and reconfigure table
         self.setRowCount(0)
@@ -691,6 +703,7 @@ class StandingsTable(AccessibleTable):
         team_name = team.get("team_name") or team.get("name", "")
         wins = str(team.get("wins", ""))
         losses = str(team.get("losses", ""))
+        ties = team.get("ties", 0)
         
         # Format win percentage properly
         win_pct = team.get("win_percentage") or team.get("win_pct", "")
@@ -700,15 +713,28 @@ class StandingsTable(AccessibleTable):
         games_back = team.get("games_back") or team.get("games_behind", "")
         streak = team.get("streak", "N/A")
         
-        return [
-            str(position),
-            team_name,
-            wins,
-            losses,
-            win_pct,
-            games_back,
-            streak
-        ]
+        # NFL includes ties column
+        if self.league == "NFL":
+            return [
+                str(position),
+                team_name,
+                wins,
+                losses,
+                str(ties),
+                win_pct,
+                games_back,
+                streak
+            ]
+        else:
+            return [
+                str(position),
+                team_name,
+                wins,
+                losses,
+                win_pct,
+                games_back,
+                streak
+            ]
     
     def _build_expanded_row(self, position: int, team: Dict[str, Any]) -> List[str]:
         """Build expanded standings row based on sport"""
@@ -725,6 +751,7 @@ class StandingsTable(AccessibleTable):
                 self._format_magic_number(team.get("magic_number"))
             ]
         elif self.league == "NFL":
+            # Basic row already includes ties for NFL, so just add expanded stats
             return basic_row + [
                 str(team.get("points_for", "")),
                 str(team.get("points_against", "")),
