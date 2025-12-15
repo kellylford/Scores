@@ -26,6 +26,12 @@ NCAA Hockey support and comprehensive polls/rankings for all college sports.
 ✅ "NCAA Women's Hockey" instead of NCAAWH  
 ✅ Applied to menus, headers, and window titles  
 
+#### 🐛 Bug Fixes
+✅ **NFL Tie Games** - Comprehensive fix for tie handling  
+✅ Standings, teams, and schedules now show ties correctly  
+✅ Win percentage calculation includes ties (W + 0.5*T)  
+✅ Tie games display as "T" instead of "L"  
+
 ### How to Access
 - **Hockey**: Select NCAA Men's or Women's Hockey from main menu
 - **Polls**: Choose "Polls" from any NCAA sport's game view

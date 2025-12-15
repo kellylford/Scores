@@ -78,11 +78,20 @@ Applied to: main menu, live scores headers, window titles, and all labels.
 - Window titles show formatted sport names
 - All UI labels spell out sport names with gender designation
 
+#### Fixed
+- **NFL Tie Games** - Fixed comprehensive tie game handling throughout application
+  - Standings tables now include Ties column for NFL
+  - Teams dialog shows ties and calculates win percentage correctly (W + 0.5*T formula)
+  - Team schedules display ties in record (e.g., 9-4-1) and show "T" for tie games
+  - All NFL views now properly display and calculate records with ties
+
 #### Technical
 - Added `get_rankings()` API endpoint integration
 - Created `PollsDialog` component with accessible table support
 - Implemented hockey conference structure parsing
 - Added format_league_name() utility for consistent naming
+- Enhanced `accessible_table.py` with BASIC_HEADERS_WITH_TIES for NFL
+- Updated standings, teams dialog, and schedule views for tie support
 
 ### 🎯 What's Next
 
