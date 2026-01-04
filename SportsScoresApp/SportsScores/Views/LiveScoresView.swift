@@ -113,6 +113,8 @@ struct LiveScoresView: View {
                 .background(Color.blue)
                 .cornerRadius(12)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
     }
     
     private func sportSection(sportGames: LiveScoresViewModel.SportGames, isLive: Bool) -> some View {
@@ -133,6 +135,8 @@ struct LiveScoresView: View {
             .padding(.vertical, 8)
             .background(Color.secondary.opacity(0.1))
             .cornerRadius(8)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
             
             // Games List
             ForEach(sportGames.games) { game in
@@ -155,7 +159,7 @@ struct CompactGameRow: View {
     let isLive: Bool
     
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             // Status Bar
             HStack {
                 if isLive {
@@ -185,30 +189,16 @@ struct CompactGameRow: View {
                 }
             }
             
-            // Teams and Scores
+            // Teams and Scores (Score more prominent than records)
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text(game.awayTeam.abbreviation)
-                            .font(.body)
-                            .fontWeight(.medium)
-                        if let record = game.awayTeam.record {
-                            Text("(\(record))")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-                    }
+                    Text(game.awayTeam.abbreviation)
+                        .font(.body)
+                        .fontWeight(.medium)
                     
-                    HStack {
-                        Text(game.homeTeam.abbreviation)
-                            .font(.body)
-                            .fontWeight(.medium)
-                        if let record = game.homeTeam.record {
-                            Text("(\(record))")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-                    }
+                    Text(game.homeTeam.abbreviation)
+                        .font(.body)
+                        .fontWeight(.medium)
                 }
                 
                 Spacer()
@@ -235,6 +225,28 @@ struct CompactGameRow: View {
                             .font(.title3)
                             .foregroundColor(.secondary)
                     }
+                }
+            }
+            
+            // Last play / situation info (no truncation for accessibility)
+            if isLive, let situation = game.situation, let displayText = situation.displayText {
+                Text(displayText)
+                    .font(.caption)
+                    .foregroundColor(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(nil)
+            }
+            
+            // Team records (less important, shown last)
+            if let awayRecord = game.awayTeam.record, let homeRecord = game.homeTeam.record {
+                HStack(spacing: 12) {
+                    Text("(\(awayRecord))")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text("(\(homeRecord))")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                 }
             }
         }

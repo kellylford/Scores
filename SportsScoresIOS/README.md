@@ -1,5 +1,13 @@
 # Sports Scores iOS App - Complete Setup Guide
 
+## ⚠️ IMPORTANT: Project Setup Required
+
+**The Xcode project file needs to be created through Xcode. See [FIX_README.md](FIX_README.md) for quick fix!**
+
+All source code (14 Swift files) is complete and ready - just needs to be imported into an Xcode project.
+
+---
+
 ## 🎉 Your Native iOS Sports Scores App is Ready!
 
 I've created a **complete native iOS application** that brings your sports scores app to iPhone with all the revolutionary features including the **three view modes** (Table View, Quick List, Full List).

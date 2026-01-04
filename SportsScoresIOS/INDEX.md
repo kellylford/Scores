@@ -1,6 +1,15 @@
 # 🏈 Sports Scores iOS App - Complete Package
 
-## 📍 Start Here!
+## ⚠️ SETUP UPDATE - Please Read First!
+
+**The project needs to be created in Xcode (takes 5 min). All code is ready!**
+
+👉 **Start here**: [FIX_README.md](FIX_README.md) - Quick setup instructions  
+📖 **Detailed guide**: [SETUP_FIX.md](SETUP_FIX.md) - Step-by-step walkthrough
+
+---
+
+## 📍 After Setup - Navigation Guide
 
 You now have a **complete, production-ready native iOS app** for sports scores!
 

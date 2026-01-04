@@ -17,6 +17,7 @@ struct Game: Identifiable, Codable {
     let awayTeam: Team
     let venue: Venue?
     let broadcasts: [String]
+    let situation: Situation?
     
     var displayTime: String {
         let formatter = DateFormatter()
@@ -90,6 +91,21 @@ struct Game: Identifiable, Codable {
             return name
         }
     }
+    
+    struct Situation: Codable {
+        let lastPlay: String?
+        let down: Int?
+        let distance: Int?
+        let possessionText: String?
+        let shortDownDistanceText: String?
+        
+        var displayText: String? {
+            if let lastPlay = lastPlay, !lastPlay.isEmpty {
+                return lastPlay
+            }
+            return shortDownDistanceText
+        }
+    }
 }
 
 // MARK: - API Response Models
@@ -149,6 +165,19 @@ extension Game {
         
         // Parse broadcasts
         self.broadcasts = competitions?.broadcasts?.map { $0.names.first ?? "" } ?? []
+        
+        // Parse situation (last play, down & distance for football)
+        if let situationData = competitions?.situation {
+            self.situation = Situation(
+                lastPlay: situationData.lastPlay?.text,
+                down: situationData.down,
+                distance: situationData.distance,
+                possessionText: situationData.possessionText,
+                shortDownDistanceText: situationData.shortDownDistanceText
+            )
+        } else {
+            self.situation = nil
+        }
     }
 }
 
@@ -176,6 +205,7 @@ struct APIGame: Codable {
         let competitors: [APICompetitor]
         let venue: APIVenue?
         let broadcasts: [APIBroadcast]?
+        let situation: APISituation?
         
         struct APICompetitor: Codable {
             let homeAway: String
@@ -208,6 +238,18 @@ struct APIGame: Codable {
         
         struct APIBroadcast: Codable {
             let names: [String]
+        }
+        
+        struct APISituation: Codable {
+            let lastPlay: APILastPlay?
+            let down: Int?
+            let distance: Int?
+            let possessionText: String?
+            let shortDownDistanceText: String?
+            
+            struct APILastPlay: Codable {
+                let text: String?
+            }
         }
     }
 }
