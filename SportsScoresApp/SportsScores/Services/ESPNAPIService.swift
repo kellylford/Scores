@@ -35,6 +35,7 @@ class ESPNAPIService {
         }
         
         let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
         let apiResponse = try decoder.decode(ScoreboardResponse.self, from: data)
         
         return try apiResponse.events.map { try Game(from: $0) }
@@ -55,6 +56,7 @@ class ESPNAPIService {
         }
         
         let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
         let apiResponse = try decoder.decode(APIStandingsResponse.self, from: data)
         
         return try apiResponse.children.map { try StandingsGroup(from: $0) }
@@ -75,6 +77,7 @@ class ESPNAPIService {
         }
         
         let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
         let details = try decoder.decode(GameDetails.self, from: data)
         
         return details
