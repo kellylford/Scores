@@ -22,6 +22,7 @@ struct Game: Identifiable, Codable {
     var displayTime: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "EEE M/d h:mm a"
+        formatter.timeZone = TimeZone.current
         return formatter.string(from: date)
     }
     

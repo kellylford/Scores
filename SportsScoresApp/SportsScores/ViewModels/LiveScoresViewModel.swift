@@ -31,15 +31,26 @@ class LiveScoresViewModel: ObservableObject {
         var completed: [SportGames] = []
         var upcoming: [SportGames] = []
         
+        // Get today's date range (midnight to midnight in local timezone)
+        let calendar = Calendar.current
+        let now = Date()
+        let startOfToday = calendar.startOfDay(for: now)
+        let endOfToday = calendar.date(byAdding: .day, value: 1, to: startOfToday)!
+        
         // Fetch games for all sports
         for sport in Sport.allCases {
             do {
                 let games = try await apiService.fetchGames(for: sport)
                 
-                // Filter into categories
-                let liveGamesForSport = games.filter { $0.status.isLive }
-                let completedGamesForSport = games.filter { $0.status.isCompleted }
-                let upcomingGamesForSport = games.filter { !$0.status.isLive && !$0.status.isCompleted }
+                // Filter to only today's games
+                let todaysGames = games.filter { game in
+                    game.date >= startOfToday && game.date < endOfToday
+                }
+                
+                // Further filter into categories
+                let liveGamesForSport = todaysGames.filter { $0.status.isLive }
+                let completedGamesForSport = todaysGames.filter { $0.status.isCompleted }
+                let upcomingGamesForSport = todaysGames.filter { !$0.status.isLive && !$0.status.isCompleted }
                 
                 if !liveGamesForSport.isEmpty {
                     live.append(SportGames(sport: sport, games: liveGamesForSport))
