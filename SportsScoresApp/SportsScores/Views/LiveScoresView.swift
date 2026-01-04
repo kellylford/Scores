@@ -34,7 +34,7 @@ struct LiveScoresView: View {
                 scrollContent
             }
         }
-        .navigationTitle("🔴 Live Scores")
+        .navigationTitle("Live Scores")
         .task {
             await viewModel.fetchAllGames()
         }
@@ -49,7 +49,7 @@ struct LiveScoresView: View {
                 // Live Games Section
                 if !viewModel.liveGames.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
-                        sectionHeader(title: "🔴 LIVE NOW", count: totalCount(viewModel.liveGames))
+                        sectionHeader(title: "LIVE NOW", count: totalCount(viewModel.liveGames))
                         
                         ForEach(viewModel.liveGames) { sportGames in
                             sportSection(sportGames: sportGames, isLive: true)
@@ -61,7 +61,7 @@ struct LiveScoresView: View {
                 // Completed Games Section
                 if !viewModel.completedGames.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
-                        sectionHeader(title: "✅ COMPLETED", count: totalCount(viewModel.completedGames))
+                        sectionHeader(title: "COMPLETED", count: totalCount(viewModel.completedGames))
                         
                         ForEach(viewModel.completedGames) { sportGames in
                             sportSection(sportGames: sportGames, isLive: false)
@@ -73,7 +73,7 @@ struct LiveScoresView: View {
                 // Upcoming Games Section
                 if !viewModel.upcomingGames.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
-                        sectionHeader(title: "📅 UPCOMING", count: totalCount(viewModel.upcomingGames))
+                        sectionHeader(title: "UPCOMING", count: totalCount(viewModel.upcomingGames))
                         
                         ForEach(viewModel.upcomingGames) { sportGames in
                             sportSection(sportGames: sportGames, isLive: false)
@@ -160,36 +160,7 @@ struct CompactGameRow: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Status Bar
-            HStack {
-                if isLive {
-                    Label(game.status.displayText, systemImage: "circle.fill")
-                        .foregroundColor(.red)
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                } else if game.status.isCompleted {
-                    Text("Final")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                } else {
-                    Text(game.displayTime)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                if !game.broadcasts.isEmpty {
-                    Text(game.broadcasts.first ?? "")
-                        .font(.caption2)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.blue.opacity(0.2))
-                        .cornerRadius(4)
-                }
-            }
-            
-            // Teams and Scores (Score more prominent than records)
+            // Teams and Scores FIRST
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(game.awayTeam.abbreviation)
@@ -225,6 +196,35 @@ struct CompactGameRow: View {
                             .font(.title3)
                             .foregroundColor(.secondary)
                     }
+                }
+            }
+            
+            // Status Bar SECOND (below teams)
+            HStack {
+                if isLive {
+                    Label(game.status.displayText, systemImage: "circle.fill")
+                        .foregroundColor(.red)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                } else if game.status.isCompleted {
+                    Text("Final")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                } else {
+                    Text(game.displayTime)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                if !game.broadcasts.isEmpty {
+                    Text(game.broadcasts.first ?? "")
+                        .font(.caption2)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.blue.opacity(0.2))
+                        .cornerRadius(4)
                 }
             }
             

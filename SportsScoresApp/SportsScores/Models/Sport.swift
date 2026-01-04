@@ -20,13 +20,13 @@ enum Sport: String, CaseIterable, Identifiable {
     
     var displayName: String {
         switch self {
-        case .mlb: return "⚾️ MLB Baseball"
-        case .nfl: return "🏈 NFL Football"
-        case .nba: return "🏀 NBA Basketball"
-        case .nhl: return "🏒 NHL Hockey"
-        case .ncaaf: return "🏈 NCAA Football"
-        case .ncaam: return "🏀 NCAA Men's Basketball"
-        case .ncaawb: return "🏀 NCAA Women's Basketball"
+        case .mlb: return "MLB Baseball"
+        case .nfl: return "NFL Football"
+        case .nba: return "NBA Basketball"
+        case .nhl: return "NHL Hockey"
+        case .ncaaf: return "NCAA Football"
+        case .ncaam: return "NCAA Men's Basketball"
+        case .ncaawb: return "NCAA Women's Basketball"
         }
     }
     
@@ -44,11 +44,11 @@ enum Sport: String, CaseIterable, Identifiable {
     
     var icon: String {
         switch self {
-        case .mlb: return "⚾️"
-        case .nfl: return "🏈"
-        case .nba, .ncaam, .ncaawb: return "🏀"
-        case .nhl: return "🏒"
-        case .ncaaf: return "🏈"
+        case .mlb: return "MLB"
+        case .nfl: return "NFL"
+        case .nba, .ncaam, .ncaawb: return "NBA"
+        case .nhl: return "NHL"
+        case .ncaaf: return "NCAAF"
         }
     }
 }
