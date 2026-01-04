@@ -269,7 +269,8 @@ struct GameDetailView: View {
                 homeTeam: Game.Team(id: "1", name: "Padres", abbreviation: "SD", displayName: "San Diego Padres", score: 5, record: "82-80", logo: nil),
                 awayTeam: Game.Team(id: "2", name: "Dodgers", abbreviation: "LAD", displayName: "Los Angeles Dodgers", score: 3, record: "95-67", logo: nil),
                 venue: nil,
-                broadcasts: ["ESPN"]
+                broadcasts: ["ESPN"],
+                situation: nil
             ),
             sport: .mlb
         )
