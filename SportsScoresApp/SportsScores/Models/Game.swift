@@ -116,9 +116,19 @@ extension Game {
         self.name = apiResponse.name
         self.shortName = apiResponse.shortName
         
-        // Parse date
-        let formatter = ISO8601DateFormatter()
-        self.date = formatter.date(from: apiResponse.date) ?? Date()
+        // Parse date - ESPN returns dates in ISO8601 format (e.g., "2026-01-05T01:20Z")
+        let dateFormatter = DateFormatter()
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+        dateFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm'Z'"
+        
+        if let parsedDate = dateFormatter.date(from: apiResponse.date) {
+            self.date = parsedDate
+        } else {
+            // Try with fractional seconds
+            dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+            self.date = dateFormatter.date(from: apiResponse.date) ?? Date()
+        }
         
         // Parse status
         self.status = GameStatus(
