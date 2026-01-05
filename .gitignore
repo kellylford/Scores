@@ -37,6 +37,24 @@ Thumbs.db
 
 # Project specific
 AccessibleNews/
+SportsScoresIOS/
+
+# Xcode / iOS build artifacts
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcworkspace/xcuserdata/
+DerivedData/
+.build/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
 
 # Logs and temporary files
 *.log
