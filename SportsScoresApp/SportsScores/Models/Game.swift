@@ -63,7 +63,7 @@ struct Game: Identifiable, Codable {
         let clock: String?
         
         var displayText: String {
-            if state == "in", let period = period, let clock = clock {
+            if state == "in", period != nil, let clock = clock {
                 return "\(detail) - \(clock)"
             }
             return detail
@@ -120,15 +120,22 @@ extension Game {
         let dateFormatter = DateFormatter()
         dateFormatter.locale = Locale(identifier: "en_US_POSIX")
         dateFormatter.timeZone = TimeZone(secondsFromGMT: 0)
-        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm'Z'"
         
-        if let parsedDate = dateFormatter.date(from: apiResponse.date) {
-            self.date = parsedDate
-        } else {
-            // Try with fractional seconds
-            dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
-            self.date = dateFormatter.date(from: apiResponse.date) ?? Date()
+        // ESPN returns several ISO-8601 variants; try most common first
+        let dateFormats = [
+            "yyyy-MM-dd'T'HH:mm:ss'Z'",   // most common: 2026-01-05T01:20:00Z
+            "yyyy-MM-dd'T'HH:mm'Z'",       // compact: 2026-01-05T01:20Z
+            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'" // with milliseconds
+        ]
+        var parsedDate: Date?
+        for fmt in dateFormats {
+            dateFormatter.dateFormat = fmt
+            if let d = dateFormatter.date(from: apiResponse.date) {
+                parsedDate = d
+                break
+            }
         }
+        self.date = parsedDate ?? Date()
         
         // Parse status
         self.status = GameStatus(
@@ -148,7 +155,8 @@ extension Game {
             name: homeCompetitor?.team.name ?? "",
             abbreviation: homeCompetitor?.team.abbreviation ?? "",
             displayName: homeCompetitor?.team.displayName ?? "",
-            score: Int(homeCompetitor?.score ?? "0"),
+            // flatMap returns nil when score is nil or non-numeric (e.g. pre-game "")
+            score: homeCompetitor?.score.flatMap({ Int($0) }),
             record: homeCompetitor?.records?.first?.summary,
             logo: homeCompetitor?.team.logo
         )
@@ -158,7 +166,7 @@ extension Game {
             name: awayCompetitor?.team.name ?? "",
             abbreviation: awayCompetitor?.team.abbreviation ?? "",
             displayName: awayCompetitor?.team.displayName ?? "",
-            score: Int(awayCompetitor?.score ?? "0"),
+            score: awayCompetitor?.score.flatMap({ Int($0) }),
             record: awayCompetitor?.records?.first?.summary,
             logo: awayCompetitor?.team.logo
         )

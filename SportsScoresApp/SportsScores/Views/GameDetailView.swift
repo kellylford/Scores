@@ -15,6 +15,9 @@ struct GameDetailView: View {
     @State private var errorMessage: String?
     @State private var selectedSection = 0
     
+    /// Whether this sport produces per-pitch coordinate data.
+    private var hasPitches: Bool { sport == .mlb }
+    
     var body: some View {
         VStack(spacing: 0) {
             // Game Header
@@ -24,12 +27,15 @@ struct GameDetailView: View {
             
             Divider()
             
-            // Section Picker
+            // Section Picker (show only when details have loaded)
             if gameDetails != nil {
                 Picker("Section", selection: $selectedSection) {
                     Text("Box Score").tag(0)
                     Text("Plays").tag(1)
                     Text("Leaders").tag(2)
+                    if hasPitches {
+                        Text("Pitches 🎵").tag(3)
+                    }
                 }
                 .pickerStyle(.segmented)
                 .padding()
@@ -68,6 +74,11 @@ struct GameDetailView: View {
                     
                     leadersView(details: details)
                         .tag(2)
+                    
+                    if hasPitches {
+                        PitchMapView(plays: details.plays ?? [])
+                            .tag(3)
+                    }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
             }
@@ -147,16 +158,25 @@ struct GameDetailView: View {
                                 .font(.headline)
                                 .padding(.horizontal)
                             
-                            ForEach(team.statistics, id: \.name) { stat in
-                                HStack {
-                                    Text(stat.label)
-                                        .foregroundColor(.secondary)
-                                    Spacer()
-                                    Text(stat.displayValue)
-                                        .fontWeight(.medium)
+                            // Each category (batting, pitching, etc.) contains individual stats
+                            ForEach(team.statistics, id: \.name) { category in
+                                Text(category.displayName)
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.secondary)
+                                    .padding(.horizontal)
+                                    .padding(.top, 4)
+                                ForEach(category.stats, id: \.name) { stat in
+                                    HStack {
+                                        Text(stat.displayName)
+                                            .foregroundColor(.secondary)
+                                        Spacer()
+                                        Text(stat.displayValue)
+                                            .fontWeight(.medium)
+                                    }
+                                    .padding(.horizontal)
+                                    .padding(.vertical, 2)
                                 }
-                                .padding(.horizontal)
-                                .padding(.vertical, 4)
                             }
                         }
                         .padding(.vertical, 8)
@@ -179,15 +199,17 @@ struct GameDetailView: View {
                 LazyVStack(alignment: .leading, spacing: 12) {
                     ForEach(plays, id: \.id) { play in
                         VStack(alignment: .leading, spacing: 4) {
-                            if let clock = play.clock {
-                                Text(clock.displayValue)
+                            if let period = play.period {
+                                Text(period.displayValue)
                                     .font(.caption)
                                     .fontWeight(.semibold)
                                     .foregroundColor(.blue)
                             }
                             
-                            Text(play.text)
-                                .font(.body)
+                            if let text = play.text {
+                                Text(text)
+                                    .font(.body)
+                            }
                             
                             Text(play.type.text)
                                 .font(.caption2)

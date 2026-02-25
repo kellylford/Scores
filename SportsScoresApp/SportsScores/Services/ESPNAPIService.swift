@@ -99,34 +99,135 @@ struct GameDetails: Codable {
         
         struct TeamStats: Codable {
             let team: TeamInfo
-            let statistics: [Statistic]
+            // ESPN returns statistics as named categories (batting, pitching, etc.)
+            // each containing a "stats" array of individual stat items.
+            let statistics: [StatCategory]
             
             struct TeamInfo: Codable {
                 let displayName: String
                 let abbreviation: String
             }
             
-            struct Statistic: Codable {
+            /// Top-level stat grouping (e.g. "batting", "pitching", "fielding")
+            struct StatCategory: Codable {
                 let name: String
-                let displayValue: String
-                let label: String
+                let displayName: String
+                let stats: [StatItem]
+                
+                struct StatItem: Codable {
+                    let name: String
+                    let displayName: String
+                    let abbreviation: String
+                    let displayValue: String
+                }
             }
         }
     }
     
     struct Play: Codable {
         let id: String
-        let text: String
+        // text is absent on some play types (e.g. inning-start markers in MLB)
+        let text: String?
         let type: PlayType
         let scoreValue: Int?
-        let clock: Clock?
+        // ESPN uses "period" (with a displayValue) rather than a "clock" key for most sports
+        let period: Period?
+        
+        // ── Pitch-specific fields (MLB / baseball only) ──────────────────────
+        /// Pixel coordinates in ESPN's 256×256 strike-zone space.
+        let pitchCoordinate: PitchCoordinate?
+        /// Pitch classification (Four-seam FB, Curveball, etc.).
+        let pitchType: PitchTypeInfo?
+        /// Pitch speed in mph.
+        let pitchVelocity: Int?
+        /// Batter handedness ("L" / "R").
+        let bats: BatterHand?
+        /// The at-bat this pitch belongs to.
+        let atBatId: String?
+        /// Pitch number within the at-bat.
+        let atBatPitchNumber: Int?
+        /// Balls/strikes count *after* this pitch.
+        let resultCount: PitchCount?
+        /// Outs at time of pitch.
+        let outs: Int?
+        
+        var isPitch: Bool { pitchCoordinate != nil }
         
         struct PlayType: Codable {
             let text: String
+            /// ESPN play-type slug: "ball", "called-strike", "foul", "in-play-out", etc.
+            let type: String?
         }
         
-        struct Clock: Codable {
+        struct Period: Codable {
             let displayValue: String
+        }
+        
+        struct PitchCoordinate: Codable {
+            let x: Int
+            let y: Int
+        }
+        
+        struct PitchTypeInfo: Codable {
+            let text: String
+            let abbreviation: String
+        }
+        
+        struct BatterHand: Codable {
+            let abbreviation: String  // "L" or "R"
+        }
+        
+        struct PitchCount: Codable {
+            let balls: Int
+            let strikes: Int
+        }
+        
+        // ── Derived helpers ──────────────────────────────────────────────────
+        
+        /// Single-character result label for display (B / K / F / O / H / R / •)
+        var pitchResultLabel: String {
+            switch type.type {
+            case "ball":           return "B"
+            case "called-strike":  return "K"
+            case "swinging-strike": return "K"
+            case "foul":           return "F"
+            case "in-play-out":    return "O"
+            case "in-play-score":  return "R"
+            case "in-play-no-out": return "H"
+            default:               return "•"
+            }
+        }
+        
+        /// Color name for the pitch result dot.
+        var pitchResultColorName: String {
+            switch type.type {
+            case "ball":                       return "blue"
+            case "called-strike", "swinging-strike": return "red"
+            case "foul":                       return "orange"
+            case "in-play-out":                return "gray"
+            case "in-play-score":              return "green"
+            case "in-play-no-out":             return "green"
+            default:                           return "secondary"
+            }
+        }
+        
+        /// Human-readable zone description matching the Python app's logic.
+        func locationDescription(batterHand: String?) -> String {
+            guard let coord = pitchCoordinate else { return "Unknown" }
+            let xNorm = Double(coord.x) / 255.0
+            let isLeft = (batterHand ?? bats?.abbreviation) == "L"
+            
+            let horizontal: String
+            if isLeft {
+                horizontal = xNorm < 0.2 ? "way outside" : xNorm < 0.4 ? "outside" :
+                             xNorm < 0.6 ? "over plate"  : xNorm < 0.8 ? "inside"  : "way inside"
+            } else {
+                horizontal = xNorm < 0.2 ? "way inside" : xNorm < 0.4 ? "inside" :
+                             xNorm < 0.6 ? "over plate"  : xNorm < 0.8 ? "outside" : "way outside"
+            }
+            let yNorm = Double(coord.y) / 255.0
+            let vertical = yNorm < 0.33 ? "high" : yNorm < 0.66 ? "middle" : "low"
+            return "\(vertical) \(horizontal)"
         }
     }
     

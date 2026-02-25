@@ -79,7 +79,7 @@ extension StandingsGroup {
             let stats = apiEntry.stats
             
             return StandingsEntry(
-                rank: Int(stats.first(where: { $0.name == "rank" })?.value ?? 0) ?? 0,
+                rank: Int(stats.first(where: { $0.name == "rank" })?.value ?? 0),
                 team: StandingsEntry.TeamInfo(
                     id: team.id,
                     name: team.name,
@@ -88,8 +88,8 @@ extension StandingsGroup {
                     logo: team.logos?.first?.href
                 ),
                 stats: StandingsEntry.StandingsStats(
-                    wins: Int(stats.first(where: { $0.name == "wins" })?.value ?? 0) ?? 0,
-                    losses: Int(stats.first(where: { $0.name == "losses" })?.value ?? 0) ?? 0,
+                    wins: Int(stats.first(where: { $0.name == "wins" })?.value ?? 0),
+                    losses: Int(stats.first(where: { $0.name == "losses" })?.value ?? 0),
                     winPercent: stats.first(where: { $0.name == "winPercent" })?.value ?? 0,
                     gamesBack: stats.first(where: { $0.name == "gamesBehind" })?.displayValue ?? "0",
                     streak: stats.first(where: { $0.name == "streak" })?.displayValue ?? "-",
