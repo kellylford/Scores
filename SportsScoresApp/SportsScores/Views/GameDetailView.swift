@@ -66,6 +66,16 @@ struct GameDetailView: View {
         }
         .navigationTitle("Game Details")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if game.status.isCompleted {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    ShareLink(item: gameSummaryText) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .accessibilityLabel("Share game summary")
+                }
+            }
+        }
         .sheet(isPresented: $showPitchMap) {
             if let details = gameDetails {
                 NavigationStack {
@@ -419,6 +429,41 @@ struct GameDetailView: View {
             errorMessage = "Failed to load details: \(error.localizedDescription)"
         }
         isLoading = false
+    }
+
+    // MARK: - Share Summary
+
+    private var gameSummaryText: String {
+        var lines: [String] = []
+        lines.append("\(game.awayTeam.displayName) @ \(game.homeTeam.displayName)")
+        if let away = game.awayTeam.score, let home = game.homeTeam.score {
+            lines.append("Final: \(game.awayTeam.abbreviation) \(away) – \(home) \(game.homeTeam.abbreviation)")
+        }
+        if let venue = game.venue {
+            lines.append(venue.fullName)
+        }
+        if let odds = gameDetails?.odds?.first {
+            var parts: [String] = []
+            if let s = odds.details { parts.append("Line: \(s)") }
+            if let o = odds.overUnder { parts.append("O/U: \(String(format: "%.1f", o))") }
+            if !parts.isEmpty { lines.append(parts.joined(separator: "  ")) }
+        }
+        // Top leaders
+        if let raw = gameDetails?.leaders, !raw.isEmpty {
+            lines.append("")
+            lines.append("Leaders:")
+            for entry in raw.prefix(4) {
+                if let catName = entry.displayName ?? entry.name,
+                   let top = entry.leaders?.first,
+                   let name = top.athlete?.displayName,
+                   let val = top.displayValue {
+                    lines.append("  \(catName): \(name) \(val)")
+                }
+            }
+        }
+        lines.append("")
+        lines.append("via Sports Scores")
+        return lines.joined(separator: "\n")
     }
 }
 

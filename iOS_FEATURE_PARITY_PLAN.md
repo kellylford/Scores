@@ -1,15 +1,44 @@
 # iOS App Feature Parity Plan
 **Date:** February 25, 2026  
-**Status:** Draft — working document  
+**Status:** Active — implementation ~85% complete  
 **Scope:** Full audit of Python app features → gap analysis → implementation roadmap for iOS
 
 ---
 
 ## Executive Summary
 
-The Python app is a mature, feature-complete product. The iOS app is a skeleton. It has sport selection, a scores list, a mostly-working game detail view, standings (URL just fixed), and the MLB pitch play-by-play system. That's roughly 15% of the feature surface. The remaining 85% includes date navigation, all news features, team schedules, venues, statistics, rankings/polls, drives (NFL), injuries in context, betting odds, live all-sports feed, notifications, and six missing or broken sports. Several things that appear to "work" are actually broken for non-current-day or non-current-season data.
+As of February 26, 2026, Phases 1–7 are complete and Phase 8.2 is done. The iOS app now has: date/week navigation, season type handling (no more broken Super Bowl), date picker, NFL drives view, MLB hierarchical play-by-play with pitch audio, divisions in standings, expanded stats columns, news, team schedules, league statistics, college polls, venue/odds/officials/injuries in game detail, team schedule deep-links from game detail, score change monitoring with notifications, game share, live MLB base runner situation on score rows, and all 10 sports including WNBA/NCAAH/NCAAWH.
 
-This document is organized as: (1) complete feature inventory by category, (2) current iOS status for each, (3) concerns and open questions, (4) implementation plan with sequencing.
+**Remaining gap:** Phase 8.1 only — MLB KitchenSink "More" tab (Win Probability Audio Graph, Season Series, game-specific key articles). The Phase 8 features are nice-to-haves; the core app is now feature-equivalent to the Python app on all critical paths.
+
+---
+
+## Part 0: Implementation Progress Tracker
+
+| Phase | Title | Status |
+|-------|-------|--------|
+| 1.1 | Date navigation | ✅ Done |
+| 1.2 | Season type awareness | ✅ Done |
+| 1.3 | Date picker modal | ✅ Done |
+| 1.4 | Game detail — all states | ✅ Done |
+| 2.1 | News | ✅ Done |
+| 2.2 | NFL Drives view | ✅ Done |
+| 2.3 | Venue in game detail | ✅ Done |
+| 2.4 | Betting / Broadcast in game detail | ✅ Done |
+| 3.1 | Standings — division grouping | ✅ Done |
+| 3.2 | Standings — expanded stat columns | ✅ Done |
+| 4.1 | Team model / schedule API | ✅ Done |
+| 4.2 | TeamScheduleView | ✅ Done |
+| 5.1 | ESPN stats (NFL/NBA/NHL) | ✅ Done |
+| 5.2 | MLB Stats API | ❌ Deferred |
+| 6.1 | College rankings / Polls | ✅ Done |
+| 7.1 | WNBA, NCAAH, NCAAWH in Sport enum | ✅ Done |
+| 7.2 | Score change monitoring | ✅ Done |
+| 7.3 | Injuries in game detail | ✅ Done |
+| 7.4 | Officials in game detail | ✅ Done |
+| 7.x | Live MLB situation (bases/count/outs) | ✅ Done |
+| 8.1 | MLB KitchenSink (Win Prob, Series, Videos) | ❌ Not done |
+| 8.2 | Game wrap-up / Share | ✅ Done |
 
 ---
 
@@ -26,9 +55,9 @@ This document is organized as: (1) complete feature inventory by category, (2) c
 | NCAAF | ✅ Full | ⚠️ Partial | Week nav missing; bowls/playoffs missing; polls missing |
 | NCAAM | ✅ Full | ⚠️ Partial | Polls missing |
 | NCAAWB | ✅ Full | ⚠️ Partial | Polls missing |
-| WNBA | ✅ Full | ❌ Missing | Not in Sport enum at all |
-| NCAAH | ✅ Full | ❌ Missing | Not in Sport enum; ESPN data is incomplete anyway |
-| NCAAWH | ✅ Full | ❌ Missing | Not in Sport enum |
+| WNBA | ✅ Full | ✅ Done | Added P7.1 |
+| NCAAH | ✅ Full | ✅ Done (data often incomplete) | Added P7.1 |
+| NCAAWH | ✅ Full | ✅ Done (data often incomplete) | Added P7.1 |
 | Soccer (EPL) | ✅ Basic | ❌ Missing | Python treats it generically; reasonable to defer |
 
 ---
@@ -37,13 +66,13 @@ This document is organized as: (1) complete feature inventory by category, (2) c
 
 | Feature | Python | iOS |
 |---------|--------|-----|
-| Previous Day / Next Day | ✅ | ❌ Missing completely |
-| Go to Date (date picker) | ✅ Month/Day/Year picker, Ctrl+G | ❌ Missing |
-| Previous Week / Next Week (football) | ✅ | ❌ Missing |
-| Current week auto-detect (football) | ✅ Via calendar API | ❌ Missing |
-| Season year selector on scores view | ✅ (team schedules) | ❌ Missing |
+| Previous Day / Next Day | ✅ | ✅ Done |
+| Go to Date (date picker) | ✅ Month/Day/Year picker, Ctrl+G | ✅ Done — DatePickerView sheet |
+| Previous Week / Next Week (football) | ✅ | ✅ Done |
+| Current week auto-detect (football) | ✅ Via calendar API | ✅ Done — resolved from scoreboard response |
+| Season year selector on scores view | ✅ (team schedules) | ✅ Done — year picker in TeamScheduleView |
 | Back navigation history | ✅ view_stack list | ✅ NavigationStack |
-| Postseason / seasontype switching | ✅ | ❌ Missing — critical bug for past games |
+| Postseason / seasontype switching | ✅ | ✅ Done — seasonType stored on Game, auto-detected from API |
 
 **Critical bug:** The Super Bowl and any past playoff/postseason game fails because the iOS app always requests `seasontype=2` (regular season). The ESPN summary API works fine; the scoreboard request needs `seasontype=3` for postseason. The iOS app has no concept of season type at all.
 
@@ -57,11 +86,11 @@ This document is organized as: (1) complete feature inventory by category, (2) c
 | Per-sport scores for a given date | ✅ | ✅ `ScoresView` |
 | Section headers: LIVE / UPCOMING / COMPLETED | ✅ Color-coded | ⚠️ Partial |
 | Per-league sub-headers in live view | ✅ | Unknown |
-| Score change monitoring (Alt+M) | ✅ Per-game toggle | ❌ Missing |
+| Score change monitoring (Alt+M) | ✅ Per-game toggle | ✅ Done — swipe or long-press on game row; UNNotification + VoiceOver |
 | Auto-refresh with interval selector | ✅ 30s/1m/2m/Manual | ⚠️ Unclear |
-| Live game situation: base runners, count, outs | ✅ MLB only | ❌ Missing from scores list |
-| Live game situation: down/distance/red zone | ✅ NFL only | ❌ Missing from scores list |
-| Local notifications on score change | ✅ Windows UIA; `winsound` | ❌ Missing (iOS: UNUserNotificationCenter) |
+| Live game situation: base runners, count, outs | ✅ MLB only | ✅ Done — shows on score row |
+| Live game situation: down/distance/red zone | ✅ NFL only | ✅ Done — displayed on score row |
+| Local notifications on score change | ✅ Windows UIA; `winsound` | ✅ Done — UNUserNotificationCenter |
 
 ---
 
@@ -70,24 +99,24 @@ This document is organized as: (1) complete feature inventory by category, (2) c
 | Feature | Python | iOS |
 |---------|--------|-----|
 | Teams, score, game time, status | ✅ | ✅ |
-| Venue (city, state, name) | ✅ | ❌ Not shown |
-| Officials list | ✅ Press Enter → dialog | ❌ Missing |
-| Betting line, over/under | ✅ | ❌ Missing |
-| TV broadcast | ✅ | ❌ Missing |
-| Injuries (count → drill-down table) | ✅ | ❌ Missing |
+| Venue (city, state, name) | ✅ | ✅ Done |
+| Officials list | ✅ Press Enter → dialog | ✅ Done — in Info tab |
+| Betting line, over/under | ✅ | ✅ Done |
+| TV broadcast | ✅ | ✅ Done |
+| Injuries (count → drill-down table) | ✅ | ✅ Done — in Info tab |
 | Box score — batting stats per player | ✅ Player-level | ⚠️ Team-level only |
 | Box score — pitching stats per player | ✅ Player-level | ⚠️ Team-level only |
-| Leaders (per team, by category) | ✅ | ⚠️ Tab exists, completeness unclear |
+| Leaders (per team, by category) | ✅ | ✅ Done |
 | News (game-specific, 🎯 prefix) | ✅ | ❌ Missing |
 | Play-by-play — MLB hierarchy | ✅ | ✅ Done (just fixed) |
-| Play-by-play — NFL drives | ✅ `QTreeWidget` by quarter/drive | ❌ Missing — NFL plays view is flat |
+| Play-by-play — NFL drives | ✅ `QTreeWidget` by quarter/drive | ✅ Done — NFLDrivesView |
 | Play-by-play — NBA/NHL | ✅ Generic flat | ✅ `GenericPlaysView` |
-| Drives view (NFL) | ✅ Full drive tree w/ result emoji | ❌ Missing |
-| Win probability (MLB KitchenSink) | ✅ | ❌ Missing |
-| Season series (MLB KitchenSink) | ✅ | ❌ Missing |
-| Videos (MLB KitchenSink) | ✅ | ❌ Missing |
+| Drives view (NFL) | ✅ Full drive tree w/ result emoji | ✅ Done — collapsible quarter/drive/play hierarchy |
+| Win probability (MLB KitchenSink) | ✅ | ❌ Missing (Phase 8.1) |
+| Season series (MLB KitchenSink) | ✅ | ❌ Missing (Phase 8.1) |
+| Videos (MLB KitchenSink) | ✅ | ❌ Missing (Phase 8.1) |
 | Betting ATS / expert picks | ✅ | ❌ Missing |
-| Game wrap-up export (HTML) | ✅ Browser | ❌ Missing (iOS: ShareSheet) |
+| Game wrap-up export (HTML) | ✅ Browser | ✅ Done — native ShareLink |
 | Configurable fields per league | ✅ `ConfigDialog` | ❌ Missing |
 | F5 refresh | ✅ | ❌ Unknown |
 
@@ -97,10 +126,10 @@ This document is organized as: (1) complete feature inventory by category, (2) c
 
 | Feature | Python | iOS |
 |---------|--------|-----|
-| League-level headlines list | ✅ `NewsDialog` | ❌ Missing |
-| Open article in browser (web URL) | ✅ `webbrowser.open()` | ❌ Missing (iOS: `UIApplication.open` or `SFSafariViewController`) |
+| League-level headlines list | ✅ `NewsDialog` | ✅ Done — NewsView with SFSafariViewController |
+| Open article in browser (web URL) | ✅ `webbrowser.open()` | ✅ Done |
 | Game-specific news with 🎯 prefix | ✅ | ❌ Missing |
-| NBA/NFL/MLB/NHL news endpoint | ✅ All supported | ❌ Missing |
+| NBA/NFL/MLB/NHL news endpoint | ✅ All supported | ✅ Done |
 
 ---
 
@@ -108,13 +137,13 @@ This document is organized as: (1) complete feature inventory by category, (2) c
 
 | Feature | Python | iOS |
 |---------|--------|-----|
-| Basic W/L/PCT/GB/Streak | ✅ | ✅ (URL fixed) |
-| Division tabs (MLB: 6, NFL: 8) | ✅ | ❌ Missing — all teams flat |
-| MLB expanded: R/RA/Diff/Home/Road/Playoff%/Magic# | ✅ | ❌ Missing |
-| NFL expanded: PF/PA/Diff/Div Rec/Seed/Ties | ✅ | ❌ Missing |
-| NBA expanded: PPG/OppPPG/DivW%/Seed | ✅ | ❌ Missing |
-| NHL expanded: OTL/Pts/GF/GA/Diff/Seed | ✅ | ❌ Missing |
-| Win% with ties (NFL: W+0.5T)/(W+L+T) | ✅ | ❌ Probably wrong |
+| Basic W/L/PCT/GB/Streak | ✅ | ✅ Done |
+| Division tabs (MLB: 6, NFL: 8) | ✅ | ✅ Done — DivisionMapper + grouped sections |
+| MLB expanded: R/RA/Diff/Home/Road/Playoff%/Magic# | ✅ | ✅ Done — expand button in table mode |
+| NFL expanded: PF/PA/Diff/Div Rec/Seed/Ties | ✅ | ✅ Done |
+| NBA expanded: PPG/OppPPG/DivW%/Seed | ✅ | ✅ Done |
+| NHL expanded: OTL/Pts/GF/GA/Diff/Seed | ✅ | ✅ Done |
+| Win% with ties (NFL: W+0.5T)/(W+L+T) | ✅ | ⚠️ Probably wrong |
 | NCAAF standings + conferences | ✅ | ⚠️ Unknown |
 
 ---
@@ -123,13 +152,13 @@ This document is organized as: (1) complete feature inventory by category, (2) c
 
 | Feature | Python | iOS |
 |---------|--------|-----|
-| Team schedule view (full season) | ✅ `TeamScheduleDialog` | ❌ Missing |
-| Season selector (2001–current) | ✅ `QComboBox` | ❌ Missing |
-| Today's game highlighted | ✅ Bold + yellow bg | ❌ Missing |
-| Activate game → go to game detail | ✅ | ❌ Missing |
-| MLB: 3 season types (pre/regular/post) | ✅ All fetched and merged | ❌ Missing |
-| Background loading with progress | ✅ `QThread` | ❌ Missing |
-| Press team name in game detail → schedule | ✅ | ❌ Missing |
+| Team schedule view (full season) | ✅ `TeamScheduleDialog` | ✅ Done — TeamScheduleView |
+| Season selector (2001–current) | ✅ `QComboBox` | ✅ Done — year picker menu |
+| Today's game highlighted | ✅ Bold + yellow bg | ✅ Done — accent color highlight |
+| Activate game → go to game detail | ✅ | ✅ Done — NavigationLink |
+| MLB: 3 season types (pre/regular/post) | ✅ All fetched and merged | ⚠️ Regular season only for now |
+| Background loading with progress | ✅ `QThread` | ✅ Done — async/await |
+| Press team name in game detail → schedule | ✅ | ✅ Done — NavigationLink on team abbreviation |
 
 ---
 
@@ -149,13 +178,13 @@ This document is organized as: (1) complete feature inventory by category, (2) c
 
 | Feature | Python | iOS |
 |---------|--------|-----|
-| Team statistics per league | ✅ `StatisticsChoiceDialog` → categories | ❌ Missing |
-| Player statistics per league | ✅ | ❌ Missing |
-| Ranked results (1st, 2nd…) | ✅ | ❌ Missing |
+| Team statistics per league | ✅ `StatisticsChoiceDialog` → categories | ✅ Done — StatisticsView / league leaders |
+| Player statistics per league | ✅ | ✅ Done — athletes shown per leader category |
+| Ranked results (1st, 2nd…) | ✅ | ✅ Done |
 | Stat definitions help (Alt+D) | ✅ | ❌ Missing |
-| MLB stats: MLB Stats API, 39 categories | ✅ `statsapi.mlb.com` | ❌ Missing |
-| NFL/NBA/NHL stats: ESPN API | ✅ | ❌ Missing |
-| ThreadPoolExecutor parallel fetch | ✅ 10–15 workers | ❌ Missing |
+| MLB stats: MLB Stats API, 39 categories | ✅ `statsapi.mlb.com` | ❌ Deferred (P5.2) |
+| NFL/NBA/NHL stats: ESPN API | ✅ | ✅ Done |
+| ThreadPoolExecutor parallel fetch | ✅ 10–15 workers | ✅ async/await equivalent |
 
 ---
 
@@ -163,10 +192,10 @@ This document is organized as: (1) complete feature inventory by category, (2) c
 
 | Feature | Python | iOS |
 |---------|--------|-----|
-| NCAAF AP Poll, Coaches Poll | ✅ `PollsDialog` | ❌ Missing |
-| NCAAM polls | ✅ | ❌ Missing |
-| NCAAWB polls | ✅ | ❌ Missing |
-| Rank movement indicators (↑/↓/—/NR) | ✅ | ❌ Missing |
+| NCAAF AP Poll, Coaches Poll | ✅ `PollsDialog` | ✅ Done — PollsView |
+| NCAAM polls | ✅ | ✅ Done |
+| NCAAWB polls | ✅ | ✅ Done |
+| Rank movement indicators (↑/↓/—/NR) | ✅ | ✅ Done |
 
 ---
 
@@ -174,10 +203,10 @@ This document is organized as: (1) complete feature inventory by category, (2) c
 
 | Feature | Python | iOS |
 |---------|--------|-----|
-| Drives view: quarter → drive → plays | ✅ `QTreeWidget` | ❌ Missing |
-| Drive result emoji (🏈/🥅/🔄/⚡) | ✅ | ❌ Missing |
+| Drives view: quarter → drive → plays | ✅ `QTreeWidget` | ✅ Done — NFLDrivesView |
+| Drive result emoji (🏈/🥅/🔄/⚡) | ✅ | ✅ Done |
 | Red zone indicator | ✅ | ❌ Missing |
-| Down/distance in score row | ✅ | ❌ Missing |
+| Down/distance in score row | ✅ | ✅ Done |
 | NCAAF Bowls & Playoffs tree | ✅ By competition type | ❌ Missing |
 
 ---

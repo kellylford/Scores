@@ -101,12 +101,43 @@ struct Game: Identifiable, Codable {
         let distance: Int?
         let possessionText: String?
         let shortDownDistanceText: String?
-        
+        // Baseball live situation
+        let onFirst: Bool?
+        let onSecond: Bool?
+        let onThird: Bool?
+        let outs: Int?
+        let balls: Int?
+        let strikes: Int?
+
         var displayText: String? {
             if let lastPlay = lastPlay, !lastPlay.isEmpty {
                 return lastPlay
             }
             return shortDownDistanceText
+        }
+
+        /// Non-nil for live baseball games — e.g. "1st & 3rd, 3-2, 1 out"
+        var baseballSituationText: String? {
+            guard balls != nil || outs != nil || onFirst != nil else { return nil }
+            var parts: [String] = []
+            // Bases
+            let firstOn  = onFirst  ?? false
+            let secondOn = onSecond ?? false
+            let thirdOn  = onThird  ?? false
+            if firstOn || secondOn || thirdOn {
+                var bases: [String] = []
+                if firstOn  { bases.append("1st") }
+                if secondOn { bases.append("2nd") }
+                if thirdOn  { bases.append("3rd") }
+                parts.append(bases.joined(separator: " & "))
+            } else {
+                parts.append("Bases empty")
+            }
+            // Count
+            if let b = balls, let s = strikes { parts.append("\(b)-\(s)") }
+            // Outs
+            if let o = outs { parts.append("\(o) \(o == 1 ? "out" : "outs")") }
+            return parts.joined(separator: ", ")
         }
     }
 }
@@ -188,14 +219,20 @@ extension Game {
         // Parse broadcasts
         self.broadcasts = competitions?.broadcasts?.map { $0.names.first ?? "" } ?? []
         
-        // Parse situation (last play, down & distance for football)
+        // Parse situation (last play, down & distance for football; bases/count/outs for baseball)
         if let situationData = competitions?.situation {
             self.situation = Situation(
                 lastPlay: situationData.lastPlay?.text,
                 down: situationData.down,
                 distance: situationData.distance,
                 possessionText: situationData.possessionText,
-                shortDownDistanceText: situationData.shortDownDistanceText
+                shortDownDistanceText: situationData.shortDownDistanceText,
+                onFirst: situationData.onFirst,
+                onSecond: situationData.onSecond,
+                onThird: situationData.onThird,
+                outs: situationData.outs,
+                balls: situationData.balls,
+                strikes: situationData.strikes
             )
         } else {
             self.situation = nil
@@ -268,7 +305,14 @@ struct APIGame: Codable {
             let distance: Int?
             let possessionText: String?
             let shortDownDistanceText: String?
-            
+            // Baseball live fields
+            let onFirst: Bool?
+            let onSecond: Bool?
+            let onThird: Bool?
+            let outs: Int?
+            let balls: Int?
+            let strikes: Int?
+
             struct APILastPlay: Codable {
                 let text: String?
             }

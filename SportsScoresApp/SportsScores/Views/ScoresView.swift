@@ -181,6 +181,12 @@ struct ScoresView: View {
                 NavigationLink(destination: GameDetailView(game: game, sport: sport)) {
                     GameRow(game: game, sport: sport)
                 }
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    MonitorToggleButton(game: game)
+                }
+                .contextMenu {
+                    MonitorContextMenuItem(game: game)
+                }
             }
         }
         .listStyle(.plain)
@@ -216,9 +222,16 @@ struct GameRow: View {
                 TeamScoreRow(team: game.homeTeam, isHome: true)
             }
 
-            // Live situation line (Football: down/distance; MLB: handled in detail)
+            // Live situation line
             if game.status.isLive, let sit = game.situation {
-                if let text = sit.displayText, !text.isEmpty {
+                // MLB: show base runners + count
+                if sport == .mlb, let baseInfo = sit.baseballSituationText {
+                    Text(baseInfo)
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                        .lineLimit(1)
+                } else if let text = sit.displayText, !text.isEmpty {
+                    // Football: down/distance; other sports: last play text
                     Text(text)
                         .font(.caption)
                         .foregroundColor(.orange)
@@ -268,8 +281,12 @@ struct GameRow: View {
             parts.append(game.displayTime)
         }
 
-        if game.status.isLive, let sit = game.situation, let t = sit.displayText {
-            parts.append(t)
+        if game.status.isLive, let sit = game.situation {
+            if sport == .mlb, let baseInfo = sit.baseballSituationText {
+                parts.append(baseInfo)
+            } else if let t = sit.displayText {
+                parts.append(t)
+            }
         }
 
         return parts.joined(separator: ", ")
@@ -307,6 +324,41 @@ struct TeamScoreRow: View {
                     .fontWeight(.bold)
                     .monospacedDigit()
             }
+        }
+    }
+}
+
+// MARK: - Swipe action button
+
+private struct MonitorToggleButton: View {
+    let game: Game
+    @ObservedObject private var monitor = ScoreMonitorService.shared
+
+    var body: some View {
+        let watched = monitor.isMonitored(gameId: game.id)
+        Button {
+            monitor.toggle(game: game)
+        } label: {
+            Label(watched ? "Unwatch" : "Watch",
+                  systemImage: watched ? "bell.slash.fill" : "bell.fill")
+        }
+        .tint(watched ? .gray : .orange)
+    }
+}
+
+// MARK: - Context menu item
+
+private struct MonitorContextMenuItem: View {
+    let game: Game
+    @ObservedObject private var monitor = ScoreMonitorService.shared
+
+    var body: some View {
+        let watched = monitor.isMonitored(gameId: game.id)
+        Button {
+            monitor.toggle(game: game)
+        } label: {
+            Label(watched ? "Stop Monitoring Score" : "Monitor Score",
+                  systemImage: watched ? "bell.slash" : "bell")
         }
     }
 }
