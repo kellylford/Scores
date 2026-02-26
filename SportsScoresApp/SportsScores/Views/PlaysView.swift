@@ -24,6 +24,7 @@ private struct HalfInningGroup: Identifiable {
     let inningNumber: Int
     let inningLabel: String     // "3rd Inning"
     let atBats: [AtBatGroup]
+    let runsScored: Int         // sum of scoreValue in this half
 }
 
 private struct AtBatGroup: Identifiable {
@@ -32,6 +33,13 @@ private struct AtBatGroup: Identifiable {
     let resultText: String?     // "Meadows grounded out…"
     let pitches: [GameDetails.Play]
     let notePlay: GameDetails.Play?   // the N-type notes play (for outs display)
+}
+
+private struct InningGroup: Identifiable {
+    let id: String
+    let label: String
+    let halves: [HalfInningGroup]
+    let scoreSummary: String?   // e.g. "Away scored 2" or nil
 }
 
 private struct PeriodGroup: Identifiable {
@@ -51,7 +59,8 @@ struct MLBPlaysView: View {
     @State private var expandedInnings: Set<String> = []
     @State private var expandedHalves: Set<String> = []
     @State private var expandedAtBats: Set<String> = []
-    /// Per-at-bat index of the "currently selected" pitch for VoiceOver navigation
+    /// Per-at-bat pitch navigation index.
+    /// -1 = showing at-bat result (initial). 0..N-1 = pitch at that index.
     @State private var voicePitchIndex: [String: Int] = [:]
 
     private var innings: [InningGroup] { buildInnings() }
@@ -125,15 +134,18 @@ struct MLBPlaysView: View {
                     Text(inning.label)
                         .font(.headline)
                     Spacer()
-                    Text("\(inning.halves.count) half-innings")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    if let summary = inning.scoreSummary {
+                        Text(summary)
+                            .font(.caption.bold())
+                            .foregroundColor(.green)
+                    }
                 }
                 .padding(12)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("\(inning.label), \(inning.halves.count) half innings. Double tap to \(isOpen ? "collapse" : "expand").")
+            .accessibilityLabel(inning.label + (inning.scoreSummary.map { ", \($0)" } ?? ""))
+            .accessibilityHint(isOpen ? "Double tap to collapse." : "Double tap to expand.")
 
             if isOpen {
                 Divider().padding(.horizontal)
@@ -155,7 +167,9 @@ struct MLBPlaysView: View {
     private func halfSection(_ half: HalfInningGroup) -> some View {
         let isOpen = expandedHalves.contains(half.id)
         let teamName = half.halfType == "Top" ? awayAbbr : homeAbbr
+        let runsText = half.runsScored > 0 ? ", \(half.runsScored) run\(half.runsScored == 1 ? "" : "s")" : ""
         let halfLabel = "\(half.halfType) — \(teamName) Batting"
+        let halfLabelFull = halfLabel + runsText
 
         VStack(spacing: 0) {
             Button {
@@ -171,9 +185,15 @@ struct MLBPlaysView: View {
                     Text(halfLabel)
                         .font(.subheadline.bold())
                     Spacer()
-                    Text("\(half.atBats.count) at-bats")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    if half.runsScored > 0 {
+                        Text("\(half.runsScored)R")
+                            .font(.caption.bold())
+                            .foregroundColor(.green)
+                    } else {
+                        Text("\(half.atBats.count) AB")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
@@ -181,7 +201,8 @@ struct MLBPlaysView: View {
             }
             .buttonStyle(.plain)
             .padding(.leading, 12)
-            .accessibilityLabel("\(halfLabel), \(half.atBats.count) at-bats. Double tap to \(isOpen ? "collapse" : "expand").")
+            .accessibilityLabel(halfLabelFull)
+            .accessibilityHint(isOpen ? "Double tap to collapse." : "Double tap to expand.")
 
             if isOpen {
                 VStack(spacing: 3) {
@@ -204,7 +225,7 @@ struct MLBPlaysView: View {
     private func atBatRow(_ ab: AtBatGroup) -> some View {
         let isOpen = expandedAtBats.contains(ab.id)
         let pitchCount = ab.pitches.count
-        let currentIdx = voicePitchIndex[ab.id] ?? 0
+        let currentIdx = voicePitchIndex[ab.id] ?? -1   // -1 = result (initial)
 
         VStack(spacing: 0) {
             // At-bat header
@@ -253,28 +274,35 @@ struct MLBPlaysView: View {
             // VoiceOver: swipe up/down to step through pitches
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(ab.headerText)
-            .accessibilityValue(
-                pitchCount > 0
-                    ? pitchAccessibilityValue(ab: ab, index: currentIdx)
-                    : (ab.resultText ?? "")
-            )
+            .accessibilityValue(pitchAccessibilityValue(ab: ab, index: currentIdx))
             .accessibilityAdjustableAction { direction in
                 guard pitchCount > 0 else { return }
-                var idx = voicePitchIndex[ab.id] ?? 0
+                var idx = voicePitchIndex[ab.id] ?? -1  // -1 = result state
                 switch direction {
                 case .increment:
-                    idx = min(idx + 1, pitchCount - 1)
+                    // Swipe up: step forward through pitches
+                    if idx < pitchCount - 1 { idx += 1 }
+                    voicePitchIndex[ab.id] = idx
+                    if idx >= 0 { audio.play(ab.pitches[idx]) }
                 case .decrement:
-                    idx = max(idx - 1, 0)
+                    if idx > 0 {
+                        // Step back through pitches
+                        idx -= 1
+                        voicePitchIndex[ab.id] = idx
+                        audio.play(ab.pitches[idx])
+                    } else if idx == 0 {
+                        // Back to result
+                        voicePitchIndex[ab.id] = -1
+                    } else {
+                        // Already at result (idx == -1): play full sequence
+                        audio.playSequence(ab.pitches)
+                    }
                 @unknown default: break
                 }
-                voicePitchIndex[ab.id] = idx
-                audio.play(ab.pitches[idx])
             }
-            .accessibilityAction(named: "Play full at-bat") {
-                audio.playSequence(ab.pitches)
-            }
-            .accessibilityHint("Swipe up or down to step through pitches and hear them.")
+            .accessibilityHint(pitchCount > 0
+                ? "Swipe up to step through pitches. Swipe down from result to play full sequence."
+                : "")
 
             // Expanded: pitch rows
             if isOpen && pitchCount > 0 {
@@ -290,11 +318,13 @@ struct MLBPlaysView: View {
     }
 
     private func pitchAccessibilityValue(ab: AtBatGroup, index: Int) -> String {
-        guard !ab.pitches.isEmpty, index < ab.pitches.count else {
+        // index == -1 (or no pitches): show at-bat result
+        if index < 0 || ab.pitches.isEmpty {
             return ab.resultText ?? ""
         }
+        guard index < ab.pitches.count else { return ab.resultText ?? "" }
         let p = ab.pitches[index]
-        let num = "\(index + 1) of \(ab.pitches.count)"
+        let num = "Pitch \(index + 1) of \(ab.pitches.count)"
         let type_ = p.pitchType?.text ?? p.type.text
         let vel = p.pitchVelocity.map { "\($0) mph" } ?? ""
         let loc = p.locationDescription(batterHand: p.bats?.abbreviation)
@@ -349,7 +379,6 @@ struct MLBPlaysView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(pitch.pitchType?.text ?? "Pitch") \(pitch.pitchVelocity.map { "\($0) mph" } ?? ""), \(pitch.locationDescription(batterHand: batterHand)), \(pitch.type.text)")
-        .accessibilityHint("Double tap to hear this pitch.")
     }
 
     @ViewBuilder
@@ -376,12 +405,6 @@ struct MLBPlaysView: View {
     }
 
     // MARK: - Build data
-
-    private struct InningGroup: Identifiable {
-        let id: String
-        let label: String
-        let halves: [HalfInningGroup]
-    }
 
     private func buildInnings() -> [InningGroup] {
         // Only process non-empty plays
@@ -421,7 +444,15 @@ struct MLBPlaysView: View {
                 return buildHalf(key: key, meta: meta, plays: plays)
             }
             let label = halves.first?.inningLabel ?? "Inning \(num)"
-            return InningGroup(id: "I-\(num)", label: label, halves: halves)
+            // Build score summary: mention halves where runs scored
+            let scoreParts: [String] = halves.compactMap { half in
+                guard half.runsScored > 0 else { return nil }
+                let team = half.halfType == "Top" ? awayAbbr : homeAbbr
+                let runs = half.runsScored
+                return "\(team) \(runs)\(runs == 1 ? " run" : " runs")"
+            }
+            let scoreSummary = scoreParts.isEmpty ? nil : scoreParts.joined(separator: ", ")
+            return InningGroup(id: "I-\(num)", label: label, halves: halves, scoreSummary: scoreSummary)
         }
     }
 
@@ -458,12 +489,14 @@ struct MLBPlaysView: View {
             )
         }
 
+        let runsScored = plays.reduce(0) { $0 + max(0, $1.scoreValue ?? 0) }
         return HalfInningGroup(
             id: key,
             halfType: meta.type,
             inningNumber: meta.number,
             inningLabel: meta.label,
-            atBats: atBats
+            atBats: atBats,
+            runsScored: runsScored
         )
     }
 }
@@ -531,7 +564,8 @@ struct GenericPlaysView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("\(period.label), \(period.plays.count) plays. Double tap to \(isOpen ? "collapse" : "expand").")
+            .accessibilityLabel("\(period.label), \(period.plays.count) plays")
+            .accessibilityHint(isOpen ? "Double tap to collapse." : "Double tap to expand.")
 
             if isOpen {
                 Divider().padding(.horizontal)
