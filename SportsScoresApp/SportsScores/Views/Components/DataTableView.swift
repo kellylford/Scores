@@ -153,86 +153,212 @@ struct DataTableView: View {
 // MARK: - Standings-Specific Table View
 struct StandingsTableView: View {
     let standingsGroups: [StandingsGroup]
+    let sport: Sport
     @State private var viewMode: ViewMode = .table
-    
-    let headers = ["Rank", "Team", "Wins", "Losses", "Win%", "GB", "Streak", "Record"]
-    
+    @State private var showExpanded = false
+
+    // MARK: Column definitions
+
+    private var basicHeaders: [String] { ["Team", "W", "L", "PCT", "GB", "Streak"] }
+
+    private var expandedHeaders: [String] {
+        switch sport {
+        case .mlb:  return ["Team", "W", "L", "PCT", "GB", "R", "RA", "Diff", "Home", "Road", "L10"]
+        case .nfl:  return ["Team", "W", "L", "T", "PCT", "PF", "PA", "Diff", "Div", "Seed"]
+        case .nba:  return ["Team", "W", "L", "PCT", "GB", "PPG", "Opp", "Diff", "Seed"]
+        case .nhl:  return ["Team", "W", "L", "OTL", "PTS", "GF", "GA", "Diff", "Seed"]
+        default:    return basicHeaders
+        }
+    }
+
+    private var activeHeaders: [String] { showExpanded ? expandedHeaders : basicHeaders }
+
+    private func rowData(for entry: StandingsEntry) -> [String] {
+        let s = entry.stats
+        if !showExpanded {
+            return [entry.team.abbreviation,
+                    "\(s.wins)", "\(s.losses)",
+                    s.displayWinPercent, s.gamesBack, s.streak]
+        }
+        switch sport {
+        case .mlb:
+            return [entry.team.abbreviation,
+                    "\(s.wins)", "\(s.losses)", s.displayWinPercent, s.gamesBack,
+                    "\(s.pointsFor ?? 0)", "\(s.pointsAgainst ?? 0)",
+                    s.differential ?? "-",
+                    s.homeRecord ?? "-", s.roadRecord ?? "-", s.lastTenRecord ?? "-"]
+        case .nfl:
+            return [entry.team.abbreviation,
+                    "\(s.wins)", "\(s.losses)", "\(s.ties ?? 0)", s.displayWinPercent,
+                    "\(s.pointsFor ?? 0)", "\(s.pointsAgainst ?? 0)",
+                    s.differential ?? "-",
+                    s.divisionRecord ?? "-",
+                    s.playoffSeed.map { "\($0)" } ?? "-"]
+        case .nba:
+            return [entry.team.abbreviation,
+                    "\(s.wins)", "\(s.losses)", s.displayWinPercent, s.gamesBack,
+                    String(format: "%.1f", s.avgPointsFor ?? 0),
+                    String(format: "%.1f", s.avgPointsAgainst ?? 0),
+                    s.differential ?? "-",
+                    s.playoffSeed.map { "\($0)" } ?? "-"]
+        case .nhl:
+            return [entry.team.abbreviation,
+                    "\(s.wins)", "\(s.losses)", "\(s.otLosses ?? 0)",
+                    "\(s.nhlPoints ?? 0)",
+                    "\(s.pointsFor ?? 0)", "\(s.pointsAgainst ?? 0)",
+                    s.differential ?? "-",
+                    s.playoffSeed.map { "\($0)" } ?? "-"]
+        default:
+            return [entry.team.abbreviation,
+                    "\(s.wins)", "\(s.losses)",
+                    s.displayWinPercent, s.gamesBack, s.streak]
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             ViewModePicker(selectedMode: $viewMode)
                 .padding(.vertical, 8)
-            
+
             Divider()
-            
+
+            // Single vertical ScrollView — NO nested vertical scroll views
             ScrollView {
-                ForEach(standingsGroups) { group in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(group.name)
-                            .font(.headline)
-                            .padding(.horizontal)
-                            .padding(.top, 12)
-                        
-                        switch viewMode {
-                        case .table:
-                            tableView(for: group)
-                        case .quickList:
-                            quickListView(for: group)
-                        case .fullList:
-                            fullListView(for: group)
+                LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                    ForEach(standingsGroups) { group in
+                        Section {
+                            switch viewMode {
+                            case .table:
+                                // Horizontal scroll only in expanded mode
+                                if showExpanded {
+                                    ScrollView(.horizontal, showsIndicators: true) {
+                                        standingsTableSection(for: group)
+                                    }
+                                } else {
+                                    standingsTableSection(for: group)
+                                }
+                            case .quickList:
+                                quickListSection(for: group)
+                            case .fullList:
+                                fullListSection(for: group)
+                            }
+                        } header: {
+                            Text(group.name)
+                                .font(.headline)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal)
+                                .padding(.vertical, 8)
+                                .background(Color(uiColor: .systemBackground))
+                                .accessibilityAddTraits(.isHeader)
                         }
                     }
-                    .padding(.bottom, 16)
                 }
             }
         }
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+                if viewMode == .table {
+                    Button {
+                        withAnimation { showExpanded.toggle() }
+                    } label: {
+                        Label(showExpanded ? "Basic" : "Expand",
+                              systemImage: showExpanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                        .labelStyle(.iconOnly)
+                    }
+                    .accessibilityLabel(showExpanded ? "Show basic columns" : "Show expanded columns")
+                }
                 ViewModeToggleButton(currentMode: $viewMode)
             }
         }
     }
-    
-    private func tableView(for group: StandingsGroup) -> some View {
-        DataTableView(
-            headers: headers,
-            rows: group.entries.map { $0.tableRow }
-        )
-    }
-    
-    private func quickListView(for group: StandingsGroup) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ForEach(Array(group.entries.enumerated()), id: \.element.id) { index, entry in
-                Text(entry.quickListText)
-                    .font(.body)
-                    .padding(.vertical, 8)
-                    .padding(.horizontal, 12)
+
+    // MARK: - Table mode
+
+    private func standingsTableSection(for group: StandingsGroup) -> some View {
+        VStack(spacing: 0) {
+            // Header row — derived from activeHeaders
+            HStack(spacing: 0) {
+                Text(activeHeaders[0])     // "Team" — flexible width
+                    .font(.caption.bold())
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(index % 2 == 0 ? Color.clear : Color.secondary.opacity(0.05))
-                    .cornerRadius(6)
-                    .accessibilityLabel("Team \(index + 1): \(entry.quickListText)")
+                    .padding(.horizontal, 8)
+                ForEach(activeHeaders.dropFirst(), id: \.self) { col in
+                    Text(col)
+                        .font(.caption.bold())
+                        .frame(width: 44)
+                }
+            }
+            .padding(.vertical, 6)
+            .background(Color.secondary.opacity(0.15))
+
+            Divider()
+
+            ForEach(Array(group.entries.enumerated()), id: \.element.id) { idx, entry in
+                let cols = rowData(for: entry)
+                HStack(spacing: 0) {
+                    Text(cols[0])   // Team abbreviation — flexible
+                        .font(.subheadline.bold())
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 8)
+                    ForEach(cols.dropFirst().indices, id: \.self) { i in
+                        Text(cols[i + 1])
+                            .font(.caption.monospacedDigit())
+                            .frame(width: 44)
+                    }
+                }
+                .padding(.vertical, 7)
+                .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.05))
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(
+                    "\(entry.team.displayName): \(entry.stats.wins) wins, \(entry.stats.losses) losses, " +
+                    "\(entry.stats.displayWinPercent), \(entry.stats.gamesBack) games back, streak \(entry.stats.streak)"
+                )
+
+                if idx < group.entries.count - 1 {
+                    Divider().padding(.leading, 8)
+                }
             }
         }
-        .padding(.horizontal)
+        .padding(.bottom, 16)
     }
-    
-    private func fullListView(for group: StandingsGroup) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+
+    // MARK: - Quick List mode
+
+    private func quickListSection(for group: StandingsGroup) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
             ForEach(group.entries) { entry in
-                VStack(alignment: .leading, spacing: 6) {
+                Text(entry.quickListText)
+                    .font(.subheadline)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityLabel(entry.quickListText)
+            }
+        }
+        .padding(.bottom, 16)
+    }
+
+    // MARK: - Full List mode
+
+    private func fullListSection(for group: StandingsGroup) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(group.entries) { entry in
+                VStack(alignment: .leading, spacing: 4) {
                     Text(entry.team.displayName)
                         .font(.headline)
-                    
                     Text(entry.fullListText)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
                 .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color.secondary.opacity(0.05))
                 .cornerRadius(8)
+                .padding(.horizontal, 12)
                 .accessibilityLabel(entry.fullListText)
             }
         }
-        .padding(.horizontal)
+        .padding(.bottom, 16)
     }
 }
 

@@ -41,7 +41,7 @@ struct StandingsView: View {
                         .foregroundColor(.secondary)
                 }
             } else {
-                StandingsTableView(standingsGroups: viewModel.standingsGroups)
+                StandingsTableView(standingsGroups: viewModel.standingsGroups, sport: sport)
             }
         }
         .task {

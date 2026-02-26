@@ -637,3 +637,203 @@ struct GenericPlaysView: View {
         .padding(.vertical, 7)
     }
 }
+
+// MARK: - NFL Drives View
+
+/// Quarter → Drive (collapsible) → individual plays.
+/// Uses the `drives` data from the ESPN summary API.
+struct NFLDrivesView: View {
+    let drives: [GameDetails.Drive]
+    let awayAbbr: String
+    let homeAbbr: String
+
+    @State private var expandedQuarters: Set<Int> = [1]
+    @State private var expandedDrives: Set<String> = []
+
+    /// Organise drives into quarters, ignoring duplicates / bad data.
+    private var quarterGroups: [(quarter: Int, label: String, drives: [GameDetails.Drive])] {
+        let sorted = drives.sorted {
+            if $0.quarterNumber != $1.quarterNumber { return $0.quarterNumber < $1.quarterNumber }
+            return ($0.start?.period?.number ?? 0) < ($1.start?.period?.number ?? 0)
+        }
+        var groups: [(quarter: Int, label: String, drives: [GameDetails.Drive])] = []
+        for drive in sorted {
+            let q = drive.quarterNumber
+            if let idx = groups.firstIndex(where: { $0.quarter == q }) {
+                groups[idx].drives.append(drive)
+            } else {
+                let label: String
+                switch q {
+                case 1: label = "1st Quarter"
+                case 2: label = "2nd Quarter"
+                case 3: label = "3rd Quarter"
+                case 4: label = "4th Quarter"
+                default: label = "OT \(q - 4)"
+                }
+                groups.append((quarter: q, label: label, drives: [drive]))
+            }
+        }
+        return groups
+    }
+
+    var body: some View {
+        ScrollView {
+            if drives.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "figure.american.football")
+                        .font(.system(size: 36))
+                        .foregroundColor(.secondary)
+                    Text("Drives not available")
+                        .foregroundColor(.secondary)
+                }
+                .padding(.top, 40)
+            } else {
+                LazyVStack(spacing: 6) {
+                    ForEach(quarterGroups, id: \.quarter) { group in
+                        quarterSection(group)
+                    }
+                }
+                .padding()
+            }
+        }
+    }
+
+    // MARK: - Quarter section
+
+    @ViewBuilder
+    private func quarterSection(_ group: (quarter: Int, label: String, drives: [GameDetails.Drive])) -> some View {
+        let isOpen = expandedQuarters.contains(group.quarter)
+
+        VStack(spacing: 0) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    if isOpen { expandedQuarters.remove(group.quarter) }
+                    else      { expandedQuarters.insert(group.quarter) }
+                }
+            } label: {
+                HStack {
+                    Image(systemName: isOpen ? "chevron.down" : "chevron.right")
+                        .foregroundColor(.secondary).frame(width: 16)
+                    Text(group.label).font(.headline)
+                    Spacer()
+                    Text("\(group.drives.count) drive\(group.drives.count == 1 ? "" : "s")")
+                        .font(.caption).foregroundColor(.secondary)
+                }
+                .padding(12)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(group.label), \(group.drives.count) drives")
+            .accessibilityHint(isOpen ? "Double tap to collapse." : "Double tap to expand.")
+
+            if isOpen {
+                Divider().padding(.horizontal)
+                VStack(spacing: 4) {
+                    ForEach(group.drives) { drive in
+                        driveRow(drive)
+                    }
+                }
+                .padding(.bottom, 4)
+            }
+        }
+        .background(Color.secondary.opacity(0.07))
+        .cornerRadius(10)
+    }
+
+    // MARK: - Drive row
+
+    @ViewBuilder
+    private func driveRow(_ drive: GameDetails.Drive) -> some View {
+        let isOpen = expandedDrives.contains(drive.id)
+        let plays  = drive.plays ?? []
+        let teamAbbr = drive.team?.abbreviation ?? "?"
+        let result   = drive.result ?? "Unknown"
+        let yards    = drive.yards.map { "\($0) yds" } ?? ""
+        let playCount = drive.offensivePlays.map { "\($0) plays" } ?? "\(plays.count) plays"
+
+        VStack(spacing: 0) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    if isOpen { expandedDrives.remove(drive.id) }
+                    else      { expandedDrives.insert(drive.id) }
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: isOpen ? "chevron.down" : "chevron.right")
+                        .foregroundColor(.secondary).frame(width: 14)
+
+                    Text(drive.resultEmoji)
+                        .font(.title3)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            Text(teamAbbr).font(.subheadline.bold())
+                            Text(result).font(.subheadline).foregroundColor(drive.isScore == true ? .green : .primary)
+                        }
+                        if let desc = drive.description, !desc.isEmpty {
+                            Text(desc).font(.caption).foregroundColor(.secondary).lineLimit(1)
+                        }
+                    }
+
+                    Spacer()
+
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(yards).font(.caption.bold())
+                        Text(playCount).font(.caption2).foregroundColor(.secondary)
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(teamAbbr) drive, \(result), \(yards), \(playCount)")
+            .accessibilityHint(isOpen ? "Double tap to collapse." : "Double tap to expand plays.")
+
+            if isOpen {
+                VStack(spacing: 0) {
+                    ForEach(plays) { play in
+                        drivePlayRow(play)
+                        if play.id != plays.last?.id {
+                            Divider().padding(.leading, 28)
+                        }
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.bottom, 4)
+            }
+        }
+        .background(Color.secondary.opacity(0.04))
+        .cornerRadius(8)
+        .padding(.horizontal, 4)
+    }
+
+    // MARK: - Drive play row
+
+    private func drivePlayRow(_ play: GameDetails.Drive.DrivePlay) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            if let clock = play.clock?.displayValue {
+                Text(clock)
+                    .font(.caption.bold())
+                    .foregroundColor(.blue)
+                    .frame(width: 48, alignment: .leading)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                if let text = play.text, !text.isEmpty {
+                    Text(text).font(.callout)
+                } else if let typeText = play.type?.text {
+                    Text(typeText).font(.caption).foregroundColor(.secondary)
+                }
+                if let yards = play.statYardage {
+                    Text("\(yards > 0 ? "+" : "")\(yards) yards")
+                        .font(.caption2)
+                        .foregroundColor(yards > 0 ? .green : yards < 0 ? .red : .secondary)
+                }
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+    }
+}
+

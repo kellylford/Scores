@@ -22,25 +22,80 @@ class ESPNAPIService {
         self.session = URLSession(configuration: config)
     }
     
-    // MARK: - Fetch Games
-    func fetchGames(for sport: Sport) async throws -> [Game] {
-        let urlString = "\(baseURL)/\(sport.apiPath)/scoreboard"
-        guard let url = URL(string: urlString) else {
-            throw APIError.invalidURL
+    // MARK: - Fetch Games (non-football, optional date)
+
+    func fetchGames(for sport: Sport, date: Date? = nil) async throws -> [Game] {
+        var urlString = "\(baseURL)/\(sport.apiPath)/scoreboard"
+        if let date = date {
+            let fmt = DateFormatter()
+            fmt.dateFormat = "yyyyMMdd"
+            urlString += "?dates=\(fmt.string(from: date))"
         }
-        
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+
         let (data, response) = try await session.data(from: url)
-        
         guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
-            throw APIError.invalidResponse
-        }
-        
+              httpResponse.statusCode == 200 else { throw APIError.invalidResponse }
+
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let apiResponse = try decoder.decode(ScoreboardResponse.self, from: data)
-        
-        return try apiResponse.events.map { try Game(from: $0) }
+        let seasonType = apiResponse.season?.type ?? 2
+        return try apiResponse.events.map { try Game(from: $0, seasonType: seasonType) }
+    }
+
+    // MARK: - Fetch Football Games (week-based navigation)
+
+    struct FootballScoreboardResult {
+        let games: [Game]
+        let week: Int
+        let weekLabel: String
+        let seasonType: Int
+    }
+
+    func fetchFootballGames(for sport: Sport,
+                            week: Int? = nil,
+                            seasonType: Int = 2) async throws -> FootballScoreboardResult {
+        var components: [String] = []
+        components.append("seasontype=\(seasonType)")
+        if let w = week { components.append("week=\(w)") }
+        let query = components.isEmpty ? "" : "?" + components.joined(separator: "&")
+        let urlString = "\(baseURL)/\(sport.apiPath)/scoreboard\(query)"
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+
+        let (data, response) = try await session.data(from: url)
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else { throw APIError.invalidResponse }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let apiResponse = try decoder.decode(ScoreboardResponse.self, from: data)
+        let resolvedSeasonType = apiResponse.season?.type ?? seasonType
+        let resolvedWeek = apiResponse.week?.number ?? week ?? 1
+        let weekLabel = apiResponse.week?.text ?? "Week \(resolvedWeek)"
+        let games = try apiResponse.events.map { try Game(from: $0, seasonType: resolvedSeasonType) }
+        return FootballScoreboardResult(
+            games: games,
+            week: resolvedWeek,
+            weekLabel: weekLabel,
+            seasonType: resolvedSeasonType
+        )
+    }
+
+    // MARK: - Fetch News
+
+    func fetchNews(for sport: Sport) async throws -> [NewsItem] {
+        let urlString = "\(baseURL)/\(sport.apiPath)/news"
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+
+        let (data, response) = try await session.data(from: url)
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else { throw APIError.invalidResponse }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let apiResponse = try decoder.decode(NewsAPIResponse.self, from: data)
+        return apiResponse.articles.map { NewsItem(from: $0) }
     }
     
     // MARK: - Fetch Standings
@@ -49,19 +104,70 @@ class ESPNAPIService {
         guard let url = URL(string: urlString) else {
             throw APIError.invalidURL
         }
-        
+
         let (data, response) = try await session.data(from: url)
-        
+
         guard let httpResponse = response as? HTTPURLResponse,
               httpResponse.statusCode == 200 else {
             throw APIError.invalidResponse
         }
-        
+
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let apiResponse = try decoder.decode(APIStandingsResponse.self, from: data)
-        
-        return try apiResponse.children.map { try StandingsGroup(from: $0) }
+
+        // If the sport has a division mapper, sub-divide the flat conference entries
+        // into proper divisions (e.g. "AL East", "AFC North").  Otherwise fall back
+        // to the conference-level groupings from the API.
+        if DivisionMapper.hasDivisions(sport) {
+            return groupByDivision(apiResponse.children, sport: sport)
+        } else {
+            return try apiResponse.children.map { try StandingsGroup(from: $0) }
+        }
+    }
+
+    /// Collect all entries from every conference child, assign each to a division
+    /// via DivisionMapper, then produce a sorted [StandingsGroup].
+    private func groupByDivision(_ children: [APIStandingsGroup], sport: Sport) -> [StandingsGroup] {
+        // Bucket entries by division name
+        var buckets: [String: [StandingsEntry]] = [:]
+
+        for child in children {
+            for apiEntry in child.standings.entries {
+                let abbr = apiEntry.team.abbreviation
+                let divisionName = DivisionMapper.division(for: sport, abbreviation: abbr)
+                                   ?? child.name   // fallback to conference name
+                let entry = StandingsEntry(fromAPIEntry: apiEntry)
+                buckets[divisionName, default: []].append(entry)
+            }
+        }
+
+        // Sort entries within each division by win% descending, then wins descending
+        for key in buckets.keys {
+            buckets[key]?.sort {
+                if $0.stats.winPercent != $1.stats.winPercent {
+                    return $0.stats.winPercent > $1.stats.winPercent
+                }
+                return $0.stats.wins > $1.stats.wins
+            }
+        }
+
+        // Sort division groups by predefined order, unknown divisions appended last
+        let order = DivisionMapper.divisionOrder(for: sport)
+        var groups: [StandingsGroup] = []
+        for divName in order {
+            if let entries = buckets[divName], !entries.isEmpty {
+                groups.append(StandingsGroup(name: divName, entries: entries))
+            }
+        }
+        // Append any unmapped divisions alphabetically
+        let unknown = buckets.keys.filter { !order.contains($0) }.sorted()
+        for divName in unknown {
+            if let entries = buckets[divName] {
+                groups.append(StandingsGroup(name: divName, entries: entries))
+            }
+        }
+        return groups
     }
     
     // MARK: - Fetch Game Details
@@ -84,17 +190,363 @@ class ESPNAPIService {
         
         return details
     }
+
+    // MARK: - Fetch Team Schedule
+
+    /// Fetch the schedule for a single team and season type.
+    func fetchTeamSchedule(teamId: String, sport: Sport, season: Int, seasonType: Int) async throws -> [ScheduleGame] {
+        let urlString = "\(baseURL)/\(sport.apiPath)/teams/\(teamId)/schedule?season=\(season)&seasontype=\(seasonType)"
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+
+        let (data, response) = try await session.data(from: url)
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            throw APIError.invalidResponse
+        }
+
+        let apiResponse = try JSONDecoder().decode(TeamScheduleAPIResponse.self, from: data)
+        return apiResponse.events.compactMap { $0.toScheduleGame() }
+    }
+
+    // MARK: - Fetch League Leaders (Phase 5)
+
+    func fetchLeagueLeaders(for sport: Sport) async throws -> [LeagueLeaderCategory] {
+        let urlString = "\(baseURL)/\(sport.apiPath)/leaders"
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+        let (data, response) = try await session.data(from: url)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw APIError.invalidResponse }
+        let apiResponse = try JSONDecoder().decode(LeadersAPIResponse.self, from: data)
+        return apiResponse.categories.map { LeagueLeaderCategory(from: $0) }
+    }
+
+    // MARK: - Fetch Rankings / Polls (Phase 6)
+
+    func fetchRankings(for sport: Sport) async throws -> [RankingsPoll] {
+        let urlString = "\(baseURL)/\(sport.apiPath)/rankings"
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+        let (data, response) = try await session.data(from: url)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw APIError.invalidResponse }
+        let apiResponse = try JSONDecoder().decode(RankingsAPIResponse.self, from: data)
+        return apiResponse.rankings.map { RankingsPoll(from: $0) }
+    }
+}
+
+// MARK: - League Leaders Models
+
+struct LeagueLeaderCategory: Identifiable {
+    let id = UUID()
+    let name: String
+    let displayName: String
+    let leaders: [LeagueLeaderEntry]
+
+    struct LeagueLeaderEntry: Identifiable {
+        let id = UUID()
+        let rank: Int
+        let displayValue: String
+        let athleteName: String
+        let teamAbbreviation: String
+    }
+
+    init(from api: LeadersAPIResponse.APICategory) {
+        self.name = api.name
+        self.displayName = api.displayName
+        self.leaders = api.leaders.enumerated().map { idx, l in
+            LeagueLeaderEntry(
+                rank: idx + 1,
+                displayValue: l.displayValue ?? "-",
+                athleteName: l.athlete?.displayName ?? l.team?.displayName ?? "Unknown",
+                teamAbbreviation: l.team?.abbreviation ?? ""
+            )
+        }
+    }
+}
+
+struct LeadersAPIResponse: Codable {
+    let categories: [APICategory]
+
+    struct APICategory: Codable {
+        let name: String
+        let displayName: String
+        let leaders: [APILeader]
+
+        struct APILeader: Codable {
+            let displayValue: String?
+            let athlete: APIAthlete?
+            let team: APITeam?
+
+            struct APIAthlete: Codable {
+                let displayName: String?
+            }
+            struct APITeam: Codable {
+                let displayName: String?
+                let abbreviation: String?
+            }
+        }
+    }
+}
+
+// MARK: - Rankings / Polls Models
+
+struct RankingsPoll: Identifiable {
+    let id = UUID()
+    let name: String
+    let shortName: String
+    let lastUpdated: String?
+    let ranks: [RankEntry]
+
+    struct RankEntry: Identifiable {
+        let id = UUID()
+        let current: Int
+        let previous: Int?
+        let trend: String?
+        let points: Double?
+        let firstPlaceVotes: Int?
+        let teamDisplayName: String
+        let teamAbbreviation: String
+        let recordSummary: String?
+
+        var movementText: String {
+            guard let prev = previous, prev > 0 else { return "NR" }
+            let diff = prev - current
+            if diff > 0 { return "↑\(diff)" }
+            if diff < 0 { return "↓\(abs(diff))" }
+            return "—"
+        }
+
+        var movementDirection: Int {
+            guard let prev = previous, prev > 0 else { return 0 }
+            return prev - current
+        }
+    }
+
+    init(from api: RankingsAPIResponse.APIPoll) {
+        self.name = api.name ?? api.shortName ?? "Poll"
+        self.shortName = api.shortName ?? api.name ?? "Poll"
+        self.lastUpdated = api.lastUpdated
+        self.ranks = (api.ranks ?? []).map { r in
+            RankEntry(
+                current: r.current ?? 0,
+                previous: r.previous,
+                trend: r.trend,
+                points: r.points,
+                firstPlaceVotes: r.firstPlaceVotes,
+                teamDisplayName: r.team?.displayName ?? "Unknown",
+                teamAbbreviation: r.team?.abbreviation ?? "—",
+                recordSummary: r.record?.summary ?? r.team?.record?.summary
+            )
+        }
+    }
+}
+
+struct RankingsAPIResponse: Codable {
+    let rankings: [APIPoll]
+
+    struct APIPoll: Codable {
+        let name: String?
+        let shortName: String?
+        let headline: String?
+        let lastUpdated: String?
+        let ranks: [APIRank]?
+
+        struct APIRank: Codable {
+            let current: Int?
+            let previous: Int?
+            let trend: String?
+            let points: Double?
+            let firstPlaceVotes: Int?
+            let record: APIRecord?
+            let team: APITeam?
+
+            struct APIRecord: Codable {
+                let summary: String?
+            }
+            struct APITeam: Codable {
+                let displayName: String?
+                let abbreviation: String?
+                let record: APIRecord?
+            }
+        }
+    }
 }
 
 // MARK: - API Response Models
 struct ScoreboardResponse: Codable {
     let events: [APIGame]
+    /// Present for football sports — describes the current week.
+    let week: APIWeek?
+    /// Describes the current season being served.
+    let season: APISeason?
+
+    struct APIWeek: Codable {
+        let number: Int?
+        let text: String?
+    }
+
+    struct APISeason: Codable {
+        let year: Int?
+        let type: Int?
+    }
 }
 
 struct GameDetails: Codable {
     let boxscore: Boxscore?
     let plays: [Play]?
     let leaders: [Leader]?
+    /// NFL/NCAAF only — drive-by-drive breakdown.
+    let drives: DrivesContainer?
+    /// Venue, officials, odds, injuries from the summary API.
+    let gameInfo: GameInfo?
+    let odds: [OddsEntry]?
+    let injuries: [InjuryTeam]?
+
+    // ── Game-info sub-models ──────────────────────────────────────────────
+
+    struct GameInfo: Codable {
+        let officials: [Official]?
+
+        struct Official: Codable {
+            let fullName: String?
+            let position: OfficialPosition?
+
+            struct OfficialPosition: Codable {
+                let displayName: String?
+            }
+        }
+    }
+
+    struct OddsEntry: Codable {
+        let details: String?         // spread text e.g. "KC -6.5"
+        let overUnder: Double?
+        let provider: OddsProvider?
+
+        struct OddsProvider: Codable {
+            let name: String?
+        }
+    }
+
+    struct InjuryTeam: Codable {
+        let team: InjuryTeamInfo?
+        let injuries: [PlayerInjury]?
+
+        struct InjuryTeamInfo: Codable {
+            let displayName: String?
+            let abbreviation: String?
+        }
+
+        struct PlayerInjury: Codable {
+            let athlete: InjuryAthlete?
+            let type: InjuryType?
+            let status: String?
+
+            struct InjuryAthlete: Codable {
+                let displayName: String?
+                let position: AthletePosition?
+
+                struct AthletePosition: Codable {
+                    let abbreviation: String?
+                }
+            }
+
+            struct InjuryType: Codable {
+                let description: String?
+            }
+        }
+    }
+
+    // ── Drives container (NFL / NCAAF) ────────────────────────────────────
+
+    struct DrivesContainer: Codable {
+        let current: Drive?
+        let previous: [Drive]?
+
+        /// All drives in chronological order (current drive appended at end if present).
+        var all: [Drive] {
+            var list = previous ?? []
+            if let cur = current { list.append(cur) }
+            return list
+        }
+    }
+
+    struct Drive: Codable, Identifiable {
+        let id: String
+        let description: String?
+        let yards: Int?
+        let offensivePlays: Int?
+        /// Short abbreviation ("FG", "PUNT", "TD"). Use `displayResult` for the
+        /// human-readable version that drives the emoji mapping.
+        let result: String?
+        /// Human-readable result e.g. "Field Goal", "Punt", "Touchdown".
+        let displayResult: String?
+        let isScore: Bool?
+        let team: DriveTeam?
+        let start: DrivePosition?
+        let end: DrivePosition?
+        let plays: [DrivePlay]?
+
+        /// Drive result mapped to an emoji. Uses `displayResult` (e.g. "Field Goal")
+        /// because `result` contains abbreviations ("FG") which don't match a simple switch.
+        var resultEmoji: String {
+            switch displayResult?.lowercased() {
+            case "touchdown":                               return "🏈"
+            case "field goal":                             return "🥅"
+            case "punt":                                   return "⚡"
+            case "fumble", "interception",
+                 "turnover on downs":                      return "🔄"
+            case "missed field goal", "missed fg":        return "❌"
+            case "end of half", "end of game",
+                 "end of quarter":                         return "🕒"
+            default:
+                // Fallback: use the short abbreviation
+                switch result?.uppercased() {
+                case "TD":   return "🏈"
+                case "FG":   return "🥅"
+                case "PUNT": return "⚡"
+                default:     return "•"
+                }
+            }
+        }
+
+        /// ESPN period number for the drive start (1-4, plus 5+ for OT).
+        var quarterNumber: Int { start?.period?.number ?? 1 }
+
+        struct DriveTeam: Codable {
+            let id: String?
+            let abbreviation: String?
+            let displayName: String?
+        }
+
+        struct DrivePosition: Codable {
+            let period: DrivePeriod?
+            let yardLine: Int?
+            let text: String?
+
+            struct DrivePeriod: Codable {
+                let number: Int?
+            }
+        }
+
+        struct DrivePlay: Codable, Identifiable {
+            let id: String
+            let text: String?
+            let statYardage: Int?
+            let type: PlayType?
+            let clock: PlayClock?
+            let period: DrivePeriod?
+
+            struct PlayType: Codable {
+                let text: String?
+                let type: String?
+            }
+
+            struct PlayClock: Codable {
+                let displayValue: String?
+            }
+
+            struct DrivePeriod: Codable {
+                let number: Int?
+            }
+        }
+    }
     
     struct Boxscore: Codable {
         let teams: [TeamStats]
@@ -293,11 +745,19 @@ struct GameDetails: Codable {
         let name: String?
         let displayName: String?
         let leaders: [PlayerLeader]?
-        
+
+        // NBA adds a team reference; ignore it for display purposes.
+        // let team: …  (not decoded)
+
         struct PlayerLeader: Codable {
+            // For MLF/NFL/NHL: flat player entry
             let displayValue: String?
             let athlete: Athlete?
-            
+            // For NBA: this struct doubles as a category container with its own leaders
+            let name: String?
+            let displayName: String?
+            let leaders: [PlayerLeader]?
+
             struct Athlete: Codable {
                 let displayName: String
             }

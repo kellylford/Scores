@@ -18,6 +18,8 @@ struct Game: Identifiable, Codable {
     let venue: Venue?
     let broadcasts: [String]
     let situation: Situation?
+    /// ESPN season type — 1 preseason, 2 regular, 3 postseason (default 2).
+    let seasonType: Int
     
     var displayTime: String {
         let formatter = DateFormatter()
@@ -111,10 +113,11 @@ struct Game: Identifiable, Codable {
 
 // MARK: - API Response Models
 extension Game {
-    init(from apiResponse: APIGame) throws {
+    init(from apiResponse: APIGame, seasonType: Int = 2) throws {
         self.id = apiResponse.id
         self.name = apiResponse.name
         self.shortName = apiResponse.shortName
+        self.seasonType = seasonType
         
         // Parse date - ESPN returns dates in ISO8601 format (e.g., "2026-01-05T01:20Z")
         let dateFormatter = DateFormatter()

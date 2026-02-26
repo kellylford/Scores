@@ -34,9 +34,22 @@ struct StandingsEntry: Identifiable {
         let gamesBack: String
         let streak: String
         let record: String
+        // Raw scoring totals (MLB=runs, NFL/NBA/NHL=points/goals)
         let pointsFor: Int?
         let pointsAgainst: Int?
-        
+        // Extended: present for some sports only
+        let ties: Int?          // NFL
+        let otLosses: Int?      // NHL
+        let nhlPoints: Int?     // NHL standings points
+        let avgPointsFor: Double?    // NBA PPG
+        let avgPointsAgainst: Double? // NBA opp PPG
+        let homeRecord: String?
+        let roadRecord: String?
+        let lastTenRecord: String?
+        let divisionRecord: String?
+        let playoffSeed: Int?
+        let differential: String?   // formatted e.g. "+61", "-7"
+
         var displayWinPercent: String {
             String(format: "%.3f", winPercent)
         }
@@ -70,35 +83,50 @@ struct StandingsEntry: Identifiable {
     }
 }
 
+// MARK: - Shared entry-building helper
+extension StandingsEntry {
+    /// Build a StandingsEntry from a raw API entry, populating all extended fields.
+    init(fromAPIEntry apiEntry: APIStandingsGroup.APIStandings.APIStandingsEntry) {
+        typealias AS = APIStandingsGroup.APIStandings.APIStandingsEntry.APIStat
+        func stat(_ name: String) -> AS? {
+            apiEntry.stats.first(where: { $0.name == name })
+        }
+        let t = apiEntry.team
+        self.rank = Int(stat("rank")?.value ?? 0)
+        self.team = TeamInfo(
+            id: t.id, name: t.name, abbreviation: t.abbreviation,
+            displayName: t.displayName, logo: t.logos?.first?.href
+        )
+        self.stats = StandingsStats(
+            wins:          Int(stat("wins")?.value ?? 0),
+            losses:        Int(stat("losses")?.value ?? 0),
+            winPercent:    stat("winPercent")?.value ?? 0,
+            gamesBack:     stat("gamesBehind")?.displayValue ?? "-",
+            streak:        stat("streak")?.displayValue ?? "-",
+            record:        stat("overall")?.displayValue ?? "-",
+            pointsFor:     stat("pointsFor").map { Int($0.value) },
+            pointsAgainst: stat("pointsAgainst").map { Int($0.value) },
+            ties:          stat("ties").map { Int($0.value) },
+            otLosses:      stat("otLosses").map { Int($0.value) }
+                            ?? stat("OTLosses").map { Int($0.value) },
+            nhlPoints:     stat("points").map { Int($0.value) },
+            avgPointsFor:  stat("avgPointsFor")?.value,
+            avgPointsAgainst: stat("avgPointsAgainst")?.value,
+            homeRecord:    stat("Home")?.displayValue,
+            roadRecord:    stat("Road")?.displayValue,
+            lastTenRecord: stat("Last Ten Games")?.displayValue,
+            divisionRecord: stat("vs. Div.")?.displayValue ?? stat("divisionRecord")?.displayValue,
+            playoffSeed:   stat("playoffSeed").map { Int($0.value) },
+            differential:  stat("differential")?.displayValue
+        )
+    }
+}
+
 // MARK: - API Response Models
 extension StandingsGroup {
     init(from apiResponse: APIStandingsGroup) throws {
         self.name = apiResponse.name
-        self.entries = apiResponse.standings.entries.map { apiEntry in
-            let team = apiEntry.team
-            let stats = apiEntry.stats
-            
-            return StandingsEntry(
-                rank: Int(stats.first(where: { $0.name == "rank" })?.value ?? 0),
-                team: StandingsEntry.TeamInfo(
-                    id: team.id,
-                    name: team.name,
-                    abbreviation: team.abbreviation,
-                    displayName: team.displayName,
-                    logo: team.logos?.first?.href
-                ),
-                stats: StandingsEntry.StandingsStats(
-                    wins: Int(stats.first(where: { $0.name == "wins" })?.value ?? 0),
-                    losses: Int(stats.first(where: { $0.name == "losses" })?.value ?? 0),
-                    winPercent: stats.first(where: { $0.name == "winPercent" })?.value ?? 0,
-                    gamesBack: stats.first(where: { $0.name == "gamesBehind" })?.displayValue ?? "0",
-                    streak: stats.first(where: { $0.name == "streak" })?.displayValue ?? "-",
-                    record: stats.first(where: { $0.name == "overall" })?.displayValue ?? "-",
-                    pointsFor: Int(stats.first(where: { $0.name == "pointsFor" })?.value ?? 0),
-                    pointsAgainst: Int(stats.first(where: { $0.name == "pointsAgainst" })?.value ?? 0)
-                )
-            )
-        }
+        self.entries = apiResponse.standings.entries.map { StandingsEntry(fromAPIEntry: $0) }
     }
 }
 
