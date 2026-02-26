@@ -7,6 +7,26 @@
 
 import Foundation
 
+// MARK: - Auto-refresh interval
+
+enum AutoRefreshInterval: Int, CaseIterable, Identifiable {
+    case thirtySeconds = 30
+    case oneMinute     = 60
+    case twoMinutes    = 120
+    case manual        = 0
+
+    var id: Int { rawValue }
+
+    var label: String {
+        switch self {
+        case .thirtySeconds: return "30s"
+        case .oneMinute:     return "1m"
+        case .twoMinutes:    return "2m"
+        case .manual:        return "Manual"
+        }
+    }
+}
+
 @MainActor
 class ScoresViewModel: ObservableObject {
 
@@ -23,6 +43,9 @@ class ScoresViewModel: ObservableObject {
     @Published var currentWeek: Int?
     @Published var currentSeasonType: Int = 2            // 1 pre / 2 regular / 3 post
     @Published var weekLabel: String = ""
+
+    // Auto-refresh
+    @Published var autoRefreshInterval: AutoRefreshInterval = .oneMinute
 
     // ─────────────────────────────────────────────────────────────────────
     private let apiService = ESPNAPIService.shared

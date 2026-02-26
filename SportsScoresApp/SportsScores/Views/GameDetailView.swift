@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import Charts
+import SafariServices
 
 struct GameDetailView: View {
     let game: Game
@@ -32,6 +34,9 @@ struct GameDetailView: View {
                     Text("Box Score").tag(0)
                     Text(sport.isFootball ? "Drives" : "Plays").tag(1)
                     Text("Info").tag(2)
+                    if sport == .mlb {
+                        Text("More").tag(3)
+                    }
                 }
                 .pickerStyle(.segmented)
                 .padding()
@@ -60,6 +65,9 @@ struct GameDetailView: View {
                     boxScoreTab(details: details).tag(0)
                     playsTab(details: details).tag(1)
                     gameInfoTab(details: details).tag(2)
+                    if sport == .mlb {
+                        moreTab(details: details).tag(3)
+                    }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
             }
@@ -262,7 +270,7 @@ struct GameDetailView: View {
 
     // MARK: - Leaders tab
 
-    // MARK: - Game Info tab (Leaders + Injuries + Officials)
+    // MARK: - Game Info tab (Leaders + Injuries + Officials + News)
 
     private func gameInfoTab(details: GameDetails) -> some View {
         ScrollView {
@@ -275,6 +283,11 @@ struct GameDetailView: View {
 
                 if let officials = details.gameInfo?.officials, !officials.isEmpty {
                     officialsSection(officials)
+                }
+
+                // Game-specific news (all sports)
+                if let articles = details.news?.articles, !articles.isEmpty {
+                    gameNewsSection(articles: articles)
                 }
             }
             .padding()
@@ -403,6 +416,125 @@ struct GameDetailView: View {
         }
     }
 
+    // MARK: - More tab (MLB KitchenSink: Win Probability + Season Series)
+
+    private func moreTab(details: GameDetails) -> some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                // Win probability chart
+                if let wp = details.winprobability, !wp.isEmpty {
+                    winProbChart(
+                        entries: wp,
+                        awayAbbr: game.awayTeam.abbreviation,
+                        homeAbbr: game.homeTeam.abbreviation
+                    )
+                }
+
+                // Season series
+                if let series = details.seasonseries, !series.isEmpty {
+                    let sorted = series.sorted { $0.displayOrder < $1.displayOrder }
+                    sectionCard(title: "Season Series") {
+                        ForEach(Array(sorted.enumerated()), id: \.offset) { _, s in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(s.title ?? "Series")
+                                        .font(.subheadline.bold())
+                                    if let summary = s.summary {
+                                        Text(summary)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                Spacer()
+                                if let total = s.totalCompetitions {
+                                    Text("\(total) games")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .padding(.vertical, 3)
+                            .accessibilityLabel("\(s.title ?? "Series"): \(s.summary ?? "")")
+                        }
+                    }
+                }
+            }
+            .padding()
+        }
+    }
+
+    @ViewBuilder
+    private func winProbChart(entries: [GameDetails.WinProbEntry], awayAbbr: String, homeAbbr: String) -> some View {
+        // Build (index, homeWinPct) data points
+        let data = entries.enumerated().map { (i, e) in (i, e.homeWinPercentage) }
+
+        sectionCard(title: "Win Probability — \(homeAbbr)") {
+            Chart {
+                // Away 50% reference line
+                RuleMark(y: .value("50%", 0.5))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    .foregroundStyle(.secondary.opacity(0.4))
+
+                ForEach(data, id: \.0) { idx, pct in
+                    LineMark(
+                        x: .value("Play", idx),
+                        y: .value("\(homeAbbr) Win %", pct)
+                    )
+                    .foregroundStyle(Color.accentColor)
+                    .interpolationMethod(.catmullRom)
+                }
+
+                // Shade above 50% in home color, below 50% in away color
+                ForEach(data, id: \.0) { idx, pct in
+                    AreaMark(
+                        x: .value("Play", idx),
+                        yStart: .value("base", 0.5),
+                        yEnd: .value("\(homeAbbr) Win %", pct)
+                    )
+                    .foregroundStyle(
+                        pct >= 0.5
+                            ? Color.accentColor.opacity(0.15)
+                            : Color.secondary.opacity(0.12)
+                    )
+                    .interpolationMethod(.catmullRom)
+                }
+            }
+            .chartYScale(domain: 0...1)
+            .chartYAxis {
+                AxisMarks(values: [0, 0.25, 0.5, 0.75, 1.0]) { val in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let d = val.as(Double.self) {
+                            Text("\(Int(d * 100))%")
+                                .font(.caption2)
+                        }
+                    }
+                }
+            }
+            .chartXAxis(.hidden)
+            .frame(height: 160)
+            .accessibilityLabel(winProbAccessibilityLabel(entries: entries, homeAbbr: homeAbbr, awayAbbr: awayAbbr))
+            .accessibilityHidden(false)
+        }
+    }
+
+    private func winProbAccessibilityLabel(entries: [GameDetails.WinProbEntry], homeAbbr: String, awayAbbr: String) -> String {
+        guard let last = entries.last else { return "Win probability chart" }
+        let homePct = Int(last.homeWinPercentage * 100)
+        let awayPct = 100 - homePct
+        return "Win probability chart. Final: \(homeAbbr) \(homePct)%, \(awayAbbr) \(awayPct)%."
+    }
+
+    // MARK: - Game News section
+
+    private func gameNewsSection(articles: [GameDetails.GameNewsContainer.GameArticle]) -> some View {
+        sectionCard(title: "News") {
+            ForEach(Array(articles.prefix(5).enumerated()), id: \.offset) { _, article in
+                GameArticleRow(article: article)
+                    .padding(.vertical, 3)
+            }
+        }
+    }
+
     // MARK: - Shared card container
 
     private func sectionCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
@@ -464,6 +596,42 @@ struct GameDetailView: View {
         lines.append("")
         lines.append("via Sports Scores")
         return lines.joined(separator: "\n")
+    }
+}
+
+// MARK: - Game Article Row
+
+struct GameArticleRow: View {
+    let article: GameDetails.GameNewsContainer.GameArticle
+    @State private var showSafari = false
+
+    var body: some View {
+        Button {
+            if article.webURL != nil { showSafari = true }
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(article.headline ?? "")
+                    .font(.subheadline.bold())
+                    .foregroundColor(.primary)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(3)
+                if let desc = article.description, !desc.isEmpty {
+                    Text(desc)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(article.headline ?? "")
+        .accessibilityHint(article.webURL != nil ? "Double tap to open article." : "")
+        .sheet(isPresented: $showSafari) {
+            if let url = article.webURL {
+                SafariView(url: url)
+                    .ignoresSafeArea()
+            }
+        }
     }
 }
 

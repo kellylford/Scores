@@ -108,6 +108,8 @@ struct Game: Identifiable, Codable {
         let outs: Int?
         let balls: Int?
         let strikes: Int?
+        // Football red zone
+        let isRedZone: Bool?
 
         var displayText: String? {
             if let lastPlay = lastPlay, !lastPlay.isEmpty {
@@ -232,7 +234,8 @@ extension Game {
                 onThird: situationData.onThird,
                 outs: situationData.outs,
                 balls: situationData.balls,
-                strikes: situationData.strikes
+                strikes: situationData.strikes,
+                isRedZone: situationData.isRedZone
             )
         } else {
             self.situation = nil
@@ -312,6 +315,8 @@ struct APIGame: Codable {
             let outs: Int?
             let balls: Int?
             let strikes: Int?
+            // Football
+            let isRedZone: Bool?
 
             struct APILastPlay: Codable {
                 let text: String?

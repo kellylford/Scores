@@ -398,6 +398,66 @@ struct GameDetails: Codable {
     let gameInfo: GameInfo?
     let odds: [OddsEntry]?
     let injuries: [InjuryTeam]?
+    /// Win probability timeline (MLB, per play).
+    let winprobability: [WinProbEntry]?
+    /// Season series breakdown (MLB — current series, regular season, preseason).
+    let seasonseries: [SeasonSeriesEntry]?
+    /// Game-specific news articles embedded in summary response.
+    let news: GameNewsContainer?
+
+    // MARK: - Win Probability
+
+    struct WinProbEntry: Codable {
+        let homeWinPercentage: Double
+        let tiePercentage: Double
+        let playId: String
+    }
+
+    // MARK: - Season Series
+
+    struct SeasonSeriesEntry: Codable {
+        let type: String?
+        let title: String?
+        let summary: String?
+        let completed: Bool?
+        let totalCompetitions: Int?
+        let seriesScore: String?
+
+        // Prefer "Regular Season Series" and "Current Series" for display
+        var displayOrder: Int {
+            switch type {
+            case "current":  return 0
+            case "season":   return 1
+            case "preseason": return 2
+            default:         return 3
+            }
+        }
+    }
+
+    // MARK: - Game News
+
+    struct GameNewsContainer: Codable {
+        let articles: [GameArticle]?
+
+        struct GameArticle: Codable, Identifiable {
+            let id: Int?
+            let headline: String?
+            let description: String?
+            let type: String?
+            let links: ArticleLinks?
+
+            struct ArticleLinks: Codable {
+                let web: WebLink?
+                struct WebLink: Codable {
+                    let href: String?
+                }
+            }
+
+            var webURL: URL? {
+                links?.web?.href.flatMap { URL(string: $0) }
+            }
+        }
+    }
 
     // ── Game-info sub-models ──────────────────────────────────────────────
 

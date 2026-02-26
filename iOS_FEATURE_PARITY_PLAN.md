@@ -37,8 +37,13 @@ As of February 26, 2026, Phases 1–7 are complete and Phase 8.2 is done. The iO
 | 7.3 | Injuries in game detail | ✅ Done |
 | 7.4 | Officials in game detail | ✅ Done |
 | 7.x | Live MLB situation (bases/count/outs) | ✅ Done |
-| 8.1 | MLB KitchenSink (Win Prob, Series, Videos) | ❌ Not done |
+| 8.1 | MLB KitchenSink (Win Prob, Series, Videos) | ✅ Done — Win Prob chart + Season Series + game news |
 | 8.2 | Game wrap-up / Share | ✅ Done |
+| 8.x | Auto-refresh (30s/1m/2m/Manual) | ✅ Done — Scores + Live Scores |
+| 8.x | NFL Red zone indicator | ✅ Done |
+| 8.x | Live MLB base runner situation | ✅ Done |
+| 8.x | Game-specific news in Info tab | ✅ Done (all sports) |
+| — | MLB Stats API (statsapi.mlb.com) | ❌ Deferred — separate API, separate effort |
 
 ---
 
@@ -87,7 +92,7 @@ As of February 26, 2026, Phases 1–7 are complete and Phase 8.2 is done. The iO
 | Section headers: LIVE / UPCOMING / COMPLETED | ✅ Color-coded | ⚠️ Partial |
 | Per-league sub-headers in live view | ✅ | Unknown |
 | Score change monitoring (Alt+M) | ✅ Per-game toggle | ✅ Done — swipe or long-press on game row; UNNotification + VoiceOver |
-| Auto-refresh with interval selector | ✅ 30s/1m/2m/Manual | ⚠️ Unclear |
+| Auto-refresh with interval selector | ✅ 30s/1m/2m/Manual | ✅ Done — 30s/1m/2m/Manual menu on Scores + Live Scores |
 | Live game situation: base runners, count, outs | ✅ MLB only | ✅ Done — shows on score row |
 | Live game situation: down/distance/red zone | ✅ NFL only | ✅ Done — displayed on score row |
 | Local notifications on score change | ✅ Windows UIA; `winsound` | ✅ Done — UNUserNotificationCenter |
@@ -107,18 +112,18 @@ As of February 26, 2026, Phases 1–7 are complete and Phase 8.2 is done. The iO
 | Box score — batting stats per player | ✅ Player-level | ⚠️ Team-level only |
 | Box score — pitching stats per player | ✅ Player-level | ⚠️ Team-level only |
 | Leaders (per team, by category) | ✅ | ✅ Done |
-| News (game-specific, 🎯 prefix) | ✅ | ❌ Missing |
+| News (game-specific, 🎯 prefix) | ✅ | ✅ Done — shown in Info tab via `news` field in summary API |
 | Play-by-play — MLB hierarchy | ✅ | ✅ Done (just fixed) |
 | Play-by-play — NFL drives | ✅ `QTreeWidget` by quarter/drive | ✅ Done — NFLDrivesView |
 | Play-by-play — NBA/NHL | ✅ Generic flat | ✅ `GenericPlaysView` |
 | Drives view (NFL) | ✅ Full drive tree w/ result emoji | ✅ Done — collapsible quarter/drive/play hierarchy |
-| Win probability (MLB KitchenSink) | ✅ | ❌ Missing (Phase 8.1) |
-| Season series (MLB KitchenSink) | ✅ | ❌ Missing (Phase 8.1) |
-| Videos (MLB KitchenSink) | ✅ | ❌ Missing (Phase 8.1) |
-| Betting ATS / expert picks | ✅ | ❌ Missing |
+| Win probability (MLB KitchenSink) | ✅ | ✅ Done — Swift Charts line chart in "More" tab |
+| Season series (MLB KitchenSink) | ✅ | ✅ Done — current/season/preseason series cards |
+| Videos (MLB KitchenSink) | ✅ | ❌ Deferred — often empty; links open in Safari |
+| Betting ATS / expert picks | ✅ | ❌ Missing — `againstTheSpread` not yet decoded |
 | Game wrap-up export (HTML) | ✅ Browser | ✅ Done — native ShareLink |
-| Configurable fields per league | ✅ `ConfigDialog` | ❌ Missing |
-| F5 refresh | ✅ | ❌ Unknown |
+| Configurable fields per league | ✅ `ConfigDialog` | ❌ Missing — deferred |
+| F5 refresh | ✅ | ✅ Done — auto-refresh + pull-to-refresh |
 
 ---
 
@@ -205,9 +210,9 @@ As of February 26, 2026, Phases 1–7 are complete and Phase 8.2 is done. The iO
 |---------|--------|-----|
 | Drives view: quarter → drive → plays | ✅ `QTreeWidget` | ✅ Done — NFLDrivesView |
 | Drive result emoji (🏈/🥅/🔄/⚡) | ✅ | ✅ Done |
-| Red zone indicator | ✅ | ❌ Missing |
+| Red zone indicator | ✅ | ✅ Done — red badge on live score row |
 | Down/distance in score row | ✅ | ✅ Done |
-| NCAAF Bowls & Playoffs tree | ✅ By competition type | ❌ Missing |
+| NCAAF Bowls & Playoffs tree | ✅ By competition type | ❌ Missing — games show but no bowl/playoff grouping |
 
 ---
 

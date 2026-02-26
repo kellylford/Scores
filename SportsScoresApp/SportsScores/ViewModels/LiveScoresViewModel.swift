@@ -14,6 +14,7 @@ class LiveScoresViewModel: ObservableObject {
     @Published var upcomingGames: [SportGames] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var autoRefreshInterval: AutoRefreshInterval = .oneMinute
     
     private let apiService = ESPNAPIService.shared
     

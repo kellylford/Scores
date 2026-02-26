@@ -43,7 +43,26 @@ struct ScoresView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .navigationTitle(sport.displayName)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                autoRefreshMenu
+            }
+        }
         .task { await viewModel.fetchGames(for: sport) }
+        // Auto-refresh loop — cancels and restarts whenever the interval changes
+        .task(id: viewModel.autoRefreshInterval) {
+            while !Task.isCancelled {
+                let secs = viewModel.autoRefreshInterval.rawValue
+                if secs > 0 {
+                    try? await Task.sleep(for: .seconds(secs))
+                    guard !Task.isCancelled else { break }
+                    await viewModel.refresh(for: sport)
+                } else {
+                    // Manual — park until cancelled
+                    try? await Task.sleep(for: .seconds(86400))
+                }
+            }
+        }
         .refreshable {
             // Refresh the active tab
             switch selectedTab {
@@ -56,6 +75,32 @@ struct ScoresView: View {
                 Task { await viewModel.goToDate(pickedDate, for: sport) }
             }
         }
+    }
+
+    // MARK: - Auto-refresh menu
+
+    private var autoRefreshMenu: some View {
+        Menu {
+            ForEach(AutoRefreshInterval.allCases) { interval in
+                Button {
+                    viewModel.autoRefreshInterval = interval
+                } label: {
+                    HStack {
+                        Text(interval == .manual ? "Manual" : "Every \(interval.label)")
+                        if viewModel.autoRefreshInterval == interval {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            Label(viewModel.autoRefreshInterval == .manual
+                  ? "Manual"
+                  : "Auto \(viewModel.autoRefreshInterval.label)",
+                  systemImage: "arrow.clockwise")
+            .font(.subheadline)
+        }
+        .accessibilityLabel("Auto-refresh interval, currently \(viewModel.autoRefreshInterval == .manual ? "manual" : "every \(viewModel.autoRefreshInterval.label)")")
     }
 
     // MARK: - Date / Week Navigation Bar
@@ -231,11 +276,22 @@ struct GameRow: View {
                         .foregroundColor(.orange)
                         .lineLimit(1)
                 } else if let text = sit.displayText, !text.isEmpty {
-                    // Football: down/distance; other sports: last play text
-                    Text(text)
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                        .lineLimit(1)
+                    // Football: down/distance + optional red zone badge; other: last play
+                    HStack(spacing: 6) {
+                        Text(text)
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                            .lineLimit(1)
+                        if sit.isRedZone == true {
+                            Text("🔴 Red Zone")
+                                .font(.caption2)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(Color.red.opacity(0.18))
+                                .foregroundColor(.red)
+                                .cornerRadius(4)
+                        }
+                    }
                 }
             }
 
@@ -286,6 +342,7 @@ struct GameRow: View {
                 parts.append(baseInfo)
             } else if let t = sit.displayText {
                 parts.append(t)
+                if sit.isRedZone == true { parts.append("Red Zone") }
             }
         }
 

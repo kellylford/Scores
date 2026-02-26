@@ -35,8 +35,43 @@ struct LiveScoresView: View {
             }
         }
         .navigationTitle("Live Scores")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    ForEach(AutoRefreshInterval.allCases) { interval in
+                        Button {
+                            viewModel.autoRefreshInterval = interval
+                        } label: {
+                            HStack {
+                                Text(interval == .manual ? "Manual" : "Every \(interval.label)")
+                                if viewModel.autoRefreshInterval == interval {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    Label(viewModel.autoRefreshInterval == .manual
+                          ? "Manual" : "Auto \(viewModel.autoRefreshInterval.label)",
+                          systemImage: "arrow.clockwise")
+                    .font(.subheadline)
+                }
+            }
+        }
         .task {
             await viewModel.fetchAllGames()
+        }
+        .task(id: viewModel.autoRefreshInterval) {
+            while !Task.isCancelled {
+                let secs = viewModel.autoRefreshInterval.rawValue
+                if secs > 0 {
+                    try? await Task.sleep(for: .seconds(secs))
+                    guard !Task.isCancelled else { break }
+                    await viewModel.refresh()
+                } else {
+                    try? await Task.sleep(for: .seconds(86400))
+                }
+            }
         }
         .refreshable {
             await viewModel.refresh()
