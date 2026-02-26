@@ -475,9 +475,12 @@ struct MLBPlaysView: View {
             let header = group.first(where: { $0.summaryType == "A" })?.text
                       ?? group.first?.text
                       ?? "At-bat"
-            let result = group.first(where: { $0.summaryType == "N" })?.text
+            // "S" = scoring play (HR, RBI hit, etc.), "N" = ordinary result
+            let resultPlay = group.first(where: { $0.summaryType == "S" })
+                          ?? group.first(where: { $0.summaryType == "N" })
+            let result = resultPlay?.text
             let pitches = group.filter { $0.summaryType == "P" && $0.isPitch }
-            let notePlay = group.first(where: { $0.summaryType == "N" })
+            let notePlay = resultPlay
             // Skip pure inning-header groups (only "I" plays, no batter info)
             guard group.contains(where: { $0.summaryType != "I" }) else { return nil }
             return AtBatGroup(
