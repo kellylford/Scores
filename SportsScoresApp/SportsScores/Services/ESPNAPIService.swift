@@ -286,13 +286,17 @@ struct GameDetails: Codable {
     }
     
     struct Leader: Codable {
-        let name: String
-        let displayName: String
-        let leaders: [PlayerLeader]
+        // NBA wraps categories under a {team, leaders} envelope;
+        // MLB/NFL/NHL put {name, displayName} at the top level.
+        // Make everything optional so a mismatch in one sport doesn't
+        // blow up decoding for another.
+        let name: String?
+        let displayName: String?
+        let leaders: [PlayerLeader]?
         
         struct PlayerLeader: Codable {
-            let displayValue: String
-            let athlete: Athlete
+            let displayValue: String?
+            let athlete: Athlete?
             
             struct Athlete: Codable {
                 let displayName: String

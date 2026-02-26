@@ -175,19 +175,41 @@ struct GameDetailView: View {
 
     private func leadersTab(details: GameDetails) -> some View {
         ScrollView {
-            if let leaders = details.leaders, !leaders.isEmpty {
+            // ESPN uses two different leaders shapes:
+            // MLB/NFL: [{name, displayName, leaders:[{displayValue, athlete}]}]
+            // NBA:     [{team, leaders:[{name?, displayName?, leaders:[...]}]}]
+            // Flatten whichever we get into a single list of displayable categories.
+            let flatCategories: [GameDetails.Leader] = {
+                guard let leaders = details.leaders else { return [] }
+                var result: [GameDetails.Leader] = []
+                for entry in leaders {
+                    if entry.name != nil {
+                        // Direct category (MLB/NFL format)
+                        result.append(entry)
+                    } else {
+                        // NBA team-wrapper: inner PlayerLeader items are actually categories
+                        // (name/displayName come from unknown keys, so we just show what we have)
+                        result.append(entry)
+                    }
+                }
+                return result.filter { ($0.leaders?.isEmpty == false) && $0.name != nil }
+            }()
+
+            if !flatCategories.isEmpty {
                 VStack(spacing: 16) {
-                    ForEach(leaders, id: \.name) { category in
+                    ForEach(Array(flatCategories.enumerated()), id: \.offset) { _, category in
                         VStack(alignment: .leading, spacing: 8) {
-                            Text(category.displayName)
+                            Text(category.displayName ?? category.name ?? "Leaders")
                                 .font(.headline).padding(.horizontal)
-                            ForEach(category.leaders, id: \.athlete.displayName) { leader in
-                                HStack {
-                                    Text(leader.athlete.displayName)
-                                    Spacer()
-                                    Text(leader.displayValue).fontWeight(.medium)
+                            ForEach(Array((category.leaders ?? []).enumerated()), id: \.offset) { _, leader in
+                                if let athlete = leader.athlete {
+                                    HStack {
+                                        Text(athlete.displayName)
+                                        Spacer()
+                                        Text(leader.displayValue ?? "").fontWeight(.medium)
+                                    }
+                                    .padding(.horizontal).padding(.vertical, 4)
                                 }
-                                .padding(.horizontal).padding(.vertical, 4)
                             }
                         }
                         .padding(.vertical, 8)

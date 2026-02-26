@@ -32,7 +32,10 @@ private struct AtBatGroup: Identifiable {
     let headerText: String      // "Lopez pitches to Meadows"
     let resultText: String?     // "Meadows grounded out…"
     let pitches: [GameDetails.Play]
-    let notePlay: GameDetails.Play?   // the N-type notes play (for outs display)
+    let notePlay: GameDetails.Play?   // the result play (N or S type)
+    let isScoringPlay: Bool          // true when summaryType == "S"
+    let awayScoreAfter: Int?         // score after this at-bat (scoring plays only)
+    let homeScoreAfter: Int?         // score after this at-bat (scoring plays only)
 }
 
 private struct InningGroup: Identifiable {
@@ -247,8 +250,16 @@ struct MLBPlaysView: View {
                         if let result = ab.resultText {
                             Text(result)
                                 .font(.caption)
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
+                                .foregroundColor(ab.isScoringPlay ? .green : .secondary)
+                                .lineLimit(2)
+                        }
+                        // Show updated score after a scoring play
+                        if ab.isScoringPlay,
+                           let away = ab.awayScoreAfter,
+                           let home = ab.homeScoreAfter {
+                            Text("\(awayAbbr) \(away) – \(homeAbbr) \(home)")
+                                .font(.caption.bold())
+                                .foregroundColor(.green)
                         }
                     }
 
@@ -318,9 +329,14 @@ struct MLBPlaysView: View {
     }
 
     private func pitchAccessibilityValue(ab: AtBatGroup, index: Int) -> String {
-        // index == -1 (or no pitches): show at-bat result
+        // index == -1 (or no pitches): show at-bat result + score if scoring play
         if index < 0 || ab.pitches.isEmpty {
-            return ab.resultText ?? ""
+            var parts: [String] = []
+            if let r = ab.resultText { parts.append(r) }
+            if ab.isScoringPlay, let away = ab.awayScoreAfter, let home = ab.homeScoreAfter {
+                parts.append("Score: \(awayAbbr) \(away), \(homeAbbr) \(home)")
+            }
+            return parts.joined(separator: ". ")
         }
         guard index < ab.pitches.count else { return ab.resultText ?? "" }
         let p = ab.pitches[index]
@@ -472,23 +488,32 @@ struct MLBPlaysView: View {
 
         let atBats: [AtBatGroup] = abOrder.compactMap { abKey -> AtBatGroup? in
             guard let group = abPlays[abKey] else { return nil }
+            // Skip groups with no actual at-bat marker (pure inning-headers or
+            // substitution-only plays that ESPN puts on the same atBatId as the next batter)
+            guard group.contains(where: { $0.summaryType == "A" }) else { return nil }
+
             let header = group.first(where: { $0.summaryType == "A" })?.text
                       ?? group.first?.text
                       ?? "At-bat"
-            // "S" = scoring play (HR, RBI hit, etc.), "N" = ordinary result
-            let resultPlay = group.first(where: { $0.summaryType == "S" })
-                          ?? group.first(where: { $0.summaryType == "N" })
+
+            // Only search for the result AFTER the 'A' marker so that pre-at-bat
+            // substitution 'N' plays ("Gilbert in center field.") aren't mistaken for results.
+            let aIndex = group.firstIndex(where: { $0.summaryType == "A" }) ?? 0
+            let playsAfterABat = Array(group[aIndex...])
+            let resultPlay = playsAfterABat.first(where: { $0.summaryType == "S" })
+                          ?? playsAfterABat.first(where: { $0.summaryType == "N" })
             let result = resultPlay?.text
             let pitches = group.filter { $0.summaryType == "P" && $0.isPitch }
-            let notePlay = resultPlay
-            // Skip pure inning-header groups (only "I" plays, no batter info)
-            guard group.contains(where: { $0.summaryType != "I" }) else { return nil }
+            let isScoringPlay = resultPlay?.summaryType == "S"
             return AtBatGroup(
                 id: abKey,
                 headerText: header,
                 resultText: result,
                 pitches: pitches,
-                notePlay: notePlay
+                notePlay: resultPlay,
+                isScoringPlay: isScoringPlay,
+                awayScoreAfter: isScoringPlay ? resultPlay?.awayScore : nil,
+                homeScoreAfter: isScoringPlay ? resultPlay?.homeScore : nil
             )
         }
 
