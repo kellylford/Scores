@@ -2,15 +2,17 @@
 //  PitchAudioEngine.swift
 //  SportsScores
 //
-//  Stereo sine-wave tone generator for baseball pitch sonification.
+//  Pitch sonification engine for baseball play-by-play.
 //
-//  Mirrors the Python stereo_audio_mapper.py approach:
-//    • Y coordinate → frequency  (top of zone = high pitch, bottom = low pitch)
-//    • X coordinate → stereo pan (inside/outside relative to batter handedness)
-//    • Velocity      → duration  (faster pitch = shorter tone, 0.3–0.7 s)
+//  Design goals:
+//   • Sound *musical*, not synthetic — uses a harmonic-rich waveform (fundamental +
+//     2nd + 3rd partial, like a vibraphone/marimba) rather than a raw sine wave.
+//   • Pitch height maps to the A-minor pentatonic scale (always harmonious together).
+//   • Stereo pan from X coordinate positions the pitch left↔right on the plate.
+//   • Plate velocity → note sustain length (faster = shorter).
+//   • AVAudioUnitReverb adds spatial depth identical to what Apple uses in AudioGraph.
 //
-//  Uses AVAudioEngine + AVAudioSourceNode (no third-party deps, iOS 13+).
-//  Constant-power (sin/cos) panning gives a natural left↔right sweep.
+//  Audio graph:  playerNode ──► reverb ──► mainMixerNode ──► output
 //
 
 import AVFoundation
@@ -31,6 +33,17 @@ final class PitchAudioEngine: ObservableObject {
     
     private let sampleRate: Double = 44100
     
+    // A-minor pentatonic across 3 octaves — always harmonious when played together.
+    // Maps the strike zone from bottom (lowest note) to top (highest note).
+    private let pentatonicHz: [Double] = [
+        // Octave 3: A C D E G
+        220.00, 261.63, 293.66, 329.63, 392.00,
+        // Octave 4: A C D E G
+        440.00, 523.25, 587.33, 659.25, 784.00,
+        // Octave 5: A C D E G
+        880.00, 1046.50, 1174.66, 1318.51, 1567.98
+    ]
+    
     // MARK: - Public API
     
     /// Play the audio tone for a single pitch.
@@ -42,7 +55,6 @@ final class PitchAudioEngine: ObservableObject {
         let vel   = pitch.pitchVelocity.map { "\($0) mph" } ?? ""
         let ptype = pitch.pitchType?.text ?? ""
         statusMessage = [ptype, vel, desc].filter { !$0.isEmpty }.joined(separator: " · ")
-        
         sequenceTask = Task { await self.tone(frequency: freq, pan: pan, duration: dur) }
     }
     
@@ -59,8 +71,7 @@ final class PitchAudioEngine: ObservableObject {
                     self.statusMessage = "Pitch \(i + 1): \(label) · \(pitch.locationDescription(batterHand: nil))"
                 }
                 await self.tone(frequency: freq, pan: pan, duration: dur)
-                // 200 ms gap between pitches
-                try? await Task.sleep(nanoseconds: 200_000_000)
+                try? await Task.sleep(nanoseconds: 180_000_000)   // 180 ms gap
             }
             await MainActor.run { self.statusMessage = "Sequence complete" }
         }
@@ -75,35 +86,32 @@ final class PitchAudioEngine: ObservableObject {
         statusMessage = ""
     }
     
-    // MARK: - Audio Parameter Mapping
+    // MARK: - Parameter Mapping
     
     /// Convert pitch coordinates + velocity to (frequency, pan, duration).
-    ///
-    /// Matches the Python stereo_audio_mapper.py calibration:
-    ///   - freq:  800 Hz base ± 300 Hz based on vertical position
-    ///   - pan:   –1.0 (left) … +1.0 (right) from x coordinate
-    ///   - dur:   0.3–0.7 s based on velocity (faster = shorter)
     func audioParams(
         coord: GameDetails.Play.PitchCoordinate,
         velocity: Int?
     ) -> (frequency: Double, pan: Float, duration: Double) {
         
-        let xNorm = Double(coord.x) / 255.0          // 0 = catcher's left, 1 = catcher's right
-        let yNorm = Double(coord.y) / 255.0          // 0 = top of zone, 1 = bottom
+        // Y  0 = top of zone (high pitch), 255 = bottom (low pitch) — invert
+        let yNorm = 1.0 - (Double(coord.y) / 255.0).clamped(to: 0...1)
+        let xNorm = (Double(coord.x) / 255.0).clamped(to: 0...1)
         
-        // Frequency: top of strike zone (low y) → high tone, bottom → low tone
-        let frequency = (800.0 + 600.0 * (0.5 - yNorm)).clamped(to: 200...2000)
+        // Snap to the nearest pentatonic note
+        let noteIndex = Int(yNorm * Double(pentatonicHz.count - 1)).clamped(to: 0..<pentatonicHz.count)
+        let frequency = pentatonicHz[noteIndex]
         
-        // Stereo pan: x maps directly to left↔right (–1 … +1)
+        // Stereo pan: x → –1.0 (left) … +1.0 (right)
         let pan = Float((xNorm * 2.0 - 1.0).clamped(to: -1.0...1.0))
         
-        // Duration: 60–105 mph → 0.7–0.3 s (faster pitch = shorter tone)
+        // Duration: 60–105 mph → 0.55–0.25 s (faster pitch = shorter, crisper note)
         let duration: Double
         if let vel = velocity {
-            let velNorm = Double(vel - 60) / 45.0
-            duration = (0.3 + 0.4 * (1.0 - velNorm.clamped(to: 0...1)))
+            let velNorm = ((Double(vel) - 60.0) / 45.0).clamped(to: 0...1)
+            duration = 0.25 + 0.30 * (1.0 - velNorm)
         } else {
-            duration = 0.5
+            duration = 0.40
         }
         
         return (frequency, pan, duration)
@@ -111,34 +119,43 @@ final class PitchAudioEngine: ObservableObject {
     
     // MARK: - Tone Generation
     
-    /// Generate and play a sine-wave tone with constant-power stereo panning.
-    /// Uses AVAudioPlayerNode + AVAudioPCMBuffer — fully compatible with iOS and Mac Catalyst.
+    /// Generate and play a musical tone with:
+    ///   • harmonic-rich waveform  (fundamental + 30% 2nd + 10% 3rd partial → vibraphone-like)
+    ///   • reverb                  (smallRoom preset, 35% wet)
+    ///   • constant-power stereo pan
+    ///   • smooth ADSR envelope    (30 ms attack, exponential decay tail)
     private func tone(frequency: Double, pan: Float, duration: Double) async {
         await MainActor.run { isPlaying = true }
         
-        // Activate audio session (iOS / Mac Catalyst)
+        // iOS / Mac Catalyst audio session
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
             try AVAudioSession.sharedInstance().setActive(true)
         } catch {
-            await MainActor.run {
-                statusMessage = "Audio session error: \(error.localizedDescription)"
-                isPlaying = false
-            }
+            await MainActor.run { isPlaying = false }
             return
         }
         
         let newEngine = AVAudioEngine()
         engine = newEngine
         let playerNode = AVAudioPlayerNode()
+        
+        // Reverb — adds the spatial quality Apple uses in built-in AudioGraph tones
+        let reverb = AVAudioUnitReverb()
+        reverb.loadFactoryPreset(.smallRoom)
+        reverb.wetDryMix = 35
+        
         newEngine.attach(playerNode)
+        newEngine.attach(reverb)
         
         let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 2)!
-        newEngine.connect(playerNode, to: newEngine.mainMixerNode, format: format)
+        newEngine.connect(playerNode, to: reverb, format: format)
+        newEngine.connect(reverb, to: newEngine.mainMixerNode, format: format)
         
-        // Build the PCM buffer with a stereo sine wave
+        // Build PCM buffer
         let totalFrames = AVAudioFrameCount(sampleRate * duration)
-        let fadeSamples  = AVAudioFrameCount(sampleRate * 0.05)   // 50 ms fade
+        let attackFrames = AVAudioFrameCount(sampleRate * 0.03)   // 30 ms attack
+        let releaseFrames = AVAudioFrameCount(sampleRate * 0.06)   // 60 ms release
         
         guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: totalFrames) else {
             await MainActor.run { isPlaying = false }
@@ -146,29 +163,45 @@ final class PitchAudioEngine: ObservableObject {
         }
         buffer.frameLength = totalFrames
         
-        // Constant-power panning: pan –1…+1 → angle 0…π/2
-        let angle      = Double((pan + 1.0) / 2.0) * .pi / 2.0
-        let leftGain   = Float(cos(angle))
-        let rightGain  = Float(sin(angle))
-        let phaseStep  = 2.0 * Double.pi * frequency / sampleRate
-        var phase      = 0.0
+        // Constant-power panning
+        let angle     = Double((pan + 1.0) / 2.0) * .pi / 2.0
+        let leftGain  = Float(cos(angle))
+        let rightGain = Float(sin(angle))
+        
+        // Phase increment for fundamental (harmonics derive from phase * 2, phase * 3 —
+        // correct even across wrap boundaries because sin is 2π-periodic)
+        let phaseStep = 2.0 * Double.pi * frequency / sampleRate
+        var phase = 0.0
         
         if let leftData  = buffer.floatChannelData?[0],
            let rightData = buffer.floatChannelData?[1] {
             for i in 0..<Int(totalFrames) {
-                // Amplitude envelope (fade in / fade out to avoid clicks)
-                let envelope: Float
+                // Envelope: attack ramp → exponential decay (marimba-style)
                 let fi = AVAudioFrameCount(i)
-                if fi < fadeSamples {
-                    envelope = Float(fi) / Float(fadeSamples)
-                } else if fi >= totalFrames - fadeSamples {
-                    let rem = totalFrames - fi
-                    envelope = Float(rem) / Float(fadeSamples)
+                let envelope: Float
+                if fi < attackFrames {
+                    // Linear attack
+                    envelope = Float(fi) / Float(attackFrames)
                 } else {
-                    envelope = 1.0
+                    // Exponential decay from 1 → near-zero over the remaining duration
+                    let t = Double(fi - attackFrames) / Double(totalFrames - attackFrames)
+                    let decayedAmp = pow(1.0 - t, 1.8)   // slightly faster than linear
+                    // Smooth release window at the very end to avoid click
+                    let rel = totalFrames - releaseFrames
+                    if fi >= rel {
+                        let r = Float(totalFrames - fi) / Float(releaseFrames)
+                        envelope = Float(decayedAmp) * r
+                    } else {
+                        envelope = Float(decayedAmp)
+                    }
                 }
                 
-                let mono = Float(sin(phase)) * envelope * 0.75
+                // Harmonic mix: fundamental + 2nd (30%) + 3rd (10%) — vibraphone timbre
+                let h1 = sin(phase)
+                let h2 = sin(phase * 2.0) * 0.30
+                let h3 = sin(phase * 3.0) * 0.10
+                let mono = Float((h1 + h2 + h3) / 1.40) * envelope * 0.80
+                
                 phase += phaseStep
                 if phase > 2 * .pi { phase -= 2 * .pi }
                 
@@ -177,18 +210,12 @@ final class PitchAudioEngine: ObservableObject {
             }
         }
         
-        do {
-            try newEngine.start()
-        } catch {
-            await MainActor.run {
-                isPlaying = false
-                statusMessage = "Engine start error: \(error.localizedDescription)"
-            }
+        do { try newEngine.start() } catch {
+            await MainActor.run { isPlaying = false }
             return
         }
         
         playerNode.play()
-        // async variant waits until the buffer finishes playing — no manual sleep needed
         await playerNode.scheduleBuffer(buffer)
         
         newEngine.stop()
@@ -200,10 +227,18 @@ final class PitchAudioEngine: ObservableObject {
     }
 }
 
-// MARK: - Helpers
+// MARK: - Comparable clamp helper
 
-private extension Comparable {
-    func clamped(to range: ClosedRange<Self>) -> Self {
+extension Double {
+    func clamped(to range: ClosedRange<Double>) -> Double {
         Swift.min(Swift.max(self, range.lowerBound), range.upperBound)
     }
 }
+
+extension Int {
+    func clamped(to range: Range<Int>) -> Int {
+        Swift.min(Swift.max(self, range.lowerBound), range.upperBound - 1)
+    }
+}
+
+

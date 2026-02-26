@@ -414,7 +414,7 @@ private struct PitchChartDescriptor: AXChartDescriptorRepresentable {
     let sampleType  = GameDetails.Play.PitchTypeInfo(text: "Four-seam FB", abbreviation: "FF")
     let sampleHand  = GameDetails.Play.BatterHand(abbreviation: "R")
     let count       = GameDetails.Play.PitchCount(balls: 0, strikes: 1)
-    let period      = GameDetails.Play.Period(displayValue: "Top 1st")
+    let period      = GameDetails.Play.Period(displayValue: "Top 1st", type: "Top", number: 1)
     let playType    = GameDetails.Play.PlayType(text: "Called Strike", type: "called-strike")
     
     let fakePlay = GameDetails.Play(
@@ -433,7 +433,7 @@ private struct PitchChartDescriptor: AXChartDescriptorRepresentable {
         outs: 0
     )
     
-    return NavigationStack {
+    NavigationStack {
         PitchMapView(plays: [fakePlay])
             .navigationTitle("Pitches")
     }

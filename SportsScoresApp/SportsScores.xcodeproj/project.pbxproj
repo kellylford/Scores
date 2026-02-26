@@ -7,8 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		12D1B45EAF2BBCDCEBEB1005 /* PlaysView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 730BF6E5A4FF66C7DF52BCC2 /* PlaysView.swift */; };
 		17DD6D3CA0A61007F2DF8FC2 /* SportsScoresApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CF458B8B4585D69E60DA8FF /* SportsScoresApp.swift */; };
 		3CF5D8B7E440EC82D67DAC1F /* ScoresView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 609CEBC16C71EE0B9BC17BD7 /* ScoresView.swift */; };
+		4EBA8B3274D13D19014A34C4 /* BoxScoreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DB8AE94C204A50146E9F867 /* BoxScoreView.swift */; };
 		537EDE5289F5FA56EDBB33E6 /* ViewMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F02454A9066804EF35F956A /* ViewMode.swift */; };
 		66941444CDF6D80C2263573F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C7235DC0E2395602DD8FA74 /* ContentView.swift */; };
 		67AE8DCB8DE650FF5D655562 /* Game.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08AB11969A6D49301493C976 /* Game.swift */; };
@@ -38,8 +40,10 @@
 		2F730ED25EF184C36C9EEC13 /* Standings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Standings.swift; sourceTree = "<group>"; };
 		3A041149D09737E052D28AFD /* LiveScoresView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveScoresView.swift; sourceTree = "<group>"; };
 		5C7235DC0E2395602DD8FA74 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		5DB8AE94C204A50146E9F867 /* BoxScoreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoxScoreView.swift; sourceTree = "<group>"; };
 		609CEBC16C71EE0B9BC17BD7 /* ScoresView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoresView.swift; sourceTree = "<group>"; };
 		636254F8AA33A59EC7DE9718 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		730BF6E5A4FF66C7DF52BCC2 /* PlaysView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaysView.swift; sourceTree = "<group>"; };
 		95F96BD2C7E1B5D0F0EC4DE8 /* StandingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StandingsView.swift; sourceTree = "<group>"; };
 		9CF458B8B4585D69E60DA8FF /* SportsScoresApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsScoresApp.swift; sourceTree = "<group>"; };
 		AA74734FB552A44C1F62E3C7 /* SportSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportSelectionView.swift; sourceTree = "<group>"; };
@@ -113,9 +117,11 @@
 		B999BF77AA5A87F134EEB291 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				5DB8AE94C204A50146E9F867 /* BoxScoreView.swift */,
 				DD62F7905FFCDC5D2AA616FB /* GameDetailView.swift */,
 				3A041149D09737E052D28AFD /* LiveScoresView.swift */,
 				AD66FC8613BE001BF933296A /* PitchMapView.swift */,
+				730BF6E5A4FF66C7DF52BCC2 /* PlaysView.swift */,
 				609CEBC16C71EE0B9BC17BD7 /* ScoresView.swift */,
 				AA74734FB552A44C1F62E3C7 /* SportSelectionView.swift */,
 				95F96BD2C7E1B5D0F0EC4DE8 /* StandingsView.swift */,
@@ -213,6 +219,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4EBA8B3274D13D19014A34C4 /* BoxScoreView.swift in Sources */,
 				66941444CDF6D80C2263573F /* ContentView.swift in Sources */,
 				EDF2DE37CADCCD46B40AB0AB /* DataTableView.swift in Sources */,
 				8A2691FFB0CCF34A4FCF39AE /* ESPNAPIService.swift in Sources */,
@@ -222,6 +229,7 @@
 				B54A3C6BF8F49A420AE8B5A6 /* LiveScoresViewModel.swift in Sources */,
 				EC7138C39AF0542F702095B6 /* PitchAudioEngine.swift in Sources */,
 				6C341E3F349F9C34917C0BA1 /* PitchMapView.swift in Sources */,
+				12D1B45EAF2BBCDCEBEB1005 /* PlaysView.swift in Sources */,
 				3CF5D8B7E440EC82D67DAC1F /* ScoresView.swift in Sources */,
 				B4010B138E30A62510C01960 /* ScoresViewModel.swift in Sources */,
 				B6D69EB294E291DC424699E8 /* Sport.swift in Sources */,

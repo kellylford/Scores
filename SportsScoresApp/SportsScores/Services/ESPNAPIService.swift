@@ -11,6 +11,8 @@ class ESPNAPIService {
     static let shared = ESPNAPIService()
     
     private let baseURL = "https://site.api.espn.com/apis/site/v2/sports"
+    /// Standings uses a different ESPN API base path (v2, not site/v2)
+    private let standingsBaseURL = "https://site.api.espn.com/apis/v2/sports"
     private let session: URLSession
     
     private init() {
@@ -43,7 +45,7 @@ class ESPNAPIService {
     
     // MARK: - Fetch Standings
     func fetchStandings(for sport: Sport) async throws -> [StandingsGroup] {
-        let urlString = "\(baseURL)/\(sport.apiPath)/standings"
+        let urlString = "\(standingsBaseURL)/\(sport.apiPath)/standings"
         guard let url = URL(string: urlString) else {
             throw APIError.invalidURL
         }
@@ -99,25 +101,44 @@ struct GameDetails: Codable {
         
         struct TeamStats: Codable {
             let team: TeamInfo
-            // ESPN returns statistics as named categories (batting, pitching, etc.)
-            // each containing a "stats" array of individual stat items.
-            let statistics: [StatCategory]
+            // ESPN returns statistics in two different shapes depending on sport:
+            //   MLB  → [{name, displayName, stats:[{name,displayName,...}]}]  (nested categories)
+            //   NFL/NBA/NHL → [{name, label, abbreviation?, displayValue}]     (flat rows)
+            let statistics: [StatEntry]
             
             struct TeamInfo: Codable {
                 let displayName: String
                 let abbreviation: String
             }
             
-            /// Top-level stat grouping (e.g. "batting", "pitching", "fielding")
-            struct StatCategory: Codable {
+            /// One element of the statistics array.
+            /// Use `isNested` to distinguish MLB category format from NFL/NBA/NHL flat format.
+            struct StatEntry: Codable {
+                // Present in every format
                 let name: String
-                let displayName: String
-                let stats: [StatItem]
+                // MLB nested: category label (e.g. "Batting")
+                let displayName: String?
+                // NFL/NBA/NHL flat: row label (e.g. "1st Downs")
+                let label: String?
+                // NHL flat rows include an abbreviation
+                let abbreviation: String?
+                // Flat formats carry the displayValue directly
+                let displayValue: String?
+                // MLB only: nested stat rows under this category
+                let stats: [StatItem]?
+                
+                /// Human-readable title for this entry (works for all formats).
+                var groupTitle: String { displayName ?? label ?? name }
+                
+                /// True when this entry is an MLB-style category wrapping nested stats.
+                var isNested: Bool { stats != nil }
                 
                 struct StatItem: Codable {
                     let name: String
                     let displayName: String
-                    let abbreviation: String
+                    let shortDisplayName: String?
+                    let description: String?
+                    let abbreviation: String?
                     let displayValue: String
                 }
             }
@@ -132,6 +153,31 @@ struct GameDetails: Codable {
         let scoreValue: Int?
         // ESPN uses "period" (with a displayValue) rather than a "clock" key for most sports
         let period: Period?
+        // Cumulative score after this play (present in NBA/NCAAB, absent in MLB/NFL/NHL)
+        let awayScore: Int?
+        let homeScore: Int?
+        // Game-clock time remaining at time of play (NBA, NFL)
+        let clock: PlayClock?
+        /// MLB play classification: I=inning-header, A=at-bat-header, P=pitch, N=result-note
+        let summaryType: String?
+        // Default init values let callers (e.g. previews) omit optional fields
+        init(id: String, text: String?, type: PlayType, scoreValue: Int?,
+             period: Period?, awayScore: Int? = nil, homeScore: Int? = nil,
+             clock: PlayClock? = nil, summaryType: String? = nil,
+             pitchCoordinate: PitchCoordinate? = nil,
+             pitchType: PitchTypeInfo? = nil, pitchVelocity: Int? = nil,
+             bats: BatterHand? = nil, atBatId: String? = nil,
+             atBatPitchNumber: Int? = nil, resultCount: PitchCount? = nil,
+             outs: Int? = nil) {
+            self.id = id; self.text = text; self.type = type
+            self.scoreValue = scoreValue; self.period = period
+            self.awayScore = awayScore; self.homeScore = homeScore
+            self.clock = clock; self.summaryType = summaryType
+            self.pitchCoordinate = pitchCoordinate; self.pitchType = pitchType
+            self.pitchVelocity = pitchVelocity; self.bats = bats
+            self.atBatId = atBatId; self.atBatPitchNumber = atBatPitchNumber
+            self.resultCount = resultCount; self.outs = outs
+        }
         
         // ── Pitch-specific fields (MLB / baseball only) ──────────────────────
         /// Pixel coordinates in ESPN's 256×256 strike-zone space.
@@ -160,6 +206,14 @@ struct GameDetails: Codable {
         }
         
         struct Period: Codable {
+            let displayValue: String
+            /// "Top" or "Bottom" (MLB half-inning), quarter/period name for other sports
+            let type: String?
+            /// Inning or period number
+            let number: Int?
+        }
+        
+        struct PlayClock: Codable {
             let displayValue: String
         }
         
