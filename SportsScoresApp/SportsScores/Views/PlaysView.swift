@@ -569,6 +569,14 @@ struct GenericPlaysView: View {
     @ViewBuilder
     private func periodSection(_ period: PeriodGroup) -> some View {
         let isOpen = expandedPeriods.contains(period.id)
+        let scoringCount = period.plays.filter { $0.scoreValue ?? 0 > 0 }.count
+        let changeCount  = period.plays.filter { Self.isPlayerChangePlay($0) }.count
+        let a11yHeader: String = {
+            var parts = ["\(period.label)", "\(period.plays.count) plays"]
+            if scoringCount > 0 { parts.append("\(scoringCount) scoring") }
+            if changeCount  > 0 { parts.append("\(changeCount) player change\(changeCount == 1 ? "" : "s")") }
+            return parts.joined(separator: ", ")
+        }()
 
         VStack(spacing: 0) {
             Button {
@@ -584,6 +592,12 @@ struct GenericPlaysView: View {
                     Text(period.label)
                         .font(.headline)
                     Spacer()
+                    if scoringCount > 0 {
+                        Label("\(scoringCount)", systemImage: "star.fill")
+                            .font(.caption.bold())
+                            .foregroundColor(.green)
+                            .labelStyle(.titleAndIcon)
+                    }
                     Text("\(period.plays.count) plays")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -592,7 +606,7 @@ struct GenericPlaysView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("\(period.label), \(period.plays.count) plays")
+            .accessibilityLabel(a11yHeader)
             .accessibilityHint(isOpen ? "Double tap to collapse." : "Double tap to expand.")
 
             if isOpen {
@@ -610,31 +624,81 @@ struct GenericPlaysView: View {
     }
 
     private func genericPlayRow(_ play: GameDetails.Play) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack(spacing: 6) {
-                if let clock = play.clock {
-                    Text(clock.displayValue)
-                        .font(.caption.bold())
-                        .foregroundColor(.blue)
-                }
-                Spacer()
-                if let away = play.awayScore, let home = play.homeScore {
-                    Text("\(awayAbbr) \(away)–\(home) \(homeAbbr)")
-                        .font(.caption.monospacedDigit())
-                        .foregroundColor(.secondary)
-                }
-            }
-            if let text = play.text, !text.isEmpty {
-                Text(text)
-                    .font(.body)
-            } else {
-                Text(play.type.text)
+        let isPlayerChange = Self.isPlayerChangePlay(play)
+        let playText = play.text.flatMap { $0.isEmpty ? nil : $0 } ?? play.type.text
+        let a11yLabel = Self.playAccessibilityLabel(
+            play: play, playText: playText,
+            awayAbbr: awayAbbr, homeAbbr: homeAbbr
+        )
+
+        return HStack(alignment: .top, spacing: 10) {
+            // Icon column
+            if isPlayerChange {
+                Image(systemName: "person.2.fill")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.purple)
+                    .frame(width: 18)
+                    .padding(.top, 3)
+            } else if play.type.text.lowercased().contains("timeout") {
+                Image(systemName: "hand.raised.fill")
+                    .font(.caption)
+                    .foregroundColor(.orange)
+                    .frame(width: 18)
+                    .padding(.top, 3)
+            } else {
+                Spacer().frame(width: 18)
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    if let clock = play.clock {
+                        Text(clock.displayValue)
+                            .font(.caption.bold())
+                            .foregroundColor(isPlayerChange ? .purple : .blue)
+                    }
+                    Spacer()
+                    if let away = play.awayScore, let home = play.homeScore {
+                        Text("\(awayAbbr) \(away)–\(home) \(homeAbbr)")
+                            .font(.caption.monospacedDigit())
+                            .foregroundColor(.secondary)
+                    }
+                }
+                Text(playText)
+                    .font(isPlayerChange ? .callout : .body)
+                    .foregroundColor(isPlayerChange ? .purple : .primary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
+        .background(isPlayerChange ? Color.purple.opacity(0.06) : Color.clear)
+        // Each play is a single VoiceOver stop — no individual Text elements
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(a11yLabel)
+    }
+
+    // MARK: - Helpers (static so they can be used from accessibility label builder)
+
+    private static func isPlayerChangePlay(_ play: GameDetails.Play) -> Bool {
+        let typeText = play.type.text.lowercased()
+        return typeText == "substitution"
+            || typeText.contains("line change")
+            || (play.text?.lowercased().contains("enters the game for") == true)
+    }
+
+    private static func playAccessibilityLabel(
+        play: GameDetails.Play,
+        playText: String,
+        awayAbbr: String,
+        homeAbbr: String
+    ) -> String {
+        var parts: [String] = []
+        if let clock = play.clock?.displayValue { parts.append(clock) }
+        if let away = play.awayScore, let home = play.homeScore {
+            parts.append("\(awayAbbr) \(away), \(homeAbbr) \(home)")
+        }
+        parts.append(playText)
+        return parts.joined(separator: ". ")
     }
 }
 

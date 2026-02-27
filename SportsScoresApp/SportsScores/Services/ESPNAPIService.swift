@@ -84,8 +84,8 @@ class ESPNAPIService {
 
     // MARK: - Fetch News
 
-    func fetchNews(for sport: Sport) async throws -> [NewsItem] {
-        let urlString = "\(baseURL)/\(sport.apiPath)/news"
+    func fetchNews(for sport: Sport, limit: Int = 25) async throws -> [NewsItem] {
+        let urlString = "\(baseURL)/\(sport.apiPath)/news?limit=\(limit)"
         guard let url = URL(string: urlString) else { throw APIError.invalidURL }
 
         let (data, response) = try await session.data(from: url)

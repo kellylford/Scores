@@ -270,11 +270,16 @@ struct GameDetailView: View {
 
     // MARK: - Leaders tab
 
-    // MARK: - Game Info tab (Leaders + Injuries + Officials + News)
+    // MARK: - Game Info tab (News + Leaders + Injuries + Officials)
 
     private func gameInfoTab(details: GameDetails) -> some View {
         ScrollView {
             VStack(spacing: 20) {
+                // Game-specific news — shown first so it's easy to find
+                if let articles = details.news?.articles, !articles.isEmpty {
+                    gameNewsSection(articles: articles)
+                }
+
                 leadersSection(details: details)
 
                 if let injuries = details.injuries, !injuries.isEmpty {
@@ -283,11 +288,6 @@ struct GameDetailView: View {
 
                 if let officials = details.gameInfo?.officials, !officials.isEmpty {
                     officialsSection(officials)
-                }
-
-                // Game-specific news (all sports)
-                if let articles = details.news?.articles, !articles.isEmpty {
-                    gameNewsSection(articles: articles)
                 }
             }
             .padding()
@@ -527,8 +527,8 @@ struct GameDetailView: View {
     // MARK: - Game News section
 
     private func gameNewsSection(articles: [GameDetails.GameNewsContainer.GameArticle]) -> some View {
-        sectionCard(title: "News") {
-            ForEach(Array(articles.prefix(5).enumerated()), id: \.offset) { _, article in
+        sectionCard(title: "Related News") {
+            ForEach(Array(articles.enumerated()), id: \.offset) { _, article in
                 GameArticleRow(article: article)
                     .padding(.vertical, 3)
             }

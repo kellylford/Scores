@@ -155,9 +155,25 @@ struct APIStandingsGroup: Codable {
             
             struct APIStat: Codable {
                 let name: String
-                let displayName: String
-                let value: Double
+                let displayName: String?   // absent on some ESPN stats (e.g. "overall")
+                let value: Double          // defaulted to 0 when ESPN omits the field
                 let displayValue: String
+
+                // Custom decoder: ESPN omits `value` on record-string stats like
+                // "overall" (W-L), "Home", "Road", "vs. Div.", etc.  Without
+                // this, a single missing `value` causes the *entire* standings
+                // response to fail with a DecodingError.
+                init(from decoder: Decoder) throws {
+                    let c = try decoder.container(keyedBy: CodingKeys.self)
+                    self.name         = try  c.decode(String.self,         forKey: .name)
+                    self.displayName  = try  c.decodeIfPresent(String.self, forKey: .displayName)
+                    self.value        = (try? c.decodeIfPresent(Double.self, forKey: .value)) ?? 0
+                    self.displayValue = try  c.decode(String.self,         forKey: .displayValue)
+                }
+
+                enum CodingKeys: String, CodingKey {
+                    case name, displayName, value, displayValue
+                }
             }
         }
     }
