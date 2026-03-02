@@ -1,0 +1,241 @@
+# Sports Scores iOS App — Design Principles
+
+This is the living design reference for the Sports Scores iOS app. It captures the canonical structure, screen contracts, accessibility rules, and naming conventions. When implementing any change to display or accessibility behavior, consult this document first. When making a design decision that isn't covered here, add it here before implementing.
+
+---
+
+## Three-Screen Model
+
+The app has exactly three canonical screen types:
+
+| Screen | View | Status |
+|---|---|---|
+| **Sport Selection** | `SportSelectionView` | Stable — home screen |
+| **Sport Screen** | `ScoresView` | Needs structural work |
+| **Game Detail** | `GameDetailView` | Design in progress |
+
+`LiveScoresView` is not a fourth screen. It is a projection of the Sport Screen concept applied simultaneously across all sports.
+
+---
+
+## Sport Screen Standard Layout
+
+### Scores Tab
+
+Every sport's Scores tab must have exactly three sections, in this order, each with a visible heading that is also a VoiceOver accessibility header:
+
+1. **In Progress** — games currently live
+2. **Upcoming** — games not yet started
+3. **Completed** — games finished
+
+Empty sections are omitted entirely. Do not show "No games" or "None" placeholders inside a section — either show games or omit the section heading entirely.
+
+**Current state:** `ScoresView` does not implement these sections. The scores tab is an unsorted flat list. This is the highest-priority structural gap.
+
+### Time Period Concept by Sport
+
+| Sport type | Grouping period | Navigation unit |
+|---|---|---|
+| All non-football | Day | ±1 day |
+| NFL, NCAAF | Week | ±1 week, using ESPN-resolved week label |
+
+When displaying NFL or NCAAF, section headings should name the week (e.g. "Wild Card Week", "Week 14") rather than a calendar date.
+
+### Other Tabs on the Sport Screen
+
+The `ScoresView` segmented tab picker has these tabs (in order):
+
+| Tab | Available |
+|---|---|
+| Scores | All sports |
+| Standings | All sports |
+| News | All sports |
+| Stats | All sports |
+| Polls | NCAAF, NCAAM, NCAAWB only |
+
+---
+
+## Live Scores View
+
+`LiveScoresView` shows all sports on a single screen. Its section structure mirrors the Sport Screen sections, with sport headings acting as sub-headings within each status group:
+
+```
+IN PROGRESS            ← VoiceOver header trait
+  NFL                  ← VoiceOver header trait
+    game row
+    game row
+  MLB                  ← VoiceOver header trait
+    game row
+UPCOMING               ← VoiceOver header trait
+  ...
+COMPLETED              ← VoiceOver header trait
+  ...
+```
+
+Sports with no games in a given status bucket are omitted entirely — no empty sport heading.
+
+**Football in Live Scores is day-only.** `LiveScoresView` has no week navigation and always shows the current calendar day. For NFL and NCAAF this means only games on today's calendar date appear, unlike the full `ScoresView` which shows the whole week. This is intentional — the Live Scores view is a real-time snapshot, not a week planner.
+
+**Current state:** `CompactGameRow` (used only in `LiveScoresView`) has no combined accessibility element. VoiceOver cycles through each sub-element individually. This must be fixed to match the `GameRow` pattern.
+
+---
+
+## Date and Week Navigation
+
+### Where it applies
+
+- Sport Selection home screen
+- All Sport Screens
+
+### Where it does not apply
+
+- Game Detail — no date navigation inside a game
+- Live Scores — always today, no navigation
+
+### Control Layout
+
+The navigation bar hosts these controls:
+
+```
+[← Previous]  [Date / Week label]  [→ Next]  [Today]
+```
+
+- **Previous / Next buttons** — labeled `"Previous Day"` / `"Next Day"` or `"Previous Week"` / `"Next Week"` depending on sport
+- **Date / Week label** — center element; tappable to open date picker
+- **Today button** — appears only when not already on today/current week; disappears when on today
+
+### VoiceOver Pattern (from FastWeather)
+
+The date/week label in the toolbar uses `.accessibilityAdjustableAction` so that when VoiceOver is focused on it, the user can swipe up/down to step through days (or weeks) without navigating focus away to the arrow buttons.
+
+```swift
+Text(dateDisplayString)
+    .accessibilityLabel("Currently viewing \(accessibilityDateString)")
+    .accessibilityAddTraits(.isButton)
+    .accessibilityHint("Swipe up for next day, swipe down for previous day")
+    .accessibilityAdjustableAction { direction in
+        switch direction {
+        case .increment: navigateToNextDay()
+        case .decrement: navigateToPreviousDay()
+        @unknown default: break
+        }
+    }
+```
+
+As a belt-and-suspenders fallback, named custom actions are also added to the screen container:
+
+```swift
+.accessibilityAction(named: "Previous Day") { navigateToPreviousDay() }
+.accessibilityAction(named: "Next Day") { navigateToNextDay() }
+```
+
+Each navigation action should:
+1. Call `UINotificationFeedbackGenerator().notificationOccurred(.success)` for haptic feedback
+2. Post `UIAccessibility.post(notification: .announcement, argument: "Viewing [sport] for \(accessibilityDateString)")` so VoiceOver announces the new date without requiring focus to move
+
+Date label display strings (visual vs VoiceOver are different):
+
+| Offset | Visual | VoiceOver |
+|---|---|---|
+| −1 | Yesterday | Yesterday |
+| 0 | Today | Today |
+| +1 | Tmrw | Tomorrow |
+| other | Mon, Mar 2 | Monday, March 2 |
+
+### Future Dates
+
+The date picker **must allow future dates** up to a reasonable lookahead (suggest 7 days). ESPN publishes future schedules; blocking navigation to tomorrow is a defect. Remove the `in: ...Date()` cap from `DatePickerView`.
+
+**Current state:** `DatePickerView` blocks all future dates. This is a bug.
+
+---
+
+## Team Name Display Principle
+
+The `Game.Team` struct carries four fields: `abbreviation`, `name`, `displayName`, `shortName`. Use them as follows:
+
+| Context | Field | Example |
+|---|---|---|
+| Game row — visual | `abbreviation` | MIL |
+| Game detail header — visual | `abbreviation` | MIL |
+| Box score column headers | `abbreviation` | MIL |
+| Standings row — visual | `abbreviation` | MIL |
+| Game row — VoiceOver label | `displayName` | Milwaukee Brewers |
+| Game detail team tap target — VoiceOver | `displayName` | Milwaukee Brewers |
+| Standings row — VoiceOver | `displayName` | Milwaukee Brewers |
+| Leader row (`LeaderRow`) — VoiceOver | `displayName` | Milwaukee Brewers |
+| News, polls, rankings | `displayName` | Milwaukee Brewers |
+| Team schedule navigation title | `displayName` | Milwaukee Brewers |
+| Sport / section headings | `sport.displayName` | MLB |
+
+**Rule:** Abbreviations are sufficient on screen because visual context (sport, layout, score columns) is available. VoiceOver users lack that ambient context — a VoiceOver label should never use an abbreviation.
+
+**Rule:** Full `displayName` includes the city and mascot ("Milwaukee Brewers", "Wisconsin Badgers"). This is what VoiceOver should always say. Never use `abbreviation`, `shortName`, or `name` in a VoiceOver label.
+
+---
+
+## VoiceOver Redundancy Principle
+
+A game row should not repeat information that the section heading already communicates.
+
+| Section | Words to omit from row labels |
+|---|---|
+| In Progress | "Live", "In progress" |
+| Upcoming | "Upcoming", "Scheduled" |
+| Completed | "Final", "Complete", "Finished" |
+
+The visual status chip (e.g. a "FINAL" badge, "LIVE" dot) should be marked `.accessibilityHidden(true)` when inside a section whose heading already conveys that status. The section heading itself must have `.accessibilityAddTraits(.isHeader)`.
+
+For **In Progress** rows, the meaningful VoiceOver content is the period, clock, and situation text — not the word "Live." For example:
+
+> "Milwaukee Brewers 4, Chicago Cubs 2. Bottom 7th, one out, runner on second."
+
+Not:
+
+> "Live. Final. Milwaukee Brewers 4, Chicago Cubs 2."
+
+---
+
+## Game Detail Screen
+
+Design is still being worked out. Decisions not yet made:
+
+- Whether box score should be player-level (Python app) or team-aggregate (current iOS)
+- Final tab order and tab naming
+- How the game header adapts between pre-game, live, and final states
+
+Current tab structure for reference:
+
+| Tab | Available |
+|---|---|
+| Box Score | All |
+| Drives (football) / Plays (other sports) | All |
+| Info (leaders, injuries, officials, news) | All |
+| More (win probability, season series) | MLB only |
+
+---
+
+## Known Design Debt
+
+These are inconsistencies in the current codebase that violate the principles above. Each should be addressed in priority order.
+
+| # | Issue | File(s) | Principle violated |
+|---|---|---|---|
+| 1 | `ScoresView` Scores tab is a flat unsorted list — no In Progress / Upcoming / Completed sections | `ScoresView.swift`, `ScoresViewModel.swift` | Sport Screen Standard Layout |
+| 2 | `CompactGameRow` (used in `LiveScoresView`) has no `.accessibilityElement(children: .combine)` — VoiceOver reads sub-elements individually | `LiveScoresView.swift` | VoiceOver Redundancy |
+| 3 | `DatePickerView` caps at `Date()` — future dates unreachable | `DatePickerView.swift` | Date Navigation |
+| 4 | `autoRefreshInterval` is not shared — resets to 1 min when navigating between `ScoresView` and `LiveScoresView` | Both view files | General UX consistency |
+| 5 | Status words ("Final", "Live") appear in VoiceOver labels regardless of section context | `ScoresView.swift`, `LiveScoresView.swift` | VoiceOver Redundancy |
+| 6 | Date label in toolbar does not use `.accessibilityAdjustableAction` | `ScoresView.swift` | Date Navigation |
+| 7 | `Sport.icon` returns a raw text string (`"MLB"`) not an image or SF Symbol | `Sport.swift` | Visual consistency |
+| 8 | NBA/WNBA `usesNextYearFormat` not applied to standings/leaders API calls — only applied in `TeamScheduleViewModel` | `ESPNAPIService.swift`, `StandingsViewModel.swift` | Data correctness |
+| 9 | `LiveScoresView` uses `fetchGames(for:)` for football instead of `fetchFootballGames` — may return wrong-week data | `LiveScoresViewModel.swift` | Live Scores: day-only is intentional, but the call should still use the correct ESPN `seasontype` parameter |
+
+---
+
+## Pending Decisions
+
+- **Game Detail player-level box score:** Port the Python app's per-player batting/pitching lines to iOS or keep team-aggregate? (Python app is the source of truth for feature intent.)
+- **Date navigation on Sport Selection (home):** Should the home screen's "Today's Games" / `LiveScoresView` entry point also show a date, or is it always today only?
+- **Auto-refresh persistence:** Should the refresh interval be persisted in `UserDefaults` and shared across all views?
+- **Score monitoring toggle in Live Scores:** `ScoresView` has swipe/context actions to monitor a game for score changes; `LiveScoresView` does not. Should it?
