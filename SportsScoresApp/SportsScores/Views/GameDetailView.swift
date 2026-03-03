@@ -189,6 +189,7 @@ struct GameDetailView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
+                .accessibilityElement(children: .ignore)
                 .accessibilityLabel("TV: \(activeBroadcasts.joined(separator: ", "))")
             }
 
@@ -206,6 +207,7 @@ struct GameDetailView: View {
                             .foregroundColor(.secondary)
                     }
                 }
+                .accessibilityElement(children: .ignore)
                 .accessibilityLabel({
                     var parts: [String] = []
                     if let s = odds.details { parts.append("Line: \(s)") }

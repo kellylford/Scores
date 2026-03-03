@@ -5,8 +5,21 @@
 //  A thin UIKit bridge that gives VoiceOver proper data-table navigation for
 //  standings and box-score grids.
 //
-//  VoiceOver will announce "row 2, column 3 of 6" when users swipe through
-//  cells — something SwiftUI.Grid cannot provide on its own.
+//  VoiceOver announces "row 2, column 3 of 6" when users swipe through cells
+//  and automatically reads the row-header (team name) as context when
+//  navigating across a row — the same behaviour as <th scope="row"> in HTML.
+//
+//  Key protocol hooks:
+//    • accessibilityHeaderElements(forColumn:) — column header for each col
+//    • accessibilityHeaderElements(forRow:)    — row header (col-0 cell) for
+//                                               each data row; this is the
+//                                               hook that makes VoiceOver read
+//                                               the team name automatically
+//    • accessibilityDataTableCellElement(forRow:column:) — individual cells
+//
+//  Column-0 data cells carry .none traits (NOT .header — that would make
+//  VoiceOver say "heading" and break navigation).  They are associated as
+//  row headers purely through accessibilityHeaderElements(forRow:).
 //
 //  Usage (inside a ZStack, overlaying the visual grid which is
 //  .accessibilityHidden(true)):
@@ -127,7 +140,8 @@ final class AccessibleDataTableView: UIView,
             return UIAccessibility.convertToScreenCoordinates(localFrame, in: self)
         }
 
-        // Header row (accessibility row 0)
+        // Column header row (accessibility row 0) — .header trait so VoiceOver
+        // reads these as column headers when navigating down a column.
         headerElements = columnHeaders.enumerated().map { col, title in
             let el = DataTableCellElement(
                 container: self,
@@ -140,7 +154,10 @@ final class AccessibleDataTableView: UIView,
             return el
         }
 
-        // Data rows (accessibility rows 1…n)
+        // Data rows (accessibility rows 1…n).
+        // Column-0 cells are row headers — they use .none traits (NOT .header,
+        // which would make VoiceOver say "heading").  They are associated as row
+        // headers via accessibilityHeaderElements(forRow:) below.
         rowElements = dataRows.enumerated().map { row, cols in
             cols.enumerated().map { col, label in
                 let el = DataTableCellElement(
@@ -166,9 +183,22 @@ final class AccessibleDataTableView: UIView,
         columnHeaders.count
     }
 
+    /// Column header for each column — called when VoiceOver navigates down a column.
     @objc func accessibilityHeaderElements(forColumn column: Int) -> [Any]? {
         guard column < headerElements.count else { return nil }
         return [headerElements[column]]
+    }
+
+    /// Row header for each data row — the column-0 cell (team name / stat name).
+    /// This is the equivalent of <th scope="row"> in HTML: VoiceOver reads the
+    /// team name automatically as context whenever the user navigates across a row.
+    /// row 0 is the column-header row itself; data rows start at 1.
+    @objc func accessibilityHeaderElements(forRow row: Int) -> [Any]? {
+        guard row > 0 else { return nil }          // row 0 = column-header row; no row-header for it
+        let dataRow = row - 1
+        guard dataRow < rowElements.count,
+              !rowElements[dataRow].isEmpty else { return nil }
+        return [rowElements[dataRow][0]]           // column-0 cell is the row header
     }
 
     @objc func accessibilityDataTableCellElement(forRow row: Int, column: Int) -> (any UIAccessibilityContainerDataTableCell)? {
