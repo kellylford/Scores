@@ -238,6 +238,25 @@ Surfaces in SettingsView as a grouped `Picker` with an example preview row benea
 
 ---
 
+## Play-by-Play Information Order
+
+**Applies to:** all timed sports (NBA, NHL, NFL, NCAAB, NCAAF, NCAAH). Not baseball — baseball has no game clock.
+
+Every play row must present information in this order:
+
+1. **What happened** — the play description (e.g. "Giannis Antetokounmpo makes running layup")
+2. **When** — the game clock at that moment (e.g. "10:53")
+3. **Impact** — cumulative score after the play (e.g. "BOS 4 – MIL 0")
+
+Rationale: the most meaningful fact is what happened. Context (when, score) provides supporting detail and should come after. Both the visual layout and the VoiceOver accessibility label must follow this order. Screen-reading order matches visual reading order.
+
+**Visual layout:** play text on top line; clock and score on a smaller secondary line below.
+
+**VoiceOver label:** `"<play text>. <clock>. <away> <score>, <home> <score>."`  
+Example: `"Giannis Antetokounmpo makes running layup. 10:53. BOS 0, MIL 4."`
+
+---
+
 ## Game Detail Screen
 
 Design is still being worked out. Decisions not yet made:

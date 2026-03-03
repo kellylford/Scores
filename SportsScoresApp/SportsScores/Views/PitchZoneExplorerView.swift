@@ -190,17 +190,14 @@ struct PitchZoneExplorerView: View {
             .gesture(
                 DragGesture(minimumDistance: 0, coordinateSpace: .local)
                     .onChanged { value in handleDrag(location: value.location, in: geo.size) }
-                    .onEnded { _ in
-                        fingerX = nil
-                        fingerY = nil
-                        nearestPitch = nil
-                    }
+                    .onEnded { _ in handleDragEnd() }
             )
             // Gesture and accessibility must be on the same node for direct touch to work.
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(canvasAccessibilityLabel)
-            .accessibilityHint("Direct touch area. Swipe to focus, then drag freely to explore pitch locations. Audio tone maps height and pan to pitch position. Swipe up or down to step through pitches instead.")
+            .accessibilityHint("Two modes available: drag freely to explore pitch locations with spatial audio, or flick up and down to step through pitches one by one.")
             .accessibilityDirectTouch(options: .silentOnTouch)
+            .accessibilityValue(currentPitchVoiceOverValue)
             .accessibilityAdjustableAction { direction in
                 guard let ab = currentAtBat else { return }
                 let pitches = ab.pitches
@@ -312,8 +309,8 @@ struct PitchZoneExplorerView: View {
         fingerX = ex
         fingerY = ey
 
-        // Nearest pitch within threshold
-        let threshold = 28.0   // ESPN units
+        // Nearest pitch within threshold — track explored set, one haptic per new discovery
+        let threshold = 28.0
         var bestDist = Double.infinity
         var best: GameDetails.Play? = nil
         for pitch in visiblePitches {
@@ -324,37 +321,46 @@ struct PitchZoneExplorerView: View {
         let newNearest = bestDist < threshold ? best : nil
         if newNearest?.id != nearestPitch?.id {
             nearestPitch = newNearest
-            if let p = newNearest {
+            if let p = newNearest, !exploredIds.contains(p.id) {
                 exploredIds.insert(p.id)
                 if !exploredOrder.contains(where: { $0.id == p.id }) {
                     exploredOrder.append(p)
                 }
-                // Haptic on landing on a pitch
+                // Single subtle haptic when landing on a new pitch — no announcement
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
             }
         }
 
-        // Strike zone boundary crossing haptic + announcement
+        // Strike zone boundary: haptic only, no VoiceOver announcement during drag
         let nowInZone = isInZone(espnX: ex, espnY: ey)
         if nowInZone != wasInStrikeZone {
             wasInStrikeZone = nowInZone
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            UIAccessibility.post(notification: .announcement,
-                                 argument: nowInZone ? "Strike zone" : "Ball")
+            // No UIAccessibility.post here — announcements mid-drag override audio
         }
 
-        // Rate-limited audio
+        // Rate-limited audio — slow enough that tones don't overlap (tone is 0.35 s)
         let now = Date()
-        if now.timeIntervalSince(lastAudioFire) > 0.12 {
+        if now.timeIntervalSince(lastAudioFire) > 0.45 {
             lastAudioFire = now
-            if let p = nearestPitch {
-                // Play the actual pitch audio when hovering over one
-                audio.playCoordinate(espnX: Int(ex), espnY: Int(ey),
-                                     velocity: p.pitchVelocity)
-            } else {
-                audio.playCoordinate(espnX: Int(ex), espnY: Int(ey))
-            }
+            audio.playCoordinate(espnX: Int(ex), espnY: Int(ey))
         }
+    }
+
+    private func handleDragEnd() {
+        // Single announcement when finger lifts summarising where they are
+        let zoneText = zoneLocationText
+        let pitchText: String
+        if let p = nearestPitch, let ab = currentAtBat {
+            let num = (visiblePitches.firstIndex(where: { $0.id == p.id }) ?? 0) + 1
+            pitchText = "Pitch \(num): " + buildPitchAnnouncement(p, number: num, ab: ab)
+        } else {
+            pitchText = zoneText
+        }
+        UIAccessibility.post(notification: .announcement, argument: pitchText)
+        fingerX = nil
+        fingerY = nil
+        nearestPitch = nil
     }
 
     // MARK: - Status bar
@@ -626,6 +632,17 @@ struct PitchZoneExplorerView: View {
         guard let ab = currentAtBat else { return "At-bat \(currentAtBatIndex + 1)" }
         return "At-bat \(currentAtBatIndex + 1) of \(atBats.count). " +
                "\(ab.inning). \(ab.batterName). \(ab.pitchCount) pitches."
+    }
+
+    /// Short accessible value: shows which pitch is selected while navigating via swipe.
+    private var currentPitchVoiceOverValue: String {
+        guard let ab = currentAtBat, !ab.pitches.isEmpty else { return "" }
+        let pitches = ab.pitches
+        if let p = nearestPitch, let idx = pitches.firstIndex(where: { $0.id == p.id }) {
+            let type = p.pitchType?.text ?? "Pitch"
+            return "Pitch \(idx + 1) of \(pitches.count): \(type)"
+        }
+        return "\(pitches.count) pitches. Swipe up or down to step through them."
     }
 
     private func buildPitchAnnouncement(_ pitch: GameDetails.Play,

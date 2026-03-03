@@ -37,6 +37,7 @@
 		B54A3C6BF8F49A420AE8B5A6 /* LiveScoresViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C6754243E2E05857C78D223 /* LiveScoresViewModel.swift */; };
 		B6D69EB294E291DC424699E8 /* Sport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 069ACD1D5C73DAD2A7D76927 /* Sport.swift */; };
 		B746C2D72B31CABAB14A8A32 /* GameDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD62F7905FFCDC5D2AA616FB /* GameDetailView.swift */; };
+		B7F18A6B46B91155BE6DE856 /* FieldAudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 403903D8B1E6F2AE0AC92E30 /* FieldAudioEngine.swift */; };
 		B85E0B110964AD140C6CA5C7 /* StandingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3E43F7CCDE27769D46915D8 /* StandingsViewModel.swift */; };
 		BAC55B44D2DD6AFAC014F6B5 /* StatisticsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 170934144144BFF79BD8E765 /* StatisticsViewModel.swift */; };
 		BC4CAE67D1B91E0DD0EF8F48 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA9D3C2F2CF69EA0F2C44FC /* AppSettings.swift */; };
@@ -62,6 +63,7 @@
 		3A041149D09737E052D28AFD /* LiveScoresView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveScoresView.swift; sourceTree = "<group>"; };
 		3C2563CBCB32601D5263CEEF /* News.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = News.swift; sourceTree = "<group>"; };
 		3C463E72CBDDDA80C63C8952 /* PitchZoneExplorerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PitchZoneExplorerView.swift; sourceTree = "<group>"; };
+		403903D8B1E6F2AE0AC92E30 /* FieldAudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FieldAudioEngine.swift; sourceTree = "<group>"; };
 		5B7A3E63F22E1898869FDC94 /* TeamScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamScheduleView.swift; sourceTree = "<group>"; };
 		5C7235DC0E2395602DD8FA74 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		5DB8AE94C204A50146E9F867 /* BoxScoreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoxScoreView.swift; sourceTree = "<group>"; };
@@ -123,6 +125,7 @@
 			isa = PBXGroup;
 			children = (
 				21AFFA6521B030C9D6A32C28 /* ESPNAPIService.swift */,
+				403903D8B1E6F2AE0AC92E30 /* FieldAudioEngine.swift */,
 				F659A5D114F5225EE0FE626D /* PitchAudioEngine.swift */,
 				BC2D08B7D16F9E319C4B0346 /* ScoreMonitorService.swift */,
 			);
@@ -292,6 +295,7 @@
 				898FBB6809528DF5A40939BE /* DatePickerView.swift in Sources */,
 				513083EA6C93ED8413B1C342 /* DivisionMapper.swift in Sources */,
 				8A2691FFB0CCF34A4FCF39AE /* ESPNAPIService.swift in Sources */,
+				B7F18A6B46B91155BE6DE856 /* FieldAudioEngine.swift in Sources */,
 				67AE8DCB8DE650FF5D655562 /* Game.swift in Sources */,
 				B746C2D72B31CABAB14A8A32 /* GameDetailView.swift in Sources */,
 				E12FF86C82FDE425DE041439 /* LiveScoresView.swift in Sources */,

@@ -47,18 +47,15 @@ struct BaseballFieldTourView: View {
 
     // MARK: - State
 
-    @StateObject private var audio = PitchAudioEngine()
+    @StateObject private var fieldAudio = FieldAudioEngine()
 
     @State private var selectedStadium: StadiumGeometry = StadiumGeometry.all.first!
 
     // Finger position in field feet
     @State private var fingerField: CGPoint? = nil
 
-    // Last announced zone name (to detect crossings)
+    // Last announced zone name (to detect zone-crossing haptics)
     @State private var lastZoneName: String = ""
-
-    // Rate-limit audio: retrigger every 150 ms
-    @State private var lastAudioFire: Date = .distantPast
 
     // Notable features expansion
     @State private var showFeatures = false
@@ -97,7 +94,7 @@ struct BaseballFieldTourView: View {
             .onChange(of: selectedStadium) { _ in
                 fingerField = nil
                 lastZoneName = ""
-                audio.stop()
+                fieldAudio.stop()
             }
         }
         .padding(.horizontal, 14)
@@ -118,7 +115,7 @@ struct BaseballFieldTourView: View {
             .gesture(
                 DragGesture(minimumDistance: 0, coordinateSpace: .local)
                     .onChanged { value in handleDrag(location: value.location, layout: layout) }
-                    .onEnded { _ in fingerField = nil; audio.stop() }
+                    .onEnded { _ in handleDragEnd() }
             )
             // Gesture and accessibility must be on the same node for direct touch to work.
             .accessibilityElement(children: .ignore)
@@ -288,24 +285,28 @@ struct BaseballFieldTourView: View {
         let (fx, fy) = layout.fieldPoint(sx: location.x, sy: location.y)
         fingerField = CGPoint(x: fx, y: fy)
 
-        // Zone detection
         let zone = selectedStadium.detectZone(fieldX: fx, fieldY: fy)
+
+        // Haptic on zone boundary crossing
         if zone.name != lastZoneName {
             lastZoneName = zone.name
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            UIAccessibility.post(notification: .announcement, argument: zone.name)
         }
 
-        // Rate-limited audio
-        let now = Date()
-        if now.timeIntervalSince(lastAudioFire) > 0.15 {
-            lastAudioFire = now
-            let maxDepth = selectedStadium.centerField + 20.0
-            let maxHalfWidth = selectedStadium.rightFieldLine * sin(45 * Double.pi / 180) + 20.0
-            audio.playFieldCoordinate(fieldX: fx, fieldY: fy,
-                                      maxHalfWidth: maxHalfWidth,
-                                      maxDepth: maxDepth)
+        // Continuous audio — no rate limit; FieldAudioEngine handles its own looping
+        let maxHalfWidth = selectedStadium.rightFieldLine * sin(45 * Double.pi / 180) + 20.0
+        let pan = Float((fx / maxHalfWidth).clamped(to: -1.0...1.0))
+        fieldAudio.update(terrain: zone.terrain, pan: pan)
+    }
+
+    private func handleDragEnd() {
+        // Announce location once when finger lifts
+        if let ff = fingerField {
+            let zone = selectedStadium.detectZone(fieldX: ff.x, fieldY: ff.y)
+            UIAccessibility.post(notification: .announcement, argument: zone.name)
         }
+        fingerField = nil
+        fieldAudio.stop()
     }
 
     // MARK: - Status bar

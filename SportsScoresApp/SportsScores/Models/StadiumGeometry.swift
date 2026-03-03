@@ -19,6 +19,16 @@
 import Foundation
 import CoreGraphics
 
+// MARK: - Terrain type
+
+/// Sound character category for the field audio engine.
+enum FieldTerrain {
+    case fair           // grass — soft swish
+    case warningTrack   // cinder / gravel — middle ground
+    case foul           // hard surface / concrete — rough
+    case silent         // outside field boundary
+}
+
 // MARK: - Model
 
 struct StadiumGeometry: Identifiable, Equatable, Hashable {
@@ -110,6 +120,7 @@ struct StadiumGeometry: Identifiable, Equatable, Hashable {
     struct FieldZoneResult {
         let name: String
         let distanceFeet: Int
+        let terrain: FieldTerrain
     }
 
     func detectZone(fieldX: Double, fieldY: Double) -> FieldZoneResult {
@@ -119,42 +130,40 @@ struct StadiumGeometry: Identifiable, Equatable, Hashable {
         // ── Behind home plate ────────────────────────────────────────────
         if fieldY < 0 {
             if abs(fieldX) < 30 {
-                return FieldZoneResult(name: "Backstop area, behind home plate", distanceFeet: Int(dist))
+                return FieldZoneResult(name: "Backstop area, behind home plate", distanceFeet: Int(dist), terrain: .foul)
             } else {
                 let side = fieldX < 0 ? "left" : "right"
-                return FieldZoneResult(name: "Foul territory, \(side) side behind home", distanceFeet: Int(dist))
+                return FieldZoneResult(name: "Foul territory, \(side) side behind home", distanceFeet: Int(dist), terrain: .foul)
             }
         }
 
         // ── Named bases & mound (within 13 ft) ──────────────────────────
         if dist < 13 {
-            return FieldZoneResult(name: "Home plate", distanceFeet: 0)
+            return FieldZoneResult(name: "Home plate", distanceFeet: 0, terrain: .fair)
         }
         let distToFirst = hypot(fieldX - 63.64, fieldY - 63.64)
         if distToFirst < 13 {
-            return FieldZoneResult(name: "First base", distanceFeet: 90)
+            return FieldZoneResult(name: "First base", distanceFeet: 90, terrain: .fair)
         }
         let distToSecond = hypot(fieldX, fieldY - 127.28)
         if distToSecond < 13 {
-            return FieldZoneResult(name: "Second base, center of the diamond", distanceFeet: 127)
+            return FieldZoneResult(name: "Second base, center of the diamond", distanceFeet: 127, terrain: .fair)
         }
         let distToThird = hypot(fieldX + 63.64, fieldY - 63.64)
         if distToThird < 13 {
-            return FieldZoneResult(name: "Third base", distanceFeet: 90)
+            return FieldZoneResult(name: "Third base", distanceFeet: 90, terrain: .fair)
         }
         let distToMound = hypot(fieldX, fieldY - 60.5)
         if distToMound < 11 {
-            return FieldZoneResult(name: "Pitcher's mound", distanceFeet: 60)
+            return FieldZoneResult(name: "Pitcher's mound", distanceFeet: 60, terrain: .fair)
         }
 
         // ── Foul territory (outside the 45-degree foul lines) ─────────────
         if bearing < -45 {
-            let side = "Left field"
-            return FieldZoneResult(name: "Foul territory beyond \(side) line, \(Int(dist)) feet from home", distanceFeet: Int(dist))
+            return FieldZoneResult(name: "Foul territory beyond left field line, \(Int(dist)) feet from home", distanceFeet: Int(dist), terrain: .foul)
         }
         if bearing > 45 {
-            let side = "Right field"
-            return FieldZoneResult(name: "Foul territory beyond \(side) line, \(Int(dist)) feet from home", distanceFeet: Int(dist))
+            return FieldZoneResult(name: "Foul territory beyond right field line, \(Int(dist)) feet from home", distanceFeet: Int(dist), terrain: .foul)
         }
 
         // ── Infield ──────────────────────────────────────────────────────
@@ -163,7 +172,7 @@ struct StadiumGeometry: Identifiable, Equatable, Hashable {
             if bearing < -10 { side = "third base side" }
             else if bearing > 10 { side = "first base side" }
             else { side = "up the middle" }
-            return FieldZoneResult(name: "Infield, \(side), \(Int(dist)) feet from home", distanceFeet: Int(dist))
+            return FieldZoneResult(name: "Infield, \(side), \(Int(dist)) feet from home", distanceFeet: Int(dist), terrain: .fair)
         }
 
         // ── Outfield: determine wall distance at this bearing ────────────
@@ -188,13 +197,20 @@ struct StadiumGeometry: Identifiable, Equatable, Hashable {
             }
             return FieldZoneResult(
                 name: "\(fieldLabel) warning track, \(wallFt) feet from home\(wallHeightNote)",
-                distanceFeet: wallFt
+                distanceFeet: wallFt,
+                terrain: .warningTrack
             )
+        }
+
+        // Beyond the wall
+        if distToWall < 0 {
+            return FieldZoneResult(name: "\(fieldLabel) stands, beyond the wall", distanceFeet: Int(dist), terrain: .silent)
         }
 
         return FieldZoneResult(
             name: "\(fieldLabel), \(Int(dist)) feet from home",
-            distanceFeet: Int(dist)
+            distanceFeet: Int(dist),
+            terrain: .fair
         )
     }
 }

@@ -650,6 +650,12 @@ struct GenericPlaysView: View {
             }
 
             VStack(alignment: .leading, spacing: 3) {
+                // What happened — most important, always first
+                Text(playText)
+                    .font(isPlayerChange ? .callout : .body)
+                    .foregroundColor(isPlayerChange ? .purple : .primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                // When + impact — secondary context below
                 HStack(spacing: 6) {
                     if let clock = play.clock {
                         Text(clock.displayValue)
@@ -663,10 +669,6 @@ struct GenericPlaysView: View {
                             .foregroundColor(.secondary)
                     }
                 }
-                Text(playText)
-                    .font(isPlayerChange ? .callout : .body)
-                    .foregroundColor(isPlayerChange ? .purple : .primary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(.horizontal, 12)
@@ -692,12 +694,13 @@ struct GenericPlaysView: View {
         awayAbbr: String,
         homeAbbr: String
     ) -> String {
+        // Order: what happened → when → impact (score)
         var parts: [String] = []
+        parts.append(playText)
         if let clock = play.clock?.displayValue { parts.append(clock) }
         if let away = play.awayScore, let home = play.homeScore {
             parts.append("\(awayAbbr) \(away), \(homeAbbr) \(home)")
         }
-        parts.append(playText)
         return parts.joined(separator: ". ")
     }
 }
