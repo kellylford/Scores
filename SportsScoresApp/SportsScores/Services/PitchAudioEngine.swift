@@ -85,6 +85,34 @@ final class PitchAudioEngine: ObservableObject {
         isPlaying = false
         statusMessage = ""
     }
+
+    // MARK: - Zone Explorer / Field Tour audio
+
+    /// Play a short tone for an arbitrary ESPN 0–255 coordinate.
+    /// Designed for rate-limited continuous-drag use in the Zone Explorer.
+    /// Callers must throttle — calling this more than ~8 times/sec produces overlapping tones.
+    func playCoordinate(espnX: Int, espnY: Int, velocity: Int? = nil) {
+        let coord = GameDetails.Play.PitchCoordinate(x: espnX, y: espnY)
+        let (freq, pan, _) = audioParams(coord: coord, velocity: velocity)
+        // Short fixed duration so tones don't pile up during a drag
+        Task { await self.tone(frequency: freq, pan: pan, duration: 0.18) }
+    }
+
+    /// Play a spatial tone mapped from real-world field coordinates (feet from home plate).
+    /// `fieldX`: left (−) / right (+) in feet. `fieldY`: distance toward CF in feet.
+    /// Audio mapping: x → stereo pan; distance from home → frequency (closer = lower, farther = higher).
+    func playFieldCoordinate(fieldX: Double, fieldY: Double,
+                             maxHalfWidth: Double, maxDepth: Double) {
+        // Map fieldX → pan (−1.0 left … +1.0 right)
+        let pan = Float((fieldX / maxHalfWidth).clamped(to: -1.0...1.0))
+        // Map distance from home → pentatonic index (near home = low, deep OF = high)
+        let dist = (fieldX * fieldX + fieldY * fieldY).squareRoot()
+        let distNorm = (dist / maxDepth).clamped(to: 0.0...1.0)
+        let noteIndex = Int(distNorm * Double(pentatonicHz.count - 1))
+            .clamped(to: 0..<pentatonicHz.count)
+        let freq = pentatonicHz[noteIndex]
+        Task { await self.tone(frequency: freq, pan: pan, duration: 0.20) }
+    }
     
     // MARK: - Parameter Mapping
     

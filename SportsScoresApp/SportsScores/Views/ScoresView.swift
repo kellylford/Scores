@@ -13,6 +13,7 @@ struct ScoresView: View {
     @StateObject private var viewModel = ScoresViewModel()
     @State private var selectedTab = 0
     @State private var showDatePicker = false
+    @State private var showFieldTour = false
     @EnvironmentObject private var appSettings: AppSettings
 
     var body: some View {
@@ -46,8 +47,31 @@ struct ScoresView: View {
         }
         .navigationTitle(sport.displayName)
         .toolbar {
+            if sport == .mlb {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        showFieldTour = true
+                    } label: {
+                        Label("Stadium Tour", systemImage: "figure.walk.stadium")
+                    }
+                    .accessibilityLabel("Baseball Stadium Tour")
+                    .accessibilityHint("Explore any MLB stadium with audio and haptic feedback")
+                }
+            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 autoRefreshMenu
+            }
+        }
+        .sheet(isPresented: $showFieldTour) {
+            NavigationStack {
+                BaseballFieldTourView()
+                    .navigationTitle("Stadium Tour")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showFieldTour = false }
+                        }
+                    }
             }
         }
         .task { await viewModel.fetchGames(for: sport) }

@@ -17,6 +17,8 @@ struct GameDetailView: View {
     @State private var errorMessage: String?
     @State private var selectedSection = 0
     @State private var showPitchMap = false
+    @State private var showZoneExplorer = false
+    @State private var showFieldTour = false
 
     // Audio engine shared across the plays view
     @StateObject private var pitchAudio = PitchAudioEngine()
@@ -98,6 +100,36 @@ struct GameDetailView: View {
                 }
             }
         }
+        .sheet(isPresented: $showZoneExplorer) {
+            if let details = gameDetails {
+                NavigationStack {
+                    PitchZoneExplorerView(plays: details.plays ?? [])
+                        .navigationTitle("Zone Explorer")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("Done") { showZoneExplorer = false }
+                            }
+                        }
+                }
+            }
+        }
+        .sheet(isPresented: $showFieldTour) {
+            NavigationStack {
+                BaseballFieldTourView(
+                    preselectedStadium: StadiumGeometry.stadium(
+                        venueContaining: game.venue?.fullName ?? ""
+                    )
+                )
+                .navigationTitle("Field Tour")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { showFieldTour = false }
+                    }
+                }
+            }
+        }
         .task { await loadDetails() }
     }
 
@@ -129,6 +161,18 @@ struct GameDetailView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .lineLimit(1)
+                    // MLB-only: Field Tour button next to venue name
+                    if sport == .mlb {
+                        Button {
+                            showFieldTour = true
+                        } label: {
+                            Image(systemName: "figure.walk")
+                                .font(.caption)
+                                .foregroundColor(.green)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Field tour for \(venue.fullName)")
+                    }
                 }
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("Venue: \(venue.fullName)")
@@ -237,7 +281,7 @@ struct GameDetailView: View {
             } else if sport == .mlb {
                 VStack(spacing: 0) {
                     if plays.contains(where: { $0.isPitch }) {
-                        HStack {
+                        HStack(spacing: 8) {
                             Spacer()
                             Button {
                                 showPitchMap = true
@@ -246,9 +290,17 @@ struct GameDetailView: View {
                                     .font(.caption)
                             }
                             .buttonStyle(.bordered)
-                            .padding(.horizontal)
-                            .padding(.vertical, 4)
+                            Button {
+                                showZoneExplorer = true
+                            } label: {
+                                Label("Explore Zone", systemImage: "hand.tap")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(.green)
                         }
+                        .padding(.horizontal)
+                        .padding(.vertical, 4)
                         .background(Color.secondary.opacity(0.06))
                     }
                     MLBPlaysView(
