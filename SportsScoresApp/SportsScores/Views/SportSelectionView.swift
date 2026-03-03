@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct SportSelectionView: View {
+    @State private var showSettings = false
+
     var body: some View {
         NavigationStack {
             List {
@@ -52,10 +54,24 @@ struct SportSelectionView: View {
                 }
             }
             .navigationTitle("Sports Scores")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                    .accessibilityLabel("Settings")
+                }
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
+            }
         }
     }
 }
 
 #Preview {
     SportSelectionView()
+        .environmentObject(AppSettings())
 }

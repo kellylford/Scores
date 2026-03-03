@@ -192,6 +192,8 @@ struct LiveScoresView: View {
 struct CompactGameRow: View {
     let game: Game
     let isLive: Bool
+
+    @EnvironmentObject private var appSettings: AppSettings
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -292,6 +294,33 @@ struct CompactGameRow: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(isLive ? Color.red.opacity(0.3) : Color.clear, lineWidth: 2)
         )
+        // Combine all sub-elements so VoiceOver reads a single coherent label (design debt #2)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(compactAccessibilityLabel)
+    }
+
+    private var compactAccessibilityLabel: String {
+        let pref = appSettings.teamNamePreference
+        var parts: [String] = []
+
+        // Section headings in LiveScoresView already communicate status —
+        // omit "Live" / "Final" to avoid redundancy (design debt #5).
+        parts.append(
+            "\(game.awayTeam.voiceOverName(for: pref)) \(game.awayTeam.score.map { "\($0)" } ?? "")"
+        )
+        parts.append(
+            "at \(game.homeTeam.voiceOverName(for: pref)) \(game.homeTeam.score.map { "\($0)" } ?? "")"
+        )
+
+        if !game.status.isLive && !game.status.isCompleted {
+            parts.append(game.displayTime)
+        }
+
+        if isLive, let sit = game.situation, let t = sit.displayText {
+            parts.append(t)
+        }
+
+        return parts.joined(separator: ", ")
     }
 }
 
@@ -299,4 +328,5 @@ struct CompactGameRow: View {
     NavigationStack {
         LiveScoresView()
     }
+    .environmentObject(AppSettings())
 }

@@ -43,26 +43,49 @@ class ScoresViewModel: ObservableObject {
     @Published var currentWeek: Int?
     @Published var currentSeasonType: Int = 2            // 1 pre / 2 regular / 3 post
     @Published var weekLabel: String = ""
+    /// True while the user is viewing the API-resolved current week.
+    @Published var isOnCurrentWeek: Bool = true
 
     // Auto-refresh
     @Published var autoRefreshInterval: AutoRefreshInterval = .oneMinute
 
-    // ─────────────────────────────────────────────────────────────────────
-    private let apiService = ESPNAPIService.shared
+    // MARK: - Sectioned game lists
+
+    var inProgressGames: [Game] { games.filter { $0.status.isLive } }
+    var upcomingGames:   [Game] { games.filter { !$0.status.isLive && !$0.status.isCompleted }.sorted { $0.date < $1.date } }
+    var completedGames:  [Game] { games.filter { $0.status.isCompleted } }
+
+    // MARK: - Today / current-week state
+
+    /// True when the currently displayed date is calendar today (non-football).
+    var isOnToday: Bool { Calendar.current.isDateInToday(currentDate) }
 
     // MARK: - Formatted date label for display
 
     var dateLabelText: String {
         let cal = Calendar.current
-        if cal.isDateInToday(currentDate) { return "Today" }
+        if cal.isDateInToday(currentDate)     { return "Today" }
         if cal.isDateInYesterday(currentDate) { return "Yesterday" }
-        if cal.isDateInTomorrow(currentDate) { return "Tomorrow" }
+        if cal.isDateInTomorrow(currentDate)  { return "Tmrw" }
         let fmt = DateFormatter()
         fmt.dateFormat = "EEE, MMM d"
         return fmt.string(from: currentDate)
     }
 
+    /// Long-form date string used in VoiceOver announcements and accessibility labels.
+    var dateAccessibilityString: String {
+        let cal = Calendar.current
+        if cal.isDateInToday(currentDate)     { return "Today" }
+        if cal.isDateInYesterday(currentDate) { return "Yesterday" }
+        if cal.isDateInTomorrow(currentDate)  { return "Tomorrow" }
+        let fmt = DateFormatter()
+        fmt.dateFormat = "EEEE, MMMM d"
+        return fmt.string(from: currentDate)
+    }
+
     // MARK: - Fetch
+
+    private let apiService = ESPNAPIService.shared
 
     func fetchGames(for sport: Sport) async {
         isLoading = true
@@ -96,6 +119,7 @@ class ScoresViewModel: ObservableObject {
     func goForward(for sport: Sport) async {
         if sport.isFootball {
             currentWeek = (currentWeek ?? 1) + 1
+            isOnCurrentWeek = false
         } else {
             currentDate = Calendar.current.date(byAdding: .day, value: 1, to: currentDate) ?? currentDate
         }
@@ -105,7 +129,10 @@ class ScoresViewModel: ObservableObject {
     func goBack(for sport: Sport) async {
         if sport.isFootball {
             let prev = (currentWeek ?? 2) - 1
-            if prev >= 1 { currentWeek = prev }
+            if prev >= 1 {
+                currentWeek = prev
+                isOnCurrentWeek = false
+            }
         } else {
             currentDate = Calendar.current.date(byAdding: .day, value: -1, to: currentDate) ?? currentDate
         }
@@ -120,6 +147,7 @@ class ScoresViewModel: ObservableObject {
     func goToToday(for sport: Sport) async {
         currentDate = Calendar.current.startOfDay(for: Date())
         currentWeek = nil   // nil → API resolves to current week
+        isOnCurrentWeek = true
         await fetchGames(for: sport)
     }
 

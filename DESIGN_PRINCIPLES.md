@@ -160,17 +160,35 @@ The `Game.Team` struct carries four fields: `abbreviation`, `name`, `displayName
 | Game detail header — visual | `abbreviation` | MIL |
 | Box score column headers | `abbreviation` | MIL |
 | Standings row — visual | `abbreviation` | MIL |
-| Game row — VoiceOver label | `displayName` | Milwaukee Brewers |
-| Game detail team tap target — VoiceOver | `displayName` | Milwaukee Brewers |
-| Standings row — VoiceOver | `displayName` | Milwaukee Brewers |
-| Leader row (`LeaderRow`) — VoiceOver | `displayName` | Milwaukee Brewers |
-| News, polls, rankings | `displayName` | Milwaukee Brewers |
-| Team schedule navigation title | `displayName` | Milwaukee Brewers |
+| Game row — VoiceOver label | user preference (see below) | Milwaukee Brewers |
+| Game detail team tap target — VoiceOver | user preference | Milwaukee Brewers |
+| Standings row — VoiceOver | user preference | Milwaukee Brewers |
+| Leader row (`LeaderRow`) — VoiceOver | user preference | Milwaukee Brewers |
+| News, polls, rankings | user preference | Milwaukee Brewers |
+| Team schedule navigation title | user preference | Milwaukee Brewers |
 | Sport / section headings | `sport.displayName` | MLB |
 
-**Rule:** Abbreviations are sufficient on screen because visual context (sport, layout, score columns) is available. VoiceOver users lack that ambient context — a VoiceOver label should never use an abbreviation.
+**Rule:** Abbreviations are sufficient on screen because visual context (sport, layout, score columns) is available. VoiceOver users lack that ambient context — a VoiceOver accessibility label should never use an abbreviation unless the user has explicitly chosen that preference.
 
-**Rule:** Full `displayName` includes the city and mascot ("Milwaukee Brewers", "Wisconsin Badgers"). This is what VoiceOver should always say. Never use `abbreviation`, `shortName`, or `name` in a VoiceOver label.
+**Rule:** The user controls how team names are announced in VoiceOver via the App Settings (see below). Visual display always uses `abbreviation` regardless of this setting.
+
+### Team Name Preference
+
+Users set one of four modes in Settings → Team Name Announcement:
+
+| Mode | Field / computation | Example (professional) | Example (college) |
+|---|---|---|---|
+| Full Name | `displayName` | Milwaukee Brewers | Wisconsin Badgers |
+| Mascot / Nickname | `name` | Brewers | Badgers |
+| City / School | `displayName` stripped of `name` suffix | Milwaukee | Wisconsin |
+| Abbreviation | `abbreviation` | MIL | WIS |
+
+The `Game.Team` extension provides `voiceOverName(for:)` to compute the right string given the active preference. Default is **Full Name**.
+
+**Judgment notes:**
+- College teams often have a school name where "city" is really the school ("Wisconsin", "Duke", "Ohio State"). The city/school mode uses the same computation (strip `name` from `displayName`) and is correct for both cases.
+- Some team names have no city component (`displayName == name`, e.g. a hypothetical one-word name). In that case city/school mode falls back to `displayName`.
+- The preference applies uniformly across all sports. There is no per-sport override at this time.
 
 ---
 
@@ -193,6 +211,30 @@ For **In Progress** rows, the meaningful VoiceOver content is the period, clock,
 Not:
 
 > "Live. Final. Milwaukee Brewers 4, Chicago Cubs 2."
+
+---
+
+## App Settings
+
+The app has a single `AppSettings` object (`ObservableObject`) injected into the SwiftUI environment at the root. All views read preferences from it via `@EnvironmentObject`.
+
+Settings are persisted via `@AppStorage` (backed by `UserDefaults`). No iCloud sync at this time.
+
+### Settings Screen
+
+Accessed via the gear icon in the `SportSelectionView` navigation bar. Opens as a modal sheet.
+
+### Team Name Announcement
+
+Key: `teamNamePreference` — type `TeamNamePreference` (String-backed enum, default `.full`).
+
+Surfaces in SettingsView as a grouped `Picker` with an example preview row beneath. The example always shows how the Milwaukee Brewers (professional) example would be spoken so the user can hear the difference immediately.
+
+### Future Settings (placeholder, not implemented)
+
+- Auto-refresh default interval (currently reset to 1 min every navigation)
+- Default sport on launch
+- Time zone display preference
 
 ---
 
@@ -230,6 +272,7 @@ These are inconsistencies in the current codebase that violate the principles ab
 | 7 | `Sport.icon` returns a raw text string (`"MLB"`) not an image or SF Symbol | `Sport.swift` | Visual consistency |
 | 8 | NBA/WNBA `usesNextYearFormat` not applied to standings/leaders API calls — only applied in `TeamScheduleViewModel` | `ESPNAPIService.swift`, `StandingsViewModel.swift` | Data correctness |
 | 9 | `LiveScoresView` uses `fetchGames(for:)` for football instead of `fetchFootballGames` — may return wrong-week data | `LiveScoresViewModel.swift` | Live Scores: day-only is intentional, but the call should still use the correct ESPN `seasontype` parameter |
+| 10 | `AppSettings`/`TeamNamePreference` not yet threaded into all VoiceOver label sites — only `GameRow` and `CompactGameRow` initially covered | Multiple view files | Team Name Display Principle |
 
 ---
 

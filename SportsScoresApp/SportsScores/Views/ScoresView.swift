@@ -6,12 +6,14 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct ScoresView: View {
     let sport: Sport
     @StateObject private var viewModel = ScoresViewModel()
     @State private var selectedTab = 0
     @State private var showDatePicker = false
+    @EnvironmentObject private var appSettings: AppSettings
 
     var body: some View {
         VStack(spacing: 0) {
@@ -107,9 +109,11 @@ struct ScoresView: View {
 
     @ViewBuilder
     private var dateNavigationBar: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 8) {
+
+            // ── Previous button ──────────────────────────────────────────
             Button {
-                Task { await viewModel.goBack(for: sport) }
+                Task { await viewModel.goBack(for: sport); announceNavigation() }
             } label: {
                 Image(systemName: "chevron.left")
                     .font(.body.bold())
@@ -121,17 +125,30 @@ struct ScoresView: View {
 
             Spacer()
 
+            // ── Centre label ─────────────────────────────────────────────
             if sport.isFootball {
-                Text(viewModel.weekLabel.isEmpty
-                     ? (viewModel.currentWeek.map { "Week \($0)" } ?? "Current Week")
-                     : viewModel.weekLabel)
+                let weekText = viewModel.weekLabel.isEmpty
+                    ? (viewModel.currentWeek.map { "Week \($0)" } ?? "Current Week")
+                    : viewModel.weekLabel
+                Text(weekText)
                     .font(.subheadline.bold())
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
+                    .accessibilityLabel("Currently viewing \(weekText)")
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityHint("Swipe up for next week, swipe down for previous week")
+                    .accessibilityAdjustableAction { direction in
+                        Task {
+                            switch direction {
+                            case .increment: await viewModel.goForward(for: sport)
+                            case .decrement: await viewModel.goBack(for: sport)
+                            @unknown default: break
+                            }
+                            announceNavigation()
+                        }
+                    }
             } else {
-                Button {
-                    showDatePicker = true
-                } label: {
+                Button { showDatePicker = true } label: {
                     HStack(spacing: 4) {
                         Text(viewModel.dateLabelText)
                             .font(.subheadline.bold())
@@ -144,13 +161,25 @@ struct ScoresView: View {
                     .background(Color.secondary.opacity(0.12))
                     .cornerRadius(8)
                 }
-                .accessibilityLabel("Choose date, currently \(viewModel.dateLabelText)")
+                .accessibilityLabel("Currently viewing \(viewModel.dateAccessibilityString). Tap to open date picker.")
+                .accessibilityHint("Swipe up for next day, swipe down for previous day")
+                .accessibilityAdjustableAction { direction in
+                    Task {
+                        switch direction {
+                        case .increment: await viewModel.goForward(for: sport)
+                        case .decrement: await viewModel.goBack(for: sport)
+                        @unknown default: break
+                        }
+                        announceNavigation()
+                    }
+                }
             }
 
             Spacer()
 
+            // ── Next button ───────────────────────────────────────────────
             Button {
-                Task { await viewModel.goForward(for: sport) }
+                Task { await viewModel.goForward(for: sport); announceNavigation() }
             } label: {
                 Image(systemName: "chevron.right")
                     .font(.body.bold())
@@ -159,8 +188,44 @@ struct ScoresView: View {
             }
             .disabled(viewModel.isLoading)
             .accessibilityLabel(sport.isFootball ? "Next Week" : "Next Day")
+
+            // ── Today button (only when not on today / current week) ──────
+            let showToday = sport.isFootball ? !viewModel.isOnCurrentWeek : !viewModel.isOnToday
+            if showToday {
+                Button("Today") {
+                    Task { await viewModel.goToToday(for: sport); announceNavigation() }
+                }
+                .font(.subheadline)
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .transition(.opacity)
+            }
         }
+        .animation(.easeInOut(duration: 0.15), value: viewModel.isOnToday)
+        .animation(.easeInOut(duration: 0.15), value: viewModel.isOnCurrentWeek)
         .animation(.none, value: viewModel.weekLabel)
+        // Belt-and-suspenders named actions for VoiceOver custom actions rotor
+        .accessibilityAction(named: sport.isFootball ? "Previous Week" : "Previous Day") {
+            Task { await viewModel.goBack(for: sport); announceNavigation() }
+        }
+        .accessibilityAction(named: sport.isFootball ? "Next Week" : "Next Day") {
+            Task { await viewModel.goForward(for: sport); announceNavigation() }
+        }
+    }
+
+    /// Posts a haptic and VoiceOver announcement after any date/week navigation.
+    private func announceNavigation() {
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        let description: String
+        if sport.isFootball {
+            let weekText = viewModel.weekLabel.isEmpty
+                ? (viewModel.currentWeek.map { "Week \($0)" } ?? "Current Week")
+                : viewModel.weekLabel
+            description = "\(sport.displayName), \(weekText)"
+        } else {
+            description = "\(sport.displayName), \(viewModel.dateAccessibilityString)"
+        }
+        UIAccessibility.post(notification: .announcement, argument: description)
     }
 
     // MARK: - Tab content (conditional — no TabView to avoid height/task issues)
@@ -222,20 +287,65 @@ struct ScoresView: View {
 
     private var gamesList: some View {
         List {
-            ForEach(viewModel.games) { game in
-                NavigationLink(destination: GameDetailView(game: game, sport: sport)) {
-                    GameRow(game: game, sport: sport)
+            // ── In Progress ───────────────────────────────────────────────
+            if !viewModel.inProgressGames.isEmpty {
+                Section {
+                    ForEach(viewModel.inProgressGames) { game in
+                        gameRow(game, context: .inProgress)
+                    }
+                } header: {
+                    Text("In Progress")
+                        .accessibilityAddTraits(.isHeader)
                 }
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    MonitorToggleButton(game: game)
+            }
+
+            // ── Upcoming ──────────────────────────────────────────────────
+            if !viewModel.upcomingGames.isEmpty {
+                Section {
+                    ForEach(viewModel.upcomingGames) { game in
+                        gameRow(game, context: .upcoming)
+                    }
+                } header: {
+                    Text("Upcoming")
+                        .accessibilityAddTraits(.isHeader)
                 }
-                .contextMenu {
-                    MonitorContextMenuItem(game: game)
+            }
+
+            // ── Completed ─────────────────────────────────────────────────
+            if !viewModel.completedGames.isEmpty {
+                Section {
+                    ForEach(viewModel.completedGames) { game in
+                        gameRow(game, context: .completed)
+                    }
+                } header: {
+                    Text("Completed")
+                        .accessibilityAddTraits(.isHeader)
                 }
             }
         }
         .listStyle(.plain)
     }
+
+    @ViewBuilder
+    private func gameRow(_ game: Game, context: GameSectionContext) -> some View {
+        NavigationLink(destination: GameDetailView(game: game, sport: sport)) {
+            GameRow(game: game, sport: sport, sectionContext: context)
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            MonitorToggleButton(game: game)
+        }
+        .contextMenu {
+            MonitorContextMenuItem(game: game)
+        }
+    }
+}
+
+// MARK: - Section Context
+
+/// Indicates which status section a game row is displayed in.
+/// Used to suppress redundant VoiceOver status words (design debt #5).
+enum GameSectionContext {
+    case inProgress, upcoming, completed
 }
 
 // MARK: - Game Row
@@ -243,6 +353,10 @@ struct ScoresView: View {
 struct GameRow: View {
     let game: Game
     let sport: Sport
+    /// The list section this row is in. `nil` = unknown / no sectioning.
+    var sectionContext: GameSectionContext? = nil
+
+    @EnvironmentObject private var appSettings: AppSettings
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -326,12 +440,22 @@ struct GameRow: View {
     }
 
     private var accessibilityLabel: String {
+        let pref = appSettings.teamNamePreference
         var parts: [String] = []
-        if game.status.isLive        { parts.append("Live") }
-        else if game.status.isCompleted { parts.append("Final") }
 
-        parts.append("\(game.awayTeam.displayName) \(game.awayTeam.score.map { "\($0)" } ?? "")")
-        parts.append("at \(game.homeTeam.displayName) \(game.homeTeam.score.map { "\($0)" } ?? "")")
+        // Suppress status word when section heading already communicates it (design debt #5)
+        let suppressLive  = sectionContext == .inProgress
+        let suppressFinal = sectionContext == .completed
+
+        if game.status.isLive && !suppressLive           { parts.append("Live") }
+        else if game.status.isCompleted && !suppressFinal { parts.append("Final") }
+
+        parts.append(
+            "\(game.awayTeam.voiceOverName(for: pref)) \(game.awayTeam.score.map { "\($0)" } ?? "")"
+        )
+        parts.append(
+            "at \(game.homeTeam.voiceOverName(for: pref)) \(game.homeTeam.score.map { "\($0)" } ?? "")"
+        )
 
         if !game.status.isLive && !game.status.isCompleted {
             parts.append(game.displayTime)
@@ -424,5 +548,6 @@ private struct MonitorContextMenuItem: View {
     NavigationStack {
         ScoresView(sport: .mlb)
     }
+    .environmentObject(AppSettings())
 }
 

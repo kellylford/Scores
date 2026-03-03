@@ -144,6 +144,34 @@ struct Game: Identifiable, Codable {
     }
 }
 
+// MARK: - Team Name Helpers
+
+extension Game.Team {
+    /// The city or school component of `displayName`.
+    ///
+    /// Computed by stripping `name` from the end of `displayName`.
+    /// - "Milwaukee Brewers" → "Milwaukee"
+    /// - "Wisconsin Badgers" → "Wisconsin"
+    /// - Falls back to `displayName` if stripping would leave an empty string.
+    var cityName: String {
+        guard displayName.hasSuffix(name) else { return displayName }
+        let city = String(displayName.dropLast(name.count))
+            .trimmingCharacters(in: .whitespaces)
+        return city.isEmpty ? displayName : city
+    }
+
+    /// Returns the team name string appropriate for a VoiceOver label
+    /// given the current user preference.
+    func voiceOverName(for preference: TeamNamePreference) -> String {
+        switch preference {
+        case .full:         return displayName
+        case .mascot:       return name
+        case .city:         return cityName
+        case .abbreviation: return abbreviation
+        }
+    }
+}
+
 // MARK: - API Response Models
 extension Game {
     init(from apiResponse: APIGame, seasonType: Int = 2) throws {

@@ -28,7 +28,7 @@ struct DatePickerView: View {
                 DatePicker(
                     "Select Date",
                     selection: $pickedDate,
-                    in: ...Date(),          // can't browse future (no data yet)
+                    in: ...Calendar.current.date(byAdding: .day, value: 7, to: Date())!,
                     displayedComponents: .date
                 )
                 .datePickerStyle(.graphical)

@@ -10,9 +10,12 @@ import UserNotifications
 
 @main
 struct SportsScoresApp: App {
+    @StateObject private var appSettings = AppSettings()
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(appSettings)
                 .onAppear {
                     UNUserNotificationCenter.current().requestAuthorization(
                         options: [.alert, .sound, .badge]
