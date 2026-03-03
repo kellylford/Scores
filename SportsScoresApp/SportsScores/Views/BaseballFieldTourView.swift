@@ -124,7 +124,7 @@ struct BaseballFieldTourView: View {
             .accessibilityDirectTouch(options: .silentOnTouch)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 330)
+        .frame(height: 420)
         .clipped()
     }
 
@@ -135,12 +135,12 @@ struct BaseballFieldTourView: View {
         let maxDepth = st.centerField + 20.0     // CF + padding
         let maxHalfWidth = st.rightFieldLine * sin(45 * Double.pi / 180) + 20.0
 
-        let scaleH = (size.height - 60.0) / maxDepth
-        let scaleW = (size.width / 2.0 - 10.0) / maxHalfWidth
+        let scaleH = (size.height - 42.0) / maxDepth   // reduced bottom margin: more field visible
+        let scaleW = (size.width / 2.0 - 6.0) / maxHalfWidth  // tighter horizontal margin
         let scale = min(scaleH, scaleW)
 
         let homeX = size.width / 2.0
-        let homeY = size.height - 28.0
+        let homeY = size.height - 18.0   // home plate closer to bottom edge
         return FieldLayout(homeScreen: CGPoint(x: homeX, y: homeY), scale: scale)
     }
 
@@ -287,10 +287,14 @@ struct BaseballFieldTourView: View {
 
         let zone = selectedStadium.detectZone(fieldX: fx, fieldY: fy)
 
-        // Haptic on zone boundary crossing
+        // Haptic + chime on zone boundary crossing
         if zone.name != lastZoneName {
             lastZoneName = zone.name
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            if zone.isLandmark {
+                fieldAudio.playLandmark()
+                UIAccessibility.post(notification: .announcement, argument: zone.name)
+            }
         }
 
         // Continuous audio — no rate limit; FieldAudioEngine handles its own looping

@@ -32,12 +32,14 @@ final class FieldAudioEngine: ObservableObject {
     private var fairPlayer:  AVAudioPlayerNode?
     private var warnPlayer:  AVAudioPlayerNode?
     private var foulPlayer:  AVAudioPlayerNode?
+    private var chimePlayer: AVAudioPlayerNode?   // one-shot landmark chime — not spatialized
     private var environment: AVAudioEnvironmentNode?
 
     // Buffers built once, reused across start/stop cycles
-    private var fairBuffer: AVAudioPCMBuffer?
-    private var warnBuffer: AVAudioPCMBuffer?
-    private var foulBuffer: AVAudioPCMBuffer?
+    private var fairBuffer:  AVAudioPCMBuffer?
+    private var warnBuffer:  AVAudioPCMBuffer?
+    private var foulBuffer:  AVAudioPCMBuffer?
+    private var chimeBuffer: AVAudioPCMBuffer?
 
     var isRunning: Bool { engine?.isRunning ?? false }
 
@@ -60,33 +62,38 @@ final class FieldAudioEngine: ObservableObject {
         let fp = AVAudioPlayerNode()
         let wp = AVAudioPlayerNode()
         let lp = AVAudioPlayerNode()
+        let cp = AVAudioPlayerNode()   // chime — routed straight to mixer, no spatialization
         let env = AVAudioEnvironmentNode()
 
-        eng.attach(fp); eng.attach(wp); eng.attach(lp); eng.attach(env)
+        eng.attach(fp); eng.attach(wp); eng.attach(lp); eng.attach(cp); eng.attach(env)
 
-        // All three mono players → shared environment node → stereo output
+        // Terrain mono players → environment → stereo output
         eng.connect(fp,  to: env, format: mono)
         eng.connect(wp,  to: env, format: mono)
         eng.connect(lp,  to: env, format: mono)
         eng.connect(env, to: eng.mainMixerNode, format: stereo)
 
+        // Chime player → mainMixerNode directly (stereo, centered, no HRTF)
+        eng.connect(cp, to: eng.mainMixerNode, format: stereo)
+
         // Listener at origin; sounds positioned 1 unit "in front" — panning moves along x-axis
         env.listenerPosition = AVAudio3DPoint(x: 0, y: 0, z: 0)
 
         // Build buffers once
-        let fb = fairBuffer ?? makeFairBuffer(fmt: mono)
-        let wb = warnBuffer ?? makeWarnBuffer(fmt: mono)
-        let lb = foulBuffer ?? makeFoulBuffer(fmt: mono)
-        fairBuffer = fb; warnBuffer = wb; foulBuffer = lb
+        let fb = fairBuffer  ?? makeFairBuffer(fmt: mono)
+        let wb = warnBuffer  ?? makeWarnBuffer(fmt: mono)
+        let lb = foulBuffer  ?? makeFoulBuffer(fmt: mono)
+        let cb = chimeBuffer ?? makeChimeBuffer(fmt: stereo)
+        fairBuffer = fb; warnBuffer = wb; foulBuffer = lb; chimeBuffer = cb
 
         guard (try? eng.start()) != nil else { return }
 
-        // Schedule looping; start fully silent — caller drives volumes
+        // Schedule looping terrain buffers; start fully silent
         fp.scheduleBuffer(fb, at: nil, options: .loops)
         wp.scheduleBuffer(wb, at: nil, options: .loops)
         lp.scheduleBuffer(lb, at: nil, options: .loops)
-        fp.play(); wp.play(); lp.play()
-        fp.volume = 0; wp.volume = 0; lp.volume = 0
+        fp.play(); wp.play(); lp.play(); cp.play()
+        fp.volume = 0; wp.volume = 0; lp.volume = 0; cp.volume = 1.0
 
         // Default center pan
         let center = AVAudio3DPoint(x: 0, y: 0, z: -1)
@@ -94,7 +101,7 @@ final class FieldAudioEngine: ObservableObject {
 
         engine = eng
         fairPlayer = fp; warnPlayer = wp; foulPlayer = lp
-        environment = env
+        chimePlayer = cp; environment = env
     }
 
     /// Update the active terrain sound and stereo pan. Call on every drag-changed event — no throttle needed.
@@ -133,15 +140,53 @@ final class FieldAudioEngine: ObservableObject {
 
     /// Stop the engine immediately (called when finger lifts).
     func stop() {
-        fairPlayer?.stop(); warnPlayer?.stop(); foulPlayer?.stop()
+        fairPlayer?.stop(); warnPlayer?.stop(); foulPlayer?.stop(); chimePlayer?.stop()
         engine?.stop()
         engine = nil; fairPlayer = nil; warnPlayer = nil
-        foulPlayer = nil; environment = nil
+        foulPlayer = nil; chimePlayer = nil; environment = nil
         try? AVAudioSession.sharedInstance().setActive(false,
                                                        options: .notifyOthersOnDeactivation)
     }
 
+    /// Play a short centered chime when entering a landmark zone (base, mound, home plate).
+    /// Does not interrupt the terrain loop.
+    func playLandmark() {
+        guard let cp = chimePlayer, let cb = chimeBuffer else { return }
+        cp.scheduleBuffer(cb, at: nil, options: [], completionHandler: nil)
+    }
+
     // MARK: - Buffer generation
+
+    /// Chime: a short (0.14 s) bright sine ping with fast attack and exponential decay.
+    /// Centered stereo — not spatialized. Clearly distinct from terrain noises.
+    private func makeChimeBuffer(fmt: AVAudioFormat) -> AVAudioPCMBuffer {
+        let duration = 0.14
+        let frequency = 1046.50   // C6 — bright and clear
+        let frames = AVAudioFrameCount(sampleRate * duration)
+        let attackFrames = AVAudioFrameCount(sampleRate * 0.008)  // 8 ms attack
+        let buf = AVAudioPCMBuffer(pcmFormat: fmt, frameCapacity: frames)!
+        buf.frameLength = frames
+        let left  = buf.floatChannelData![0]
+        let right = buf.floatChannelData![1]
+        let phaseStep = 2.0 * Double.pi * frequency / sampleRate
+        var phase = 0.0
+        for i in 0..<Int(frames) {
+            let fi = AVAudioFrameCount(i)
+            let envelope: Float
+            if fi < attackFrames {
+                envelope = Float(fi) / Float(attackFrames)
+            } else {
+                let t = Double(fi - attackFrames) / Double(frames - attackFrames)
+                envelope = Float(pow(1.0 - t, 2.2))
+            }
+            let sample = Float(sin(phase)) * envelope * 0.55
+            left[i] = sample
+            right[i] = sample
+            phase += phaseStep
+            if phase > 2 * .pi { phase -= 2 * .pi }
+        }
+        return buf
+    }
 
     /// Grass swish — aggressive low-pass (20-sample running average) → nearly tonal hiss,
     /// very soft and smooth. Think wind through outfield grass.

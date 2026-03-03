@@ -15,6 +15,7 @@
 		1A468450657E6A4E5C798D40 /* PollsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAB026ED5A307D8628CB7D79 /* PollsViewModel.swift */; };
 		31603CE4AE41B5ABE907C348 /* TeamNamePreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AAC57811BB4C42BC2619656 /* TeamNamePreference.swift */; };
 		32A6FF663F55FDB3009D64C7 /* TeamScheduleViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 915340F68BA4D0A9C2068191 /* TeamScheduleViewModel.swift */; };
+		39FB1132256178B6106EA884 /* FootballFieldTourView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62F4C1D901EF7B90EED9E637 /* FootballFieldTourView.swift */; };
 		3B583CE5901CF86D24E84764 /* TeamScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B7A3E63F22E1898869FDC94 /* TeamScheduleView.swift */; };
 		3B58834BFF1C6F8E735AF6CC /* PitchZoneExplorerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C463E72CBDDDA80C63C8952 /* PitchZoneExplorerView.swift */; };
 		3CF5D8B7E440EC82D67DAC1F /* ScoresView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 609CEBC16C71EE0B9BC17BD7 /* ScoresView.swift */; };
@@ -22,10 +23,12 @@
 		513083EA6C93ED8413B1C342 /* DivisionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CEE4CE2353099109FF62D72 /* DivisionMapper.swift */; };
 		537EDE5289F5FA56EDBB33E6 /* ViewMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F02454A9066804EF35F956A /* ViewMode.swift */; };
 		55CE2ABE26480CA6F22E8419 /* ScoreMonitorService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC2D08B7D16F9E319C4B0346 /* ScoreMonitorService.swift */; };
+		64472E5262DAF76B2D31956D /* VenueToursView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D140CFB6388D35A8A6DAA98A /* VenueToursView.swift */; };
 		66941444CDF6D80C2263573F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C7235DC0E2395602DD8FA74 /* ContentView.swift */; };
 		67AE8DCB8DE650FF5D655562 /* Game.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08AB11969A6D49301493C976 /* Game.swift */; };
 		6C341E3F349F9C34917C0BA1 /* PitchMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD66FC8613BE001BF933296A /* PitchMapView.swift */; };
 		7D0281DAD5661B027D351459 /* SportSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA74734FB552A44C1F62E3C7 /* SportSelectionView.swift */; };
+		7FE49CE6841F2741FB6D9993 /* BasketballCourtTourView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B9633ED3A95DF8C72813B8D /* BasketballCourtTourView.swift */; };
 		898FBB6809528DF5A40939BE /* DatePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797D09AB2E8244D9B87B18DD /* DatePickerView.swift */; };
 		8A2691FFB0CCF34A4FCF39AE /* ESPNAPIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21AFFA6521B030C9D6A32C28 /* ESPNAPIService.swift */; };
 		9D93010B54E6E1BDF2438669 /* Standings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F730ED25EF184C36C9EEC13 /* Standings.swift */; };
@@ -44,6 +47,7 @@
 		C95B57CC27DD8C19A2979B32 /* StandingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95F96BD2C7E1B5D0F0EC4DE8 /* StandingsView.swift */; };
 		D0297E190F614EB1BB6ADA63 /* StatisticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67992CF671BB379D522254C7 /* StatisticsView.swift */; };
 		E12FF86C82FDE425DE041439 /* LiveScoresView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A041149D09737E052D28AFD /* LiveScoresView.swift */; };
+		E7F872A849B24BEFC94A4B28 /* HockeyRinkTourView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45E2F040B783E6BBEE950FD5 /* HockeyRinkTourView.swift */; };
 		EC7138C39AF0542F702095B6 /* PitchAudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F659A5D114F5225EE0FE626D /* PitchAudioEngine.swift */; };
 		EDF2DE37CADCCD46B40AB0AB /* DataTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB9F89C51E04B48DBF663845 /* DataTableView.swift */; };
 		F0325420BCF8E453528C1728 /* BaseballFieldTourView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93169AB8FB73DA57C45D0C7A /* BaseballFieldTourView.swift */; };
@@ -64,10 +68,13 @@
 		3C2563CBCB32601D5263CEEF /* News.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = News.swift; sourceTree = "<group>"; };
 		3C463E72CBDDDA80C63C8952 /* PitchZoneExplorerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PitchZoneExplorerView.swift; sourceTree = "<group>"; };
 		403903D8B1E6F2AE0AC92E30 /* FieldAudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FieldAudioEngine.swift; sourceTree = "<group>"; };
+		45E2F040B783E6BBEE950FD5 /* HockeyRinkTourView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HockeyRinkTourView.swift; sourceTree = "<group>"; };
 		5B7A3E63F22E1898869FDC94 /* TeamScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamScheduleView.swift; sourceTree = "<group>"; };
+		5B9633ED3A95DF8C72813B8D /* BasketballCourtTourView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BasketballCourtTourView.swift; sourceTree = "<group>"; };
 		5C7235DC0E2395602DD8FA74 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		5DB8AE94C204A50146E9F867 /* BoxScoreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoxScoreView.swift; sourceTree = "<group>"; };
 		609CEBC16C71EE0B9BC17BD7 /* ScoresView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoresView.swift; sourceTree = "<group>"; };
+		62F4C1D901EF7B90EED9E637 /* FootballFieldTourView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FootballFieldTourView.swift; sourceTree = "<group>"; };
 		636254F8AA33A59EC7DE9718 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		67992CF671BB379D522254C7 /* StatisticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsView.swift; sourceTree = "<group>"; };
 		730BF6E5A4FF66C7DF52BCC2 /* PlaysView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaysView.swift; sourceTree = "<group>"; };
@@ -87,6 +94,7 @@
 		BDDD36E16EA39ADB21259034 /* PollsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PollsView.swift; sourceTree = "<group>"; };
 		BDEC309880AB2ADBB9696E41 /* ScoresViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoresViewModel.swift; sourceTree = "<group>"; };
 		C54D54E4F45E8D6A098DFF0B /* StadiumGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StadiumGeometry.swift; sourceTree = "<group>"; };
+		D140CFB6388D35A8A6DAA98A /* VenueToursView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VenueToursView.swift; sourceTree = "<group>"; };
 		D3E43F7CCDE27769D46915D8 /* StandingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StandingsViewModel.swift; sourceTree = "<group>"; };
 		DB9F89C51E04B48DBF663845 /* DataTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataTableView.swift; sourceTree = "<group>"; };
 		DD62F7905FFCDC5D2AA616FB /* GameDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameDetailView.swift; sourceTree = "<group>"; };
@@ -174,9 +182,12 @@
 			isa = PBXGroup;
 			children = (
 				93169AB8FB73DA57C45D0C7A /* BaseballFieldTourView.swift */,
+				5B9633ED3A95DF8C72813B8D /* BasketballCourtTourView.swift */,
 				5DB8AE94C204A50146E9F867 /* BoxScoreView.swift */,
 				797D09AB2E8244D9B87B18DD /* DatePickerView.swift */,
+				62F4C1D901EF7B90EED9E637 /* FootballFieldTourView.swift */,
 				DD62F7905FFCDC5D2AA616FB /* GameDetailView.swift */,
+				45E2F040B783E6BBEE950FD5 /* HockeyRinkTourView.swift */,
 				3A041149D09737E052D28AFD /* LiveScoresView.swift */,
 				EE41AFE532E985B250D0D3BE /* NewsView.swift */,
 				AD66FC8613BE001BF933296A /* PitchMapView.swift */,
@@ -189,6 +200,7 @@
 				95F96BD2C7E1B5D0F0EC4DE8 /* StandingsView.swift */,
 				67992CF671BB379D522254C7 /* StatisticsView.swift */,
 				5B7A3E63F22E1898869FDC94 /* TeamScheduleView.swift */,
+				D140CFB6388D35A8A6DAA98A /* VenueToursView.swift */,
 				19CD8D9F1CDE9B2008BF5830 /* Components */,
 			);
 			path = Views;
@@ -289,6 +301,7 @@
 			files = (
 				BC4CAE67D1B91E0DD0EF8F48 /* AppSettings.swift in Sources */,
 				F0325420BCF8E453528C1728 /* BaseballFieldTourView.swift in Sources */,
+				7FE49CE6841F2741FB6D9993 /* BasketballCourtTourView.swift in Sources */,
 				4EBA8B3274D13D19014A34C4 /* BoxScoreView.swift in Sources */,
 				66941444CDF6D80C2263573F /* ContentView.swift in Sources */,
 				EDF2DE37CADCCD46B40AB0AB /* DataTableView.swift in Sources */,
@@ -296,8 +309,10 @@
 				513083EA6C93ED8413B1C342 /* DivisionMapper.swift in Sources */,
 				8A2691FFB0CCF34A4FCF39AE /* ESPNAPIService.swift in Sources */,
 				B7F18A6B46B91155BE6DE856 /* FieldAudioEngine.swift in Sources */,
+				39FB1132256178B6106EA884 /* FootballFieldTourView.swift in Sources */,
 				67AE8DCB8DE650FF5D655562 /* Game.swift in Sources */,
 				B746C2D72B31CABAB14A8A32 /* GameDetailView.swift in Sources */,
+				E7F872A849B24BEFC94A4B28 /* HockeyRinkTourView.swift in Sources */,
 				E12FF86C82FDE425DE041439 /* LiveScoresView.swift in Sources */,
 				B54A3C6BF8F49A420AE8B5A6 /* LiveScoresViewModel.swift in Sources */,
 				148D279BE802BAA35FF18C92 /* News.swift in Sources */,
@@ -326,6 +341,7 @@
 				31603CE4AE41B5ABE907C348 /* TeamNamePreference.swift in Sources */,
 				3B583CE5901CF86D24E84764 /* TeamScheduleView.swift in Sources */,
 				32A6FF663F55FDB3009D64C7 /* TeamScheduleViewModel.swift in Sources */,
+				64472E5262DAF76B2D31956D /* VenueToursView.swift in Sources */,
 				537EDE5289F5FA56EDBB33E6 /* ViewMode.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

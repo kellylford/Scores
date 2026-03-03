@@ -121,6 +121,8 @@ struct StadiumGeometry: Identifiable, Equatable, Hashable {
         let name: String
         let distanceFeet: Int
         let terrain: FieldTerrain
+        /// True for bases, mound, and home plate — triggers a chime in addition to the terrain sound.
+        var isLandmark: Bool = false
     }
 
     func detectZone(fieldX: Double, fieldY: Double) -> FieldZoneResult {
@@ -139,23 +141,23 @@ struct StadiumGeometry: Identifiable, Equatable, Hashable {
 
         // ── Named bases & mound (within 13 ft) ──────────────────────────
         if dist < 13 {
-            return FieldZoneResult(name: "Home plate", distanceFeet: 0, terrain: .fair)
+            return FieldZoneResult(name: "Home plate", distanceFeet: 0, terrain: .fair, isLandmark: true)
         }
         let distToFirst = hypot(fieldX - 63.64, fieldY - 63.64)
         if distToFirst < 13 {
-            return FieldZoneResult(name: "First base", distanceFeet: 90, terrain: .fair)
+            return FieldZoneResult(name: "First base", distanceFeet: 90, terrain: .fair, isLandmark: true)
         }
         let distToSecond = hypot(fieldX, fieldY - 127.28)
         if distToSecond < 13 {
-            return FieldZoneResult(name: "Second base, center of the diamond", distanceFeet: 127, terrain: .fair)
+            return FieldZoneResult(name: "Second base", distanceFeet: 127, terrain: .fair, isLandmark: true)
         }
         let distToThird = hypot(fieldX + 63.64, fieldY - 63.64)
         if distToThird < 13 {
-            return FieldZoneResult(name: "Third base", distanceFeet: 90, terrain: .fair)
+            return FieldZoneResult(name: "Third base", distanceFeet: 90, terrain: .fair, isLandmark: true)
         }
         let distToMound = hypot(fieldX, fieldY - 60.5)
         if distToMound < 11 {
-            return FieldZoneResult(name: "Pitcher's mound", distanceFeet: 60, terrain: .fair)
+            return FieldZoneResult(name: "Pitcher's mound", distanceFeet: 60, terrain: .fair, isLandmark: true)
         }
 
         // ── Foul territory (outside the 45-degree foul lines) ─────────────
@@ -179,24 +181,33 @@ struct StadiumGeometry: Identifiable, Equatable, Hashable {
         let wallDist = wallDistanceFeet(bearing: bearing)
         let distToWall = wallDist - dist
 
-        let fieldLabel: String
-        if bearing < -20 { fieldLabel = "Left field" }
-        else if bearing > 20 { fieldLabel = "Right field" }
-        else { fieldLabel = "Center field" }
+        // Fine-grained directional label from home plate bearing.
+        // −45° = LF line, 0° = straight-away center, +45° = RF line.
+        let dirLabel: String
+        switch bearing {
+        case ..<(-33): dirLabel = "Left field, near foul line"
+        case ..<(-15): dirLabel = "Left field"
+        case ..<(-5):  dirLabel = "Left center"
+        case ...(5):   dirLabel = "Center field"
+        case ...(15):  dirLabel = "Right center"
+        case ...(33):  dirLabel = "Right field"
+        default:       dirLabel = "Right field, near foul line"
+        }
+
+        // Wall-height note used only on warning track
+        let wallHeightNote: String
+        if bearing < -15 && leftWallHeight > 12 {
+            wallHeightNote = " — \(Int(leftWallHeight))-foot wall"
+        } else if bearing > 15 && rightWallHeight > 12 {
+            wallHeightNote = " — \(Int(rightWallHeight))-foot wall"
+        } else {
+            wallHeightNote = ""
+        }
 
         if distToWall < 15 {
-            // Warning track
             let wallFt = Int(wallDist)
-            let wallHeightNote: String
-            if bearing < -20 && leftWallHeight > 12 {
-                wallHeightNote = " — \(Int(leftWallHeight))-foot wall"
-            } else if bearing > 20 && rightWallHeight > 12 {
-                wallHeightNote = " — \(Int(rightWallHeight))-foot wall"
-            } else {
-                wallHeightNote = ""
-            }
             return FieldZoneResult(
-                name: "\(fieldLabel) warning track, \(wallFt) feet from home\(wallHeightNote)",
+                name: "\(dirLabel) warning track, \(wallFt) feet from home\(wallHeightNote)",
                 distanceFeet: wallFt,
                 terrain: .warningTrack
             )
@@ -204,11 +215,11 @@ struct StadiumGeometry: Identifiable, Equatable, Hashable {
 
         // Beyond the wall
         if distToWall < 0 {
-            return FieldZoneResult(name: "\(fieldLabel) stands, beyond the wall", distanceFeet: Int(dist), terrain: .silent)
+            return FieldZoneResult(name: "\(dirLabel) stands", distanceFeet: Int(dist), terrain: .silent)
         }
 
         return FieldZoneResult(
-            name: "\(fieldLabel), \(Int(dist)) feet from home",
+            name: "\(dirLabel), \(Int(dist)) feet from home",
             distanceFeet: Int(dist),
             terrain: .fair
         )
