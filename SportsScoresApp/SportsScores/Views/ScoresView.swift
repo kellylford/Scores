@@ -417,7 +417,7 @@ struct GameRow: View {
             }
         }
         .padding(.vertical, 4)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
     }
 
@@ -468,6 +468,10 @@ struct GameRow: View {
                 parts.append(t)
                 if sit.isRedZone == true { parts.append("Red Zone") }
             }
+        }
+
+        if let broadcast = game.broadcasts.first, !broadcast.isEmpty {
+            parts.append("on \(broadcast)")
         }
 
         return parts.joined(separator: ", ")

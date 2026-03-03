@@ -215,6 +215,15 @@ struct StandingsTableView: View {
         }
     }
 
+    /// Same as `rowData(for:)` but uses the full team display name in column 0
+    /// — used by the UIKit accessibility table overlay so VoiceOver speaks the
+    /// full name ("Los Angeles Dodgers") rather than the abbreviation ("LAD").
+    private func accessibleRowData(for entry: StandingsEntry) -> [String] {
+        var cols = rowData(for: entry)
+        if !cols.isEmpty { cols[0] = entry.team.displayName }
+        return cols
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             ViewModePicker(selectedMode: $viewMode)
@@ -300,25 +309,31 @@ struct StandingsTableView: View {
                         .font(.subheadline.bold())
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 8)
-                    ForEach(cols.dropFirst().indices, id: \.self) { i in
-                        Text(cols[i + 1])
+                    ForEach(Array(cols.dropFirst().enumerated()), id: \.offset) { _, value in
+                        Text(value)
                             .font(.caption.monospacedDigit())
                             .frame(width: 44)
                     }
                 }
                 .padding(.vertical, 7)
                 .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.05))
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel(
-                    "\(entry.team.displayName): \(entry.stats.wins) wins, \(entry.stats.losses) losses, " +
-                    "\(entry.stats.displayWinPercent), \(entry.stats.gamesBack) games back, streak \(entry.stats.streak)"
-                )
+                // Row is hidden from VoiceOver; AccessibleDataTable overlay
+                // handles all accessibility navigation for the table view.
+                .accessibilityHidden(true)
 
                 if idx < group.entries.count - 1 {
                     Divider().padding(.leading, 8)
                 }
             }
         }
+        .accessibilityHidden(true) // UIKit overlay handles VoiceOver for table mode
+        .overlay(
+            AccessibleDataTable(
+                headers: activeHeaders,
+                rows: group.entries.map { accessibleRowData(for: $0) }
+            )
+            .allowsHitTesting(false)
+        )
         .padding(.bottom, 16)
     }
 
@@ -355,6 +370,7 @@ struct StandingsTableView: View {
                 .background(Color.secondary.opacity(0.05))
                 .cornerRadius(8)
                 .padding(.horizontal, 12)
+                .accessibilityElement(children: .ignore)
                 .accessibilityLabel(entry.fullListText)
             }
         }

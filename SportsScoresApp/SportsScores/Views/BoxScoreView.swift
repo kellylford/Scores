@@ -54,6 +54,7 @@ struct BoxScoreView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 6)
                 .background(Color.secondary.opacity(0.12))
+                .accessibilityHidden(true) // team names are in every row label
 
                 Divider()
 
@@ -72,6 +73,9 @@ struct BoxScoreView: View {
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
                         .padding(.bottom, 2)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(cat.groupTitle)
+                        .accessibilityAddTraits(.isHeader)
 
                         // Stat rows
                         ForEach(Array(items.enumerated()), id: \.element.name) { rowIdx, stat in
@@ -79,6 +83,7 @@ struct BoxScoreView: View {
                                 Text(stat.displayName)
                                     .font(.caption)
                                     .foregroundColor(.secondary)
+                                    .accessibilityHidden(true)
                                 ForEach(teams, id: \.team.displayName) { team in
                                     let matchedStat = team.statistics
                                         .first(where: { $0.name == cat.name })?
@@ -87,12 +92,24 @@ struct BoxScoreView: View {
                                     Text(matchedStat?.displayValue ?? "–")
                                         .font(.caption.monospacedDigit())
                                         .frame(maxWidth: .infinity, alignment: .trailing)
+                                        .accessibilityHidden(true)
                                 }
                             }
                             .padding(.horizontal, 16)
                             .padding(.vertical, 4)
                             .background((rowIdx % 2 == 0) ? Color.clear : Color.secondary.opacity(0.04))
-                            .accessibilityElement(children: .combine)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel({
+                                let parts = teams.map { team -> String in
+                                    let v = team.statistics
+                                        .first(where: { $0.name == cat.name })?
+                                        .stats?
+                                        .first(where: { $0.name == stat.name })?
+                                        .displayValue ?? "–"
+                                    return "\(team.team.abbreviation) \(v)"
+                                }
+                                return "\(stat.displayName): \(parts.joined(separator: ", "))"
+                            }())
                         }
 
                         if catIdx < catCount - 1 {
@@ -127,6 +144,7 @@ struct BoxScoreView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .background(Color.secondary.opacity(0.12))
+                .accessibilityHidden(true) // team names are in every row label
 
                 Divider()
 
@@ -138,18 +156,30 @@ struct BoxScoreView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .accessibilityHidden(true)
                         ForEach(teams, id: \.team.displayName) { team in
                             let matchedStat = team.statistics
                                 .first(where: { $0.name == stat.name })
                             Text(matchedStat?.displayValue ?? "–")
                                 .font(.caption.monospacedDigit())
                                 .frame(minWidth: 60, alignment: .trailing)
+                                .accessibilityHidden(true)
                         }
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 4)
                     .background((rowIdx % 2 == 0) ? Color.clear : Color.secondary.opacity(0.04))
-                    .accessibilityElement(children: .combine)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel({
+                        let statName = stat.label ?? stat.displayName ?? stat.name
+                        let parts = teams.map { team -> String in
+                            let v = team.statistics
+                                .first(where: { $0.name == stat.name })?
+                                .displayValue ?? "–"
+                            return "\(team.team.abbreviation) \(v)"
+                        }
+                        return "\(statName): \(parts.joined(separator: ", "))"
+                    }())
                 }
             }
         }

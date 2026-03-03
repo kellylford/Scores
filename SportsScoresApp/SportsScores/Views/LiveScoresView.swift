@@ -320,6 +320,10 @@ struct CompactGameRow: View {
             parts.append(t)
         }
 
+        if let broadcast = game.broadcasts.first, !broadcast.isEmpty {
+            parts.append("on \(broadcast)")
+        }
+
         return parts.joined(separator: ", ")
     }
 }

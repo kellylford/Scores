@@ -27,6 +27,7 @@
 		66941444CDF6D80C2263573F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C7235DC0E2395602DD8FA74 /* ContentView.swift */; };
 		67AE8DCB8DE650FF5D655562 /* Game.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08AB11969A6D49301493C976 /* Game.swift */; };
 		6C341E3F349F9C34917C0BA1 /* PitchMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD66FC8613BE001BF933296A /* PitchMapView.swift */; };
+		71558223E4B1963628A115D5 /* AccessibleTableBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA03F672A5EA237BD26D7267 /* AccessibleTableBridge.swift */; };
 		7D0281DAD5661B027D351459 /* SportSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA74734FB552A44C1F62E3C7 /* SportSelectionView.swift */; };
 		7FE49CE6841F2741FB6D9993 /* BasketballCourtTourView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B9633ED3A95DF8C72813B8D /* BasketballCourtTourView.swift */; };
 		898FBB6809528DF5A40939BE /* DatePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797D09AB2E8244D9B87B18DD /* DatePickerView.swift */; };
@@ -94,6 +95,7 @@
 		BDDD36E16EA39ADB21259034 /* PollsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PollsView.swift; sourceTree = "<group>"; };
 		BDEC309880AB2ADBB9696E41 /* ScoresViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoresViewModel.swift; sourceTree = "<group>"; };
 		C54D54E4F45E8D6A098DFF0B /* StadiumGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StadiumGeometry.swift; sourceTree = "<group>"; };
+		CA03F672A5EA237BD26D7267 /* AccessibleTableBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibleTableBridge.swift; sourceTree = "<group>"; };
 		D140CFB6388D35A8A6DAA98A /* VenueToursView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VenueToursView.swift; sourceTree = "<group>"; };
 		D3E43F7CCDE27769D46915D8 /* StandingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StandingsViewModel.swift; sourceTree = "<group>"; };
 		DB9F89C51E04B48DBF663845 /* DataTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataTableView.swift; sourceTree = "<group>"; };
@@ -107,6 +109,7 @@
 		19CD8D9F1CDE9B2008BF5830 /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				CA03F672A5EA237BD26D7267 /* AccessibleTableBridge.swift */,
 				DB9F89C51E04B48DBF663845 /* DataTableView.swift */,
 			);
 			path = Components;
@@ -299,6 +302,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				71558223E4B1963628A115D5 /* AccessibleTableBridge.swift in Sources */,
 				BC4CAE67D1B91E0DD0EF8F48 /* AppSettings.swift in Sources */,
 				F0325420BCF8E453528C1728 /* BaseballFieldTourView.swift in Sources */,
 				7FE49CE6841F2741FB6D9993 /* BasketballCourtTourView.swift in Sources */,
