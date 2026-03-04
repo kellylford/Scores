@@ -130,23 +130,47 @@ struct ScoresView: View {
                 let weekText = viewModel.weekLabel.isEmpty
                     ? (viewModel.currentWeek.map { "Week \($0)" } ?? "Current Week")
                     : viewModel.weekLabel
-                Text(weekText)
-                    .font(.subheadline.bold())
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .accessibilityLabel("Currently viewing \(weekText)")
-                    .accessibilityAddTraits(.isButton)
-                    .accessibilityHint("Swipe up for next week, swipe down for previous week")
-                    .accessibilityAdjustableAction { direction in
-                        Task {
-                            switch direction {
-                            case .increment: await viewModel.goForward(for: sport)
-                            case .decrement: await viewModel.goBack(for: sport)
-                            @unknown default: break
+                VStack(spacing: 2) {
+                    Text(weekText)
+                        .font(.subheadline.bold())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+
+                    // Season year picker — lets users jump to historical seasons
+                    let currentYear = Calendar.current.component(.year, from: Date())
+                    let availableSeasons = Array((viewModel.earliestFootballSeason...currentYear).reversed())
+                    Menu {
+                        ForEach(availableSeasons, id: \.self) { year in
+                            Button(String(year)) {
+                                Task { await viewModel.goToSeason(year, for: sport); announceNavigation() }
                             }
-                            announceNavigation()
+                        }
+                    } label: {
+                        HStack(spacing: 3) {
+                            Text(String(viewModel.resolvedSeason))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.system(size: 9))
+                                .foregroundColor(.secondary)
                         }
                     }
+                    .accessibilityLabel("Season \(viewModel.resolvedSeason). Tap to pick a different season year.")
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Currently viewing \(weekText), \(viewModel.resolvedSeason) season")
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint("Swipe up for next week, swipe down for previous week")
+                .accessibilityAdjustableAction { direction in
+                    Task {
+                        switch direction {
+                        case .increment: await viewModel.goForward(for: sport)
+                        case .decrement: await viewModel.goBack(for: sport)
+                        @unknown default: break
+                        }
+                        announceNavigation()
+                    }
+                }
             } else {
                 Button { showDatePicker = true } label: {
                     HStack(spacing: 4) {
@@ -221,7 +245,7 @@ struct ScoresView: View {
             let weekText = viewModel.weekLabel.isEmpty
                 ? (viewModel.currentWeek.map { "Week \($0)" } ?? "Current Week")
                 : viewModel.weekLabel
-            description = "\(sport.displayName), \(weekText)"
+            description = "\(sport.displayName), \(weekText), \(viewModel.resolvedSeason)"
         } else {
             description = "\(sport.displayName), \(viewModel.dateAccessibilityString)"
         }
@@ -444,12 +468,11 @@ struct GameRow: View {
         var parts: [String] = []
 
         // Suppress status word when section heading already communicates it (design debt #5)
-        let suppressLive  = sectionContext == .inProgress
         let suppressFinal = sectionContext == .completed
 
-        if game.status.isLive && !suppressLive           { parts.append("Live") }
-        else if game.status.isCompleted && !suppressFinal { parts.append("Final") }
+        if game.status.isCompleted && !suppressFinal { parts.append("Final") }
 
+        // Scores
         parts.append(
             "\(game.awayTeam.voiceOverName(for: pref)) \(game.awayTeam.score.map { "\($0)" } ?? "")"
         )
@@ -461,6 +484,7 @@ struct GameRow: View {
             parts.append(game.displayTime)
         }
 
+        // Last action / situation
         if game.status.isLive, let sit = game.situation {
             if sport == .mlb, let baseInfo = sit.baseballSituationText {
                 parts.append(baseInfo)
@@ -470,6 +494,12 @@ struct GameRow: View {
             }
         }
 
+        // Period / clock — the key time-reference for live games (e.g. "3rd Quarter - 8:42")
+        if game.status.isLive {
+            parts.append(game.status.displayText)
+        }
+
+        // Broadcast last
         if let broadcast = game.broadcasts.first, !broadcast.isEmpty {
             parts.append("on \(broadcast)")
         }

@@ -51,14 +51,17 @@ class ESPNAPIService {
         let week: Int
         let weekLabel: String
         let seasonType: Int
+        let season: Int
     }
 
     func fetchFootballGames(for sport: Sport,
                             week: Int? = nil,
+                            season: Int? = nil,
                             seasonType: Int = 2) async throws -> FootballScoreboardResult {
         var components: [String] = []
         components.append("seasontype=\(seasonType)")
         if let w = week { components.append("week=\(w)") }
+        if let s = season { components.append("season=\(s)") }
         let query = components.isEmpty ? "" : "?" + components.joined(separator: "&")
         let urlString = "\(baseURL)/\(sport.apiPath)/scoreboard\(query)"
         guard let url = URL(string: urlString) else { throw APIError.invalidURL }
@@ -71,6 +74,7 @@ class ESPNAPIService {
         decoder.dateDecodingStrategy = .iso8601
         let apiResponse = try decoder.decode(ScoreboardResponse.self, from: data)
         let resolvedSeasonType = apiResponse.season?.type ?? seasonType
+        let resolvedSeason = apiResponse.season?.year ?? season ?? Calendar.current.component(.year, from: Date())
         let resolvedWeek = apiResponse.week?.number ?? week ?? 1
         let weekLabel = apiResponse.week?.text ?? "Week \(resolvedWeek)"
         let games = try apiResponse.events.map { try Game(from: $0, seasonType: resolvedSeasonType) }
@@ -78,7 +82,8 @@ class ESPNAPIService {
             games: games,
             week: resolvedWeek,
             weekLabel: weekLabel,
-            seasonType: resolvedSeasonType
+            seasonType: resolvedSeasonType,
+            season: resolvedSeason
         )
     }
 

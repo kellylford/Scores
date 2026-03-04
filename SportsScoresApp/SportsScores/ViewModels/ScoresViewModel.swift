@@ -45,6 +45,12 @@ class ScoresViewModel: ObservableObject {
     @Published var weekLabel: String = ""
     /// True while the user is viewing the API-resolved current week.
     @Published var isOnCurrentWeek: Bool = true
+    /// The season year being displayed (football only). nil = let API resolve to current.
+    @Published var currentSeason: Int?
+    /// The API-resolved season year (used for the UI label).
+    @Published var resolvedSeason: Int = Calendar.current.component(.year, from: Date())
+    /// The earliest NFL/football season available in the ESPN API.
+    let earliestFootballSeason: Int = 2001
 
     // Auto-refresh
     @Published var autoRefreshInterval: AutoRefreshInterval = .oneMinute
@@ -96,12 +102,14 @@ class ScoresViewModel: ObservableObject {
                 let result = try await apiService.fetchFootballGames(
                     for: sport,
                     week: currentWeek,
+                    season: currentSeason,
                     seasonType: currentSeasonType
                 )
-                games            = result.games
-                currentWeek      = result.week
-                weekLabel        = result.weekLabel
+                games             = result.games
+                currentWeek       = result.week
+                weekLabel         = result.weekLabel
                 currentSeasonType = result.seasonType
+                resolvedSeason    = result.season
             } else {
                 games = try await apiService.fetchGames(for: sport, date: currentDate)
             }
@@ -144,9 +152,17 @@ class ScoresViewModel: ObservableObject {
         await fetchGames(for: sport)
     }
 
+    func goToSeason(_ year: Int, for sport: Sport) async {
+        currentSeason = year
+        currentWeek = nil   // reset to first/current week of that season
+        isOnCurrentWeek = false
+        await fetchGames(for: sport)
+    }
+
     func goToToday(for sport: Sport) async {
         currentDate = Calendar.current.startOfDay(for: Date())
         currentWeek = nil   // nil → API resolves to current week
+        currentSeason = nil // nil → API resolves to current season
         isOnCurrentWeek = true
         await fetchGames(for: sport)
     }

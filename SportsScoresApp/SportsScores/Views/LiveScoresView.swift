@@ -305,6 +305,7 @@ struct CompactGameRow: View {
 
         // Section headings in LiveScoresView already communicate status —
         // omit "Live" / "Final" to avoid redundancy (design debt #5).
+        // Scores
         parts.append(
             "\(game.awayTeam.voiceOverName(for: pref)) \(game.awayTeam.score.map { "\($0)" } ?? "")"
         )
@@ -316,10 +317,17 @@ struct CompactGameRow: View {
             parts.append(game.displayTime)
         }
 
+        // Last action / situation
         if isLive, let sit = game.situation, let t = sit.displayText {
             parts.append(t)
         }
 
+        // Period / clock — the key time-reference for live games (e.g. "3rd Quarter - 8:42")
+        if isLive {
+            parts.append(game.status.displayText)
+        }
+
+        // Broadcast last
         if let broadcast = game.broadcasts.first, !broadcast.isEmpty {
             parts.append("on \(broadcast)")
         }
