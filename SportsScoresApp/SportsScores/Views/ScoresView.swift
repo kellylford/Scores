@@ -389,7 +389,9 @@ struct GameRow: View {
             HStack {
                 statusChip
                 Spacer()
-                if let broadcast = game.broadcasts.first, !broadcast.isEmpty {
+                if game.shouldShowBroadcastInfo,
+                   let broadcast = game.broadcasts.first,
+                   !broadcast.isEmpty {
                     Text(broadcast)
                         .font(.caption2)
                         .padding(.horizontal, 6)
@@ -500,7 +502,9 @@ struct GameRow: View {
         }
 
         // Broadcast last
-        if let broadcast = game.broadcasts.first, !broadcast.isEmpty {
+        if game.shouldShowBroadcastInfo,
+           let broadcast = game.broadcasts.first,
+           !broadcast.isEmpty {
             parts.append("on \(broadcast)")
         }
 

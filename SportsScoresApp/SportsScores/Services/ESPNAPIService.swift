@@ -615,6 +615,7 @@ struct GameDetails: Codable {
     
     struct Boxscore: Codable {
         let teams: [TeamStats]
+        let players: [TeamPlayers]?
         
         struct TeamStats: Codable {
             let team: TeamInfo
@@ -657,6 +658,45 @@ struct GameDetails: Codable {
                     let description: String?
                     let abbreviation: String?
                     let displayValue: String
+                }
+            }
+        }
+        
+        struct TeamPlayers: Codable {
+            let team: TeamInfo
+            let statistics: [PlayerStatGroup]
+            
+            struct TeamInfo: Codable {
+                let displayName: String
+                let abbreviation: String
+            }
+            
+            struct PlayerStatGroup: Codable {
+                let name: String
+                let displayName: String?
+                let type: String?
+                let names: [String]?
+                let athletes: [AthleteStats]
+                
+                var groupTitle: String { displayName ?? type?.capitalized ?? name }
+                
+                struct AthleteStats: Codable {
+                    let athlete: AthleteInfo
+                    let stats: [String]
+                    let active: Bool?
+                    
+                    var isActive: Bool { active ?? true }
+                    
+                    struct AthleteInfo: Codable {
+                        let displayName: String
+                        let position: Position?
+                        let headshot: String?
+                        
+                        struct Position: Codable {
+                            let name: String?
+                            let abbreviation: String?
+                        }
+                    }
                 }
             }
         }

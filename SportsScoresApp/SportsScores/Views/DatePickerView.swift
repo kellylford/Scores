@@ -3,7 +3,7 @@
 //  SportsScores
 //
 //  A sheet that lets the user pick a calendar date for scores browsing.
-//  Uses SwiftUI's native DatePicker which is fully VoiceOver-compatible.
+//  Uses separate Picker controls for year, month, and day for better VoiceOver accessibility.
 //
 
 import SwiftUI
@@ -14,8 +14,9 @@ struct DatePickerView: View {
     let selectedDate: Date
     let onDateSelected: (Date) -> Void
 
-    @State private var pickedDate: Date
-    @State private var displayedYear: Int
+    @State private var selectedYear: Int
+    @State private var selectedMonth: Int
+    @State private var selectedDay: Int
 
     // ESPN has usable historical data from around 2000 onward.
     private static let earliestYear = 2000
@@ -29,96 +30,131 @@ struct DatePickerView: View {
     init(selectedDate: Date, onDateSelected: @escaping (Date) -> Void) {
         self.selectedDate   = selectedDate
         self.onDateSelected = onDateSelected
-        self._pickedDate    = State(initialValue: selectedDate)
-        self._displayedYear = State(initialValue: Calendar.current.component(.year, from: selectedDate))
+        
+        let cal = Calendar.current
+        self._selectedYear = State(initialValue: cal.component(.year, from: selectedDate))
+        self._selectedMonth = State(initialValue: cal.component(.month, from: selectedDate))
+        self._selectedDay = State(initialValue: cal.component(.day, from: selectedDate))
     }
 
     private var availableYears: [Int] {
         let currentYear = Calendar.current.component(.year, from: Date())
         return Array(Self.earliestYear...currentYear)
     }
+    
+    private var availableMonths: [Int] {
+        Array(1...12)
+    }
+    
+    private var availableDays: [Int] {
+        let daysInMonth = Calendar.current.range(of: .day, in: .month, for: constructedDate ?? Date())?.count ?? 31
+        return Array(1...daysInMonth)
+    }
+    
+    private var constructedDate: Date? {
+        Calendar.current.date(from: DateComponents(year: selectedYear, month: selectedMonth, day: selectedDay))
+    }
+    
+    private var isDateValid: Bool {
+        constructedDate != nil
+    }
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-
-                // ── Year stepper ─────────────────────────────────────────────
-                HStack {
-                    Button {
-                        jumpYear(by: -1)
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.body.bold())
-                            .frame(width: 44, height: 36)
-                            .contentShape(Rectangle())
-                    }
-                    .disabled(displayedYear <= Self.earliestYear)
-                    .accessibilityLabel("Previous year")
-
-                    Spacer()
-
-                    Menu {
-                        ForEach(availableYears.reversed(), id: \.self) { year in
-                            Button(String(year)) { jumpToYear(year) }
+            VStack(spacing: 24) {
+                
+                Text("Select Date")
+                    .font(.headline)
+                    .padding(.top)
+                
+                // ── Date Component Pickers ─────────────────────────────────────
+                VStack(spacing: 20) {
+                    // Year Picker
+                    HStack {
+                        Text("Year:")
+                            .font(.body)
+                            .frame(width: 80, alignment: .leading)
+                        
+                        Picker("Year", selection: $selectedYear) {
+                            ForEach(availableYears.reversed(), id: \.self) { year in
+                                Text(String(year)).tag(year)
+                            }
                         }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Text(String(displayedYear))
-                                .font(.headline)
-                            Image(systemName: "chevron.up.chevron.down")
-                                .font(.caption)
+                        .pickerStyle(.wheel)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityLabel("Select year")
+                        .accessibilityValue(String(selectedYear))
+                    }
+                    .frame(height: 100)
+                    
+                    // Month Picker
+                    HStack {
+                        Text("Month:")
+                            .font(.body)
+                            .frame(width: 80, alignment: .leading)
+                        
+                        Picker("Month", selection: $selectedMonth) {
+                            ForEach(availableMonths, id: \.self) { month in
+                                Text(monthName(month)).tag(month)
+                            }
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.secondary.opacity(0.12))
-                        .cornerRadius(8)
+                        .pickerStyle(.wheel)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityLabel("Select month")
+                        .accessibilityValue(monthName(selectedMonth))
+                        .onChange(of: selectedMonth) { _, _ in
+                            // Adjust day if it exceeds the new month's maximum
+                            adjustDayIfNeeded()
+                        }
                     }
-                    .accessibilityLabel("Year: \(displayedYear). Tap to pick a different year.")
-
-                    Spacer()
-
-                    Button {
-                        jumpYear(by: 1)
-                    } label: {
-                        Image(systemName: "chevron.right")
-                            .font(.body.bold())
-                            .frame(width: 44, height: 36)
-                            .contentShape(Rectangle())
+                    .frame(height: 100)
+                    
+                    // Day Picker
+                    HStack {
+                        Text("Day:")
+                            .font(.body)
+                            .frame(width: 80, alignment: .leading)
+                        
+                        Picker("Day", selection: $selectedDay) {
+                            ForEach(availableDays, id: \.self) { day in
+                                Text(String(day)).tag(day)
+                            }
+                        }
+                        .pickerStyle(.wheel)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityLabel("Select day")
+                        .accessibilityValue(String(selectedDay))
                     }
-                    .disabled(displayedYear >= Calendar.current.component(.year, from: Date()))
-                    .accessibilityLabel("Next year")
+                    .frame(height: 100)
                 }
                 .padding(.horizontal)
-
-                // ── Day picker — scoped to the displayed year ─────────────────
-                DatePicker(
-                    "Select Date",
-                    selection: $pickedDate,
-                    in: yearRange,
-                    displayedComponents: .date
-                )
-                .datePickerStyle(.graphical)
-                .padding(.horizontal)
-                .accessibilityLabel("Date picker")
-                .onChange(of: pickedDate) { _, newDate in
-                    // Keep year stepper in sync if user swipes month across a year boundary
-                    let y = Calendar.current.component(.year, from: newDate)
-                    if y != displayedYear { displayedYear = y }
+                
+                // Selected date display
+                if let date = constructedDate {
+                    Text(formattedDate(date))
+                        .font(.title3)
+                        .foregroundColor(.secondary)
+                        .padding(.top, 8)
+                        .accessibilityLabel("Selected date: \(formattedDate(date))")
                 }
 
                 Button {
-                    onDateSelected(pickedDate)
-                    dismiss()
+                    if let date = constructedDate {
+                        onDateSelected(date)
+                        dismiss()
+                    }
                 } label: {
-                    Label("Go to \(formattedDate(pickedDate))", systemImage: "arrow.right.circle.fill")
+                    Label("Go to Date", systemImage: "arrow.right.circle.fill")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.accentColor)
+                        .background(isDateValid ? Color.accentColor : Color.gray)
                         .foregroundColor(.white)
                         .cornerRadius(12)
                 }
+                .disabled(!isDateValid)
                 .padding(.horizontal)
+                .accessibilityLabel(isDateValid ? "Go to selected date" : "Invalid date selected")
 
                 Spacer()
             }
@@ -130,8 +166,7 @@ struct DatePickerView: View {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Today") { jumpToDate(Date()) }
-                        .disabled(Calendar.current.isDateInToday(pickedDate))
+                    Button("Today") { jumpToToday() }
                 }
             }
         }
@@ -140,43 +175,29 @@ struct DatePickerView: View {
     }
 
     // MARK: - Helpers
-
-    /// ClosedRange for the DatePicker constrained to `displayedYear`.
-    private var yearRange: ClosedRange<Date> {
-        let cal = Calendar.current
-        let currentYear = cal.component(.year, from: Date())
-        let rawStart = cal.date(from: DateComponents(year: displayedYear, month: 1, day: 1))!
-        let startOfYear = max(Self.earliestDate, min(Self.latestDate, rawStart))
-        let endOfYear: Date
-        if displayedYear == currentYear {
-            endOfYear = Self.latestDate
-        } else {
-            endOfYear = cal.date(from: DateComponents(year: displayedYear, month: 12, day: 31))!
+    
+    private func monthName(_ month: Int) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM"
+        guard let date = Calendar.current.date(from: DateComponents(year: 2000, month: month, day: 1)) else {
+            return String(month)
         }
-        return startOfYear...endOfYear
+        return formatter.string(from: date)
     }
-
-    private func jumpYear(by delta: Int) {
-        jumpToYear(displayedYear + delta)
-    }
-
-    private func jumpToYear(_ year: Int) {
-        let cal = Calendar.current
-        let clamped = max(Self.earliestYear, min(cal.component(.year, from: Date()), year))
-        displayedYear = clamped
-        // Move pickedDate into the new year if it's currently in a different year
-        let pickedYear = cal.component(.year, from: pickedDate)
-        if pickedYear != clamped {
-            var comps = cal.dateComponents([.month, .day], from: pickedDate)
-            comps.year = clamped
-            let fallback = cal.date(from: DateComponents(year: clamped, month: 1, day: 1))!
-            pickedDate = cal.date(from: comps) ?? fallback
+    
+    private func adjustDayIfNeeded() {
+        let maxDays = availableDays.count
+        if selectedDay > maxDays {
+            selectedDay = maxDays
         }
     }
 
-    private func jumpToDate(_ date: Date) {
-        pickedDate = date
-        displayedYear = Calendar.current.component(.year, from: date)
+    private func jumpToToday() {
+        let cal = Calendar.current
+        let today = Date()
+        selectedYear = cal.component(.year, from: today)
+        selectedMonth = cal.component(.month, from: today)
+        selectedDay = cal.component(.day, from: today)
     }
 
     private func formattedDate(_ date: Date) -> String {

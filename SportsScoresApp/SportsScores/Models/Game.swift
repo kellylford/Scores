@@ -35,6 +35,18 @@ struct Game: Identifiable, Codable {
             return "\(awayTeam.score ?? 0) - \(homeTeam.score ?? 0)"
         }
     }
+
+    /// Broadcast info is only useful for live/upcoming games and should be hidden for past/final games.
+    var shouldShowBroadcastInfo: Bool {
+        let hasBroadcast = broadcasts.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        guard hasBroadcast else { return false }
+        if status.isLive { return true }
+        if status.isCompleted { return false }
+
+        // Treat previous-day/previous-season games as "past" and suppress TV network noise.
+        let todayStart = Calendar.current.startOfDay(for: Date())
+        return date >= todayStart
+    }
     
     struct Team: Codable {
         let id: String

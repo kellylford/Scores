@@ -255,7 +255,7 @@ struct CompactGameRow: View {
                 
                 Spacer()
                 
-                if !game.broadcasts.isEmpty {
+                if game.shouldShowBroadcastInfo, !game.broadcasts.isEmpty {
                     Text(game.broadcasts.first ?? "")
                         .font(.caption2)
                         .padding(.horizontal, 6)
@@ -328,7 +328,9 @@ struct CompactGameRow: View {
         }
 
         // Broadcast last
-        if let broadcast = game.broadcasts.first, !broadcast.isEmpty {
+        if game.shouldShowBroadcastInfo,
+           let broadcast = game.broadcasts.first,
+           !broadcast.isEmpty {
             parts.append("on \(broadcast)")
         }
 

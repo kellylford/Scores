@@ -180,7 +180,7 @@ struct GameDetailView: View {
 
             // Broadcast networks
             let activeBroadcasts = game.broadcasts.filter { !$0.isEmpty }
-            if !activeBroadcasts.isEmpty {
+            if game.shouldShowBroadcastInfo && !activeBroadcasts.isEmpty {
                 HStack(spacing: 4) {
                     Image(systemName: "tv")
                         .font(.caption)

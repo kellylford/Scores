@@ -2,19 +2,8 @@
 //  BoxScoreView.swift
 //  SportsScores
 //
-//  Renders a game box score as an HStack-based table.
-//
-//  IMPORTANT: Grid/GridRow are layout-only constructs — modifiers placed on a
-//  GridRow do NOT create a real accessibility node, so children remain flat
-//  children of the Grid and VoiceOver reads every cell independently.
-//  This file uses plain HStack rows instead, which ARE real view containers
-//  and correctly honour .accessibilityElement(children: .ignore).
-//
-//  Two ESPN stat shapes are handled:
-//    MLB:        statistics = [{name, displayName, stats:[{name, displayName, displayValue}]}]
-//                Rendered as: category subheading + rows of stat | value per team
-//    NFL/NBA/NHL: statistics = [{name, label, displayValue}]  (flat rows per team)
-//                Rendered as: stat name | team1 | team2 header + value rows
+//  Renders game box score with team statistics followed by player statistics.
+//  Organized in a clear, hierarchical structure for better accessibility.
 //
 
 import SwiftUI
@@ -24,162 +13,157 @@ struct BoxScoreView: View {
 
     var body: some View {
         ScrollView {
-            if boxscore.teams.isEmpty {
-                Text("Box score not available")
-                    .foregroundColor(.secondary)
-                    .padding()
-            } else if boxscore.teams.first?.statistics.first?.isNested == true {
-                mlbTable
-            } else {
-                flatTable
+            VStack(alignment: .leading, spacing: 24) {
+                if boxscore.teams.isEmpty {
+                    Text("Box score not available")
+                        .foregroundColor(.secondary)
+                        .padding()
+                } else {
+                    // Team Statistics Section
+                    teamStatsSection
+                    
+                    // Player Statistics Section
+                    if let players = boxscore.players, !players.isEmpty {
+                        playerStatsSection(players: players)
+                    }
+                }
             }
+            .padding()
         }
     }
 
-    // MARK: - MLB nested-category table
-    // Layout: Each category (Batting, Pitching…) is a section; each stat is a
-    // row with Stat | Team A | Team B values side by side.
-
-    private var mlbTable: some View {
-        let teams = boxscore.teams
-        return VStack(alignment: .leading, spacing: 0) {
-
-            // Column header row — hidden from VoiceOver; team names appear in every row label
-            HStack(spacing: 0) {
-                Text("Stat")
-                    .font(.caption.bold())
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                ForEach(teams, id: \.team.displayName) { team in
-                    Text(team.team.abbreviation)
-                        .font(.caption.bold())
-                        .foregroundColor(.secondary)
-                        .frame(minWidth: 60, alignment: .trailing)
-                }
+    // MARK: - Team Statistics Section
+    
+    private var teamStatsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Team Statistics")
+                .font(.title2.bold())
+                .accessibilityAddTraits(.isHeader)
+            
+            if boxscore.teams.first?.statistics.first?.isNested == true {
+                // MLB nested format
+                mlbTeamStats
+            } else {
+                // Flat format (NFL/NBA/NHL)
+                flatTeamStats
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 6)
-            .background(Color.secondary.opacity(0.12))
-            .accessibilityHidden(true)
-
-            Divider()
-
-            // Iterate through categories from first team; align values by category.name
-            let categories = teams.first?.statistics ?? []
-            let catCount = categories.count
+        }
+    }
+    
+    // MARK: - MLB Team Stats (nested categories)
+    
+    private var mlbTeamStats: some View {
+        let teams = boxscore.teams
+        let categories = teams.first?.statistics ?? []
+        
+        return VStack(alignment: .leading, spacing: 16) {
             ForEach(Array(categories.enumerated()), id: \.element.name) { catIdx, cat in
                 if let items = cat.stats, !items.isEmpty {
-
-                    // Category sub-header
-                    Text(cat.groupTitle.uppercased())
-                        .font(.caption2.bold())
-                        .foregroundColor(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                        .padding(.bottom, 2)
-                        .accessibilityAddTraits(.isHeader)
-                        .accessibilityLabel(cat.groupTitle)
-
-                    // Stat rows — each HStack is a single accessibility element
-                    ForEach(Array(items.enumerated()), id: \.element.name) { rowIdx, stat in
-                        let rowLabel: String = {
-                            let parts = teams.map { team -> String in
-                                let v = team.statistics
-                                    .first(where: { $0.name == cat.name })?
-                                    .stats?
-                                    .first(where: { $0.name == stat.name })?
-                                    .displayValue ?? "–"
-                                return "\(team.team.abbreviation) \(v)"
+                    VStack(alignment: .leading, spacing: 8) {
+                        // Category header
+                        Text(cat.groupTitle)
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                            .accessibilityAddTraits(.isHeader)
+                        
+                        // Stats table
+                        VStack(spacing: 0) {
+                            // Header row
+                            HStack(spacing: 0) {
+                                Text("Stat")
+                                    .font(.caption.bold())
+                                    .foregroundColor(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                ForEach(teams, id: \.team.displayName) { team in
+                                    Text(team.team.abbreviation)
+                                        .font(.caption.bold())
+                                        .foregroundColor(.secondary)
+                                        .frame(minWidth: 60, alignment: .trailing)
+                                }
                             }
-                            return "\(stat.displayName): \(parts.joined(separator: ", "))"
-                        }()
-
-                        HStack(spacing: 0) {
-                            Text(stat.displayName)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            ForEach(teams, id: \.team.displayName) { team in
-                                let matchedStat = team.statistics
-                                    .first(where: { $0.name == cat.name })?
-                                    .stats?
-                                    .first(where: { $0.name == stat.name })
-                                Text(matchedStat?.displayValue ?? "–")
-                                    .font(.caption.monospacedDigit())
-                                    .frame(minWidth: 60, alignment: .trailing)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.secondary.opacity(0.12))
+                            .accessibilityHidden(true)
+                            
+                            // Data rows
+                            ForEach(Array(items.enumerated()), id: \.element.name) { rowIdx, stat in
+                                let rowLabel = makeTeamStatRowLabel(stat: stat, category: cat, teams: teams)
+                                
+                                HStack(spacing: 0) {
+                                    Text(stat.displayName)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    ForEach(teams, id: \.team.displayName) { team in
+                                        let matchedStat = team.statistics
+                                            .first(where: { $0.name == cat.name })?
+                                            .stats?
+                                            .first(where: { $0.name == stat.name })
+                                        Text(matchedStat?.displayValue ?? "–")
+                                            .font(.caption.monospacedDigit())
+                                            .frame(minWidth: 60, alignment: .trailing)
+                                    }
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 4)
+                                .background((rowIdx % 2 == 0) ? Color.clear : Color.secondary.opacity(0.04))
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityLabel(rowLabel)
                             }
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 4)
-                        .background((rowIdx % 2 == 0) ? Color.clear : Color.secondary.opacity(0.04))
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityLabel(rowLabel)
+                        .background(Color.secondary.opacity(0.04))
+                        .cornerRadius(8)
                     }
-
-                    if catIdx < catCount - 1 {
-                        Divider().padding(.horizontal, 16).padding(.top, 4)
+                    
+                    if catIdx < categories.count - 1 {
+                        Divider().padding(.vertical, 4)
                     }
                 }
             }
         }
-        .background(Color.secondary.opacity(0.04))
-        .cornerRadius(12)
-        .padding()
     }
-
-    // MARK: - Flat table (NFL / NBA / NHL)
-    // Layout: Stat label | Team A value | Team B value
-
-    private var flatTable: some View {
+    
+    // MARK: - Flat Team Stats (NFL/NBA/NHL)
+    
+    private var flatTeamStats: some View {
         let teams = boxscore.teams
+        let rows = teams.first?.statistics ?? []
+        
         return VStack(spacing: 0) {
-
-            // Header row — hidden from VoiceOver; team names appear in every row label
+            // Header row
             HStack(spacing: 0) {
                 Text("")
                     .frame(maxWidth: .infinity, alignment: .leading)
                 ForEach(teams, id: \.team.displayName) { team in
                     Text(team.team.abbreviation)
                         .font(.subheadline.bold())
-                        .frame(minWidth: 60, alignment: .trailing)
+                        .frame(minWidth: 70, alignment: .trailing)
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(Color.secondary.opacity(0.12))
             .accessibilityHidden(true)
-
-            Divider()
-
-            // Stat rows — each HStack is a single accessibility element
-            let rows = teams.first?.statistics ?? []
+            
+            // Data rows
             ForEach(Array(rows.enumerated()), id: \.element.name) { rowIdx, stat in
                 let statName = stat.label ?? stat.displayName ?? stat.name
-                let rowLabel: String = {
-                    let parts = teams.map { team -> String in
-                        let v = team.statistics
-                            .first(where: { $0.name == stat.name })?
-                            .displayValue ?? "–"
-                        return "\(team.team.abbreviation) \(v)"
-                    }
-                    return "\(statName): \(parts.joined(separator: ", "))"
-                }()
-
+                let rowLabel = makeFlatStatRowLabel(statName: statName, stat: stat, teams: teams)
+                
                 HStack(spacing: 0) {
                     Text(statName)
                         .font(.caption)
-                        .foregroundColor(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     ForEach(teams, id: \.team.displayName) { team in
                         let matchedStat = team.statistics
                             .first(where: { $0.name == stat.name })
                         Text(matchedStat?.displayValue ?? "–")
                             .font(.caption.monospacedDigit())
-                            .frame(minWidth: 60, alignment: .trailing)
+                            .frame(minWidth: 70, alignment: .trailing)
                     }
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 12)
                 .padding(.vertical, 4)
                 .background((rowIdx % 2 == 0) ? Color.clear : Color.secondary.opacity(0.04))
                 .accessibilityElement(children: .ignore)
@@ -187,7 +171,163 @@ struct BoxScoreView: View {
             }
         }
         .background(Color.secondary.opacity(0.04))
-        .cornerRadius(12)
-        .padding()
+        .cornerRadius(8)
+    }
+    
+    // MARK: - Player Statistics Section
+    
+    private func playerStatsSection(players: [GameDetails.Boxscore.TeamPlayers]) -> some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Player Statistics")
+                .font(.title2.bold())
+                .accessibilityAddTraits(.isHeader)
+            
+            ForEach(players.indices, id: \.self) { teamIdx in
+                let teamPlayers = players[teamIdx]
+                playerStatsForTeam(teamPlayers: teamPlayers)
+            }
+        }
+    }
+    
+    private func playerStatsForTeam(teamPlayers: GameDetails.Boxscore.TeamPlayers) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Team name header
+            Text(teamPlayers.team.displayName)
+                .font(.title3.bold())
+                .foregroundColor(.primary)
+                .accessibilityAddTraits(.isHeader)
+            
+            // Each stat group (Batting, Pitching, etc.)
+            ForEach(teamPlayers.statistics.indices, id: \.self) { groupIdx in
+                let statGroup = teamPlayers.statistics[groupIdx]
+                playerStatGroupView(
+                    teamName: teamPlayers.team.displayName,
+                    statGroup: statGroup
+                )
+            }
+        }
+    }
+    
+    private func playerStatGroupView(teamName: String, statGroup: GameDetails.Boxscore.TeamPlayers.PlayerStatGroup) -> some View {
+        let statNames = statGroup.names ?? []
+        let athletes = statGroup.athletes.filter { $0.isActive }
+        
+        guard !athletes.isEmpty, !statNames.isEmpty else {
+            return AnyView(EmptyView())
+        }
+        
+        return AnyView(
+            VStack(alignment: .leading, spacing: 8) {
+                // Stat group header (e.g., "Batting", "Pitching")
+                Text(statGroup.groupTitle)
+                    .font(.headline)
+                    .foregroundColor(.secondary)
+                    .accessibilityAddTraits(.isHeader)
+                
+                ScrollView(.horizontal, showsIndicators: true) {
+                    VStack(spacing: 0) {
+                        // Header row
+                        HStack(spacing: 0) {
+                            Text("Player")
+                                .font(.caption.bold())
+                                .foregroundColor(.secondary)
+                                .frame(width: 140, alignment: .leading)
+                            
+                            Text("Pos")
+                                .font(.caption.bold())
+                                .foregroundColor(.secondary)
+                                .frame(width: 45, alignment: .center)
+                            
+                            ForEach(statNames.indices, id: \.self) { idx in
+                                Text(statNames[idx])
+                                    .font(.caption.bold())
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 50, alignment: .trailing)
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.secondary.opacity(0.12))
+                        .accessibilityHidden(true)
+                        
+                        // Player rows
+                        ForEach(athletes.indices, id: \.self) { athleteIdx in
+                            let athlete = athletes[athleteIdx]
+                            let rowLabel = makePlayerRowLabel(
+                                playerName: athlete.athlete.displayName,
+                                position: athlete.athlete.position?.abbreviation ?? "",
+                                statNames: statNames,
+                                stats: athlete.stats
+                            )
+                            
+                            HStack(spacing: 0) {
+                                Text(athlete.athlete.displayName)
+                                    .font(.caption)
+                                    .frame(width: 140, alignment: .leading)
+                                    .lineLimit(1)
+                                
+                                Text(athlete.athlete.position?.abbreviation ?? "")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 45, alignment: .center)
+                                
+                                ForEach(athlete.stats.indices, id: \.self) { statIdx in
+                                    Text(athlete.stats[statIdx])
+                                        .font(.caption.monospacedDigit())
+                                        .frame(width: 50, alignment: .trailing)
+                                }
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 4)
+                            .background((athleteIdx % 2 == 0) ? Color.clear : Color.secondary.opacity(0.04))
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(rowLabel)
+                        }
+                    }
+                }
+                .background(Color.secondary.opacity(0.04))
+                .cornerRadius(8)
+            }
+        )
+    }
+    
+    // MARK: - Accessibility Helpers
+    
+    private func makeTeamStatRowLabel(stat: GameDetails.Boxscore.TeamStats.StatEntry.StatItem,
+                                       category: GameDetails.Boxscore.TeamStats.StatEntry,
+                                       teams: [GameDetails.Boxscore.TeamStats]) -> String {
+        let parts = teams.map { team -> String in
+            let v = team.statistics
+                .first(where: { $0.name == category.name })?
+                .stats?
+                .first(where: { $0.name == stat.name })?
+                .displayValue ?? "–"
+            return "\(team.team.abbreviation) \(v)"
+        }
+        return "\(stat.displayName): \(parts.joined(separator: ", "))"
+    }
+    
+    private func makeFlatStatRowLabel(statName: String,
+                                       stat: GameDetails.Boxscore.TeamStats.StatEntry,
+                                       teams: [GameDetails.Boxscore.TeamStats]) -> String {
+        let parts = teams.map { team -> String in
+            let v = team.statistics
+                .first(where: { $0.name == stat.name })?
+                .displayValue ?? "–"
+            return "\(team.team.abbreviation) \(v)"
+        }
+        return "\(statName): \(parts.joined(separator: ", "))"
+    }
+    
+    private func makePlayerRowLabel(playerName: String, position: String, 
+                                     statNames: [String], stats: [String]) -> String {
+        var parts = ["\(playerName), \(position)"]
+        for (idx, statName) in statNames.enumerated() {
+            if idx < stats.count {
+                parts.append("\(statName): \(stats[idx])")
+            }
+        }
+        return parts.joined(separator: ", ")
     }
 }
+
