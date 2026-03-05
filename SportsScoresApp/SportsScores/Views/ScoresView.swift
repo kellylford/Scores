@@ -10,10 +10,19 @@ import UIKit
 
 struct ScoresView: View {
     let sport: Sport
+    let initialDate: Date?
     @StateObject private var viewModel = ScoresViewModel()
     @State private var selectedTab = 0
     @State private var showDatePicker = false
     @EnvironmentObject private var appSettings: AppSettings
+
+    init(sport: Sport, initialDate: Date? = nil) {
+        self.sport = sport
+        self.initialDate = initialDate
+        _viewModel = StateObject(wrappedValue: ScoresViewModel())
+        _selectedTab = State(initialValue: 0)
+        _showDatePicker = State(initialValue: false)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -50,7 +59,13 @@ struct ScoresView: View {
                 autoRefreshMenu
             }
         }
-        .task { await viewModel.fetchGames(for: sport) }
+        .task {
+            if let initialDate = initialDate {
+                await viewModel.goToDate(initialDate, for: sport)
+            } else {
+                await viewModel.fetchGames(for: sport)
+            }
+        }
         // Auto-refresh loop — cancels and restarts whenever the interval changes
         .task(id: viewModel.autoRefreshInterval) {
             while !Task.isCancelled {

@@ -19,6 +19,7 @@ struct GameDetailView: View {
     @State private var showPitchMap = false
     @State private var showZoneExplorer = false
     @State private var showFieldTour = false
+    @EnvironmentObject private var appSettings: AppSettings
 
     // Audio engine shared across the plays view
     @StateObject private var pitchAudio = PitchAudioEngine()
@@ -146,9 +147,9 @@ struct GameDetailView: View {
                 Text(game.displayTime).font(.headline).foregroundColor(.secondary)
             }
             HStack(spacing: 40) {
-                teamColumn(game.awayTeam)
+                teamColumn(game.awayTeam, isHome: false)
                 Text("@").font(.title3).foregroundColor(.secondary)
-                teamColumn(game.homeTeam)
+                teamColumn(game.homeTeam, isHome: true)
             }
 
             // Venue information
@@ -218,7 +219,7 @@ struct GameDetailView: View {
         }
     }
 
-    private func teamColumn(_ team: Game.Team) -> some View {
+    private func teamColumn(_ team: Game.Team, isHome: Bool) -> some View {
         NavigationLink(destination: TeamScheduleView(team: team, sport: sport)) {
             VStack {
                 Text(team.abbreviation).font(.title2).fontWeight(.bold)
@@ -233,7 +234,16 @@ struct GameDetailView: View {
             }
             .foregroundColor(.primary)
         }
-        .accessibilityLabel("\(team.displayName) — tap for schedule")
+        .accessibilityLabel(teamAccessibilityLabel(team, isHome: isHome))
+        .accessibilityHint("Opens team schedule")
+    }
+
+    private func teamAccessibilityLabel(_ team: Game.Team, isHome: Bool) -> String {
+        let preferredName = team.voiceOverName(for: appSettings.teamNamePreference)
+        if let score = team.score {
+            return "\(preferredName), \(score)"
+        }
+        return preferredName
     }
 
     // MARK: - Box Score tab

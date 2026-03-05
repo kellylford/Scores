@@ -672,13 +672,12 @@ struct GameDetails: Codable {
             }
             
             struct PlayerStatGroup: Codable {
-                let name: String
-                let displayName: String?
-                let type: String?
+                let type: String
                 let names: [String]?
+                let keys: [String]?
                 let athletes: [AthleteStats]
                 
-                var groupTitle: String { displayName ?? type?.capitalized ?? name }
+                var groupTitle: String { type.capitalized }
                 
                 struct AthleteStats: Codable {
                     let athlete: AthleteInfo
@@ -690,11 +689,16 @@ struct GameDetails: Codable {
                     struct AthleteInfo: Codable {
                         let displayName: String
                         let position: Position?
-                        let headshot: String?
+                        let headshot: Headshot?
                         
                         struct Position: Codable {
                             let name: String?
                             let abbreviation: String?
+                        }
+                        
+                        struct Headshot: Codable {
+                            let href: String?
+                            let alt: String?
                         }
                     }
                 }
