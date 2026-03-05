@@ -120,7 +120,8 @@ struct BaseballFieldTourView: View {
             // Gesture and accessibility must be on the same node for direct touch to work.
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(canvasAccessibilityLabel)
-            .accessibilityHint("Direct touch area. Swipe to focus, then drag freely to explore. Audio pitch rises with distance from home plate; stereo pan follows left-right position.")
+            .accessibilityHint("Direct touch area. Swipe to focus, then use the rotor to toggle Direct Touch on or off. Drag freely to explore. Audio pitch rises with distance from home plate; stereo pan follows left-right position.")
+            .accessibilityAddTraits(.allowsDirectInteraction)
             .accessibilityDirectTouch(options: .silentOnTouch)
         }
         .frame(maxWidth: .infinity)

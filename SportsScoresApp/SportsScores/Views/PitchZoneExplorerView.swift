@@ -195,7 +195,8 @@ struct PitchZoneExplorerView: View {
             // Gesture and accessibility must be on the same node for direct touch to work.
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(canvasAccessibilityLabel)
-            .accessibilityHint("Two modes available: drag freely to explore pitch locations with spatial audio, or flick up and down to step through pitches one by one.")
+            .accessibilityHint("Use the rotor to toggle Direct Touch on or off for this canvas. Two modes available: drag freely to explore pitch locations with spatial audio, or flick up and down to step through pitches one by one.")
+            .accessibilityAddTraits(.allowsDirectInteraction)
             .accessibilityDirectTouch(options: .silentOnTouch)
             .accessibilityValue(currentPitchVoiceOverValue)
             .accessibilityAdjustableAction { direction in

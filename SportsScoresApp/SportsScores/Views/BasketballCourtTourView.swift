@@ -85,7 +85,8 @@ struct BasketballCourtTourView: View {
                 )
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("NBA basketball court, 94 feet long by 50 feet wide. Paint is 16 feet wide, free throw line 15 feet from each basket. 3-point arc begins at 23 feet 9 inches from either basket. Drag to explore — audio changes at the paint and out of bounds.")
-                .accessibilityHint("Drag to explore. Chime at 3-point arc, free throw line, and half court.")
+                .accessibilityHint("Use the rotor to toggle Direct Touch on or off for this court area. Drag to explore. Chime at 3-point arc, free throw line, and half court.")
+                .accessibilityAddTraits(.allowsDirectInteraction)
                 .accessibilityDirectTouch(options: .silentOnTouch)
         }
         .frame(maxWidth: .infinity)

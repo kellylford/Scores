@@ -3222,13 +3222,19 @@ class GameDetailsView(BaseView):
             period_display = period_info.get("displayValue", "Unknown")
             period_type = period_info.get("type", "Unknown").lower()
             
-            # Track scoring plays
-            if play.get("scoringPlay", False):
-                # Extract runs scored from play text
+            # Prefer ESPN's authoritative per-play score fields when present.
+            play_home_score = play.get("homeScore")
+            play_away_score = play.get("awayScore")
+
+            if play_home_score is not None and play_away_score is not None:
+                try:
+                    home_score = int(play_home_score)
+                    away_score = int(play_away_score)
+                except (TypeError, ValueError):
+                    pass
+            elif play.get("scoringPlay", False):
+                # Fallback for incomplete payloads: infer runs from text.
                 runs_scored = self._extract_runs_from_play(play.get("text", ""))
-                team_id = play.get("team", {}).get("id")
-                
-                # Determine if home or away team scored
                 if self._is_home_team_batting(period_type):
                     home_score += runs_scored
                 else:

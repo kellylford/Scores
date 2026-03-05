@@ -100,7 +100,7 @@ struct DatePickerView: View {
                         }
                         .pickerStyle(.wheel)
                         .frame(maxWidth: .infinity)
-                        .accessibilityLabel("Select month")
+                            .accessibilityLabel("Select month")
                         .accessibilityValue(monthName(selectedMonth))
                         .onChange(of: selectedMonth) { _, _ in
                             // Adjust day if it exceeds the new month's maximum
