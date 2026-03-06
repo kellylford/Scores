@@ -2,7 +2,7 @@
 
 This repository contains two apps:
 - **Python app** (`scores.py`, `espn_api.py`, etc.) — mature Windows desktop app using PyQt6 and the ESPN API. Treat this as the source of truth for data and behavior.
-- **iOS app** (`SportsScoresApp/`) — SwiftUI app being built to parity with the Python app. Uses the same ESPN API endpoints.
+- **iOS app** (`iOS/SportsScoresApp/`) — SwiftUI app being built to parity with the Python app. Uses the same ESPN API endpoints.
 
 ## Key facts
 - All sports data comes from `site.api.espn.com/apis/site/v2/sports/{sport}/{league}/...`

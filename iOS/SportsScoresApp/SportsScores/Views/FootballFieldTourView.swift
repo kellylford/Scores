@@ -87,7 +87,6 @@ struct FootballFieldTourView: View {
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("NFL football field. 120 yards long including 10-yard end zones. 53 yards wide. Drag to explore. Chime at every 5-yard line; louder at 10-yard lines. Hash marks 70 feet 9 inches from sideline — same width as goal posts.")
                 .accessibilityHint("Use the rotor to toggle Direct Touch on or off for this field area. Drag freely or flick up and down with VoiceOver.")
-                .accessibilityAddTraits(.allowsDirectInteraction)
                 .accessibilityDirectTouch(options: .silentOnTouch)
         }
         .frame(maxWidth: .infinity)

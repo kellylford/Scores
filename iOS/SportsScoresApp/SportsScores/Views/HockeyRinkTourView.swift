@@ -85,7 +85,6 @@ struct HockeyRinkTourView: View {
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("NHL hockey rink, 200 feet long by 85 feet wide. Blue lines 25 feet from center on each side. Goal lines 89 feet from center. Drag to explore — audio terrain softens in creases and roughens at the boards.")
                 .accessibilityHint("Use the rotor to toggle Direct Touch on or off for this rink area. Drag to explore. Chime at blue lines and goal lines.")
-                .accessibilityAddTraits(.allowsDirectInteraction)
                 .accessibilityDirectTouch(options: .silentOnTouch)
         }
         .frame(maxWidth: .infinity)

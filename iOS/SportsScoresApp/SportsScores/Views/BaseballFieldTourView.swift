@@ -121,7 +121,6 @@ struct BaseballFieldTourView: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(canvasAccessibilityLabel)
             .accessibilityHint("Direct touch area. Swipe to focus, then use the rotor to toggle Direct Touch on or off. Drag freely to explore. Audio pitch rises with distance from home plate; stereo pan follows left-right position.")
-            .accessibilityAddTraits(.allowsDirectInteraction)
             .accessibilityDirectTouch(options: .silentOnTouch)
         }
         .frame(maxWidth: .infinity)

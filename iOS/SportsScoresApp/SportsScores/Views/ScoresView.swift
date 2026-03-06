@@ -512,8 +512,13 @@ struct GameRow: View {
         }
 
         // Period / clock — the key time-reference for live games (e.g. "3rd Quarter - 8:42")
+        // Baseball: omit clock (ESPN sends "0:00" but baseball has no game clock)
         if game.status.isLive {
-            parts.append(game.status.displayText)
+            if sport == .mlb {
+                parts.append(game.status.detail)
+            } else {
+                parts.append(game.status.displayText)
+            }
         }
 
         // Broadcast last
