@@ -297,6 +297,9 @@ struct CompactGameRow: View {
         // Combine all sub-elements so VoiceOver reads a single coherent label (design debt #2)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(compactAccessibilityLabel)
+        .onAppear {
+            debugLogAccessibilityLabelIfNeeded()
+        }
     }
 
     private var compactAccessibilityLabel: String {
@@ -335,6 +338,14 @@ struct CompactGameRow: View {
         }
 
         return parts.joined(separator: ", ")
+    }
+
+    private func debugLogAccessibilityLabelIfNeeded() {
+        #if DEBUG
+        guard isLive else { return }
+        guard ProcessInfo.processInfo.arguments.contains("-A11YDebugLiveLabels") else { return }
+        print("[A11Y][LiveScoresView][\(game.id)] \(compactAccessibilityLabel)")
+        #endif
     }
 }
 

@@ -77,10 +77,31 @@ struct Game: Identifiable, Codable {
         let clock: String?
         
         var displayText: String {
-            if state == "in", period != nil, let clock = clock {
+            if state == "in",
+               period != nil,
+               let clock = normalizedClock,
+               !detail.contains(clock) {
                 return "\(detail) - \(clock)"
             }
             return detail
+        }
+
+        /// ESPN sometimes sends placeholder clocks like "0:00"/"0.0".
+        /// Treat those as non-informative so VoiceOver doesn't announce trailing zeros.
+        private var normalizedClock: String? {
+            guard let rawClock = clock?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !rawClock.isEmpty else {
+                return nil
+            }
+
+            let zeroClockPatterns: Set<String> = [
+                "0", "0.0", "0:00", "0:0", "00:00", "00.0", "00"
+            ]
+            if zeroClockPatterns.contains(rawClock) {
+                return nil
+            }
+
+            return rawClock
         }
         
         var isLive: Bool {

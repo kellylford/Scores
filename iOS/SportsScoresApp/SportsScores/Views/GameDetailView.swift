@@ -32,19 +32,6 @@ struct GameDetailView: View {
 
             Divider()
 
-            if gameDetails != nil {
-                Picker("Section", selection: $selectedSection) {
-                    Text("Box Score").tag(0)
-                    Text(sport.isFootball ? "Drives" : "Plays").tag(1)
-                    Text("Info").tag(2)
-                    if sport == .mlb {
-                        Text("More").tag(3)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding()
-            }
-
             if isLoading {
                 Spacer()
                 ProgressView("Loading details...")
@@ -73,6 +60,20 @@ struct GameDetailView: View {
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
+            }
+
+            if gameDetails != nil {
+                Divider()
+                Picker("Section", selection: $selectedSection) {
+                    Text("Box Score").tag(0)
+                    Text(sport.isFootball ? "Drives" : "Plays").tag(1)
+                    Text("Info").tag(2)
+                    if sport == .mlb {
+                        Text("More").tag(3)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding()
             }
         }
         .navigationTitle("Game Details")

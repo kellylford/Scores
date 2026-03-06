@@ -27,7 +27,20 @@ struct ScoresView: View {
     var body: some View {
         VStack(spacing: 0) {
 
+            // ── Date / Week navigation bar (only on Scores tab) ──────────
+            if selectedTab == 0 {
+                dateNavigationBar
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                    .padding(.bottom, 6)
+            }
+
+            // ── Content ───────────────────────────────────────────────────
+            tabContent
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
             // ── Tab selector (Scores / Standings / News / Stats [/ Polls]) ─
+            Divider()
             Picker("View", selection: $selectedTab) {
                 Text("Scores").tag(0)
                 Text("Standings").tag(1)
@@ -39,19 +52,8 @@ struct ScoresView: View {
             }
             .pickerStyle(.segmented)
             .padding(.horizontal)
-            .padding(.top, 8)
-            .padding(.bottom, 4)
-
-            // ── Date / Week navigation bar (only on Scores tab) ──────────
-            if selectedTab == 0 {
-                dateNavigationBar
-                    .padding(.horizontal)
-                    .padding(.bottom, 6)
-            }
-
-            // ── Content ───────────────────────────────────────────────────
-            tabContent
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.top, 4)
+            .padding(.bottom, 8)
         }
         .navigationTitle(sport.displayName)
         .toolbar {
@@ -460,6 +462,9 @@ struct GameRow: View {
         .padding(.vertical, 4)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
+        .onAppear {
+            debugLogAccessibilityLabelIfNeeded()
+        }
     }
 
     @ViewBuilder
@@ -529,6 +534,14 @@ struct GameRow: View {
         }
 
         return parts.joined(separator: ", ")
+    }
+
+    private func debugLogAccessibilityLabelIfNeeded() {
+        #if DEBUG
+        guard game.status.isLive else { return }
+        guard ProcessInfo.processInfo.arguments.contains("-A11YDebugLiveLabels") else { return }
+        print("[A11Y][ScoresView][\(sport.rawValue)][\(game.id)] \(accessibilityLabel)")
+        #endif
     }
 }
 

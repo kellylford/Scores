@@ -33,15 +33,15 @@ struct PollsView: View {
 
     private var pollsContent: some View {
         VStack(spacing: 0) {
+            if let poll = viewModel.selectedPoll {
+                rankingList(poll: poll)
+            }
+
             if viewModel.polls.count > 1 {
+                Divider()
                 pollPicker
                     .padding(.horizontal)
                     .padding(.vertical, 8)
-                Divider()
-            }
-
-            if let poll = viewModel.selectedPoll {
-                rankingList(poll: poll)
             }
         }
     }

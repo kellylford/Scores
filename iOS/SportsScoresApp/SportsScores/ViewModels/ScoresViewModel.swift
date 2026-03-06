@@ -10,18 +10,18 @@ import Foundation
 // MARK: - Auto-refresh interval
 
 enum AutoRefreshInterval: Int, CaseIterable, Identifiable {
-    case thirtySeconds = 30
     case oneMinute     = 60
     case twoMinutes    = 120
+    case fiveMinutes   = 300
     case manual        = 0
 
     var id: Int { rawValue }
 
     var label: String {
         switch self {
-        case .thirtySeconds: return "30s"
         case .oneMinute:     return "1m"
         case .twoMinutes:    return "2m"
+        case .fiveMinutes:   return "5m"
         case .manual:        return "Manual"
         }
     }

@@ -60,7 +60,7 @@ Only sections with games are shown. If there are no games at all, a message tell
 
 #### Auto-Refresh
 
-The clock icon in the top-right corner controls how often scores refresh automatically. Options: Manual, 30 seconds, 1 minute, 2 minutes, 5 minutes. Pull down on the list to refresh immediately at any time.
+The clock icon in the top-right corner controls how often scores refresh automatically. Options: 1 minute, 2 minutes, 5 minutes, and manual. Pull down on the list to refresh immediately at any time.
 
 ---
 

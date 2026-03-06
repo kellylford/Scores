@@ -1,4 +1,4 @@
-"""
+this imag"""
 Scores - Sports Analysis Application
 Version: 0.54.0-preview
 A comprehensive sports analysis application supporting MLB and NFL
@@ -462,9 +462,9 @@ class LiveScoresView(BaseView):
         
         # Refresh frequency options (in milliseconds)
         self.refresh_intervals = {
-            "30 seconds": 30000,
             "1 minute": 60000,
             "2 minutes": 120000,
+            "5 minutes": 300000,
             "Manual (F5 only)": 0
         }
         self.current_refresh_interval = 60000  # Default to 1 minute
