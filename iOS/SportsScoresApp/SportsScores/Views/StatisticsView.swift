@@ -32,24 +32,104 @@ struct StatisticsView: View {
     // MARK: - Leaders list
 
     private var leadersList: some View {
-        List {
-            ForEach(viewModel.categories) { category in
-                Section {
-                    ForEach(category.leaders) { entry in
-                        LeaderRow(rank: entry.rank,
-                                  athleteName: entry.athleteName,
-                                  teamAbbr: entry.teamAbbreviation,
-                                  value: entry.displayValue)
-                    }
-                } header: {
-                    Text(category.displayName)
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                        .accessibilityAddTraits(.isHeader)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                ForEach(viewModel.categories) { category in
+                    categorySection(category)
                 }
             }
+            .padding()
         }
-        .listStyle(.insetGrouped)
+    }
+    
+    private func categorySection(_ category: LeagueLeaderCategory) -> some View {
+        let headers = ["Rank", "Player", "Team", "Value"]
+        let rows = category.leaders.map { entry in
+            [
+                "\(entry.rank)",
+                entry.athleteName,
+                entry.teamAbbreviation,
+                entry.displayValue
+            ]
+        }
+        
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(category.displayName)
+                .font(.headline)
+                .foregroundColor(.primary)
+                .accessibilityAddTraits(.isHeader)
+            
+            VStack(spacing: 0) {
+                // Header row
+                HStack(spacing: 0) {
+                    Text("Rank")
+                        .font(.caption.bold())
+                        .foregroundColor(.secondary)
+                        .frame(width: 50, alignment: .trailing)
+                    Text("Player")
+                        .font(.caption.bold())
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.leading, 12)
+                    Text("Team")
+                        .font(.caption.bold())
+                        .foregroundColor(.secondary)
+                        .frame(width: 60, alignment: .center)
+                    Text("Value")
+                        .font(.caption.bold())
+                        .foregroundColor(.secondary)
+                        .frame(width: 70, alignment: .trailing)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.secondary.opacity(0.12))
+                .accessibilityHidden(true)
+                
+                // Data rows
+                ForEach(Array(category.leaders.enumerated()), id: \.element.id) { idx, entry in
+                    HStack(spacing: 0) {
+                        Text("\(entry.rank)")
+                            .font(.caption.bold())
+                            .monospacedDigit()
+                            .frame(width: 50, alignment: .trailing)
+                            .foregroundColor(rankColor(entry.rank))
+                        Text(entry.athleteName)
+                            .font(.subheadline)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.leading, 12)
+                            .lineLimit(1)
+                        Text(entry.teamAbbreviation)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .frame(width: 60, alignment: .center)
+                        Text(entry.displayValue)
+                            .font(.subheadline.bold())
+                            .monospacedDigit()
+                            .frame(width: 70, alignment: .trailing)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.04))
+                    .accessibilityHidden(true)
+                }
+            }
+            .background(Color.secondary.opacity(0.04))
+            .cornerRadius(8)
+            .accessibilityHidden(true)
+            .overlay(
+                AccessibleDataTable(headers: headers, rows: rows)
+                    .allowsHitTesting(false)
+            )
+        }
+    }
+    
+    private func rankColor(_ rank: Int) -> Color {
+        switch rank {
+        case 1: return .yellow
+        case 2: return Color(.systemGray2)
+        case 3: return .orange
+        default: return .secondary
+        }
     }
 
     // MARK: - States
@@ -76,57 +156,6 @@ struct StatisticsView: View {
             Text("No statistics available")
                 .font(.headline)
                 .foregroundColor(.secondary)
-        }
-    }
-}
-
-// MARK: - Leader Row
-
-private struct LeaderRow: View {
-    let rank: Int
-    let athleteName: String
-    let teamAbbr: String
-    let value: String
-
-    var body: some View {
-        HStack(spacing: 12) {
-            // Rank badge
-            Text("\(rank)")
-                .font(.caption.bold())
-                .monospacedDigit()
-                .frame(width: 24, alignment: .trailing)
-                .foregroundColor(rankColor)
-
-            // Name + team
-            VStack(alignment: .leading, spacing: 1) {
-                Text(athleteName)
-                    .font(.subheadline)
-                if !teamAbbr.isEmpty {
-                    Text(teamAbbr)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-
-            Spacer()
-
-            // Stat value
-            Text(value)
-                .font(.subheadline.bold())
-                .monospacedDigit()
-                .foregroundColor(.primary)
-        }
-        .padding(.vertical, 2)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(rank). \(athleteName)\(teamAbbr.isEmpty ? "" : ", \(teamAbbr)"), \(value)")
-    }
-
-    private var rankColor: Color {
-        switch rank {
-        case 1: return .yellow
-        case 2: return Color(.systemGray2)
-        case 3: return .orange
-        default: return .secondary
         }
     }
 }

@@ -319,7 +319,7 @@ struct FootballFieldTourView: View {
                 let bandFY = Double(band) * 5.0
                 if bandFY >= 10 && bandFY <= 110 {
                     let yardNum = min(Int(bandFY) - 10, 110 - Int(bandFY))
-                    UIAccessibility.post(notification: .announcement, argument: "\(yardNum)")
+                    TouchTourAnnouncementService.shared.announce("\(yardNum)")
                 }
             }
         }
@@ -332,7 +332,7 @@ struct FootballFieldTourView: View {
     private func handleDragEnd() {
         if let ff = fingerField {
             let zone = detectZone(fx: ff.x, fy: ff.y)
-            UIAccessibility.post(notification: .announcement, argument: zone.name)
+            TouchTourAnnouncementService.shared.announce(zone.name)
         }
         fingerField = nil
         fieldAudio.stop()

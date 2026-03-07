@@ -668,7 +668,6 @@ struct PitchZoneExplorerView: View {
     let hand   = GameDetails.Play.BatterHand(abbreviation: "R")
     let count1 = GameDetails.Play.PitchCount(balls: 0, strikes: 0)
     let count2 = GameDetails.Play.PitchCount(balls: 1, strikes: 1)
-    let count3 = GameDetails.Play.PitchCount(balls: 1, strikes: 2)
     let period = GameDetails.Play.Period(displayValue: "Top 3rd", type: "Top", number: 3)
 
     func makePlay(_ id: String, coord: GameDetails.Play.PitchCoordinate,

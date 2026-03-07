@@ -57,7 +57,25 @@ struct MLBPlaysView: View {
     let plays: [GameDetails.Play]
     let awayAbbr: String
     let homeAbbr: String
+    let awayPreferredName: String
+    let homePreferredName: String
     @ObservedObject var audio: PitchAudioEngine
+
+    init(
+        plays: [GameDetails.Play],
+        awayAbbr: String,
+        homeAbbr: String,
+        awayPreferredName: String? = nil,
+        homePreferredName: String? = nil,
+        audio: PitchAudioEngine
+    ) {
+        self.plays = plays
+        self.awayAbbr = awayAbbr
+        self.homeAbbr = homeAbbr
+        self.awayPreferredName = awayPreferredName ?? awayAbbr
+        self.homePreferredName = homePreferredName ?? homeAbbr
+        self.audio = audio
+    }
 
     @State private var expandedInnings: Set<String> = []
     @State private var expandedHalves: Set<String> = []
@@ -463,11 +481,31 @@ struct MLBPlaysView: View {
             // Build score summary: mention halves where runs scored
             let scoreParts: [String] = halves.compactMap { half in
                 guard half.runsScored > 0 else { return nil }
-                let team = half.halfType == "Top" ? awayAbbr : homeAbbr
+                let team = half.halfType == "Top" ? awayPreferredName : homePreferredName
                 let runs = half.runsScored
                 return "\(team) \(runs)\(runs == 1 ? " run" : " runs")"
             }
-            let scoreSummary = scoreParts.isEmpty ? nil : scoreParts.joined(separator: ", ")
+            
+            // Find the final score after this inning by checking the last play with score info
+            var finalScore: String? = nil
+            for key in keys.reversed() {
+                if let plays = halfPlays[key] {
+                    for play in plays.reversed() {
+                        if let away = play.awayScore, let home = play.homeScore {
+                            finalScore = "Score: \(away)-\(home)"
+                            break
+                        }
+                    }
+                }
+                if finalScore != nil { break }
+            }
+            
+            // Combine runs summary with final score
+            var summaryParts = scoreParts
+            if let score = finalScore {
+                summaryParts.append(score)
+            }
+            let scoreSummary = summaryParts.isEmpty ? nil : summaryParts.joined(separator: ", ")
             return InningGroup(id: "I-\(num)", label: label, halves: halves, scoreSummary: scoreSummary)
         }
     }
@@ -571,10 +609,22 @@ struct GenericPlaysView: View {
         let isOpen = expandedPeriods.contains(period.id)
         let scoringCount = period.plays.filter { $0.scoreValue ?? 0 > 0 }.count
         let changeCount  = period.plays.filter { Self.isPlayerChangePlay($0) }.count
+        
+        // Find the final score after this period by checking the last play with score info
+        let finalScore: String? = {
+            period.plays.reversed().first { play in
+                play.awayScore != nil && play.homeScore != nil
+            }.flatMap { play in
+                guard let away = play.awayScore, let home = play.homeScore else { return nil }
+                return "\(away)-\(home)"
+            }
+        }()
+        
         let a11yHeader: String = {
             var parts = ["\(period.label)", "\(period.plays.count) plays"]
             if scoringCount > 0 { parts.append("\(scoringCount) scoring") }
             if changeCount  > 0 { parts.append("\(changeCount) player change\(changeCount == 1 ? "" : "s")") }
+            if let score = finalScore { parts.append("Score \(score)") }
             return parts.joined(separator: ", ")
         }()
 
@@ -592,6 +642,12 @@ struct GenericPlaysView: View {
                     Text(period.label)
                         .font(.headline)
                     Spacer()
+                    if let score = finalScore {
+                        Text(score)
+                            .font(.subheadline.bold())
+                            .foregroundColor(.blue)
+                            .padding(.trailing, 4)
+                    }
                     if scoringCount > 0 {
                         Label("\(scoringCount)", systemImage: "star.fill")
                             .font(.caption.bold())

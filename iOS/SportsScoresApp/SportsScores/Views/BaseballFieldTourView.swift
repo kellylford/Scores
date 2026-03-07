@@ -91,7 +91,7 @@ struct BaseballFieldTourView: View {
                 }
             }
             .pickerStyle(.menu)
-            .onChange(of: selectedStadium) { _ in
+            .onChange(of: selectedStadium) { _, _ in
                 fingerField = nil
                 lastZoneName = ""
                 fieldAudio.stop()
@@ -293,7 +293,7 @@ struct BaseballFieldTourView: View {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             if zone.isLandmark {
                 fieldAudio.playLandmark()
-                UIAccessibility.post(notification: .announcement, argument: zone.name)
+                TouchTourAnnouncementService.shared.announce(zone.name)
             }
         }
 
@@ -307,7 +307,7 @@ struct BaseballFieldTourView: View {
         // Announce location once when finger lifts
         if let ff = fingerField {
             let zone = selectedStadium.detectZone(fieldX: ff.x, fieldY: ff.y)
-            UIAccessibility.post(notification: .announcement, argument: zone.name)
+            TouchTourAnnouncementService.shared.announce(zone.name)
         }
         fingerField = nil
         fieldAudio.stop()

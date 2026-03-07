@@ -320,6 +320,8 @@ struct GameDetailView: View {
                         plays: plays,
                         awayAbbr: game.awayTeam.abbreviation,
                         homeAbbr: game.homeTeam.abbreviation,
+                        awayPreferredName: game.awayTeam.voiceOverName(for: appSettings.teamNamePreference),
+                        homePreferredName: game.homeTeam.voiceOverName(for: appSettings.teamNamePreference),
                         audio: pitchAudio
                     )
                 }
@@ -660,6 +662,7 @@ struct GameDetailView: View {
         }
         lines.append("")
         lines.append("via Sports Scores")
+        lines.append("https://testflight.apple.com/join/128FeTqx")
         return lines.joined(separator: "\n")
     }
 }

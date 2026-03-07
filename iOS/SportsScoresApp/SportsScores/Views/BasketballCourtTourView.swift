@@ -324,7 +324,7 @@ struct BasketballCourtTourView: View {
         if live != lastLiveLabel {
             lastLiveLabel = live
             if !live.isEmpty {
-                UIAccessibility.post(notification: .announcement, argument: live)
+                TouchTourAnnouncementService.shared.announce(live)
             }
         }
     }
@@ -341,8 +341,7 @@ struct BasketballCourtTourView: View {
 
     private func handleDragEnd() {
         if let ff = fingerField {
-            UIAccessibility.post(notification: .announcement,
-                                 argument: detectZone(fx: ff.x, fy: ff.y).name)
+            TouchTourAnnouncementService.shared.announce(detectZone(fx: ff.x, fy: ff.y).name)
         }
         lastLiveLabel = ""
         fingerField = nil

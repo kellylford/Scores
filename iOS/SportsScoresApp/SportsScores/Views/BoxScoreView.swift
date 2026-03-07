@@ -2,7 +2,7 @@
 //  BoxScoreView.swift
 //  SportsScores
 //
-//  Renders game box score with team statistics followed by player statistics.
+//  Renders game box score with player statistics followed by team statistics.
 //  Organized in a clear, hierarchical structure for better accessibility.
 //
 
@@ -19,13 +19,13 @@ struct BoxScoreView: View {
                         .foregroundColor(.secondary)
                         .padding()
                 } else {
-                    // Team Statistics Section
-                    teamStatsSection
-                    
                     // Player Statistics Section
                     if let players = boxscore.players, !players.isEmpty {
                         playerStatsSection(players: players)
                     }
+                    
+                    // Team Statistics Section
+                    teamStatsSection
                 }
             }
             .padding()
@@ -59,6 +59,17 @@ struct BoxScoreView: View {
         return VStack(alignment: .leading, spacing: 16) {
             ForEach(Array(categories.enumerated()), id: \.element.name) { catIdx, cat in
                 if let items = cat.stats, !items.isEmpty {
+                    let tableHeaders = ["Stat"] + teams.map { $0.team.abbreviation }
+                    let tableRows = items.map { stat in
+                        [stat.displayName] + teams.map { team in
+                            team.statistics
+                                .first(where: { $0.name == cat.name })?
+                                .stats?
+                                .first(where: { $0.name == stat.name })?
+                                .displayValue ?? "-"
+                        }
+                    }
+
                     VStack(alignment: .leading, spacing: 8) {
                         // Category header
                         Text(cat.groupTitle)
@@ -88,8 +99,6 @@ struct BoxScoreView: View {
                             
                             // Data rows
                             ForEach(Array(items.enumerated()), id: \.element.name) { rowIdx, stat in
-                                let rowLabel = makeTeamStatRowLabel(stat: stat, category: cat, teams: teams)
-                                
                                 HStack(spacing: 0) {
                                     Text(stat.displayName)
                                         .font(.caption)
@@ -108,12 +117,16 @@ struct BoxScoreView: View {
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 4)
                                 .background((rowIdx % 2 == 0) ? Color.clear : Color.secondary.opacity(0.04))
-                                .accessibilityElement(children: .ignore)
-                                .accessibilityLabel(rowLabel)
+                                .accessibilityHidden(true)
                             }
                         }
                         .background(Color.secondary.opacity(0.04))
                         .cornerRadius(8)
+                        .accessibilityHidden(true)
+                        .overlay(
+                            AccessibleDataTable(headers: tableHeaders, rows: tableRows)
+                                .allowsHitTesting(false)
+                        )
                     }
                     
                     if catIdx < categories.count - 1 {
@@ -129,6 +142,15 @@ struct BoxScoreView: View {
     private var flatTeamStats: some View {
         let teams = boxscore.teams
         let rows = teams.first?.statistics ?? []
+        let tableHeaders = [""] + teams.map { $0.team.abbreviation }
+        let tableRows = rows.map { stat in
+            let statName = stat.label ?? stat.displayName ?? stat.name
+            return [statName] + teams.map { team in
+                team.statistics
+                    .first(where: { $0.name == stat.name })?
+                    .displayValue ?? "-"
+            }
+        }
         
         return VStack(spacing: 0) {
             // Header row
@@ -149,7 +171,6 @@ struct BoxScoreView: View {
             // Data rows
             ForEach(Array(rows.enumerated()), id: \.element.name) { rowIdx, stat in
                 let statName = stat.label ?? stat.displayName ?? stat.name
-                let rowLabel = makeFlatStatRowLabel(statName: statName, stat: stat, teams: teams)
                 
                 HStack(spacing: 0) {
                     Text(statName)
@@ -166,12 +187,16 @@ struct BoxScoreView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 4)
                 .background((rowIdx % 2 == 0) ? Color.clear : Color.secondary.opacity(0.04))
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(rowLabel)
+                .accessibilityHidden(true)
             }
         }
         .background(Color.secondary.opacity(0.04))
         .cornerRadius(8)
+        .accessibilityHidden(true)
+        .overlay(
+            AccessibleDataTable(headers: tableHeaders, rows: tableRows)
+                .allowsHitTesting(false)
+        )
     }
     
     // MARK: - Player Statistics Section
@@ -211,6 +236,10 @@ struct BoxScoreView: View {
     private func playerStatGroupView(teamName: String, statGroup: GameDetails.Boxscore.TeamPlayers.PlayerStatGroup) -> some View {
         let statNames = statGroup.names ?? []
         let athletes = statGroup.athletes.filter { $0.isActive }
+        let tableHeaders = ["Player", "Pos"] + statNames
+        let tableRows = athletes.map { athlete in
+            [athlete.athlete.displayName, athlete.athlete.position?.abbreviation ?? ""] + athlete.stats
+        }
         
         guard !athletes.isEmpty, !statNames.isEmpty else {
             return AnyView(EmptyView())
@@ -253,12 +282,6 @@ struct BoxScoreView: View {
                         // Player rows
                         ForEach(athletes.indices, id: \.self) { athleteIdx in
                             let athlete = athletes[athleteIdx]
-                            let rowLabel = makePlayerRowLabel(
-                                playerName: athlete.athlete.displayName,
-                                position: athlete.athlete.position?.abbreviation ?? "",
-                                statNames: statNames,
-                                stats: athlete.stats
-                            )
                             
                             HStack(spacing: 0) {
                                 Text(athlete.athlete.displayName)
@@ -280,54 +303,19 @@ struct BoxScoreView: View {
                             .padding(.horizontal, 12)
                             .padding(.vertical, 4)
                             .background((athleteIdx % 2 == 0) ? Color.clear : Color.secondary.opacity(0.04))
-                            .accessibilityElement(children: .ignore)
-                            .accessibilityLabel(rowLabel)
+                            .accessibilityHidden(true)
                         }
                     }
+                    .accessibilityHidden(true)
+                    .overlay(
+                        AccessibleDataTable(headers: tableHeaders, rows: tableRows)
+                            .allowsHitTesting(false)
+                    )
                 }
                 .background(Color.secondary.opacity(0.04))
                 .cornerRadius(8)
             }
         )
-    }
-    
-    // MARK: - Accessibility Helpers
-    
-    private func makeTeamStatRowLabel(stat: GameDetails.Boxscore.TeamStats.StatEntry.StatItem,
-                                       category: GameDetails.Boxscore.TeamStats.StatEntry,
-                                       teams: [GameDetails.Boxscore.TeamStats]) -> String {
-        let parts = teams.map { team -> String in
-            let v = team.statistics
-                .first(where: { $0.name == category.name })?
-                .stats?
-                .first(where: { $0.name == stat.name })?
-                .displayValue ?? "–"
-            return "\(team.team.abbreviation) \(v)"
-        }
-        return "\(stat.displayName): \(parts.joined(separator: ", "))"
-    }
-    
-    private func makeFlatStatRowLabel(statName: String,
-                                       stat: GameDetails.Boxscore.TeamStats.StatEntry,
-                                       teams: [GameDetails.Boxscore.TeamStats]) -> String {
-        let parts = teams.map { team -> String in
-            let v = team.statistics
-                .first(where: { $0.name == stat.name })?
-                .displayValue ?? "–"
-            return "\(team.team.abbreviation) \(v)"
-        }
-        return "\(statName): \(parts.joined(separator: ", "))"
-    }
-    
-    private func makePlayerRowLabel(playerName: String, position: String, 
-                                     statNames: [String], stats: [String]) -> String {
-        var parts = ["\(playerName), \(position)"]
-        for (idx, statName) in statNames.enumerated() {
-            if idx < stats.count {
-                parts.append("\(statName): \(stats[idx])")
-            }
-        }
-        return parts.joined(separator: ", ")
     }
 }
 

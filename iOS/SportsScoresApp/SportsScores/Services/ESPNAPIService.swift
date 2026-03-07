@@ -13,6 +13,8 @@ class ESPNAPIService {
     private let baseURL = "https://site.api.espn.com/apis/site/v2/sports"
     /// Standings uses a different ESPN API base path (v2, not site/v2)
     private let standingsBaseURL = "https://site.api.espn.com/apis/v2/sports"
+    /// Core API for leaders/statistics
+    private let coreAPIBaseURL = "https://sports.core.api.espn.com/v2/sports"
     private let session: URLSession
     
     private init() {
@@ -216,12 +218,144 @@ class ESPNAPIService {
     // MARK: - Fetch League Leaders (Phase 5)
 
     func fetchLeagueLeaders(for sport: Sport) async throws -> [LeagueLeaderCategory] {
-        let urlString = "\(baseURL)/\(sport.apiPath)/leaders"
+        // Extract league from apiPath (e.g., "basketball/nba" → "nba")
+        let league = sport.apiPath.components(separatedBy: "/").last ?? sport.rawValue.lowercased()
+        let sportType = sport.apiPath.components(separatedBy: "/").first ?? "unknown"
+        
+        // Get current season year (NBA/WNBA use year+1 format)
+        let currentYear = Calendar.current.component(.year, from: Date())
+        let seasonYear = sport.usesNextYearFormat ? currentYear + 1 : currentYear
+        
+        // Get season types to try (MLB spring training in Feb-March uses type 1)
+        let seasonTypes = getSeasonTypes(for: sport)
+        
+        // Try current season with all season types, then fallback to previous seasons
+        let seasonsToTry = [seasonYear, seasonYear - 1, seasonYear - 2]
+        
+        for season in seasonsToTry {
+            for seasonType in seasonTypes {
+                do {
+                    let categories = try await fetchLeadersForSeason(
+                        sportType: sportType,
+                        league: league,
+                        season: season,
+                        seasonType: seasonType
+                    )
+                    if !categories.isEmpty {
+                        return categories
+                    }
+                } catch {
+                    // Continue to next season/type combination
+                    continue
+                }
+            }
+        }
+        
+        // No data found for any season
+        return []
+    }
+    
+    private func getSeasonTypes(for sport: Sport) -> [Int] {
+        let now = Date()
+        let calendar = Calendar.current
+        let month = calendar.component(.month, from: now)
+        
+        // MLB: Spring training (type 1) in Feb-March, regular season (type 2) otherwise
+        if sport == .mlb {
+            if month >= 2 && month <= 3 {
+                return [1, 2, 3] // Try spring training, then regular, then postseason
+            }
+            return [2, 3, 1] // Try regular, then postseason, then spring training
+        }
+        
+        // Other sports: Regular season (2) first, then postseason (3)
+        return [2, 3, 1]
+    }
+    
+    private func fetchLeadersForSeason(
+        sportType: String,
+        league: String,
+        season: Int,
+        seasonType: Int
+    ) async throws -> [LeagueLeaderCategory] {
+        let urlString = "\(coreAPIBaseURL)/\(sportType)/leagues/\(league)/seasons/\(season)/types/\(seasonType)/leaders?limit=10"
         guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+        
         let (data, response) = try await session.data(from: url)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw APIError.invalidResponse }
-        let apiResponse = try JSONDecoder().decode(LeadersAPIResponse.self, from: data)
-        return apiResponse.categories.map { LeagueLeaderCategory(from: $0) }
+        guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
+        
+        // Return empty for 404 (no data for this season/type) so we can try next one
+        if http.statusCode == 404 {
+            return []
+        }
+        
+        guard http.statusCode == 200 else { throw APIError.invalidResponse }
+        
+        let apiResponse = try JSONDecoder().decode(CoreLeadersAPIResponse.self, from: data)
+        
+        // Process categories: resolve $ref URLs for athletes/teams in parallel
+        var resolvedCategories: [LeagueLeaderCategory] = []
+        
+        for category in apiResponse.categories ?? [] {
+            var resolvedLeaders: [LeagueLeaderCategory.LeagueLeaderEntry] = []
+            
+            for (index, leader) in (category.leaders ?? []).enumerated() {
+                let athleteName: String
+                let teamAbbr: String
+                
+                // Resolve athlete $ref if present
+                if let athleteRef = leader.athlete?.ref {
+                    if let athlete = try? await fetchReference(url: athleteRef, as: CoreAthleteResponse.self) {
+                        athleteName = athlete.displayName ?? "Unknown"
+                    } else {
+                        athleteName = "Unknown"
+                    }
+                } else if let teamRef = leader.team?.ref {
+                    if let team = try? await fetchReference(url: teamRef, as: CoreTeamResponse.self) {
+                        athleteName = team.displayName ?? "Unknown"
+                    } else {
+                        athleteName = "Unknown"
+                    }
+                } else {
+                    athleteName = "Unknown"
+                }
+                
+                // Resolve team $ref if present
+                if let teamRef = leader.team?.ref {
+                    if let team = try? await fetchReference(url: teamRef, as: CoreTeamResponse.self) {
+                        teamAbbr = team.abbreviation ?? ""
+                    } else {
+                        teamAbbr = ""
+                    }
+                } else {
+                    teamAbbr = ""
+                }
+                
+                resolvedLeaders.append(LeagueLeaderCategory.LeagueLeaderEntry(
+                    rank: index + 1,
+                    displayValue: leader.displayValue ?? "-",
+                    athleteName: athleteName,
+                    teamAbbreviation: teamAbbr
+                ))
+            }
+            
+            resolvedCategories.append(LeagueLeaderCategory(
+                name: category.name ?? "",
+                displayName: category.displayName ?? "",
+                leaders: resolvedLeaders
+            ))
+        }
+        
+        return resolvedCategories
+    }
+    
+    private func fetchReference<T: Decodable>(url: String, as type: T.Type) async throws -> T {
+        guard let refURL = URL(string: url) else { throw APIError.invalidURL }
+        let (data, response) = try await session.data(from: refURL)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw APIError.invalidResponse
+        }
+        return try JSONDecoder().decode(T.self, from: data)
     }
 
     // MARK: - Fetch Rankings / Polls (Phase 6)
@@ -251,43 +385,48 @@ struct LeagueLeaderCategory: Identifiable {
         let athleteName: String
         let teamAbbreviation: String
     }
+    
+    // Direct init for Core API
+    init(name: String, displayName: String, leaders: [LeagueLeaderEntry]) {
+        self.name = name
+        self.displayName = displayName
+        self.leaders = leaders
+    }
+}
 
-    init(from api: LeadersAPIResponse.APICategory) {
-        self.name = api.name
-        self.displayName = api.displayName
-        self.leaders = api.leaders.enumerated().map { idx, l in
-            LeagueLeaderEntry(
-                rank: idx + 1,
-                displayValue: l.displayValue ?? "-",
-                athleteName: l.athlete?.displayName ?? l.team?.displayName ?? "Unknown",
-                teamAbbreviation: l.team?.abbreviation ?? ""
-            )
+// MARK: - Core API Response Models
+
+struct CoreLeadersAPIResponse: Codable {
+    let categories: [CoreCategory]?
+    
+    struct CoreCategory: Codable {
+        let name: String?
+        let displayName: String?
+        let leaders: [CoreLeader]?
+        
+        struct CoreLeader: Codable {
+            let displayValue: String?
+            let athlete: Reference?
+            let team: Reference?
+            
+            struct Reference: Codable {
+                let ref: String?
+
+                enum CodingKeys: String, CodingKey {
+                    case ref = "$ref"
+                }
+            }
         }
     }
 }
 
-struct LeadersAPIResponse: Codable {
-    let categories: [APICategory]
+struct CoreAthleteResponse: Codable {
+    let displayName: String?
+}
 
-    struct APICategory: Codable {
-        let name: String
-        let displayName: String
-        let leaders: [APILeader]
-
-        struct APILeader: Codable {
-            let displayValue: String?
-            let athlete: APIAthlete?
-            let team: APITeam?
-
-            struct APIAthlete: Codable {
-                let displayName: String?
-            }
-            struct APITeam: Codable {
-                let displayName: String?
-                let abbreviation: String?
-            }
-        }
-    }
+struct CoreTeamResponse: Codable {
+    let displayName: String?
+    let abbreviation: String?
 }
 
 // MARK: - Rankings / Polls Models

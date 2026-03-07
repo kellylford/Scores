@@ -159,7 +159,6 @@ struct HockeyRinkTourView: View {
             // Crease is toward center — if eSign=1 (far goal), crease toward y<89; if eSign=-1 (near), toward y>-89
             let crAngleStart: Double = eSign > 0 ? 180 : 0
             var creasePath = Path()
-            let cRect = CGRect(x: gCenterPt.x - cr, y: gCenterPt.y - cr, width: cr*2, height: cr*2)
             creasePath.addArc(center: gCenterPt,
                               radius: cr,
                               startAngle: .degrees(crAngleStart),
@@ -286,7 +285,7 @@ struct HockeyRinkTourView: View {
         if lineLabel != lastLineAnnouncement {
             lastLineAnnouncement = lineLabel
             if !lineLabel.isEmpty {
-                UIAccessibility.post(notification: .announcement, argument: lineLabel)
+                TouchTourAnnouncementService.shared.announce(lineLabel)
             }
         }
     }
@@ -301,8 +300,7 @@ struct HockeyRinkTourView: View {
 
     private func handleDragEnd() {
         if let ff = fingerField {
-            UIAccessibility.post(notification: .announcement,
-                                 argument: detectZone(fx: ff.x, fy: ff.y).name)
+            TouchTourAnnouncementService.shared.announce(detectZone(fx: ff.x, fy: ff.y).name)
         }
         lastLineAnnouncement = ""
         fingerField = nil

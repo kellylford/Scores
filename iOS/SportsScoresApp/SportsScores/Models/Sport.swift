@@ -56,9 +56,9 @@ enum Sport: String, CaseIterable, Identifiable {
         self == .nfl || self == .ncaaf
     }
 
-    /// True for sports where the season year uses year+1 (NBA, WNBA).
+    /// True for sports where the season year uses year+1 (NBA, WNBA, NHL).
     var usesNextYearFormat: Bool {
-        self == .nba || self == .wnba
+        self == .nba || self == .wnba || self == .nhl
     }
 
     /// True for sports that publish weekly polls/rankings.

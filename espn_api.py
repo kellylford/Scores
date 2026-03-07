@@ -3233,6 +3233,218 @@ def _get_mlb_statistics():
         "team_stats": []
     }
 
+def _get_player_statistics_from_core_api(league_key):
+    """Fetch player statistics from the ESPN core API (sports.core.api.espn.com)"""
+    import concurrent.futures
+    from datetime import datetime
+    
+    league_path = LEAGUES.get(league_key) or LEAGUES.get(league_key.upper())
+    if not league_path:
+        print(f"No league path found for {league_key}")
+        return []
+    
+    try:
+        # Determine season based on league and current date
+        # NBA/NHL seasons span two calendar years (e.g., 2025-26 season)
+        # MLB/NFL use single calendar year
+        current_date = datetime.now()
+        current_year = current_date.year
+        current_month = current_date.month
+        
+        if league_key.upper() in ["NBA", "NHL", "WNBA", "NCAAM", "NCAAWB", "NCAAH", "NCAAWH"]:
+            # These leagues use year+1 format, but only after July
+            # From July onward, we're in the next season
+            # Before July, we're still in the current season
+            if current_month >= 7:
+                season = current_year + 1
+            else:
+                season = current_year
+        elif league_key.upper() == "MLB":
+            # MLB uses calendar year
+            season = current_year
+        elif league_key.upper() == "NFL":
+            season = current_year
+        elif league_key.upper() == "NCAAF":
+            season = current_year
+        else:
+            season = current_year
+        
+        # Build core API URL and try multiple season types
+        # Type 1 = Preseason/Spring Training, Type 2 = Regular Season, Type 3 = Postseason
+        sport, league = league_path.split('/')
+        
+        # Try season types in order of preference based on current month
+        # For MLB: Feb-March use type 1 (spring), April+ use type 2
+        # For other sports: Try type 2 first (regular season), then type 3 (postseason), then type 1
+        season_types_to_try = []
+        if league_key.upper() == "MLB" and current_month in [2, 3]:
+            # During spring training, prioritize spring training stats
+            season_types_to_try = [1, 2, 3]
+        elif league_key.upper() in ["NFL", "NCAAF"] and current_month <= 2:
+            # During playoff time for football
+            season_types_to_try = [3, 2]
+        else:
+            # Default: try regular season first, then postseason, then preseason
+            season_types_to_try = [2, 3, 1]
+        
+        data = None
+        categories = []
+        seasons_to_try = [season]
+        actual_season_used = season
+        
+        # If no data found in current season, try previous seasons (up to 2 years back)
+        # This handles off-season sports by showing historical data instead of sample data
+        if league_key.upper() in ["NBA", "NHL", "WNBA", "NCAAM", "NCAAWB"]:
+            # For year+1 format leagues, go back by 1 each time
+            seasons_to_try = [season, season - 1, season - 2]
+        else:
+            # For calendar year leagues
+            seasons_to_try = [season, season - 1, season - 2]
+        
+        for try_season in seasons_to_try:
+            found_data = False
+            
+            for season_type in season_types_to_try:
+                core_api_url = f"https://sports.core.api.espn.com/v2/sports/{sport}/leagues/{league}/seasons/{try_season}/types/{season_type}/leaders?limit=10"
+                
+                print(f"Trying core API: {core_api_url}")
+                
+                try:
+                    resp = requests.get(core_api_url, timeout=10)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        categories = data.get('categories', [])
+                        
+                        if categories:
+                            actual_season_used = try_season
+                            print(f"Found {len(categories)} stat categories in season {try_season} type {season_type}")
+                            found_data = True
+                            break
+                        else:
+                            print(f"Season {try_season} type {season_type} returned no categories, trying next...")
+                    else:
+                        print(f"Season {try_season} type {season_type} returned status {resp.status_code}, trying next...")
+                except Exception as e:
+                    print(f"Season {try_season} type {season_type} failed: {e}, trying next...")
+            
+            if found_data:
+                break
+        
+        if not categories:
+            print("No categories found in any season type or year")
+            return []
+        
+        def fetch_athlete_details(athlete_ref):
+            """Fetch athlete name and team from $ref URL"""
+            try:
+                athlete_resp = requests.get(athlete_ref, timeout=5)
+                if athlete_resp.status_code == 200:
+                    athlete_data = athlete_resp.json()
+                    # Try to get team abbreviation from athlete data first
+                    team_abbr = athlete_data.get('team', {}).get('abbreviation', '')
+                    return {
+                        'name': athlete_data.get('displayName', 'Unknown'),
+                        'team': team_abbr,
+                        'team_ref': athlete_data.get('team', {}).get('$ref', '')
+                    }
+            except:
+                pass
+            return {'name': 'Unknown', 'team': '', 'team_ref': ''}
+        
+        def fetch_team_abbr(team_ref):
+            """Fetch team abbreviation from $ref URL"""
+            try:
+                team_resp = requests.get(team_ref, timeout=5)
+                if team_resp.status_code == 200:
+                    team_data = team_resp.json()
+                    return team_data.get('abbreviation', '')
+            except:
+                pass
+            return ''
+        
+        player_stats = []
+        
+        for category in categories:
+            category_name = category.get('displayName', category.get('name', 'Unknown'))
+            leaders = category.get('leaders', [])
+            
+            if not leaders:
+                continue
+            
+            print(f"Processing category: {category_name} with {len(leaders)} leaders")
+            
+            # Fetch all athlete details in parallel
+            athlete_refs = [leader.get('athlete', {}).get('$ref', '') for leader in leaders if leader.get('athlete', {}).get('$ref')]
+            
+            athlete_details = {}
+            if athlete_refs:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+                    future_to_ref = {executor.submit(fetch_athlete_details, ref): ref for ref in athlete_refs}
+                    for future in concurrent.futures.as_completed(future_to_ref):
+                        ref = future_to_ref[future]
+                        try:
+                            result = future.result()
+                            athlete_details[ref] = result
+                        except:
+                            athlete_details[ref] = {'name': 'Unknown', 'team': '', 'team_ref': ''}
+            
+            # Fetch team abbreviations for those that don't have them
+            team_refs_to_fetch = set()
+            for athlete_info in athlete_details.values():
+                if not athlete_info['team'] and athlete_info['team_ref']:
+                    team_refs_to_fetch.add(athlete_info['team_ref'])
+            
+            team_abbrs = {}
+            if team_refs_to_fetch:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+                    future_to_team = {executor.submit(fetch_team_abbr, ref): ref for ref in team_refs_to_fetch}
+                    for future in concurrent.futures.as_completed(future_to_team):
+                        ref = future_to_team[future]
+                        try:
+                            abbr = future.result()
+                            team_abbrs[ref] = abbr
+                        except:
+                            team_abbrs[ref] = ''
+            
+            # Update athlete details with team abbreviations
+            for athlete_info in athlete_details.values():
+                if not athlete_info['team'] and athlete_info['team_ref']:
+                    athlete_info['team'] = team_abbrs.get(athlete_info['team_ref'], '')
+            
+            # Build stats list with athlete names
+            stats = []
+            for leader in leaders:
+                athlete_ref = leader.get('athlete', {}).get('$ref', '')
+                athlete_info = athlete_details.get(athlete_ref, {'name': 'Unknown', 'team': ''})
+                
+                stats.append({
+                    'player_name': athlete_info['name'],
+                    'team': athlete_info['team'],
+                    'value': leader.get('displayValue', str(leader.get('value', ''))),
+                    'stat_name': category_name
+                })
+            
+            player_stats.append({
+                'category': category_name,
+                'stats': stats,
+                'season': actual_season_used  # Include season info for display
+            })
+            
+            print(f"Added category {category_name} with {len(stats)} players")
+        
+        # Add season metadata to help UI indicate if showing historical data
+        for stat_cat in player_stats:
+            stat_cat['season'] = actual_season_used
+            stat_cat['is_current_season'] = (actual_season_used == season)
+        
+        return player_stats
+        
+    except Exception as e:
+        print(f"Error fetching player statistics from core API: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
+
 def get_statistics(league_key):
     """Get statistics/leaders data for a league"""
     # Handle case-insensitive league keys
@@ -3253,86 +3465,35 @@ def get_statistics(league_key):
                     mlb_result['team_stats'] = team_stats
                 return mlb_result
             else:
-                print("MLB Stats API failed, falling back to ESPN")
-
-        # Try multiple endpoints that might contain statistics
-        endpoints_to_try = [
-            f"{BASE_URL}/{league_path}/leaders",
-            f"{BASE_URL}/{league_path}/athletes",
-            f"{BASE_URL}/{league_path}/statistics",
-            f"{BASE_URL}/{league_path}/stats/leaders",
-            f"https://sports.core.api.espn.com/v2/sports/{league_path}/leaders",
-            f"{BASE_URL}/{league_path}/scoreboard"  # Last resort
-        ]
+                print("MLB Stats API failed, trying core API")
         
-        for endpoint in endpoints_to_try:
-            try:
-                print(f"Attempting to fetch statistics from: {endpoint}")
-                resp = requests.get(endpoint, timeout=10)
-                
-                if resp.status_code == 200:
-                    data = resp.json()
-                    print(f"SUCCESS: {endpoint} returned data")
-                    print(f"Response keys: {list(data.keys())}")
-                    print(f"Response sample: {str(data)[:300]}...")
-                    
-                    # Special handling for scoreboard endpoint
-                    if "scoreboard" in endpoint:
-                        scoreboard_result = _extract_stats_from_scoreboard(data, league_key)
-                        # Only return scoreboard result if it has data, otherwise continue to team stats/sample data
-                        if scoreboard_result['player_stats'] or scoreboard_result['team_stats']:
-                            return scoreboard_result
-                        else:
-                            print(f"Scoreboard endpoint returned no usable data, will try team stats and sample data fallback")
-                            break  # Exit the endpoint loop to try team stats
-                    else:
-                        result = _parse_statistics_data(data, league_key)
-                        print(f"Parsed result - player_stats: {len(result['player_stats'])}, team_stats: {len(result['team_stats'])}")
-                        
-                        # If we got data, try to also get team statistics
-                        if result['player_stats'] or result['team_stats']:
-                            print(f"Got player stats, now attempting to fetch team statistics for {league_key}")
-                            team_stats = _get_team_statistics(league_key)
-                            if team_stats:
-                                result['team_stats'] = team_stats
-                                print(f"Successfully added {len(team_stats)} team stat categories")
-                            
-                            return result
-                        else:
-                            print(f"No usable data from {endpoint}, trying next...")
-                            continue
-                else:
-                    print(f"FAILED: {endpoint} returned status {resp.status_code}")
-                    
-            except Exception as e:
-                print(f"ERROR: {endpoint} failed with: {e}")
-                continue
+        # Try the new core API for player statistics
+        print(f"Attempting to fetch player statistics from core API for {league_key}")
+        player_stats = _get_player_statistics_from_core_api(league_key)
+        
+        # Try to get team statistics
+        print(f"Attempting to fetch team statistics for {league_key}")
+        team_stats = _get_team_statistics(league_key)
+        
+        # If we got either player or team stats, return them
+        if player_stats or team_stats:
+            print(f"Successfully retrieved {len(player_stats)} player stat categories and {len(team_stats)} team stat categories")
+            return {
+                "player_stats": player_stats,
+                "team_stats": team_stats
+            }
+        else:
+            print(f"No statistics data available from APIs for {league_key}")
     
     except Exception as e:
         print(f"Error fetching statistics for {league_key}: {e}")
         import traceback
         traceback.print_exc()
     
-    print(f"All player statistics endpoints failed for {league_key}")
-    
-    # Try to get team statistics
-    print(f"Attempting to fetch team statistics for {league_key}")
-    team_stats = _get_team_statistics(league_key)
-    
     # Always provide sample data when API fails to ensure UI functionality
     print(f"Providing sample statistics data for {league_key} to ensure UI functionality")
     sample_data = _get_sample_statistics_data(league_key)
-    
-    if team_stats:
-        print(f"Successfully retrieved {len(team_stats)} team stat categories")
-        # Combine team stats with sample player stats
-        return {
-            "player_stats": sample_data.get("player_stats", []),
-            "team_stats": team_stats
-        }
-    else:
-        # Return sample data for both player and team stats
-        return sample_data
+    return sample_data
 
 def get_player_statistics(league_key):
     """Get only player statistics for a league (optimized for speed)"""
@@ -3350,31 +3511,17 @@ def get_player_statistics(league_key):
             if mlb_result['player_stats']:
                 return mlb_result
             else:
-                print("MLB Stats API failed, falling back to ESPN")
+                print("MLB Stats API failed, trying core API")
 
-        # For other leagues, use ESPN API but only extract player stats
-        endpoints_to_try = [
-            f"{BASE_URL}/{league_path}/leaders",
-            f"{BASE_URL}/{league_path}/athletes", 
-            f"{BASE_URL}/{league_path}/statistics"
-        ]
+        # Use core API for player statistics
+        print(f"Fetching player statistics from core API for {league_key}")
+        player_stats = _get_player_statistics_from_core_api(league_key)
         
-        for endpoint in endpoints_to_try:
-            try:
-                print(f"Attempting to fetch player statistics from: {endpoint}")
-                resp = requests.get(endpoint, timeout=10)
-                
-                if resp.status_code == 200:
-                    data = resp.json()
-                    parsed_data = _parse_statistics_data(data, league_key)
-                    if parsed_data and parsed_data.get("player_stats"):
-                        # Only return player stats, not team stats
-                        return {"player_stats": parsed_data["player_stats"], "team_stats": []}
-                        
-            except requests.RequestException:
-                continue
+        if player_stats:
+            return {"player_stats": player_stats, "team_stats": []}
                 
         # Fallback to sample data
+        print(f"No player stats available, using sample data")
         sample_data = _get_sample_statistics_data(league_key)
         return {"player_stats": sample_data.get("player_stats", []), "team_stats": []}
         
