@@ -813,10 +813,14 @@ struct GameDetails: Codable {
             struct PlayerStatGroup: Codable {
                 let type: String
                 let names: [String]?
+                let labels: [String]?
                 let keys: [String]?
                 let athletes: [AthleteStats]
                 
                 var groupTitle: String { type.capitalized }
+                
+                /// Column headers for player stats. MLB uses 'names', NFL/NBA/NHL use 'labels'.
+                var columnHeaders: [String] { names ?? labels ?? [] }
                 
                 struct AthleteStats: Codable {
                     let athlete: AthleteInfo

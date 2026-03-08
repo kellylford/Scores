@@ -1101,9 +1101,9 @@ def extract_meaningful_game_info(details):
         if weather.get('temperature'):
             info['temperature'] = f"{weather['temperature']}°F"
     
-    # Process boxscore data properly
+    # Pass through boxscore data as-is (UI expects raw ESPN structure)
     if 'boxscore' in details:
-        info['boxscore'] = _parse_boxscore_data(details['boxscore'])
+        info['boxscore'] = details['boxscore']
     
     # Odds (if available)
     if 'odds' in details and details['odds']:
@@ -1146,7 +1146,13 @@ def extract_meaningful_game_info(details):
 
 
 def _parse_boxscore_data(boxscore_data):
-    """Parse ESPN boxscore data into structured format"""
+    """
+    DEPRECATED: This function is no longer used (as of March 2026).
+    The UI expects the raw ESPN boxscore structure, not a parsed version.
+    Parsing breaks the structure that the UI code expects.
+    
+    Parse ESPN boxscore data into structured format
+    """
     if not boxscore_data or not isinstance(boxscore_data, dict):
         return None
     

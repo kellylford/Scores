@@ -269,7 +269,7 @@ struct BoxScoreView: View {
     }
     
     private func playerStatGroupView(teamName: String, statGroup: GameDetails.Boxscore.TeamPlayers.PlayerStatGroup) -> some View {
-        let allStatNames = statGroup.names ?? []
+        let allStatNames = statGroup.columnHeaders
         let profile = BoxScoreProfiles.profile(for: sport)
         
         // Filter stat columns based on profile if not showing all
