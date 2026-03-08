@@ -252,7 +252,7 @@ struct GameDetailView: View {
     private func boxScoreTab(details: GameDetails) -> some View {
         Group {
             if let bs = details.boxscore {
-                BoxScoreView(boxscore: bs)
+                BoxScoreView(boxscore: bs, sport: sport)
             } else {
                 Text("Box score not available")
                     .foregroundColor(.secondary).padding()

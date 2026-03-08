@@ -10,6 +10,8 @@ import SwiftUI
 
 struct BoxScoreView: View {
     let boxscore: GameDetails.Boxscore
+    let sport: Sport
+    @State private var showingAllStats = false
 
     var body: some View {
         ScrollView {
@@ -19,6 +21,26 @@ struct BoxScoreView: View {
                         .foregroundColor(.secondary)
                         .padding()
                 } else {
+                    // Toggle for Essential vs All stats
+                    HStack {
+                        Spacer()
+                        Button(action: { showingAllStats.toggle() }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: showingAllStats ? "checkmark.circle.fill" : "circle")
+                                    .font(.caption)
+                                Text(showingAllStats ? "All Stats" : "Essential Stats")
+                                    .font(.caption)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.blue.opacity(0.1))
+                            .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Toggle between essential and all statistics")
+                    }
+                    .padding(.horizontal, 8)
+                    
                     // Player Statistics Section
                     if let players = boxscore.players, !players.isEmpty {
                         playerStatsSection(players: players)
@@ -55,12 +77,18 @@ struct BoxScoreView: View {
     private var mlbTeamStats: some View {
         let teams = boxscore.teams
         let categories = teams.first?.statistics ?? []
+        let profile = BoxScoreProfiles.profile(for: sport)
         
         return VStack(alignment: .leading, spacing: 16) {
             ForEach(Array(categories.enumerated()), id: \.element.name) { catIdx, cat in
-                if let items = cat.stats, !items.isEmpty {
+                // Filter stats based on showingAllStats
+                let filteredItems = cat.stats?.filter { stat in
+                    showingAllStats || profile.essentialTeamStats.contains(stat.name)
+                } ?? []
+                
+                if !filteredItems.isEmpty {
                     let tableHeaders = ["Stat"] + teams.map { $0.team.abbreviation }
-                    let tableRows = items.map { stat in
+                    let tableRows = filteredItems.map { stat in
                         [stat.displayName] + teams.map { team in
                             team.statistics
                                 .first(where: { $0.name == cat.name })?
@@ -98,7 +126,7 @@ struct BoxScoreView: View {
                             .accessibilityHidden(true)
                             
                             // Data rows
-                            ForEach(Array(items.enumerated()), id: \.element.name) { rowIdx, stat in
+                            ForEach(Array(filteredItems.enumerated()), id: \.element.name) { rowIdx, stat in
                                 HStack(spacing: 0) {
                                     Text(stat.displayName)
                                         .font(.caption)
@@ -141,7 +169,14 @@ struct BoxScoreView: View {
     
     private var flatTeamStats: some View {
         let teams = boxscore.teams
-        let rows = teams.first?.statistics ?? []
+        let allRows = teams.first?.statistics ?? []
+        let profile = BoxScoreProfiles.profile(for: sport)
+        
+        // Filter rows based on showingAllStats
+        let rows = allRows.filter { stat in
+            showingAllStats || profile.essentialTeamStats.contains(stat.name)
+        }
+        
         let tableHeaders = [""] + teams.map { $0.team.abbreviation }
         let tableRows = rows.map { stat in
             let statName = stat.label ?? stat.displayName ?? stat.name
@@ -234,14 +269,30 @@ struct BoxScoreView: View {
     }
     
     private func playerStatGroupView(teamName: String, statGroup: GameDetails.Boxscore.TeamPlayers.PlayerStatGroup) -> some View {
-        let statNames = statGroup.names ?? []
+        let allStatNames = statGroup.names ?? []
+        let profile = BoxScoreProfiles.profile(for: sport)
+        
+        // Filter stat columns based on profile if not showing all
+        let filteredStatNames = showingAllStats 
+            ? allStatNames
+            : filterPlayerStatNames(allStatNames, for: statGroup.type, profile: profile)
+        
         let athletes = statGroup.athletes.filter { $0.isActive }
-        let tableHeaders = ["Player", "Pos"] + statNames
-        let tableRows = athletes.map { athlete in
-            [athlete.athlete.displayName, athlete.athlete.position?.abbreviation ?? ""] + athlete.stats
+        
+        // Create filtered stats array (only include columns that are in filteredStatNames)
+        let filteredAthletes: [(athlete: GameDetails.Boxscore.TeamPlayers.PlayerStatGroup.AthleteStats, filteredStats: [String])] = athletes.map { athlete in
+            let filtered = athlete.stats.enumerated().compactMap { idx, stat in
+                idx < allStatNames.count && filteredStatNames.contains(allStatNames[idx]) ? stat : nil
+            }
+            return (athlete: athlete, filteredStats: filtered)
         }
         
-        guard !athletes.isEmpty, !statNames.isEmpty else {
+        let tableHeaders = ["Player", "Pos"] + filteredStatNames
+        let tableRows = filteredAthletes.map { entry in
+            [entry.athlete.athlete.displayName, entry.athlete.athlete.position?.abbreviation ?? ""] + entry.filteredStats
+        }
+        
+        guard !athletes.isEmpty, !filteredStatNames.isEmpty else {
             return AnyView(EmptyView())
         }
         
@@ -267,8 +318,8 @@ struct BoxScoreView: View {
                                 .foregroundColor(.secondary)
                                 .frame(width: 45, alignment: .center)
                             
-                            ForEach(statNames.indices, id: \.self) { idx in
-                                Text(statNames[idx])
+                            ForEach(filteredStatNames.indices, id: \.self) { idx in
+                                Text(filteredStatNames[idx])
                                     .font(.caption.bold())
                                     .foregroundColor(.secondary)
                                     .frame(width: 50, alignment: .trailing)
@@ -280,22 +331,22 @@ struct BoxScoreView: View {
                         .accessibilityHidden(true)
                         
                         // Player rows
-                        ForEach(athletes.indices, id: \.self) { athleteIdx in
-                            let athlete = athletes[athleteIdx]
+                        ForEach(filteredAthletes.indices, id: \.self) { athleteIdx in
+                            let entry = filteredAthletes[athleteIdx]
                             
                             HStack(spacing: 0) {
-                                Text(athlete.athlete.displayName)
+                                Text(entry.athlete.athlete.displayName)
                                     .font(.caption)
                                     .frame(width: 140, alignment: .leading)
                                     .lineLimit(1)
                                 
-                                Text(athlete.athlete.position?.abbreviation ?? "")
+                                Text(entry.athlete.athlete.position?.abbreviation ?? "")
                                     .font(.caption2)
                                     .foregroundColor(.secondary)
                                     .frame(width: 45, alignment: .center)
                                 
-                                ForEach(athlete.stats.indices, id: \.self) { statIdx in
-                                    Text(athlete.stats[statIdx])
+                                ForEach(entry.filteredStats.indices, id: \.self) { statIdx in
+                                    Text(entry.filteredStats[statIdx])
                                         .font(.caption.monospacedDigit())
                                         .frame(width: 50, alignment: .trailing)
                                 }
@@ -317,5 +368,98 @@ struct BoxScoreView: View {
             }
         )
     }
+    
+    /// Filter stat column names based on the sport profile
+    private func filterPlayerStatNames(_ names: [String], for groupType: String, profile: BoxScoreProfile) -> [String] {
+        let lowerType = groupType.lowercased()
+        let essentialStats = profile.essentialPlayerStats[lowerType] 
+            ?? profile.essentialPlayerStats.values.first 
+            ?? Set<String>()
+        
+        return names.filter { essentialStats.contains($0.lowercased()) }
+    }
 }
+
+// MARK: - Box Score Profiles
+
+struct BoxScoreProfile {
+    /// Essential stat names (map to ESPN's internal `name` field) to show by default
+    let essentialTeamStats: Set<String>
+    
+    /// Essential player stat column names (map to ESPN's `names` array in player statistics)
+    let essentialPlayerStats: [String: Set<String>]
+}
+
+enum BoxScoreProfiles {
+    
+    // MARK: - MLB
+    
+    static let mlb = BoxScoreProfile(
+        essentialTeamStats: [
+            // Batting
+            "hits", "runs", "leftOnBase", "homeRuns", "runsBattedIn", "walks", "strikeOuts",
+            // Pitching
+            "earnedRuns", "strikeOuts", "walks", "homeRuns"
+        ],
+        essentialPlayerStats: [
+            "batting": ["ab", "r", "h", "rbi", "bb", "so", "avg"],
+            "pitching": ["ip", "h", "r", "er", "bb", "so", "era"]
+        ]
+    )
+    
+    // MARK: - NFL / NCAAF
+    
+    static let football = BoxScoreProfile(
+        essentialTeamStats: [
+            "firstDowns", "passYards", "rushYards", "totalYards", "turnovers", "penalties", "timeOfPossession"
+        ],
+        essentialPlayerStats: [
+            "passing": ["cmp", "att", "yds", "td", "int"],
+            "rushing": ["car", "yds", "avg", "td"],
+            "receiving": ["rec", "yds", "avg", "td"],
+            "defense": ["tackles", "sacks", "int", "pd"]
+        ]
+    )
+    
+    // MARK: - NBA / NCAAM / NCAAWB / WNBA
+    
+    static let basketball = BoxScoreProfile(
+        essentialTeamStats: [
+            "fieldGoalsMade", "fieldGoalsAttempted", "threePointsMade", "threePointsAttempted",
+            "freeThrowsMade", "freeThrowsAttempted", "rebounds", "assists", "turnovers", "steals", "blocks"
+        ],
+        essentialPlayerStats: [
+            "player": ["min", "fgm", "fga", "3pm", "3pa", "ftm", "fta", "pts", "reb", "ast", "stl", "blk", "to"]
+        ]
+    )
+    
+    // MARK: - NHL / NCAAH / NCAAWH
+    
+    static let hockey = BoxScoreProfile(
+        essentialTeamStats: [
+            "shots", "hits", "blocks", "giveaways", "takeaways", "faceoffWinPercentage",
+            "powerPlayGoals", "powerPlayAttempts", "penaltyKillPercentage"
+        ],
+        essentialPlayerStats: [
+            "skater": ["g", "a", "plusMinus", "shots", "hits", "blocks"],
+            "goalie": ["saves", "shotsAgainst", "gaa", "sv%", "so"]
+        ]
+    )
+    
+    // MARK: - Profile Lookup by Sport
+    
+    static func profile(for sport: Sport) -> BoxScoreProfile {
+        switch sport {
+        case .mlb:
+            return mlb
+        case .nfl, .ncaaf:
+            return football
+        case .nba, .ncaam, .ncaawb, .wnba:
+            return basketball
+        case .nhl, .ncaah, .ncaawh:
+            return hockey
+        }
+    }
+}
+
 
