@@ -8,11 +8,15 @@
 import SwiftUI
 import UIKit
 
+private enum ScoresTab: Int {
+    case scores = 0, standings, news, stats, polls
+}
+
 struct ScoresView: View {
     let sport: Sport
     let initialDate: Date?
     @StateObject private var viewModel = ScoresViewModel()
-    @State private var selectedTab = 0
+    @State private var selectedTab = ScoresTab.scores
     @State private var showDatePicker = false
     @EnvironmentObject private var appSettings: AppSettings
 
@@ -20,7 +24,7 @@ struct ScoresView: View {
         self.sport = sport
         self.initialDate = initialDate
         _viewModel = StateObject(wrappedValue: ScoresViewModel())
-        _selectedTab = State(initialValue: 0)
+        _selectedTab = State(initialValue: .scores)
         _showDatePicker = State(initialValue: false)
     }
 
@@ -28,7 +32,7 @@ struct ScoresView: View {
         VStack(spacing: 0) {
 
             // ── Date / Week navigation bar (only on Scores tab) ──────────
-            if selectedTab == 0 {
+            if selectedTab == .scores {
                 dateNavigationBar
                     .padding(.horizontal)
                     .padding(.top, 8)
@@ -42,12 +46,12 @@ struct ScoresView: View {
             // ── Tab selector (Scores / Standings / News / Stats [/ Polls]) ─
             Divider()
             Picker("View", selection: $selectedTab) {
-                Text("Scores").tag(0)
-                Text("Standings").tag(1)
-                Text("News").tag(2)
-                Text("Stats").tag(3)
+                Text("Scores").tag(ScoresTab.scores)
+                Text("Standings").tag(ScoresTab.standings)
+                Text("News").tag(ScoresTab.news)
+                Text("Stats").tag(ScoresTab.stats)
                 if sport.hasPolls {
-                    Text("Polls").tag(4)
+                    Text("Polls").tag(ScoresTab.polls)
                 }
             }
             .pickerStyle(.segmented)
@@ -69,9 +73,9 @@ struct ScoresView: View {
             }
         }
         // Auto-refresh loop — cancels and restarts whenever the interval changes
-        .task(id: viewModel.autoRefreshInterval) {
+        .task(id: appSettings.autoRefreshInterval) {
             while !Task.isCancelled {
-                let secs = viewModel.autoRefreshInterval.rawValue
+                let secs = appSettings.autoRefreshInterval.rawValue
                 if secs > 0 {
                     try? await Task.sleep(for: .seconds(secs))
                     guard !Task.isCancelled else { break }
@@ -85,7 +89,7 @@ struct ScoresView: View {
         .refreshable {
             // Refresh the active tab
             switch selectedTab {
-            case 0: await viewModel.refresh(for: sport)
+            case .scores: await viewModel.refresh(for: sport)
             default: break  // Standings and News have their own refresh
             }
         }
@@ -102,24 +106,24 @@ struct ScoresView: View {
         Menu {
             ForEach(AutoRefreshInterval.allCases) { interval in
                 Button {
-                    viewModel.autoRefreshInterval = interval
+                    appSettings.autoRefreshInterval = interval
                 } label: {
                     HStack {
                         Text(interval == .manual ? "Manual" : "Every \(interval.label)")
-                        if viewModel.autoRefreshInterval == interval {
+                        if appSettings.autoRefreshInterval == interval {
                             Image(systemName: "checkmark")
                         }
                     }
                 }
             }
         } label: {
-            Label(viewModel.autoRefreshInterval == .manual
+            Label(appSettings.autoRefreshInterval == .manual
                   ? "Manual"
-                  : "Auto \(viewModel.autoRefreshInterval.label)",
+                  : "Auto \(appSettings.autoRefreshInterval.label)",
                   systemImage: "arrow.clockwise")
             .font(.subheadline)
         }
-        .accessibilityLabel("Auto-refresh interval, currently \(viewModel.autoRefreshInterval == .manual ? "manual" : "every \(viewModel.autoRefreshInterval.label)")")
+        .accessibilityLabel("Auto-refresh interval, currently \(appSettings.autoRefreshInterval == .manual ? "manual" : "every \(appSettings.autoRefreshInterval.label)")")
     }
 
     // MARK: - Date / Week Navigation Bar
@@ -274,13 +278,13 @@ struct ScoresView: View {
     @ViewBuilder
     private var tabContent: some View {
         switch selectedTab {
-        case 1:
+        case .standings:
             StandingsView(sport: sport)
-        case 2:
+        case .news:
             NewsView(sport: sport)
-        case 3:
+        case .stats:
             StatisticsView(sport: sport)
-        case 4 where sport.hasPolls:
+        case .polls where sport.hasPolls:
             PollsView(sport: sport)
         default:
             scoresTab
@@ -292,19 +296,9 @@ struct ScoresView: View {
             if viewModel.isLoading {
                 ProgressView("Loading games...")
             } else if let error = viewModel.errorMessage {
-                VStack(spacing: 16) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 48))
-                        .foregroundColor(.orange)
-                    Text(error)
-                        .multilineTextAlignment(.center)
-                        .foregroundColor(.secondary)
-                    Button("Retry") {
-                        Task { await viewModel.fetchGames(for: sport) }
-                    }
-                    .buttonStyle(.bordered)
+                ErrorStateView(message: error) {
+                    Task { await viewModel.fetchGames(for: sport) }
                 }
-                .padding()
             } else if viewModel.games.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "calendar.badge.exclamationmark")

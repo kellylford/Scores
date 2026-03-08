@@ -44,17 +44,7 @@ struct NewsView: View {
     // MARK: - States
 
     private func errorState(message: String) -> some View {
-        VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48))
-                .foregroundColor(.orange)
-            Text(message)
-                .multilineTextAlignment(.center)
-                .foregroundColor(.secondary)
-            Button("Retry") { Task { await viewModel.fetchNews(for: sport) } }
-                .buttonStyle(.bordered)
-        }
-        .padding()
+        ErrorStateView(message: message) { Task { await viewModel.fetchNews(for: sport) } }
     }
 
     private var emptyState: some View {

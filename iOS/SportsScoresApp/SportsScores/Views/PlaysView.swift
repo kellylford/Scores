@@ -113,14 +113,6 @@ struct MLBPlaysView: View {
 
     private var audioBanner: some View {
         HStack(spacing: 10) {
-            Image(systemName: audio.isPlaying ? "speaker.wave.2.fill" : "music.note")
-                .foregroundColor(audio.isPlaying ? .blue : .secondary)
-                .frame(width: 20)
-            Text(audio.statusMessage.isEmpty
-                 ? "Focus a batter · swipe ↑↓ to step through pitches"
-                 : audio.statusMessage)
-                .font(.caption)
-                .foregroundColor(audio.isPlaying ? .primary : .secondary)
             Spacer()
             if audio.isPlaying {
                 Button("Stop") { audio.stop() }

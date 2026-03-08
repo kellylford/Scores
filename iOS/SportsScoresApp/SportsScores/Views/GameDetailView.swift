@@ -12,14 +12,17 @@ import SafariServices
 struct GameDetailView: View {
     let game: Game
     let sport: Sport
-    @State private var gameDetails: GameDetails?
-    @State private var isLoading = false
-    @State private var errorMessage: String?
+    @StateObject private var viewModel: GameDetailViewModel
     @State private var selectedSection = 0
-    @State private var showPitchMap = false
     @State private var showZoneExplorer = false
     @State private var showFieldTour = false
     @EnvironmentObject private var appSettings: AppSettings
+
+    init(game: Game, sport: Sport) {
+        self.game = game
+        self.sport = sport
+        _viewModel = StateObject(wrappedValue: GameDetailViewModel(game: game, sport: sport))
+    }
 
     // Audio engine shared across the plays view
     @StateObject private var pitchAudio = PitchAudioEngine()
@@ -32,25 +35,15 @@ struct GameDetailView: View {
 
             Divider()
 
-            if isLoading {
+            if viewModel.isLoading {
                 Spacer()
                 ProgressView("Loading details...")
                 Spacer()
-            } else if let error = errorMessage {
+            } else if let error = viewModel.errorMessage {
                 Spacer()
-                VStack(spacing: 16) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 48))
-                        .foregroundColor(.orange)
-                    Text(error)
-                        .multilineTextAlignment(.center)
-                        .foregroundColor(.secondary)
-                    Button("Retry") { Task { await loadDetails() } }
-                        .buttonStyle(.bordered)
-                }
-                .padding()
+                ErrorStateView(message: error) { Task { await viewModel.loadDetails() } }
                 Spacer()
-            } else if let details = gameDetails {
+            } else if let details = viewModel.gameDetails {
                 TabView(selection: $selectedSection) {
                     boxScoreTab(details: details).tag(0)
                     playsTab(details: details).tag(1)
@@ -62,7 +55,7 @@ struct GameDetailView: View {
                 .tabViewStyle(.page(indexDisplayMode: .never))
             }
 
-            if gameDetails != nil {
+            if viewModel.gameDetails != nil {
                 Divider()
                 Picker("Section", selection: $selectedSection) {
                     Text("Box Score").tag(0)
@@ -88,22 +81,8 @@ struct GameDetailView: View {
                 }
             }
         }
-        .sheet(isPresented: $showPitchMap) {
-            if let details = gameDetails {
-                NavigationStack {
-                    PitchMapView(plays: details.plays ?? [])
-                        .navigationTitle("Pitch Map")
-                        .navigationBarTitleDisplayMode(.inline)
-                        .toolbar {
-                            ToolbarItem(placement: .confirmationAction) {
-                                Button("Done") { showPitchMap = false }
-                            }
-                        }
-                }
-            }
-        }
         .sheet(isPresented: $showZoneExplorer) {
-            if let details = gameDetails {
+            if let details = viewModel.gameDetails {
                 NavigationStack {
                     PitchZoneExplorerView(plays: details.plays ?? [])
                         .navigationTitle("Zone Explorer")
@@ -132,7 +111,7 @@ struct GameDetailView: View {
                 }
             }
         }
-        .task { await loadDetails() }
+        .task { await viewModel.loadDetails() }
     }
 
     // MARK: - Game Header
@@ -196,7 +175,7 @@ struct GameDetailView: View {
             }
 
             // Odds (when available from summary API)
-            if let odds = gameDetails?.odds?.first {
+            if let odds = viewModel.gameDetails?.odds?.first {
                 HStack(spacing: 12) {
                     if let spread = odds.details, !spread.isEmpty {
                         Text("Line: \(spread)")
@@ -296,13 +275,6 @@ struct GameDetailView: View {
                     if plays.contains(where: { $0.isPitch }) {
                         HStack(spacing: 8) {
                             Spacer()
-                            Button {
-                                showPitchMap = true
-                            } label: {
-                                Label("Strike Zone Map", systemImage: "square.grid.2x2")
-                                    .font(.caption)
-                            }
-                            .buttonStyle(.bordered)
                             Button {
                                 showZoneExplorer = true
                             } label: {
@@ -617,19 +589,6 @@ struct GameDetailView: View {
         .cornerRadius(12)
     }
 
-    // MARK: - Data Loading
-
-    private func loadDetails() async {
-        isLoading = true
-        errorMessage = nil
-        do {
-            gameDetails = try await ESPNAPIService.shared.fetchGameDetails(for: game.id, sport: sport)
-        } catch {
-            errorMessage = "Failed to load details: \(error.localizedDescription)"
-        }
-        isLoading = false
-    }
-
     // MARK: - Share Summary
 
     private var gameSummaryText: String {
@@ -641,14 +600,14 @@ struct GameDetailView: View {
         if let venue = game.venue {
             lines.append(venue.fullName)
         }
-        if let odds = gameDetails?.odds?.first {
+        if let odds = viewModel.gameDetails?.odds?.first {
             var parts: [String] = []
             if let s = odds.details { parts.append("Line: \(s)") }
             if let o = odds.overUnder { parts.append("O/U: \(String(format: "%.1f", o))") }
             if !parts.isEmpty { lines.append(parts.joined(separator: "  ")) }
         }
         // Top leaders
-        if let raw = gameDetails?.leaders, !raw.isEmpty {
+        if let raw = viewModel.gameDetails?.leaders, !raw.isEmpty {
             lines.append("")
             lines.append("Leaders:")
             for entry in raw.prefix(4) {

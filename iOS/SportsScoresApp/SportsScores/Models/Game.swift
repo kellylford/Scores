@@ -21,11 +21,15 @@ struct Game: Identifiable, Codable {
     /// ESPN season type — 1 preseason, 2 regular, 3 postseason (default 2).
     let seasonType: Int
     
+    private static let displayTimeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "EEE M/d h:mm a"
+        f.timeZone = TimeZone.current
+        return f
+    }()
+
     var displayTime: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEE M/d h:mm a"
-        formatter.timeZone = TimeZone.current
-        return formatter.string(from: date)
+        Game.displayTimeFormatter.string(from: date)
     }
     
     var scoreDisplay: String {
@@ -207,32 +211,42 @@ extension Game.Team {
 
 // MARK: - API Response Models
 extension Game {
+    // Static formatters for ESPN ISO-8601 date variants. Each has a fixed
+    // dateFormat so only date(from:) is called after initialization —
+    // safe for use across async Task contexts within the cooperative pool.
+    private static let apiDateFmt1: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(secondsFromGMT: 0)
+        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"   // most common: 2026-01-05T01:20:00Z
+        return f
+    }()
+    private static let apiDateFmt2: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(secondsFromGMT: 0)
+        f.dateFormat = "yyyy-MM-dd'T'HH:mm'Z'"       // compact: 2026-01-05T01:20Z
+        return f
+    }()
+    private static let apiDateFmt3: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(secondsFromGMT: 0)
+        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'" // with milliseconds
+        return f
+    }()
+
     init(from apiResponse: APIGame, seasonType: Int = 2) throws {
         self.id = apiResponse.id
         self.name = apiResponse.name
         self.shortName = apiResponse.shortName
         self.seasonType = seasonType
-        
-        // Parse date - ESPN returns dates in ISO8601 format (e.g., "2026-01-05T01:20Z")
-        let dateFormatter = DateFormatter()
-        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
-        dateFormatter.timeZone = TimeZone(secondsFromGMT: 0)
-        
-        // ESPN returns several ISO-8601 variants; try most common first
-        let dateFormats = [
-            "yyyy-MM-dd'T'HH:mm:ss'Z'",   // most common: 2026-01-05T01:20:00Z
-            "yyyy-MM-dd'T'HH:mm'Z'",       // compact: 2026-01-05T01:20Z
-            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'" // with milliseconds
-        ]
-        var parsedDate: Date?
-        for fmt in dateFormats {
-            dateFormatter.dateFormat = fmt
-            if let d = dateFormatter.date(from: apiResponse.date) {
-                parsedDate = d
-                break
-            }
-        }
-        self.date = parsedDate ?? Date()
+
+        // Parse date — try each ESPN ISO-8601 variant in order
+        self.date = Game.apiDateFmt1.date(from: apiResponse.date)
+            ?? Game.apiDateFmt2.date(from: apiResponse.date)
+            ?? Game.apiDateFmt3.date(from: apiResponse.date)
+            ?? Date()
         
         // Parse status
         self.status = GameStatus(

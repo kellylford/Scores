@@ -277,7 +277,11 @@ struct BoxScoreView: View {
             ? allStatNames
             : filterPlayerStatNames(allStatNames, for: statGroup.type, profile: profile)
         
-        let athletes = statGroup.athletes.filter { $0.isActive }
+        // Show all athletes regardless of active state.
+        // For baseball, pitchers are marked active:false once done pitching, but
+        // we still want to display their stats. For basketball, inactive = DNP,
+        // which are also useful to show (zero minutes, etc.).
+        let athletes = statGroup.athletes
         
         // Create filtered stats array (only include columns that are in filteredStatNames)
         let filteredAthletes: [(athlete: GameDetails.Boxscore.TeamPlayers.PlayerStatGroup.AthleteStats, filteredStats: [String])] = athletes.map { athlete in
@@ -396,14 +400,15 @@ enum BoxScoreProfiles {
     
     static let mlb = BoxScoreProfile(
         essentialTeamStats: [
-            // Batting
-            "hits", "runs", "leftOnBase", "homeRuns", "runsBattedIn", "walks", "strikeOuts",
+            // Batting — names match ESPN's boxscore.teams[].statistics[].stats[].name
+            "hits", "runs", "runnersLeftOnBase", "homeRuns", "RBIs", "walks", "strikeouts",
             // Pitching
-            "earnedRuns", "strikeOuts", "walks", "homeRuns"
+            "earnedRuns", "strikeouts", "walks", "homeRuns"
         ],
         essentialPlayerStats: [
-            "batting": ["ab", "r", "h", "rbi", "bb", "so", "avg"],
-            "pitching": ["ip", "h", "r", "er", "bb", "so", "era"]
+            // Column names match ESPN's boxscore.players[].statistics[].names[] display values
+            "batting":  ["h-ab", "ab", "r", "h", "rbi", "bb", "k", "avg"],
+            "pitching": ["ip", "h", "r", "er", "bb", "k", "era"]
         ]
     )
     

@@ -9,7 +9,8 @@ import SwiftUI
 
 struct LiveScoresView: View {
     @StateObject private var viewModel = LiveScoresViewModel()
-    
+    @EnvironmentObject private var appSettings: AppSettings
+
     var body: some View {
         Group {
             if viewModel.isLoading {
@@ -40,19 +41,19 @@ struct LiveScoresView: View {
                 Menu {
                     ForEach(AutoRefreshInterval.allCases) { interval in
                         Button {
-                            viewModel.autoRefreshInterval = interval
+                            appSettings.autoRefreshInterval = interval
                         } label: {
                             HStack {
                                 Text(interval == .manual ? "Manual" : "Every \(interval.label)")
-                                if viewModel.autoRefreshInterval == interval {
+                                if appSettings.autoRefreshInterval == interval {
                                     Image(systemName: "checkmark")
                                 }
                             }
                         }
                     }
                 } label: {
-                    Label(viewModel.autoRefreshInterval == .manual
-                          ? "Manual" : "Auto \(viewModel.autoRefreshInterval.label)",
+                    Label(appSettings.autoRefreshInterval == .manual
+                          ? "Manual" : "Auto \(appSettings.autoRefreshInterval.label)",
                           systemImage: "arrow.clockwise")
                     .font(.subheadline)
                 }
@@ -61,9 +62,9 @@ struct LiveScoresView: View {
         .task {
             await viewModel.fetchAllGames()
         }
-        .task(id: viewModel.autoRefreshInterval) {
+        .task(id: appSettings.autoRefreshInterval) {
             while !Task.isCancelled {
-                let secs = viewModel.autoRefreshInterval.rawValue
+                let secs = appSettings.autoRefreshInterval.rawValue
                 if secs > 0 {
                     try? await Task.sleep(for: .seconds(secs))
                     guard !Task.isCancelled else { break }

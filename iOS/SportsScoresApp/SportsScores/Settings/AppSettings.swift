@@ -14,6 +14,7 @@ import Combine
 
 private enum StorageKeys {
     static let teamNamePreference = "teamNamePreference"
+    static let autoRefreshInterval = "autoRefreshInterval"
 }
 
 @MainActor
@@ -32,10 +33,26 @@ final class AppSettings: ObservableObject {
         }
     }
 
+    // MARK: - Auto-Refresh Interval
+
+    /// Shared refresh cadence used by both ScoresView and LiveScoresView.
+    /// Persisted in UserDefaults so it survives app restarts.
+    @Published var autoRefreshInterval: AutoRefreshInterval {
+        didSet {
+            UserDefaults.standard.set(
+                autoRefreshInterval.rawValue,
+                forKey: StorageKeys.autoRefreshInterval
+            )
+        }
+    }
+
     // MARK: - Init
 
     init() {
         let raw = UserDefaults.standard.string(forKey: StorageKeys.teamNamePreference) ?? ""
         teamNamePreference = TeamNamePreference(rawValue: raw) ?? .full
+
+        let storedInterval = UserDefaults.standard.object(forKey: StorageKeys.autoRefreshInterval) as? Int
+        autoRefreshInterval = storedInterval.flatMap { AutoRefreshInterval(rawValue: $0) } ?? .oneMinute
     }
 }

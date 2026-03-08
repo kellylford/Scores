@@ -16,21 +16,9 @@ struct StandingsView: View {
             if viewModel.isLoading {
                 ProgressView("Loading standings...")
             } else if let error = viewModel.errorMessage {
-                VStack(spacing: 16) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 48))
-                        .foregroundColor(.orange)
-                    Text(error)
-                        .multilineTextAlignment(.center)
-                        .foregroundColor(.secondary)
-                    Button("Retry") {
-                        Task {
-                            await viewModel.fetchStandings(for: sport)
-                        }
-                    }
-                    .buttonStyle(.bordered)
+                ErrorStateView(message: error) {
+                    Task { await viewModel.fetchStandings(for: sport) }
                 }
-                .padding()
             } else if viewModel.standingsGroups.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "list.bullet.clipboard")

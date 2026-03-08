@@ -185,7 +185,7 @@ final class AccessibleDataTableView: UIView,
 
     /// Column header for each column — called when VoiceOver navigates down a column.
     @objc(accessibilityHeaderElementsForColumn:)
-    func accessibilityHeaderElements(forColumn column: Int) -> [Any]? {
+    func accessibilityHeaderElements(forColumn column: Int) -> [UIAccessibilityElement]? {
         guard column < headerElements.count else { return nil }
         return [headerElements[column]]
     }
@@ -195,7 +195,7 @@ final class AccessibleDataTableView: UIView,
     /// team name automatically as context whenever the user navigates across a row.
     /// row 0 is the column-header row itself; data rows start at 1.
     @objc(accessibilityHeaderElementsForRow:)
-    func accessibilityHeaderElements(forRow row: Int) -> [Any]? {
+    func accessibilityHeaderElements(forRow row: Int) -> [UIAccessibilityElement]? {
         guard row > 0 else { return nil }          // row 0 = column-header row; no row-header for it
         let dataRow = row - 1
         guard dataRow < rowElements.count,

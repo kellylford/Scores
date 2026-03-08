@@ -52,9 +52,6 @@ class ScoresViewModel: ObservableObject {
     /// The earliest NFL/football season available in the ESPN API.
     let earliestFootballSeason: Int = 2001
 
-    // Auto-refresh
-    @Published var autoRefreshInterval: AutoRefreshInterval = .oneMinute
-
     // MARK: - Sectioned game lists
 
     var inProgressGames: [Game] { games.filter { $0.status.isLive } }

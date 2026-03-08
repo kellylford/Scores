@@ -14,7 +14,6 @@ class LiveScoresViewModel: ObservableObject {
     @Published var upcomingGames: [SportGames] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
-    @Published var autoRefreshInterval: AutoRefreshInterval = .oneMinute
     
     private let apiService = ESPNAPIService.shared
     
@@ -27,55 +26,71 @@ class LiveScoresViewModel: ObservableObject {
     func fetchAllGames() async {
         isLoading = true
         errorMessage = nil
-        
-        var live: [SportGames] = []
-        var completed: [SportGames] = []
-        var upcoming: [SportGames] = []
-        
-        // Get today's date range (midnight to midnight in local timezone)
+
+        // Today's date boundaries for filtering
         let calendar = Calendar.current
         let now = Date()
         let startOfToday = calendar.startOfDay(for: now)
         let endOfToday = calendar.date(byAdding: .day, value: 1, to: startOfToday)!
-        
-        // Fetch games for all sports
-        for sport in Sport.allCases {
-            do {
-                let games = try await apiService.fetchGames(for: sport)
-                
-                // Filter to only today's games
-                let todaysGames = games.filter { game in
-                    game.date >= startOfToday && game.date < endOfToday
+
+        // Fetch all sports in parallel. Football uses the week-based endpoint;
+        // all other sports use the date-based endpoint.
+        let results: [(Sport, [Game])] = await withTaskGroup(of: (Sport, [Game]).self) { group in
+            for sport in Sport.allCases {
+                group.addTask {
+                    do {
+                        let games: [Game]
+                        if sport.isFootball {
+                            // Football is organised by week, not calendar date.
+                            let result = try await self.apiService.fetchFootballGames(for: sport)
+                            games = result.games
+                        } else {
+                            games = try await self.apiService.fetchGames(for: sport)
+                        }
+                        return (sport, games)
+                    } catch {
+                        print("Failed to fetch games for \(sport.rawValue): \(error)")
+                        return (sport, [])
+                    }
                 }
-                
-                // Further filter into categories
-                let liveGamesForSport = todaysGames.filter { $0.status.isLive }
-                let completedGamesForSport = todaysGames.filter { $0.status.isCompleted }
-                let upcomingGamesForSport = todaysGames.filter { !$0.status.isLive && !$0.status.isCompleted }
-                
-                if !liveGamesForSport.isEmpty {
-                    live.append(SportGames(sport: sport, games: liveGamesForSport))
-                }
-                if !completedGamesForSport.isEmpty {
-                    completed.append(SportGames(sport: sport, games: completedGamesForSport))
-                }
-                if !upcomingGamesForSport.isEmpty {
-                    upcoming.append(SportGames(sport: sport, games: upcomingGamesForSport))
-                }
-            } catch {
-                // Continue with other sports even if one fails
-                print("Failed to fetch games for \(sport.rawValue): \(error)")
             }
+            var collected: [(Sport, [Game])] = []
+            for await pair in group { collected.append(pair) }
+            // Restore consistent ordering (Sport.allCases order)
+            return collected.sorted { Sport.allCases.firstIndex(of: $0.0)! < Sport.allCases.firstIndex(of: $1.0)! }
         }
-        
+
+        var live: [SportGames] = []
+        var completed: [SportGames] = []
+        var upcoming: [SportGames] = []
+
+        for (sport, games) in results {
+            // Football: keep all games returned (week-based, not date-filtered).
+            // Other sports: restrict to today.
+            let relevantGames: [Game]
+            if sport.isFootball {
+                relevantGames = games
+            } else {
+                relevantGames = games.filter { $0.date >= startOfToday && $0.date < endOfToday }
+            }
+
+            let liveGamesForSport     = relevantGames.filter { $0.status.isLive }
+            let completedGamesForSport = relevantGames.filter { $0.status.isCompleted }
+            let upcomingGamesForSport  = relevantGames.filter { !$0.status.isLive && !$0.status.isCompleted }
+
+            if !liveGamesForSport.isEmpty     { live.append(SportGames(sport: sport, games: liveGamesForSport)) }
+            if !completedGamesForSport.isEmpty { completed.append(SportGames(sport: sport, games: completedGamesForSport)) }
+            if !upcomingGamesForSport.isEmpty  { upcoming.append(SportGames(sport: sport, games: upcomingGamesForSport)) }
+        }
+
         liveGames = live
         completedGames = completed
         upcomingGames = upcoming
-        
+
         if live.isEmpty && completed.isEmpty && upcoming.isEmpty {
             errorMessage = "No games scheduled today"
         }
-        
+
         isLoading = false
     }
     
