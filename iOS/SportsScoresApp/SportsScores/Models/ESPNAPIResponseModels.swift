@@ -44,6 +44,10 @@ struct CoreLeadersAPIResponse: Codable {
         
         struct CoreLeader: Codable {
             let displayValue: String?
+            /// The raw numeric stat value (e.g. 0.331 for BA, 4.0 for HR count).
+            /// Use this instead of displayValue for MLB, whose displayValue is a
+            /// full stats-line string like "9-17, 4 HR, 2B, 6 RBI, 7 R, 3 BB, 4 K".
+            let value: Double?
             let athlete: Reference?
             let team: Reference?
             

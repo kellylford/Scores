@@ -298,12 +298,13 @@ class ESPNAPIService {
         // them all in parallel (one TaskGroup), not sequentially per leader.
         // Sequential resolution for MLB (20 cats × 10 leaders × 2 refs = 400 calls)
         // would exceed the 30-second URLSession timeout. Parallel cuts this to ~1-2s.
+        // NOTE: ESPN Core API $refs use http://, which iOS ATS blocks. Upgrade to https://.
         var athleteRefs = Set<String>()
         var teamRefs    = Set<String>()
         for category in categories {
             for leader in category.leaders ?? [] {
-                if let ref = leader.athlete?.ref { athleteRefs.insert(ref) }
-                if let ref = leader.team?.ref    { teamRefs.insert(ref) }
+                if let ref = leader.athlete?.ref { athleteRefs.insert(secureURL(ref)) }
+                if let ref = leader.team?.ref    { teamRefs.insert(secureURL(ref)) }
             }
         }
         
@@ -316,17 +317,26 @@ class ESPNAPIService {
         return categories.map { category in
             let leaders = (category.leaders ?? []).enumerated().map { index, leader -> LeagueLeaderCategory.LeagueLeaderEntry in
                 let athleteName: String
-                if let ref = leader.athlete?.ref, let ath = athletes[ref] {
-                    athleteName = ath.displayName ?? "Unknown"
-                } else if let ref = leader.team?.ref, let team = teams[ref] {
-                    athleteName = team.displayName ?? "Unknown"
+                // Look up athlete/team using the https-upgraded ref to match the cache keys
+                if let ref = leader.athlete?.ref, let ath = athletes[secureURL(ref)] {
+                    athleteName = ath.displayName ?? "—"
+                } else if let ref = leader.team?.ref, let team = teams[secureURL(ref)] {
+                    athleteName = team.displayName ?? "—"
                 } else {
-                    athleteName = "Unknown"
+                    athleteName = "—"
                 }
-                let teamAbbr = leader.team?.ref.flatMap { teams[$0]?.abbreviation } ?? ""
+                let teamAbbr = leader.team?.ref.flatMap { teams[secureURL($0)]?.abbreviation } ?? ""
+                // MLB displayValue is a full stats-line (e.g. "9-17, 4 HR, 2B, 6 RBI...").
+                // Use the numeric value field with smart formatting instead.
+                let statDisplay: String
+                if let v = leader.value {
+                    statDisplay = formatLeaderStatValue(v)
+                } else {
+                    statDisplay = leader.displayValue ?? "-"
+                }
                 return LeagueLeaderCategory.LeagueLeaderEntry(
                     rank: index + 1,
-                    displayValue: leader.displayValue ?? "-",
+                    displayValue: statDisplay,
                     athleteName: athleteName,
                     teamAbbreviation: teamAbbr
                 )
@@ -336,6 +346,29 @@ class ESPNAPIService {
                 displayName: category.displayName ?? "",
                 leaders: leaders
             )
+        }
+    }
+
+    /// Upgrade a Core API $ref URL from http:// to https:// so iOS ATS allows the connection.
+    private func secureURL(_ ref: String) -> String {
+        ref.hasPrefix("http://") ? "https://" + ref.dropFirst(7) : ref
+    }
+
+    /// Format a raw numeric stat value for display in the leaders table.
+    ///  - Values < 1.0  → 3-decimal batting-average style  (e.g. 0.331 → ".331")
+    ///  - Whole numbers  → integer counting stat            (e.g. 4.0  → "4")
+    ///  - Decimal ≥ 1   → 2-decimal rate stat              (e.g. 2.75 → "2.75")
+    private func formatLeaderStatValue(_ value: Double) -> String {
+        if value < 1.0 {
+            // batting average / OBP / SLG / OPS-under-1 style
+            let s = String(format: "%.3f", value)
+            return s.hasPrefix("0.") ? String(s.dropFirst()) : s  // ".333" not "0.333"
+        } else if value == floor(value) {
+            // counting stat: HR, RBI, K, SB, W, etc.
+            return "\(Int(value))"
+        } else {
+            // rate stat ≥ 1: ERA, WHIP, etc.
+            return String(format: "%.2f", value)
         }
     }
 

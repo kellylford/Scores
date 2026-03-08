@@ -53,6 +53,6 @@ final class AppSettings: ObservableObject {
         teamNamePreference = TeamNamePreference(rawValue: raw) ?? .full
 
         let storedInterval = UserDefaults.standard.object(forKey: StorageKeys.autoRefreshInterval) as? Int
-        autoRefreshInterval = storedInterval.flatMap { AutoRefreshInterval(rawValue: $0) } ?? .oneMinute
+        autoRefreshInterval = storedInterval.flatMap { AutoRefreshInterval(rawValue: $0) } ?? .manual
     }
 }
