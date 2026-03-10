@@ -287,13 +287,16 @@ struct GameDetails: Codable {
             }
             
             struct PlayerStatGroup: Codable {
-                let type: String
+                /// ESPN uses "type" for MLB/NFL/NBA, "name" for NHL/NCAAH.
+                /// Both serve as the group identifier (e.g. "forwards", "goalies", "passing").
+                let type: String?
+                let name: String?
                 let names: [String]?
                 let labels: [String]?
                 let keys: [String]?
                 let athletes: [AthleteStats]
                 
-                var groupTitle: String { type.capitalized }
+                var groupTitle: String { (type ?? name ?? "unknown").capitalized }
                 
                 /// Column headers for player stats. MLB uses 'names', NFL/NBA/NHL use 'labels'.
                 var columnHeaders: [String] { names ?? labels ?? [] }

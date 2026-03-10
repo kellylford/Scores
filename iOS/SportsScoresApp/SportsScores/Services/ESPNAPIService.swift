@@ -308,9 +308,13 @@ class ESPNAPIService {
             }
         }
         
+        // Copy to immutable constants before concurrent use (Swift 6: var capture in async let is an error)
+        let frozenAthleteRefs = athleteRefs
+        let frozenTeamRefs    = teamRefs
+        
         // Resolve all unique refs in parallel
-        async let athleteTask = resolveRefs(athleteRefs, as: CoreAthleteResponse.self)
-        async let teamTask    = resolveRefs(teamRefs,    as: CoreTeamResponse.self)
+        async let athleteTask = resolveRefs(frozenAthleteRefs, as: CoreAthleteResponse.self)
+        async let teamTask    = resolveRefs(frozenTeamRefs,    as: CoreTeamResponse.self)
         let (athletes, teams) = await (athleteTask, teamTask)
         
         // Build results using the resolved caches

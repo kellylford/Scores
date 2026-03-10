@@ -275,7 +275,7 @@ struct BoxScoreView: View {
         // Filter stat columns based on profile if not showing all
         let filteredStatNames = showingAllStats 
             ? allStatNames
-            : filterPlayerStatNames(allStatNames, for: statGroup.type, profile: profile)
+            : filterPlayerStatNames(allStatNames, for: statGroup.type ?? statGroup.name ?? "", profile: profile)
         
         // Show all athletes regardless of active state.
         // For baseball, pitchers are marked active:false once done pitching, but
