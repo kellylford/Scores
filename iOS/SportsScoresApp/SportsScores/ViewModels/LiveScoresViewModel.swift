@@ -33,20 +33,15 @@ class LiveScoresViewModel: ObservableObject {
         let startOfToday = calendar.startOfDay(for: now)
         let endOfToday = calendar.date(byAdding: .day, value: 1, to: startOfToday)!
 
-        // Fetch all sports in parallel. Football uses the week-based endpoint;
-        // all other sports use the date-based endpoint.
+        // Fetch all sports in parallel. ESPN's scoreboard with no date param defaults
+        // to the current day's games for all sports, including football. We then
+        // apply the today filter uniformly so off-season / wrong-week games never
+        // leak into Live Scores.
         let results: [(Sport, [Game])] = await withTaskGroup(of: (Sport, [Game]).self) { group in
             for sport in Sport.allCases {
                 group.addTask {
                     do {
-                        let games: [Game]
-                        if sport.isFootball {
-                            // Football is organised by week, not calendar date.
-                            let result = try await self.apiService.fetchFootballGames(for: sport)
-                            games = result.games
-                        } else {
-                            games = try await self.apiService.fetchGames(for: sport)
-                        }
+                        let games = try await self.apiService.fetchGames(for: sport)
                         return (sport, games)
                     } catch {
                         print("Failed to fetch games for \(sport.rawValue): \(error)")
@@ -65,16 +60,10 @@ class LiveScoresViewModel: ObservableObject {
         var upcoming: [SportGames] = []
 
         for (sport, games) in results {
-            // Football: keep all games returned (week-based, not date-filtered).
-            // Other sports: restrict to today.
-            let relevantGames: [Game]
-            if sport.isFootball {
-                relevantGames = games
-            } else {
-                relevantGames = games.filter { $0.date >= startOfToday && $0.date < endOfToday }
-            }
+            // Restrict every sport to today — no special football exemption.
+            let relevantGames = games.filter { $0.date >= startOfToday && $0.date < endOfToday }
 
-            let liveGamesForSport     = relevantGames.filter { $0.status.isLive }
+            let liveGamesForSport      = relevantGames.filter { $0.status.isLive }
             let completedGamesForSport = relevantGames.filter { $0.status.isCompleted }
             let upcomingGamesForSport  = relevantGames.filter { !$0.status.isLive && !$0.status.isCompleted }
 
