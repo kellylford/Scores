@@ -420,12 +420,20 @@ struct GameRow: View {
 
             // Live situation line
             if game.status.isLive, let sit = game.situation {
-                // MLB: show base runners + count
+                // MLB: show base runners + count, then pitcher/batter on second line
                 if sport == .mlb, let baseInfo = sit.baseballSituationText {
-                    Text(baseInfo)
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                        .lineLimit(1)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(baseInfo)
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                            .lineLimit(2)
+                        if let p = sit.pitcherName, let b = sit.batterName {
+                            Text("P: \(p)  ·  AB: \(b)")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
                 } else if let text = sit.displayText, !text.isEmpty {
                     // Football: down/distance + optional red zone badge; other: last play
                     HStack(spacing: 6) {
@@ -504,6 +512,8 @@ struct GameRow: View {
         if game.status.isLive, let sit = game.situation {
             if sport == .mlb, let baseInfo = sit.baseballSituationText {
                 parts.append(baseInfo)
+                if let p = sit.pitcherName { parts.append("Pitching: \(p)") }
+                if let b = sit.batterName  { parts.append("At bat: \(b)") }
             } else if let t = sit.displayText {
                 parts.append(t)
                 if sit.isRedZone == true { parts.append("Red Zone") }

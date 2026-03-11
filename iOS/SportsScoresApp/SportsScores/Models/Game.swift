@@ -145,6 +145,11 @@ struct Game: Identifiable, Codable {
         let outs: Int?
         let balls: Int?
         let strikes: Int?
+        // Baseball pitcher / batter names
+        let pitcherName: String?
+        let batterName: String?
+        let pitcherSummary: String?
+        let batterSummary: String?
         // Football red zone
         let isRedZone: Bool?
 
@@ -156,6 +161,7 @@ struct Game: Identifiable, Codable {
         }
 
         /// Non-nil for live baseball games — e.g. "1st & 3rd, 3-2, 1 out"
+        /// Pitcher/batter are surfaced separately via pitcherName/batterName.
         var baseballSituationText: String? {
             guard balls != nil || outs != nil || onFirst != nil else { return nil }
             var parts: [String] = []
@@ -300,6 +306,12 @@ extension Game {
                 outs: situationData.outs,
                 balls: situationData.balls,
                 strikes: situationData.strikes,
+                pitcherName: situationData.pitcher?.athlete?.shortName
+                             ?? situationData.pitcher?.athlete?.displayName,
+                batterName:  situationData.batter?.athlete?.shortName
+                             ?? situationData.batter?.athlete?.displayName,
+                pitcherSummary: situationData.pitcher?.summary,
+                batterSummary:  situationData.batter?.summary,
                 isRedZone: situationData.isRedZone
             )
         } else {
@@ -380,11 +392,24 @@ struct APIGame: Codable {
             let outs: Int?
             let balls: Int?
             let strikes: Int?
+            // Baseball pitcher / batter
+            let pitcher: APISituationPlayer?
+            let batter: APISituationPlayer?
             // Football
             let isRedZone: Bool?
 
             struct APILastPlay: Codable {
                 let text: String?
+            }
+
+            struct APISituationPlayer: Codable {
+                let athlete: APIAthlete?
+                let summary: String?
+
+                struct APIAthlete: Codable {
+                    let shortName: String?
+                    let displayName: String?
+                }
             }
         }
     }
