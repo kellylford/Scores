@@ -1,5 +1,5 @@
 //
-//  AccessibleTableBridge.swift
+//          AccessibleTableBridge.swift
 //  SportsScores
 //
 //  A thin UIKit bridge that gives VoiceOver proper data-table navigation for
@@ -42,15 +42,18 @@ import UIKit
 /// Implements `UIAccessibilityContainerDataTableCell` so VoiceOver can
 /// announce the cell's position ("row 2, column 3 of 6").
 final class DataTableCellElement: UIAccessibilityElement,
-                                  UIAccessibilityContainerDataTableCell {
+    UIAccessibilityContainerDataTableCell
+{
     private let _row: Int
     private let _col: Int
 
-    init(container: AccessibleDataTableView,
-         label: String,
-         traits: UIAccessibilityTraits = .none,
-         row: Int,
-         col: Int) {
+    init(
+        container: AccessibleDataTableView,
+        label: String,
+        traits: UIAccessibilityTraits = .none,
+        row: Int,
+        col: Int
+    ) {
         self._row = row
         self._col = col
         super.init(accessibilityContainer: container)
@@ -75,15 +78,16 @@ final class DataTableCellElement: UIAccessibilityElement,
 /// Set `allowsHitTesting(false)` in SwiftUI so touches pass through to the
 /// visual layer underneath.
 final class AccessibleDataTableView: UIView,
-                                     UIAccessibilityContainerDataTable {
+    UIAccessibilityContainerDataTable
+{
 
     // MARK: Public inputs
     var columnHeaders: [String] = [] { didSet { rebuild() } }
-    var dataRows: [[String]] = []    { didSet { rebuild() } }
+    var dataRows: [[String]] = [] { didSet { rebuild() } }
 
     // MARK: Private state
     private var headerElements: [DataTableCellElement] = []
-    private var rowElements:    [[DataTableCellElement]] = []
+    private var rowElements: [[DataTableCellElement]] = []
 
     // MARK: Init
 
@@ -94,7 +98,9 @@ final class AccessibleDataTableView: UIView,
         backgroundColor = .clear
     }
 
-    required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) not implemented")
+    }
 
     // MARK: Layout
 
@@ -108,7 +114,7 @@ final class AccessibleDataTableView: UIView,
     private func rebuild() {
         guard !columnHeaders.isEmpty else {
             headerElements = []
-            rowElements    = []
+            rowElements = []
             return
         }
 
@@ -117,11 +123,11 @@ final class AccessibleDataTableView: UIView,
 
         // Divide the view bounds into a logical grid for focus-rectangle placement.
         // Column 0 (Team / Stat name) gets 40% of width; rest split equally.
-        let totalW      = max(1, bounds.width)
-        let totalH      = max(1, bounds.height)
-        let col0W       = totalW * 0.40
-        let otherColW   = ncols > 1 ? (totalW - col0W) / CGFloat(ncols - 1) : 0
-        let rowH        = totalH / CGFloat(nrows + 1) // +1 for header
+        let totalW = max(1, bounds.width)
+        let totalH = max(1, bounds.height)
+        let col0W = totalW * 0.40
+        let otherColW = ncols > 1 ? (totalW - col0W) / CGFloat(ncols - 1) : 0
+        let rowH = totalH / CGFloat(nrows + 1)  // +1 for header
 
         func xOffset(col: Int) -> CGFloat {
             col == 0 ? 0 : col0W + CGFloat(col - 1) * otherColW
@@ -137,7 +143,10 @@ final class AccessibleDataTableView: UIView,
                 width: colWidth(col: col),
                 height: rowH
             )
-            return UIAccessibility.convertToScreenCoordinates(localFrame, in: self)
+            return UIAccessibility.convertToScreenCoordinates(
+                localFrame,
+                in: self
+            )
         }
 
         // Column header row (accessibility row 0) — .header trait so VoiceOver
@@ -176,7 +185,7 @@ final class AccessibleDataTableView: UIView,
     // MARK: UIAccessibilityContainerDataTable
 
     @objc func accessibilityRowCount() -> Int {
-        dataRows.count + 1 // data rows + header row
+        dataRows.count + 1  // data rows + header row
     }
 
     @objc func accessibilityColumnCount() -> Int {
@@ -185,7 +194,9 @@ final class AccessibleDataTableView: UIView,
 
     /// Column header for each column — called when VoiceOver navigates down a column.
     @objc(accessibilityHeaderElementsForColumn:)
-    func accessibilityHeaderElements(forColumn column: Int) -> [any UIAccessibilityContainerDataTableCell]? {
+    func accessibilityHeaderElements(forColumn column: Int)
+        -> [any UIAccessibilityContainerDataTableCell]?
+    {
         guard column < headerElements.count else { return nil }
         return [headerElements[column]]
     }
@@ -195,21 +206,27 @@ final class AccessibleDataTableView: UIView,
     /// team name automatically as context whenever the user navigates across a row.
     /// row 0 is the column-header row itself; data rows start at 1.
     @objc(accessibilityHeaderElementsForRow:)
-    func accessibilityHeaderElements(forRow row: Int) -> [any UIAccessibilityContainerDataTableCell]? {
-        guard row > 0 else { return nil }          // row 0 = column-header row; no row-header for it
+    func accessibilityHeaderElements(forRow row: Int)
+        -> [any UIAccessibilityContainerDataTableCell]?
+    {
+        guard row > 0 else { return nil }  // row 0 = column-header row; no row-header for it
         let dataRow = row - 1
         guard dataRow < rowElements.count,
-              !rowElements[dataRow].isEmpty else { return nil }
-        return [rowElements[dataRow][0]]           // column-0 cell is the row header
+            !rowElements[dataRow].isEmpty
+        else { return nil }
+        return [rowElements[dataRow][0]]  // column-0 cell is the row header
     }
 
-    @objc func accessibilityDataTableCellElement(forRow row: Int, column: Int) -> (any UIAccessibilityContainerDataTableCell)? {
+    @objc func accessibilityDataTableCellElement(forRow row: Int, column: Int)
+        -> (any UIAccessibilityContainerDataTableCell)?
+    {
         if row == 0 {
             return column < headerElements.count ? headerElements[column] : nil
         }
         let dataRow = row - 1
         guard dataRow < rowElements.count,
-              column < rowElements[dataRow].count else { return nil }
+            column < rowElements[dataRow].count
+        else { return nil }
         return rowElements[dataRow][column]
     }
 
@@ -247,8 +264,10 @@ struct AccessibleDataTable: UIViewRepresentable {
 
     func updateUIView(_ uiView: AccessibleDataTableView, context: Context) {
         // Guard against redundant rebuilds
-        guard uiView.columnHeaders != headers || uiView.dataRows != rows else { return }
+        guard uiView.columnHeaders != headers || uiView.dataRows != rows else {
+            return
+        }
         uiView.columnHeaders = headers
-        uiView.dataRows      = rows
+        uiView.dataRows = rows
     }
 }

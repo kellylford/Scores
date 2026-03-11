@@ -73,7 +73,9 @@ struct BaseballFieldTourView: View {
         .foregroundColor(.white)
         .onAppear {
             if let pre = preselectedStadium { selectedStadium = pre }
+            fieldAudio.start()
         }
+        .onDisappear { fieldAudio.stop() }
     }
 
     // MARK: - Stadium picker

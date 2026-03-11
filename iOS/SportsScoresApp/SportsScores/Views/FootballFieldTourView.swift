@@ -69,6 +69,8 @@ struct FootballFieldTourView: View {
         .foregroundColor(.white)
         .navigationTitle("Football Field")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear  { fieldAudio.start() }
+        .onDisappear { fieldAudio.stop() }
     }
 
     // MARK: - Canvas

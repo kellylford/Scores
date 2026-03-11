@@ -34,11 +34,12 @@ class LiveScoresViewModel: ObservableObject {
         let endOfToday = calendar.date(byAdding: .day, value: 1, to: startOfToday)!
 
         // Fetch all sports in parallel. ESPN's scoreboard with no date param defaults
-        // to the current day's games for all sports, including football. We then
-        // apply the today filter uniformly so off-season / wrong-week games never
-        // leak into Live Scores.
+        // to the current day's games for all sports. We then apply the today filter
+        // uniformly so off-season / wrong-week games never leak into Live Scores.
+        // Soccer leagues are included here so they appear in the all-sports view.
+        let allLeagues = Sport.allCases + Sport.soccerLeagues
         let results: [(Sport, [Game])] = await withTaskGroup(of: (Sport, [Game]).self) { group in
-            for sport in Sport.allCases {
+            for sport in allLeagues {
                 group.addTask {
                     do {
                         let games = try await self.apiService.fetchGames(for: sport)
@@ -51,8 +52,11 @@ class LiveScoresViewModel: ObservableObject {
             }
             var collected: [(Sport, [Game])] = []
             for await pair in group { collected.append(pair) }
-            // Restore consistent ordering (Sport.allCases order)
-            return collected.sorted { Sport.allCases.firstIndex(of: $0.0)! < Sport.allCases.firstIndex(of: $1.0)! }
+            // Restore consistent ordering (allLeagues order)
+            return collected.sorted {
+                (allLeagues.firstIndex(of: $0.0) ?? allLeagues.count) <
+                (allLeagues.firstIndex(of: $1.0) ?? allLeagues.count)
+            }
         }
 
         var live: [SportGames] = []

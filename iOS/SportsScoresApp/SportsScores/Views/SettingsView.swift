@@ -2,30 +2,20 @@
 //  SettingsView.swift
 //  SportsScores
 //
-//  User-facing settings sheet. Opened from the gear button in
-//  SportSelectionView's navigation bar.
+//  Settings tab — accessible from the bottom tab bar.
 //
 
 import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var appSettings: AppSettings
-    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationStack {
-            Form {
-                teamNameSection
-                aboutSection
-            }
-            .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
+        Form {
+            teamNameSection
+            aboutSection
         }
+        .navigationTitle("Settings")
     }
 
     // MARK: - Team Name Section

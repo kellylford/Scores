@@ -8,6 +8,7 @@ import Foundation
 @MainActor
 final class HomeViewModel: ObservableObject {
     @Published var gameCounts: [Sport: Int] = [:]
+    @Published var soccerGameCount: Int = 0
     @Published var isLoading = true
     @Published var selectedDate: Date = Calendar.current.startOfDay(for: Date())
 
@@ -16,6 +17,7 @@ final class HomeViewModel: ObservableObject {
     func load() async {
         isLoading = true
 
+        // Load per-sport counts for the main sports list
         await withTaskGroup(of: (Sport, Int).self) { group in
             for sport in Sport.allCases {
                 group.addTask {
@@ -28,6 +30,20 @@ final class HomeViewModel: ObservableObject {
                 gameCounts[sport] = count
             }
         }
+
+        // Load total soccer count (summed across all leagues) for the Soccer hub row
+        var soccerTotal = 0
+        await withTaskGroup(of: Int.self) { group in
+            for league in Sport.soccerLeagues {
+                group.addTask {
+                    (try? await self.api.fetchGames(for: league, date: self.selectedDate))
+                        .map { $0.count } ?? 0
+                }
+            }
+            for await count in group { soccerTotal += count }
+        }
+        soccerGameCount = soccerTotal
+
         isLoading = false
     }
 

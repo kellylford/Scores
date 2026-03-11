@@ -463,6 +463,12 @@ enum BoxScoreProfiles {
             return basketball
         case .nhl, .ncaah, .ncaawh:
             return hockey
+        default:
+            // Soccer and any future sports — no sport-specific profile; show raw stats as-is.
+            return BoxScoreProfile(
+                essentialTeamStats: [],
+                essentialPlayerStats: [:]
+            )
         }
     }
 }

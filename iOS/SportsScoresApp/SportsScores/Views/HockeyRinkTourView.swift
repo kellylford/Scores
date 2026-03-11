@@ -67,6 +67,8 @@ struct HockeyRinkTourView: View {
         .foregroundColor(.white)
         .navigationTitle("Hockey Rink")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear  { fieldAudio.start() }
+        .onDisappear { fieldAudio.stop() }
     }
 
     // MARK: - Canvas

@@ -10,7 +10,6 @@ import SwiftUI
 // MARK: - View
 
 struct SportSelectionView: View {
-    @State private var showSettings = false
     @StateObject private var homeVM = HomeViewModel()
 
     var body: some View {
@@ -57,48 +56,29 @@ struct SportSelectionView: View {
                             }
                             .accessibilityLabel(accessibilityLabel(for: sport))
                         }
+
+                        // Soccer hub — single entry for all soccer leagues
+                        NavigationLink(destination: SoccerHubView(initialDate: homeVM.selectedDate)) {
+                            HStack(spacing: 12) {
+                                Text("⚽")
+                                    .font(.title2)
+                                    .frame(width: 36)
+                                Text("Soccer")
+                                    .font(.headline)
+                                Spacer()
+                                soccerBadge
+                            }
+                            .padding(.vertical, 4)
+                        }
+                        .accessibilityLabel(soccerAccessibilityLabel)
                     } header: {
                         Text("Browse by Sport")
                     }
 
-                    // Field Tours
-                    Section {
-                        NavigationLink(destination: VenueToursView()) {
-                            HStack(spacing: 14) {
-                                Image(systemName: "waveform.and.mic")
-                                    .font(.title2)
-                                    .foregroundColor(.accentColor)
-                                    .frame(width: 34)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Audio Field Tours")
-                                        .font(.headline)
-                                    Text("Baseball · Football · Hockey · Basketball")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                            .padding(.vertical, 4)
-                        }
-                        .accessibilityLabel("Audio Field Tours — explore venue layouts through sound and touch")
-                    } header: {
-                        Text("Explore")
-                    }
+
                 }
             }
             .navigationTitle("Sports Scores")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showSettings = true
-                    } label: {
-                        Image(systemName: "gearshape")
-                    }
-                    .accessibilityLabel("Settings")
-                }
-            }
-            .sheet(isPresented: $showSettings) {
-                SettingsView()
-            }
             .task { await homeVM.load() }
         }
     }
@@ -181,6 +161,36 @@ struct SportSelectionView: View {
         let count = homeVM.gameCounts[sport] ?? 0
         if count == 0 { return "\(sport.displayName), no games today" }
         return "\(sport.displayName), \(count) \(count == 1 ? "game" : "games") today"
+    }
+
+    @ViewBuilder
+    private var soccerBadge: some View {
+        if homeVM.isLoading {
+            ProgressView()
+                .scaleEffect(0.75)
+                .frame(width: 36, height: 20)
+        } else if homeVM.soccerGameCount > 0 {
+            let n = homeVM.soccerGameCount
+            Text("\(n)")
+                .font(.system(.caption, design: .rounded).bold())
+                .foregroundColor(.white)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(n > 10 ? Color.red : n > 5 ? Color.orange : Color.blue, in: Capsule())
+                .accessibilityHidden(true)
+        } else {
+            Text("—")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .accessibilityHidden(true)
+        }
+    }
+
+    private var soccerAccessibilityLabel: String {
+        guard !homeVM.isLoading else { return "Soccer" }
+        let n = homeVM.soccerGameCount
+        if n == 0 { return "Soccer, no games today" }
+        return "Soccer, \(n) \(n == 1 ? "game" : "games") today across all leagues"
     }
 }
 
