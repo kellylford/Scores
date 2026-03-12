@@ -55,6 +55,8 @@ private struct SPZone {
 
 struct SoccerPitchTourView: View {
 
+    @EnvironmentObject private var appSettings: AppSettings
+
     // FIFA standard pitch dimensions (meters)
     private let pitchW = 68.0
     private let pitchL = 105.0
@@ -126,7 +128,7 @@ struct SoccerPitchTourView: View {
                     "Use the rotor to toggle Direct Touch on or off for this pitch area. " +
                     "Drag to explore. Chime at the center line, penalty spots, and goal lines."
                 )
-                .accessibilityDirectTouch(options: .silentOnTouch)
+                .conditionalDirectTouch(appSettings.useDirectTouchForTours)
         }
         .frame(maxWidth: .infinity)
         .frame(height: 480)

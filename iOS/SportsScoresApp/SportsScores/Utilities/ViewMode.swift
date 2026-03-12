@@ -84,3 +84,19 @@ struct ViewModeToggleButton: View {
         .accessibilityHint("Currently in \(currentMode.rawValue)")
     }
 }
+
+// MARK: - Conditional Direct Touch
+
+extension View {
+    /// Applies `.accessibilityDirectTouch(options: .silentOnTouch)` only when `enabled` is true.
+    /// When disabled, VoiceOver treats the view as a standard element; users can still pass
+    /// touches through via the VoiceOver double-tap-and-hold gesture.
+    @ViewBuilder
+    func conditionalDirectTouch(_ enabled: Bool) -> some View {
+        if enabled {
+            self.accessibilityDirectTouch(options: .silentOnTouch)
+        } else {
+            self
+        }
+    }
+}

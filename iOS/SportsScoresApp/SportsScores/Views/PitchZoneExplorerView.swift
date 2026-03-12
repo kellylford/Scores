@@ -44,6 +44,8 @@ struct PitchZoneExplorerView: View {
 
     let plays: [GameDetails.Play]
 
+    @EnvironmentObject private var appSettings: AppSettings
+
     // MARK: - State
 
     @StateObject private var audio = PitchAudioEngine()
@@ -196,7 +198,7 @@ struct PitchZoneExplorerView: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(canvasAccessibilityLabel)
             .accessibilityHint("Use the rotor to toggle Direct Touch on or off for this canvas. Two modes available: drag freely to explore pitch locations with spatial audio, or flick up and down to step through pitches one by one.")
-            .accessibilityDirectTouch(options: .silentOnTouch)
+            .conditionalDirectTouch(appSettings.useDirectTouchForTours)
             .accessibilityValue(currentPitchVoiceOverValue)
             .accessibilityAdjustableAction { direction in
                 guard let ab = currentAtBat else { return }

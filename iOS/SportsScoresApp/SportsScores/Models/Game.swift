@@ -153,18 +153,27 @@ struct Game: Identifiable, Codable {
         // Football red zone
         let isRedZone: Bool?
 
+        /// Human-readable situation text.
+        /// For baseball (detected by presence of `balls`/`outs`), returns pitcher, batter,
+        /// bases, count and outs — ignoring the raw ESPN pitch-call string.
+        /// For all other sports returns lastPlay text or down-distance.
         var displayText: String? {
+            if balls != nil || outs != nil || onFirst != nil {
+                return baseballSituationText
+            }
             if let lastPlay = lastPlay, !lastPlay.isEmpty {
                 return lastPlay
             }
             return shortDownDistanceText
         }
 
-        /// Non-nil for live baseball games — e.g. "1st & 3rd, 3-2, 1 out"
-        /// Pitcher/batter are surfaced separately via pitcherName/batterName.
+        /// Baseball compact situation line — pitcher, batter, bases, count, outs.
         var baseballSituationText: String? {
             guard balls != nil || outs != nil || onFirst != nil else { return nil }
             var parts: [String] = []
+            // Pitcher / batter first so identity is always visible
+            if let p = pitcherName { parts.append("P: \(p)") }
+            if let b = batterName  { parts.append("AB: \(b)") }
             // Bases
             let firstOn  = onFirst  ?? false
             let secondOn = onSecond ?? false
@@ -182,7 +191,7 @@ struct Game: Identifiable, Codable {
             if let b = balls, let s = strikes { parts.append("\(b)-\(s)") }
             // Outs
             if let o = outs { parts.append("\(o) \(o == 1 ? "out" : "outs")") }
-            return parts.joined(separator: ", ")
+            return parts.joined(separator: " · ")
         }
     }
 }

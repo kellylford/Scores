@@ -419,37 +419,21 @@ struct GameRow: View {
             }
 
             // Live situation line
-            if game.status.isLive, let sit = game.situation {
-                // MLB: show base runners + count, then pitcher/batter on second line
-                if sport == .mlb, let baseInfo = sit.baseballSituationText {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(baseInfo)
-                            .font(.caption)
-                            .foregroundColor(.orange)
-                            .lineLimit(2)
-                        if let p = sit.pitcherName, let b = sit.batterName {
-                            Text("P: \(p)  ·  AB: \(b)")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                        }
-                    }
-                } else if let text = sit.displayText, !text.isEmpty {
-                    // Football: down/distance + optional red zone badge; other: last play
-                    HStack(spacing: 6) {
-                        Text(text)
-                            .font(.caption)
-                            .foregroundColor(.orange)
-                            .lineLimit(1)
-                        if sit.isRedZone == true {
-                            Text("🔴 Red Zone")
-                                .font(.caption2)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 2)
-                                .background(Color.red.opacity(0.18))
-                                .foregroundColor(.red)
-                                .cornerRadius(4)
-                        }
+            if game.status.isLive, let sit = game.situation, let text = sit.displayText, !text.isEmpty {
+                HStack(spacing: 6) {
+                    Text(text)
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if sit.isRedZone == true {
+                        Text("🔴 Red Zone")
+                            .font(.caption2)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(Color.red.opacity(0.18))
+                            .foregroundColor(.red)
+                            .cornerRadius(4)
                     }
                 }
             }
@@ -510,14 +494,10 @@ struct GameRow: View {
 
         // Last action / situation
         if game.status.isLive, let sit = game.situation {
-            if sport == .mlb, let baseInfo = sit.baseballSituationText {
-                parts.append(baseInfo)
-                if let p = sit.pitcherName { parts.append("Pitching: \(p)") }
-                if let b = sit.batterName  { parts.append("At bat: \(b)") }
-            } else if let t = sit.displayText {
+            if let t = sit.displayText, !t.isEmpty {
                 parts.append(t)
-                if sit.isRedZone == true { parts.append("Red Zone") }
             }
+            if sit.isRedZone == true { parts.append("Red Zone") }
         }
 
         // Period / clock — the key time-reference for live games (e.g. "3rd Quarter - 8:42")

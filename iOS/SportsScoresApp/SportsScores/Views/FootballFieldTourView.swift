@@ -46,6 +46,8 @@ private struct FFZone {
 
 struct FootballFieldTourView: View {
 
+    @EnvironmentObject private var appSettings: AppSettings
+
     // Field dimensions
     private let fW = 53.333     // yards wide
     private let fL = 120.0      // yards long
@@ -89,7 +91,7 @@ struct FootballFieldTourView: View {
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("NFL football field. 120 yards long including 10-yard end zones. 53 yards wide. Drag to explore. Chime at every 5-yard line; louder at 10-yard lines. Hash marks 70 feet 9 inches from sideline — same width as goal posts.")
                 .accessibilityHint("Use the rotor to toggle Direct Touch on or off for this field area. Drag freely or flick up and down with VoiceOver.")
-                .accessibilityDirectTouch(options: .silentOnTouch)
+                .conditionalDirectTouch(appSettings.useDirectTouchForTours)
         }
         .frame(maxWidth: .infinity)
         .frame(height: 500)

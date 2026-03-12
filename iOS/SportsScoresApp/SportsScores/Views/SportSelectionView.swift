@@ -11,6 +11,7 @@ import SwiftUI
 
 struct SportSelectionView: View {
     @StateObject private var homeVM = HomeViewModel()
+    @EnvironmentObject private var appSettings: AppSettings
 
     var body: some View {
         NavigationStack {
@@ -48,7 +49,7 @@ struct SportSelectionView: View {
                     
                     // Individual Sports
                     Section {
-                        ForEach(Sport.allCases) { sport in
+                        ForEach(appSettings.visibleSports) { sport in
                             NavigationLink(destination: ScoresView(sport: sport, initialDate: homeVM.selectedDate)) {
                                 SportRowView(sport: sport,
                                              count: homeVM.gameCounts[sport],
