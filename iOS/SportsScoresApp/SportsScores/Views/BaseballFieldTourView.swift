@@ -59,51 +59,22 @@ struct BaseballFieldTourView: View {
     // Last announced zone name (to detect zone-crossing haptics)
     @State private var lastZoneName: String = ""
 
-    // Notable features expansion
-    @State private var showFeatures = false
-
     // MARK: - Body
 
     var body: some View {
         VStack(spacing: 0) {
-            stadiumPicker
             canvasSection
             statusBar
-            featuresSection
         }
         .background(Color.black)
         .foregroundColor(.white)
+        .navigationTitle(selectedStadium.parkName)
+        .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             if let pre = preselectedStadium { selectedStadium = pre }
             fieldAudio.start()
         }
         .onDisappear { fieldAudio.stop() }
-    }
-
-    // MARK: - Stadium picker
-
-    private var stadiumPicker: some View {
-        HStack {
-            Label("Stadium", systemImage: "building.2.fill")
-                .font(.caption)
-                .foregroundColor(.gray)
-            Spacer()
-            Picker("Stadium", selection: $selectedStadium) {
-                ForEach(StadiumGeometry.all, id: \.id) { stadium in
-                    Text("\(stadium.parkName) (\(stadium.teamAbbreviation))")
-                        .tag(stadium)
-                }
-            }
-            .pickerStyle(.menu)
-            .onChange(of: selectedStadium) { _, _ in
-                fingerField = nil
-                lastZoneName = ""
-                fieldAudio.stop()
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .background(Color.gray.opacity(0.15))
     }
 
     // MARK: - Canvas
@@ -124,11 +95,11 @@ struct BaseballFieldTourView: View {
             // Gesture and accessibility must be on the same node for direct touch to work.
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(canvasAccessibilityLabel)
-            .accessibilityHint("Direct touch area. Swipe to focus, then use the rotor to toggle Direct Touch on or off. Drag freely to explore. Audio pitch rises with distance from home plate; stereo pan follows left-right position.")
+            .accessibilityHint("Double-tap to activate direct touch, then drag to explore. Audio pitch rises with distance from home plate; stereo pan follows left-right position.")
             .conditionalDirectTouch(appSettings.useDirectTouchForTours)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 420)
+        .frame(maxHeight: .infinity)
         .clipped()
     }
 
@@ -352,54 +323,6 @@ struct BaseballFieldTourView: View {
         .accessibilityLabel(statusAccessibilityLabel)
     }
 
-    // MARK: - Notable features
-
-    private var featuresSection: some View {
-        VStack(spacing: 0) {
-            Button {
-                withAnimation { showFeatures.toggle() }
-            } label: {
-                HStack {
-                    Label("Notable features (\(selectedStadium.notableFeatures.count))",
-                          systemImage: "star.fill")
-                        .font(.caption.bold())
-                    Spacer()
-                    Image(systemName: showFeatures ? "chevron.up" : "chevron.down")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 9)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .background(Color.gray.opacity(0.15))
-            .accessibilityLabel("\(selectedStadium.notableFeatures.count) notable features. Tap to \(showFeatures ? "collapse" : "expand").")
-
-            if showFeatures {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(selectedStadium.notableFeatures, id: \.self) { feature in
-                            HStack(alignment: .top, spacing: 8) {
-                                Image(systemName: "diamond.fill")
-                                    .font(.system(size: 7))
-                                    .foregroundColor(.yellow)
-                                    .padding(.top, 4)
-                                Text(feature)
-                                    .font(.caption)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                }
-                .frame(maxHeight: 160)
-                .background(Color.gray.opacity(0.08))
-            }
-        }
-    }
-
     // MARK: - Accessibility labels
 
     private var canvasAccessibilityLabel: String {
@@ -415,6 +338,72 @@ struct BaseballFieldTourView: View {
         }
         let zone = selectedStadium.detectZone(fieldX: ff.x, fieldY: ff.y)
         return "\(zone.name). \(zone.distanceFeet) feet from home plate."
+    }
+}
+
+// MARK: - Info / Landing Page
+
+struct BaseballTourInfoView: View {
+    @State private var selectedStadium: StadiumGeometry = StadiumGeometry.all.first!
+    @State private var showCanvas = false
+
+    var body: some View {
+        List {
+            Section {
+                Picker("Stadium", selection: $selectedStadium) {
+                    ForEach(StadiumGeometry.all, id: \.id) { stadium in
+                        Text("\(stadium.parkName) (\(stadium.teamAbbreviation))")
+                            .tag(stadium)
+                    }
+                }
+            } header: {
+                Text("Select Stadium")
+            }
+
+            Section("Park Details") {
+                LabeledContent("Team", value: selectedStadium.teamName)
+                LabeledContent("Location", value: selectedStadium.location)
+                LabeledContent("Opened", value: "\(selectedStadium.yearOpened)")
+                LabeledContent("Roof", value: selectedStadium.roof.rawValue.capitalized)
+            }
+
+            Section("Wall Distances") {
+                LabeledContent("Left field line", value: "\(Int(selectedStadium.leftFieldLine)) ft")
+                LabeledContent("Left center", value: "\(Int(selectedStadium.leftCenter)) ft")
+                LabeledContent("Center field", value: "\(Int(selectedStadium.centerField)) ft")
+                LabeledContent("Right center", value: "\(Int(selectedStadium.rightCenter)) ft")
+                LabeledContent("Right field line", value: "\(Int(selectedStadium.rightFieldLine)) ft")
+                if selectedStadium.leftWallHeight > 10 {
+                    LabeledContent("Left wall height", value: "\(Int(selectedStadium.leftWallHeight)) ft")
+                }
+                if selectedStadium.rightWallHeight > 10 {
+                    LabeledContent("Right wall height", value: "\(Int(selectedStadium.rightWallHeight)) ft")
+                }
+            }
+
+            if !selectedStadium.notableFeatures.isEmpty {
+                Section("Notable Features") {
+                    ForEach(selectedStadium.notableFeatures, id: \.self) { feature in
+                        Text(feature)
+                            .font(.subheadline)
+                    }
+                }
+            }
+        }
+        .navigationTitle("MLB Stadiums")
+        .navigationDestination(isPresented: $showCanvas) {
+            BaseballFieldTourView(preselectedStadium: selectedStadium)
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showCanvas = true
+                } label: {
+                    Label("Touch the Field", systemImage: "hand.tap.fill")
+                }
+                .accessibilityHint("Opens the interactive field for audio touch exploration")
+            }
+        }
     }
 }
 

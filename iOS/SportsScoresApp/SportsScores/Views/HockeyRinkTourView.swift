@@ -88,11 +88,11 @@ struct HockeyRinkTourView: View {
                 )
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("NHL hockey rink, 200 feet long by 85 feet wide. Blue lines 25 feet from center on each side. Goal lines 89 feet from center. Drag to explore — audio terrain softens in creases and roughens at the boards.")
-                .accessibilityHint("Use the rotor to toggle Direct Touch on or off for this rink area. Drag to explore. Chime at blue lines and goal lines.")
+                .accessibilityHint("Double-tap to activate direct touch, then drag to explore. Chimes at blue lines and goal lines.")
                 .conditionalDirectTouch(appSettings.useDirectTouchForTours)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 480)
+        .frame(maxHeight: .infinity)
         .clipped()
     }
 
@@ -332,6 +332,51 @@ struct HockeyRinkTourView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(fingerField.map { detectZone(fx: $0.x, fy: $0.y).name }
                             ?? "Touch the rink above to explore.")
+    }
+}
+
+// MARK: - Info / Landing Page
+
+struct HockeyTourInfoView: View {
+    @State private var showCanvas = false
+
+    var body: some View {
+        List {
+            Section("Dimensions") {
+                LabeledContent("Length", value: "200 feet")
+                LabeledContent("Width", value: "85 feet")
+            }
+            Section("Key Lines") {
+                LabeledContent("Red center line", value: "At center ice")
+                LabeledContent("Blue lines", value: "25 feet from center on each side")
+                LabeledContent("Goal lines", value: "89 feet from center (11 ft from boards)")
+            }
+            Section("Zones & Markings") {
+                LabeledContent("Neutral zone", value: "50 feet wide between blue lines")
+                LabeledContent("Face-off circles", value: "30-foot diameter; near/far at ±22 ft lateral")
+                LabeledContent("Goal crease", value: "6-foot radius semicircle")
+                LabeledContent("Goal", value: "6 ft wide, 4 ft deep")
+            }
+            Section("About the Audio Tour") {
+                Text("Drag across the ice to explore with audio. Chimes mark the blue lines and goal lines. Audio texture softens near the goal crease.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .navigationTitle("Hockey Rink")
+        .navigationDestination(isPresented: $showCanvas) {
+            HockeyRinkTourView()
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showCanvas = true
+                } label: {
+                    Label("Touch the Rink", systemImage: "hand.tap.fill")
+                }
+                .accessibilityHint("Opens the interactive rink for audio touch exploration")
+            }
+        }
     }
 }
 

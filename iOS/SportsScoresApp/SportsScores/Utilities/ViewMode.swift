@@ -94,7 +94,11 @@ extension View {
     @ViewBuilder
     func conditionalDirectTouch(_ enabled: Bool) -> some View {
         if enabled {
-            self.accessibilityDirectTouch(options: .silentOnTouch)
+            // .requiresActivation: canvas only intercepts touches after the user double-taps it,
+            // so VoiceOver's "double-tap anywhere to activate" gesture for OTHER elements works
+            // normally even when their double-tap physically lands inside the canvas region.
+            // .silentOnTouch: silences VoiceOver announcements while dragging.
+            self.accessibilityDirectTouch(options: [.silentOnTouch, .requiresActivation])
         } else {
             self
         }

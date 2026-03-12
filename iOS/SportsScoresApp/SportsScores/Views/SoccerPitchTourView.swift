@@ -125,13 +125,13 @@ struct SoccerPitchTourView: View {
                     "Drag to explore — audio changes in the penalty areas."
                 )
                 .accessibilityHint(
-                    "Use the rotor to toggle Direct Touch on or off for this pitch area. " +
-                    "Drag to explore. Chime at the center line, penalty spots, and goal lines."
+                    "Double-tap to activate direct touch, then drag to explore. " +
+                    "Chimes at the center line, penalty spots, and goal lines."
                 )
                 .conditionalDirectTouch(appSettings.useDirectTouchForTours)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 480)
+        .frame(maxHeight: .infinity)
         .clipped()
     }
 
@@ -416,6 +416,48 @@ struct SoccerPitchTourView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(fingerField.map { detectZone(fx: $0.x, fy: $0.y).name }
                             ?? "Touch the pitch above to explore.")
+    }
+}
+
+// MARK: - Info / Landing Page
+
+struct SoccerTourInfoView: View {
+    @State private var showCanvas = false
+
+    var body: some View {
+        List {
+            Section("Dimensions") {
+                LabeledContent("Length", value: "105 meters")
+                LabeledContent("Width", value: "68 meters")
+            }
+            Section("Key Areas") {
+                LabeledContent("Penalty area", value: "16.5 m deep × 40.32 m wide")
+                LabeledContent("6-yard box", value: "5.5 m deep × 18.32 m wide")
+                LabeledContent("Penalty spots", value: "11 meters from goal line")
+                LabeledContent("Center circle", value: "9.15 meter radius")
+                LabeledContent("Corner arcs", value: "1 meter radius")
+                LabeledContent("Goals", value: "7.32 m wide, 2.44 m deep")
+            }
+            Section("About the Audio Tour") {
+                Text("Drag across the pitch to explore with audio. Chimes mark the halfway line, penalty spots, and goal lines. Audio texture changes inside the penalty areas.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .navigationTitle("Soccer Pitch")
+        .navigationDestination(isPresented: $showCanvas) {
+            SoccerPitchTourView()
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showCanvas = true
+                } label: {
+                    Label("Touch the Pitch", systemImage: "hand.tap.fill")
+                }
+                .accessibilityHint("Opens the interactive pitch for audio touch exploration")
+            }
+        }
     }
 }
 

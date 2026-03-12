@@ -61,8 +61,9 @@ struct SportSelectionView: View {
                         // Soccer hub — single entry for all soccer leagues
                         NavigationLink(destination: SoccerHubView(initialDate: homeVM.selectedDate)) {
                             HStack(spacing: 12) {
-                                Text("⚽")
+                                Image(systemName: "figure.soccer")
                                     .font(.title2)
+                                    .foregroundColor(.accentColor)
                                     .frame(width: 36)
                                 Text("Soccer")
                                     .font(.headline)

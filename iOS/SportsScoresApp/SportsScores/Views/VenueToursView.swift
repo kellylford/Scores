@@ -16,7 +16,7 @@ struct VenueToursView: View {
                     title: "MLB Stadiums",
                     subtitle: "All 30 parks — real wall distances",
                     icon: "figure.baseball",
-                    destination: BaseballFieldTourView()
+                    destination: BaseballTourInfoView()
                 )
             } header: {
                 Text("Baseball")
@@ -27,7 +27,7 @@ struct VenueToursView: View {
                     title: "NFL Football Field",
                     subtitle: "120 yds · yard lines · hash marks · goal posts",
                     icon: "figure.american.football",
-                    destination: FootballFieldTourView()
+                    destination: FootballTourInfoView()
                 )
             } header: {
                 Text("Football")
@@ -38,7 +38,7 @@ struct VenueToursView: View {
                     title: "NHL Hockey Rink",
                     subtitle: "200 ft · zones · blue lines · creases",
                     icon: "figure.ice.hockey",
-                    destination: HockeyRinkTourView()
+                    destination: HockeyTourInfoView()
                 )
             } header: {
                 Text("Hockey")
@@ -49,7 +49,7 @@ struct VenueToursView: View {
                     title: "NBA Basketball Court",
                     subtitle: "94 ft · paint · 3-point arc · free throw line",
                     icon: "figure.basketball",
-                    destination: BasketballCourtTourView()
+                    destination: BasketballTourInfoView()
                 )
             } header: {
                 Text("Basketball")

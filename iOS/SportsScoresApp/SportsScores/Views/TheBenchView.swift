@@ -16,7 +16,7 @@ struct TheBenchView: View {
                     title: "MLB Stadiums",
                     subtitle: "All 30 parks — real wall distances",
                     icon: "figure.baseball",
-                    destination: BaseballFieldTourView()
+                    destination: BaseballTourInfoView()
                 )
             } header: {
                 Text("Baseball")
@@ -27,7 +27,7 @@ struct TheBenchView: View {
                     title: "NFL Football Field",
                     subtitle: "120 yds · yard lines · hash marks · goal posts",
                     icon: "figure.american.football",
-                    destination: FootballFieldTourView()
+                    destination: FootballTourInfoView()
                 )
             } header: {
                 Text("Football")
@@ -38,7 +38,7 @@ struct TheBenchView: View {
                     title: "NHL Hockey Rink",
                     subtitle: "200 ft · zones · blue lines · creases",
                     icon: "figure.ice.hockey",
-                    destination: HockeyRinkTourView()
+                    destination: HockeyTourInfoView()
                 )
             } header: {
                 Text("Hockey")
@@ -49,7 +49,7 @@ struct TheBenchView: View {
                     title: "NBA Basketball Court",
                     subtitle: "94 ft · paint · 3-point arc · free throw line",
                     icon: "figure.basketball",
-                    destination: BasketballCourtTourView()
+                    destination: BasketballTourInfoView()
                 )
             } header: {
                 Text("Basketball")
@@ -60,7 +60,7 @@ struct TheBenchView: View {
                     title: "Soccer Pitch",
                     subtitle: "105m × 68m · center circle · penalty areas · goals",
                     icon: "figure.soccer",
-                    destination: SoccerPitchTourView()
+                    destination: SoccerTourInfoView()
                 )
             } header: {
                 Text("Soccer")

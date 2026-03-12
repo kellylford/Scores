@@ -143,8 +143,9 @@ private struct LeagueRowView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Text("⚽")
+            Image(systemName: league.systemImage)
                 .font(.title2)
+                .foregroundColor(.accentColor)
                 .frame(width: 36)
             Text(league.displayName)
                 .font(.headline)

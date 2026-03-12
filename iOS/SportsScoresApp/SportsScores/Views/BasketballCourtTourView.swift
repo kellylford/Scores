@@ -89,11 +89,11 @@ struct BasketballCourtTourView: View {
                 )
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("NBA basketball court, 94 feet long by 50 feet wide. Paint is 16 feet wide, free throw line 15 feet from each basket. 3-point arc begins at 23 feet 9 inches from either basket. Drag to explore — audio changes at the paint and out of bounds.")
-                .accessibilityHint("Use the rotor to toggle Direct Touch on or off for this court area. Drag to explore. Chime at 3-point arc, free throw line, and half court.")
+                .accessibilityHint("Double-tap to activate direct touch, then drag to explore. Chimes at the 3-point arc, free throw line, and half court.")
                 .conditionalDirectTouch(appSettings.useDirectTouchForTours)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 480)
+        .frame(maxHeight: .infinity)
         .clipped()
     }
 
@@ -372,6 +372,47 @@ struct BasketballCourtTourView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(fingerField.map { detectZone(fx: $0.x, fy: $0.y).name }
                             ?? "Touch the court above to explore.")
+    }
+}
+
+// MARK: - Info / Landing Page
+
+struct BasketballTourInfoView: View {
+    @State private var showCanvas = false
+
+    var body: some View {
+        List {
+            Section("Dimensions") {
+                LabeledContent("Length", value: "94 feet")
+                LabeledContent("Width", value: "50 feet")
+            }
+            Section("Key Markings") {
+                LabeledContent("The paint (key)", value: "16 ft wide, 19 ft from baseline")
+                LabeledContent("Free throw line", value: "15 feet from each basket")
+                LabeledContent("3-point arc", value: "23 ft 9 in from basket (22 ft at corners)")
+                LabeledContent("Center circle", value: "12-foot diameter")
+                LabeledContent("Free throw circle", value: "12-foot diameter")
+            }
+            Section("About the Audio Tour") {
+                Text("Drag across the court to explore with audio. Chimes mark the 3-point arc, free throw line, and half court. Audio texture changes in the paint.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .navigationTitle("Basketball Court")
+        .navigationDestination(isPresented: $showCanvas) {
+            BasketballCourtTourView()
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showCanvas = true
+                } label: {
+                    Label("Touch the Court", systemImage: "hand.tap.fill")
+                }
+                .accessibilityHint("Opens the interactive court for audio touch exploration")
+            }
+        }
     }
 }
 

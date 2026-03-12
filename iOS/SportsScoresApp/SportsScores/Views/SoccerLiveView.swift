@@ -148,7 +148,7 @@ struct SoccerLiveView: View {
     private func leagueSection(leagueGames: SoccerLiveViewModel.LeagueGames, isLive: Bool) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("⚽")
+                Image(systemName: leagueGames.sport.systemImage)
                     .font(.title3)
                 Text(leagueGames.sport.displayName)
                     .font(.subheadline)

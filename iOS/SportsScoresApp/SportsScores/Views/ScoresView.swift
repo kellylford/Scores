@@ -18,6 +18,7 @@ struct ScoresView: View {
     @StateObject private var viewModel = ScoresViewModel()
     @State private var selectedTab = ScoresTab.scores
     @State private var showDatePicker = false
+    @State private var hasLoadedInitialData = false
     @EnvironmentObject private var appSettings: AppSettings
 
     init(sport: Sport, initialDate: Date? = nil) {
@@ -66,6 +67,8 @@ struct ScoresView: View {
             }
         }
         .task {
+            guard !hasLoadedInitialData else { return }
+            hasLoadedInitialData = true
             if let initialDate = initialDate {
                 await viewModel.goToDate(initialDate, for: sport)
             } else {

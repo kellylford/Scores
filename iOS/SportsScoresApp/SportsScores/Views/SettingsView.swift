@@ -29,8 +29,6 @@ struct SettingsView: View {
                     Text(preference.settingsLabel).tag(preference)
                 }
             }
-            .accessibilityLabel("Announce teams as")
-            .accessibilityHint("Selects how team names are spoken by VoiceOver")
         } header: {
             Text("VoiceOver Team Names")
         } footer: {
@@ -105,21 +103,21 @@ struct SettingsView: View {
             Toggle(isOn: $appSettings.useDirectTouchForTours) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Use Direct Touch")
-                    Text("Your finger goes straight to the drag gesture. Turn off to use VoiceOver's standard double-tap-and-hold passthrough instead.")
+                    Text("Double-tap the canvas to activate, then drag freely. VoiceOver is silenced during the drag. Turn off to use the double-tap-and-hold passthrough instead.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
             }
             .accessibilityLabel("Use Direct Touch for stadium exploration")
             .accessibilityHint(appSettings.useDirectTouchForTours
-                ? "On. Turn off to use VoiceOver double-tap-and-hold passthrough instead."
-                : "Off. Turn on for the most responsive drag experience.")
+                ? "On. Double-tap the canvas to start dragging. Turn off to use the double-tap-and-hold passthrough instead."
+                : "Off. Turn on to double-tap the canvas to enter drag mode with VoiceOver silenced.")
         } header: {
             Text("Stadium Exploration")
         } footer: {
             Text(appSettings.useDirectTouchForTours
-                ? "Direct Touch is on. Your finger controls the drag canvas immediately without VoiceOver interception."
-                : "Direct Touch is off. Swipe to focus the canvas, then double-tap and hold to drag freely.")
+                ? "Direct Touch is on. Double-tap the canvas to activate, then drag freely. VoiceOver is silenced during the drag."
+                : "Direct Touch is off. Swipe to focus the canvas, then use the VoiceOver double-tap-and-hold passthrough to drag.")
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .accessibilityHidden(true)

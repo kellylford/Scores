@@ -134,7 +134,7 @@ enum Sport: String, CaseIterable, Identifiable {
         case .wnba:   return "WNBA"
         case .ncaah:  return "NCAAH"
         case .ncaawh: return "NCAAWH"
-        default:      return "⚽"
+        default:      return "SOC"
         }
     }
 

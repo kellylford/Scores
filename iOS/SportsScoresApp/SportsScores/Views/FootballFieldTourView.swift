@@ -90,11 +90,11 @@ struct FootballFieldTourView: View {
                 )
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("NFL football field. 120 yards long including 10-yard end zones. 53 yards wide. Drag to explore. Chime at every 5-yard line; louder at 10-yard lines. Hash marks 70 feet 9 inches from sideline — same width as goal posts.")
-                .accessibilityHint("Use the rotor to toggle Direct Touch on or off for this field area. Drag freely or flick up and down with VoiceOver.")
+                .accessibilityHint("Double-tap to activate direct touch, then drag freely to explore. Chimes at every 5-yard line. Use the rotor to turn Direct Touch off.")
                 .conditionalDirectTouch(appSettings.useDirectTouchForTours)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 500)
+        .frame(maxHeight: .infinity)
         .clipped()
     }
 
@@ -367,6 +367,47 @@ struct FootballFieldTourView: View {
             if let ff = fingerField { return detectZone(fx: ff.x, fy: ff.y).name }
             return "Touch the field above to explore. Chime at every 5-yard line."
         }())
+    }
+}
+
+// MARK: - Info / Landing Page
+
+struct FootballTourInfoView: View {
+    @State private var showCanvas = false
+
+    var body: some View {
+        List {
+            Section("Dimensions") {
+                LabeledContent("Length", value: "120 yards (including end zones)")
+                LabeledContent("Width", value: "53⅓ yards")
+                LabeledContent("End zones", value: "10 yards deep at each end")
+            }
+            Section("Key Lines") {
+                LabeledContent("Goal lines", value: "10 yards from each end")
+                LabeledContent("Hash marks", value: "70 ft 9 in from each sideline")
+                LabeledContent("Goal posts", value: "Aligned with hash marks")
+                LabeledContent("Yard lines", value: "Every 5 yards; numbered every 10")
+            }
+            Section("About the Audio Tour") {
+                Text("Drag across the field to explore with audio. A chime sounds at every 5-yard line, louder at every 10-yard line. Audio texture changes in the end zones.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .navigationTitle("Football Field")
+        .navigationDestination(isPresented: $showCanvas) {
+            FootballFieldTourView()
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showCanvas = true
+                } label: {
+                    Label("Touch the Field", systemImage: "hand.tap.fill")
+                }
+                .accessibilityHint("Opens the interactive field for audio touch exploration")
+            }
+        }
     }
 }
 
