@@ -495,19 +495,29 @@ struct GameRow: View {
             parts.append(game.displayTime)
         }
 
-        // Last action / situation
-        if game.status.isLive, let sit = game.situation {
-            if let t = sit.displayText, !t.isEmpty {
-                parts.append(t)
+        // For live games: inning first for baseball so listeners get game context immediately,
+        // then situation. For all other sports, situation leads and period/clock follows.
+        if game.status.isLive {
+            if sport == .mlb {
+                parts.append(game.status.detail)
+                if let sit = game.situation, let t = sit.displayText, !t.isEmpty {
+                    parts.append(t)
+                }
+            } else {
+                if let sit = game.situation {
+                    if let t = sit.displayText, !t.isEmpty {
+                        parts.append(t)
+                    }
+                    if sit.isRedZone == true { parts.append("Red Zone") }
+                }
             }
-            if sit.isRedZone == true { parts.append("Red Zone") }
         }
 
         // Period / clock — the key time-reference for live games (e.g. "3rd Quarter - 8:42")
         // Baseball: omit clock (ESPN sends "0:00" but baseball has no game clock)
         if game.status.isLive {
             if sport == .mlb {
-                parts.append(game.status.detail)
+                // Already appended detail above
             } else {
                 parts.append(game.status.displayText)
             }

@@ -177,7 +177,7 @@ struct LiveScoresView: View {
             // Games List
             ForEach(sportGames.games) { game in
                 NavigationLink(destination: GameDetailView(game: game, sport: sportGames.sport)) {
-                    CompactGameRow(game: game, isLive: isLive)
+                    CompactGameRow(game: game, isLive: isLive, sport: sportGames.sport)
                 }
                 .buttonStyle(.plain)
             }
@@ -193,6 +193,7 @@ struct LiveScoresView: View {
 struct CompactGameRow: View {
     let game: Game
     let isLive: Bool
+    let sport: Sport
 
     @EnvironmentObject private var appSettings: AppSettings
     
@@ -321,14 +322,20 @@ struct CompactGameRow: View {
             parts.append(game.displayTime)
         }
 
-        // Last action / situation
-        if isLive, let sit = game.situation, let t = sit.displayText {
-            parts.append(t)
-        }
-
-        // Period / clock — the key time-reference for live games (e.g. "3rd Quarter - 8:42")
+        // For live games: inning first for baseball so listeners get game context immediately,
+        // then situation. For all other sports, situation leads and period/clock follows.
         if isLive {
-            parts.append(game.status.displayText)
+            if sport == .mlb {
+                parts.append(game.status.detail)
+                if let sit = game.situation, let t = sit.displayText {
+                    parts.append(t)
+                }
+            } else {
+                if let sit = game.situation, let t = sit.displayText {
+                    parts.append(t)
+                }
+                parts.append(game.status.displayText)
+            }
         }
 
         // Broadcast last

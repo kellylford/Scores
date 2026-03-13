@@ -167,7 +167,7 @@ struct SoccerLiveView: View {
 
             ForEach(leagueGames.games) { game in
                 NavigationLink(destination: GameDetailView(game: game, sport: leagueGames.sport)) {
-                    CompactGameRow(game: game, isLive: isLive)
+                    CompactGameRow(game: game, isLive: isLive, sport: leagueGames.sport)
                 }
                 .buttonStyle(.plain)
             }
