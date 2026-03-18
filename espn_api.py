@@ -1,4 +1,5 @@
 import requests
+import json
 from timezone_utils import convert_espn_time_to_local
 
 BASE_URL = "https://site.api.espn.com/apis/site/v2/sports"
@@ -1041,7 +1042,73 @@ def get_game_details(league_key, game_id):
     resp = requests.get(url)
     if resp.status_code != 200:
         return {}
-    return resp.json()
+    details = resp.json()
+
+    # ESPN hockey series games can occasionally expose fuller play groups via the
+    # web gamepackage payload. Prefer whichever source has more events.
+    if league_key in ["NHL", "NCAAH", "NCAAWH"]:
+        api_plays = details.get("plays", []) if isinstance(details, dict) else []
+        web_plays = _fetch_web_gamepackage_plays(league_path, game_id)
+        if len(web_plays) > len(api_plays):
+            details["plays"] = web_plays
+            details["playsSource"] = "web_gamepackage"
+        elif isinstance(details, dict):
+            details["playsSource"] = "site_summary"
+
+    return details
+
+
+def _fetch_web_gamepackage_plays(league_path, game_id):
+    """Fetch and flatten play groups from ESPN web gamepackage payload."""
+    league_slug = league_path.split("/")[-1]
+    page_url = f"https://www.espn.com/{league_slug}/playbyplay/_/gameId/{game_id}"
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/122.0.0.0 Safari/537.36"
+        )
+    }
+
+    try:
+        resp = requests.get(page_url, headers=headers, timeout=20)
+        if resp.status_code != 200:
+            return []
+
+        marker = "window['__espnfitt__']='"
+        # Use exact marker assignment used by ESPN pages.
+        marker = "window['__espnfitt__']='" if marker in resp.text else "window['__espnfitt__']="
+        start_idx = resp.text.find(marker)
+        if start_idx == -1:
+            return []
+
+        payload_start = start_idx + len(marker)
+        payload, _ = json.JSONDecoder().raw_decode(resp.text[payload_start:])
+
+        play_groups = (
+            payload.get("page", {})
+            .get("content", {})
+            .get("gamepackage", {})
+            .get("pbp", {})
+            .get("playGrps", [])
+        )
+
+        flattened = []
+        for group in play_groups:
+            if isinstance(group, list):
+                for play in group:
+                    if isinstance(play, dict):
+                        flattened.append(play)
+            elif isinstance(group, dict):
+                plays = group.get("plays", [])
+                if isinstance(plays, list):
+                    for play in plays:
+                        if isinstance(play, dict):
+                            flattened.append(play)
+
+        return flattened
+    except Exception:
+        return []
 
 def extract_meaningful_game_info(details):
     """Extract meaningful information from game details for display"""

@@ -2714,6 +2714,12 @@ class GameDetailsView(BaseView):
         info_label = QLabel(f"Play-by-Play ({len(data)} plays)")
         info_label.setStyleSheet("font-weight: bold; font-size: 14px; margin: 10px 0;")
         header_layout.addWidget(info_label)
+
+        if sport_type in ["NHL", "NCAAH", "NCAAWH"]:
+            hockey_note = QLabel("Note: ESPN hockey feeds may provide key events only (goals/penalties), not every shift-level action.")
+            hockey_note.setStyleSheet("font-size: 11px; color: #666; margin-left: 8px;")
+            hockey_note.setWordWrap(True)
+            header_layout.addWidget(hockey_note)
         
         # Add Export Game Log button
         export_btn = QPushButton("Export Game Log")
