@@ -5209,9 +5209,9 @@ class GameDetailsView(BaseView):
                 html += self._generate_football_drives_html()
             else:
                 html += self._generate_football_html()
-        elif sport_type in ("NBA", "WNBA", "NCAAM"):
+        elif sport_type in ("NBA", "WNBA", "NCAAM", "NCAAWB", "NCAAW"):
             html += self._generate_basketball_html()
-        elif sport_type == "NHL":
+        elif sport_type in ("NHL", "NCAAH", "NCAAWH"):
             html += self._generate_hockey_html()
         elif sport_type == "Soccer":
             html += self._generate_soccer_html()
@@ -5256,13 +5256,13 @@ class GameDetailsView(BaseView):
             period_data = inning_groups[period_display]
             
             html += f'<div class="period">'
-            html += f'<div class="period-header">{period_display}</div>'
+            html += f'<h2 class="period-header">{period_display}</h2>'
             
             # Top half
             if period_data["top"]:
                 inning_num = period_display.split()[0]
                 html += f'<div class="half-section">'
-                html += f'<h2 class="inning-half-title">Top of the {inning_num}</h2>'
+                html += f'<h3 class="inning-half-title">Top of the {inning_num}</h3>'
                 html += self._generate_baseball_at_bats_html_with_lists(period_data["top"])
                 html += '</div>'
             
@@ -5270,7 +5270,7 @@ class GameDetailsView(BaseView):
             if period_data["bottom"]:
                 inning_num = period_display.split()[0]
                 html += f'<div class="half-section">'
-                html += f'<h2 class="inning-half-title">Bottom of the {inning_num}</h2>'
+                html += f'<h3 class="inning-half-title">Bottom of the {inning_num}</h3>'
                 html += self._generate_baseball_at_bats_html_with_lists(period_data["bottom"])
                 html += '</div>'
             
@@ -5385,7 +5385,7 @@ class GameDetailsView(BaseView):
             score_text = f" {at_bat['score']}" if at_bat["scoring"] else ""
             
             html += f'<li class="at-bat-item {scoring_class}">'
-            html += f'<h3 class="at-bat-heading {scoring_class}">{at_bat["batter"]}: {result_text}{score_text}</h3>'
+            html += f'<h4 class="at-bat-heading {scoring_class}">{at_bat["batter"]}: {result_text}{score_text}</h4>'
             
             # Add pitch details as a nested list
             pitch_plays = []
@@ -5608,11 +5608,12 @@ class GameDetailsView(BaseView):
         html = ""
         for period_display in sorted(quarter_groups.keys()):
             html += f'<div class="period">'
-            html += f'<div class="period-header">{period_display}</div>'
+            html += f'<h2 class="period-header">{period_display}</h2>'
             
             for drive_key, drive_plays in quarter_groups[period_display].items():
                 html += f'<div class="drive">'
-                html += f'<div class="drive-header">{drive_key}</div>'
+                html += f'<h3 class="drive-header">{drive_key}</h3>'
+                html += '<ul class="plays-list">'
                 
                 for play in drive_plays:
                     scoring_class = "scoring" if play.get("scoringPlay", False) else ""
@@ -5623,8 +5624,10 @@ class GameDetailsView(BaseView):
                         home_score = play.get("homeScore", 0)
                         play_text = f"🏈 {play_text} ({away_score}-{home_score})"
                     
-                    html += f'<div class="play {scoring_class}">{play_text}</div>'
+                    css_class = f"play-item {scoring_class}".strip()
+                    html += f'<li class="{css_class}">{play_text}</li>'
                 
+                html += '</ul>'
                 html += '</div>'
             
             html += '</div>'
@@ -5826,112 +5829,153 @@ class GameDetailsView(BaseView):
     
     def _generate_generic_html(self):
         """Generate HTML for generic sport game log"""
-        html = '<div class="period">'
-        html += '<div class="period-header">All Plays</div>'
-        
-        # Check if we have plays data
-        if hasattr(self, 'current_plays_data') and self.current_plays_data:
-            for i, play in enumerate(self.current_plays_data, 1):
-                play_text = play.get("text", f"Play {i}")
-                html += f'<div class="play">{play_text}</div>'
-        else:
-            html += '<div class="play">No play data available for export.</div>'
-        
-        html += '</div>'
+        if not hasattr(self, 'current_plays_data') or not self.current_plays_data:
+            return '<div class="period"><p>No play data available for export.</p></div>'
+
+        # Group by period, mirroring _build_generic_tree
+        period_groups = {}
+        for play in self.current_plays_data:
+            period_info = play.get("period", {})
+            period_display = period_info.get("displayValue", "Unknown Period")
+            if period_display not in period_groups:
+                period_groups[period_display] = []
+            period_groups[period_display].append(play)
+
+        html = ""
+        for period_display in sorted(period_groups.keys()):
+            html += f'<div class="period">'
+            html += f'<h2 class="period-header">{period_display}</h2>'
+            html += '<ul class="plays-list">'
+
+            for play in period_groups[period_display]:
+                play_text = play.get("text", "Unknown play")
+                clock_time = self._extract_play_clock_display(play)
+                score_info = self._extract_basketball_score_info(play)
+                if clock_time != "--:--":
+                    formatted_text = self._format_clock_play_entry(play_text, clock_time, score_info)
+                else:
+                    formatted_text = play_text
+                html += f'<li class="play-item">{formatted_text}</li>'
+
+            html += '</ul>'
+            html += '</div>'
+
         return html
 
     def _generate_basketball_html(self):
         """Generate HTML for basketball game log"""
-        # Check if we have plays data
         if not hasattr(self, 'current_plays_data') or not self.current_plays_data:
-            return '<div class="period"><div class="period-header">No basketball data available for export</div></div>'
-        
-        # Group by quarter
+            return '<div class="period"><p>No basketball data available for export.</p></div>'
+
+        # Group by quarter, mirroring _build_basketball_tree
         quarter_groups = {}
         for play in self.current_plays_data:
             period_info = play.get("period", {})
             period_display = period_info.get("displayValue", f"{period_info.get('number', 1)}Q")
-            
             if period_display not in quarter_groups:
                 quarter_groups[period_display] = []
             quarter_groups[period_display].append(play)
-        
+
         html = ""
         for period_display in sorted(quarter_groups.keys(), key=lambda x: int(x.replace('Q', '')) if x.replace('Q', '').isdigit() else 999):
             html += f'<div class="period">'
-            html += f'<div class="period-header">{period_display}</div>'
-            
-            for play in quarter_groups[period_display]:
-                play_text = play.get("text", "Play")
-                score_value = play.get("scoreValue", 0)
-                css_class = "play scoring" if score_value > 0 else "play"
-                html += f'<div class="{css_class}">{play_text}</div>'
-            
+            html += f'<h2 class="period-header">Period {period_display}</h2>'
+            html += '<ul class="plays-list">'
+
+            # Sort plays by clock descending (most recent first), matching the UI tree
+            period_plays = sorted(
+                quarter_groups[period_display],
+                key=lambda p: self._parse_basketball_clock(p.get("clock", "00:00")),
+                reverse=True,
+            )
+
+            for play in period_plays:
+                action_text = play.get("text", "Play")
+                score_info = self._extract_basketball_score_info(play)
+                clock_time = play.get("clock", "00:00")
+                formatted_play = self._format_basketball_play_entry(action_text, score_info, clock_time)
+                scoring_class = "scoring" if play.get("scoringPlay", False) else ""
+                css_class = f"play-item {scoring_class}".strip()
+                html += f'<li class="{css_class}">{formatted_play}</li>'
+
+            html += '</ul>'
             html += '</div>'
-        
+
         return html
 
     def _generate_hockey_html(self):
         """Generate HTML for hockey game log"""
-        # Check if we have plays data
         if not hasattr(self, 'current_plays_data') or not self.current_plays_data:
-            return '<div class="period"><div class="period-header">No hockey data available for export</div></div>'
-        
+            return '<div class="period"><p>No hockey data available for export.</p></div>'
+
         # Group by period
         period_groups = {}
         for play in self.current_plays_data:
             period_info = play.get("period", {})
             period_display = period_info.get("displayValue", f"Period {period_info.get('number', 1)}")
-            
             if period_display not in period_groups:
                 period_groups[period_display] = []
             period_groups[period_display].append(play)
-        
+
         html = ""
         for period_display in sorted(period_groups.keys()):
             html += f'<div class="period">'
-            html += f'<div class="period-header">{period_display}</div>'
-            
+            html += f'<h2 class="period-header">{period_display}</h2>'
+            html += '<ul class="plays-list">'
+
             for play in period_groups[period_display]:
                 play_text = play.get("text", "Play")
-                score_value = play.get("scoreValue", 0)
-                css_class = "play scoring" if score_value > 0 else "play"
-                html += f'<div class="{css_class}">{play_text}</div>'
-            
+                clock_time = self._extract_play_clock_display(play)
+                score_info = self._extract_basketball_score_info(play)
+                if clock_time != "--:--":
+                    formatted_text = self._format_clock_play_entry(play_text, clock_time, score_info)
+                else:
+                    formatted_text = play_text
+                scoring_class = "scoring" if play.get("scoringPlay", False) else ""
+                css_class = f"play-item {scoring_class}".strip()
+                html += f'<li class="{css_class}">{formatted_text}</li>'
+
+            html += '</ul>'
             html += '</div>'
-        
+
         return html
 
     def _generate_soccer_html(self):
         """Generate HTML for soccer game log"""
-        # Check if we have plays data
         if not hasattr(self, 'current_plays_data') or not self.current_plays_data:
-            return '<div class="period"><div class="period-header">No soccer data available for export</div></div>'
-        
+            return '<div class="period"><p>No soccer data available for export.</p></div>'
+
         # Group by half
         half_groups = {}
         for play in self.current_plays_data:
             period_info = play.get("period", {})
             period_display = period_info.get("displayValue", f"Half {period_info.get('number', 1)}")
-            
             if period_display not in half_groups:
                 half_groups[period_display] = []
             half_groups[period_display].append(play)
-        
+
         html = ""
         for period_display in sorted(half_groups.keys()):
             html += f'<div class="period">'
-            html += f'<div class="period-header">{period_display}</div>'
-            
+            html += f'<h2 class="period-header">{period_display}</h2>'
+            html += '<ul class="plays-list">'
+
             for play in half_groups[period_display]:
                 play_text = play.get("text", "Play")
-                # Soccer events like goals, cards, substitutions
+                clock_time = self._extract_play_clock_display(play)
+                score_info = self._extract_basketball_score_info(play)
+                if clock_time != "--:--":
+                    formatted_text = self._format_clock_play_entry(play_text, clock_time, score_info)
+                else:
+                    formatted_text = play_text
                 event_type = play.get("type", {}).get("text", "")
-                css_class = "play scoring" if "goal" in event_type.lower() else "play"
-                html += f'<div class="{css_class}">{play_text}</div>'
-            
+                scoring_class = "scoring" if "goal" in event_type.lower() else ""
+                css_class = f"play-item {scoring_class}".strip()
+                html += f'<li class="{css_class}">{formatted_text}</li>'
+
+            html += '</ul>'
             html += '</div>'
-        
+
         return html
 
     def _add_injuries_list_to_layout(self, layout, data):
