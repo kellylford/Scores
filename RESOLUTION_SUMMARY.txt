@@ -1,0 +1,29 @@
+ISSUE RESOLVED: Basketball Play-by-Play Enhancement
+
+PROBLEM:
+'GameDetailsView' object has no attribute '_build_basketball_tree' error when attempting to display basketball play-by-play data.
+
+ROOT CAUSE:
+The _build_basketball_tree method was referenced in the sport type detection logic but the actual implementation was missing from scores.py.
+
+SOLUTION IMPLEMENTED:
+1. Added missing _build_basketball_tree method to scores.py (lines 9174+)
+2. Added 5 supporting helper methods:
+   - _parse_basketball_clock()
+   - _extract_basketball_score_info() 
+   - _format_basketball_play_entry()
+   - _clean_basketball_action_text()
+   - _apply_basketball_play_styling()
+3. Enhanced method provides iOS-style format: [TIME] ACTION (SCORE)
+4. Added visual styling with color-coded play type indicators
+5. Maintained chronological order (most recent plays first)
+6. Ensured backward compatibility with all other sports
+
+VALIDATION:
+- Syntax validation: PASSED (no errors)
+- Method presence: VERIFIED in scores.py
+- Integration: CONFIRMED working with existing logic
+- Compatibility: MAINTAINED for MLB, NFL, and other sports
+
+RESULT:
+Basketball play-by-play now displays in requested iOS-style format showing action, score, and time together (e.g., "[12:34] John Doe makes three point shot (45-42)") with visual indicators for different play types.

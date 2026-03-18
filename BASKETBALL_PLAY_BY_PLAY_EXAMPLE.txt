@@ -1,0 +1,37 @@
+Example of Enhanced Basketball Play-by-Play (iOS-Style Format)
+
+BEFORE (Generic Format):
+```
+Period 2
+  John Doe makes three point shot
+  Jane Smith misses layup  
+  Team timeout
+  Bob Johnson makes free throw
+```
+
+AFTER (Enhanced iOS-Style Format):
+```
+Period 2
+  [12:34] John Doe makes three point shot (45-42)
+  [11:58] Jane Smith misses layup (45-40)
+  [11:58] Team timeout (45-40)  
+  [11:45] Bob Johnson makes free throw (46-40)
+```
+
+Visual Indicators Applied:
+- 🟦 Light blue background: Made 3-pointers
+- 🟩 Light green background: Made layups/dunks/tips  
+- 🟨 Light yellow background: Made free throws
+- 🟥 Light red background: Missed 3-pointers
+- 🟧 Light orange background: Regular fouls
+- 🟠 Darker orange background: Technical/flagrant fouls
+- ⬜ Light gray background: Timeouts
+- 🟪 Light purple background: Substitutions
+- 🔵 Light blue-green background: All scoring plays
+
+Benefits:
+1. Shows action, score, and time together as requested (iOS-style)
+2. Color coding helps users quickly identify play types
+3. Chronological order (most recent plays first) improves readability
+4. Maintains all existing accessibility features
+5. Works for NBA, NCAA Men's Basketball (NCAAM), and NCAA Women's Basketball (NCAAWB)

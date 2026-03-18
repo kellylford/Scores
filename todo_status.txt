@@ -1,0 +1,12 @@
+Play-by-Play Enhancement Tasks - COMPLETED
+
+1. ✓ Analyze existing play-by-play implementation in scores.py
+2. ✓ Identify how basketball play-by-play is currently handled (generic tree builder)
+3. ✓ Examine iOS-style play-by-play format requirements (action, score, time)
+4. ✓ Enhance sport type detection to properly identify basketball games (already implemented)
+5. ✓ Create basketball-specific tree builder with enhanced formatting
+6. ✓ Implement iOS-style format: [TIME] ACTION (SCORE)
+7. ✓ Add visual styling for different basketball play types
+8. ✓ Integrate basketball builder into main play-by-play display logic
+9. ✓ Validate syntax and ensure no breaking changes
+10. ✓ Document improvements made

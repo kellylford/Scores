@@ -2798,10 +2798,15 @@ class GameDetailsView(BaseView):
         # Store reference for strike zone audio context
         self.current_tree_widget = plays_tree
         
+        basketball_leagues = {"NBA", "WNBA", "NCAAM", "NCAAWB", "NCAAW"}
+        football_leagues = {"NFL", "NCAAF"}
+
         if sport_type == "MLB":
             self._build_baseball_tree(plays_tree, data)
-        elif sport_type == "NFL":
+        elif sport_type in football_leagues:
             self._build_football_tree(plays_tree, data)
+        elif sport_type in basketball_leagues:
+            self._build_basketball_tree(plays_tree, data)
         else:
             # Default to generic organization
             self._build_generic_tree(plays_tree, data)
@@ -3367,8 +3372,223 @@ class GameDetailsView(BaseView):
             
             for play in period_groups[period_display]:
                 play_text = play.get("text", "Unknown play")
-                play_item = QTreeWidgetItem([play_text])
+                clock_time = self._extract_play_clock_display(play)
+                score_info = self._extract_basketball_score_info(play)
+                if clock_time != "--:--":
+                    formatted_text = self._format_clock_play_entry(play_text, clock_time, score_info)
+                else:
+                    formatted_text = play_text
+                play_item = QTreeWidgetItem([formatted_text])
                 period_item.addChild(play_item)
+
+    def _build_basketball_tree(self, plays_tree, data):
+        """Build basketball-specific tree with time/action/score formatting"""
+        period_groups = {}
+        for play in data:
+            period_info = play.get("period", {})
+            period_display = period_info.get("displayValue", "Unknown Period")
+
+            if period_display not in period_groups:
+                period_groups[period_display] = []
+            period_groups[period_display].append(play)
+
+        for period_display in sorted(period_groups.keys()):
+            period_item = QTreeWidgetItem([f"Period {period_display}"])
+            period_item.setExpanded(True)
+            plays_tree.addTopLevelItem(period_item)
+
+            period_plays = sorted(
+                period_groups[period_display],
+                key=lambda p: self._parse_basketball_clock(p.get("clock", "00:00")),
+                reverse=True,
+            )
+
+            for play in period_plays:
+                action_text = play.get("text", "Unknown play")
+                score_info = self._extract_basketball_score_info(play)
+                clock_time = play.get("clock", "00:00")
+                formatted_play = self._format_basketball_play_entry(
+                    action_text, score_info, clock_time
+                )
+
+                play_item = QTreeWidgetItem([formatted_play])
+                self._apply_basketball_play_styling(play_item, play)
+                period_item.addChild(play_item)
+
+    def _parse_basketball_clock(self, clock_str):
+        """Parse basketball clock value into seconds for sorting"""
+        try:
+            clock_display = self._extract_basketball_clock_display(clock_str)
+            if ":" in clock_display:
+                minutes, seconds = clock_display.split(":")
+                return int(minutes) * 60 + int(seconds)
+            return 0
+        except Exception:
+            return 0
+
+    def _extract_play_clock_display(self, play):
+        """Extract readable clock value from a play payload"""
+        if not isinstance(play, dict):
+            return "--:--"
+        return self._extract_basketball_clock_display(play.get("clock", "--:--"))
+
+    def _extract_basketball_clock_display(self, clock_value):
+        """Extract a readable MM:SS clock from ESPN clock payload variants"""
+        if isinstance(clock_value, str):
+            return clock_value
+
+        if isinstance(clock_value, dict):
+            return (
+                clock_value.get("displayValue")
+                or clock_value.get("value")
+                or clock_value.get("text")
+                or "--:--"
+            )
+
+        if isinstance(clock_value, list) and clock_value:
+            first_entry = clock_value[0]
+            if isinstance(first_entry, dict):
+                return (
+                    first_entry.get("displayValue")
+                    or first_entry.get("value")
+                    or first_entry.get("text")
+                    or "--:--"
+                )
+            return str(first_entry)
+
+        return "--:--"
+
+    def _extract_basketball_score_info(self, play):
+        """Extract score information from basketball play data"""
+        away_raw = play.get("awayScore")
+        home_raw = play.get("homeScore")
+
+        away_score = self._safe_int(away_raw)
+        home_score = self._safe_int(home_raw)
+
+        has_score = away_score is not None and home_score is not None
+
+        return {
+            "away": away_score,
+            "home": home_score,
+            "has_score": has_score,
+            "is_scoring": play.get("scoringPlay", False),
+        }
+
+    def _safe_int(self, value):
+        """Convert score-like values to int when possible"""
+        if value is None or value == "":
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _get_basketball_team_labels(self):
+        """Resolve away/home display labels from available game context"""
+        away_label = "Away"
+        home_label = "Home"
+
+        sources = [
+            getattr(self, "current_raw_details", None),
+            getattr(self, "original_game_data", None),
+            getattr(self, "raw_game_data", None),
+        ]
+
+        for source in sources:
+            if not isinstance(source, dict):
+                continue
+
+            # Scoreboard-like shape
+            home_team = source.get("home_team")
+            away_team = source.get("away_team")
+            if isinstance(home_team, dict) and isinstance(away_team, dict):
+                home_label = home_team.get("abbreviation") or home_team.get("name") or home_label
+                away_label = away_team.get("abbreviation") or away_team.get("name") or away_label
+                return away_label, home_label
+
+            # Game-details shape (competitions/competitors)
+            containers = [source]
+            header = source.get("header")
+            if isinstance(header, dict):
+                containers.append(header)
+
+            for container in containers:
+                competitions = container.get("competitions", [])
+                if not competitions:
+                    continue
+
+                competitors = competitions[0].get("competitors", [])
+                for competitor in competitors:
+                    team = competitor.get("team", {}) if isinstance(competitor, dict) else {}
+                    label = (
+                        team.get("abbreviation")
+                        or team.get("shortDisplayName")
+                        or team.get("displayName")
+                        or team.get("name")
+                    )
+                    if not label:
+                        continue
+
+                    home_away = competitor.get("homeAway", "").lower()
+                    if home_away == "away":
+                        away_label = label
+                    elif home_away == "home":
+                        home_label = label
+
+                if away_label != "Away" or home_label != "Home":
+                    return away_label, home_label
+
+        return away_label, home_label
+
+    def _format_basketball_play_entry(self, action_text, score_info, clock_time):
+        """Format basketball play entry with action, score, and time"""
+        time_part = self._extract_basketball_clock_display(clock_time)
+        return self._format_clock_play_entry(action_text, time_part, score_info)
+
+    def _format_clock_play_entry(self, action_text, clock_time, score_info):
+        """Format a clock-based play as Action - Time - Team-labeled score"""
+        clean_action = self._clean_basketball_action_text(action_text)
+        away_label, home_label = self._get_basketball_team_labels()
+
+        if score_info.get("has_score"):
+            score_part = f"{away_label} {score_info['away']}, {home_label} {score_info['home']}"
+            return f"{clean_action} - {clock_time} ({score_part})"
+
+        if score_info.get("is_scoring"):
+            return f"{clean_action} - {clock_time} (Scoring play)"
+
+        return f"{clean_action} - {clock_time}"
+
+    def _clean_basketball_action_text(self, action_text):
+        """Clean basketball action text for readability"""
+        if not action_text:
+            return "Unknown play"
+        return " ".join(action_text.split())
+
+    def _apply_basketball_play_styling(self, play_item, play):
+        """Apply visual styling to basketball play items based on play type"""
+        action_text = play.get("text", "").lower()
+        from PyQt6.QtGui import QBrush
+
+        if any(word in action_text for word in ["makes", "made"]) and any(word in action_text for word in ["three", "3-pt"]):
+            play_item.setBackground(0, QBrush(QColor(173, 216, 230, 50)))
+        elif any(word in action_text for word in ["makes", "made"]) and any(word in action_text for word in ["layup", "dunk", "tip"]):
+            play_item.setBackground(0, QBrush(QColor(144, 238, 144, 50)))
+        elif any(word in action_text for word in ["makes", "made"]) and "free throw" in action_text:
+            play_item.setBackground(0, QBrush(QColor(255, 255, 224, 50)))
+        elif "misses" in action_text and any(word in action_text for word in ["three", "3-pt"]):
+            play_item.setBackground(0, QBrush(QColor(255, 182, 193, 50)))
+        elif "foul" in action_text and "technical" not in action_text:
+            play_item.setBackground(0, QBrush(QColor(255, 200, 150, 50)))
+        elif any(word in action_text for word in ["technical foul", "flagrant"]):
+            play_item.setBackground(0, QBrush(QColor(255, 165, 0, 30)))
+        elif "timeout" in action_text:
+            play_item.setBackground(0, QBrush(QColor(211, 211, 211, 50)))
+        elif "substitution" in action_text:
+            play_item.setBackground(0, QBrush(QColor(230, 230, 250, 50)))
+        elif play.get("scoringPlay", False):
+            play_item.setBackground(0, QBrush(QColor(176, 224, 230, 50)))
     
     def _add_baseball_plays_to_tree_group(self, parent_item, plays):
         """Add plays to a tree group, organizing by at-bat with result as main node"""
@@ -3598,16 +3818,20 @@ class GameDetailsView(BaseView):
             
             if yard_line:
                 enhanced_text = f"{enhanced_text} (at {yard_line})"
-            
+
+            clock_time = self._extract_play_clock_display(play)
+            score_info = self._extract_basketball_score_info(play)
+            if clock_time != "--:--":
+                formatted_text = self._format_clock_play_entry(enhanced_text, clock_time, score_info)
+            else:
+                formatted_text = enhanced_text
+
             # Create play item
-            play_item = QTreeWidgetItem([enhanced_text])
-            
+            play_item = QTreeWidgetItem([formatted_text])
+
             # Highlight scoring plays
             if play.get("scoringPlay", False):
                 play_item.setBackground(0, QColor(255, 255, 150))  # Light yellow
-                away_score = play.get("awayScore", 0)
-                home_score = play.get("homeScore", 0)
-                play_item.setText(0, f"🏈 {enhanced_text} ({away_score}-{home_score})")
             
             parent_item.addChild(play_item)
 
@@ -9167,7 +9391,6 @@ class SportsScoresApp(QWidget):
             current_widget = self.stacked_widget.currentWidget()
             if current_widget and hasattr(current_widget, 'handle_resize'):
                 current_widget.handle_resize(event.size())
-
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
