@@ -224,6 +224,12 @@ struct StandingsTableView: View {
         return cols
     }
 
+    /// Convert a standings TeamInfo into the Game.Team type that TeamScheduleView expects.
+    private func scheduleTeam(from info: StandingsEntry.TeamInfo) -> Game.Team {
+        Game.Team(id: info.id, name: info.name, abbreviation: info.abbreviation,
+                  displayName: info.displayName, score: nil, record: nil, logo: nil)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             ViewModePicker(selectedMode: $viewMode)
@@ -304,19 +310,22 @@ struct StandingsTableView: View {
 
             ForEach(Array(group.entries.enumerated()), id: \.element.id) { idx, entry in
                 let cols = rowData(for: entry)
-                HStack(spacing: 0) {
-                    Text(cols[0])   // Team abbreviation — flexible
-                        .font(.subheadline.bold())
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 8)
-                    ForEach(Array(cols.dropFirst().enumerated()), id: \.offset) { _, value in
-                        Text(value)
-                            .font(.caption.monospacedDigit())
-                            .frame(width: 44)
+                NavigationLink(destination: TeamScheduleView(team: scheduleTeam(from: entry.team), sport: sport)) {
+                    HStack(spacing: 0) {
+                        Text(cols[0])   // Team abbreviation — flexible
+                            .font(.subheadline.bold())
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 8)
+                        ForEach(Array(cols.dropFirst().enumerated()), id: \.offset) { _, value in
+                            Text(value)
+                                .font(.caption.monospacedDigit())
+                                .frame(width: 44)
+                        }
                     }
+                    .padding(.vertical, 7)
+                    .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.05))
                 }
-                .padding(.vertical, 7)
-                .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.05))
+                .buttonStyle(.plain)
                 // Row is hidden from VoiceOver; AccessibleDataTable overlay
                 // handles all accessibility navigation for the table view.
                 .accessibilityHidden(true)
@@ -342,12 +351,16 @@ struct StandingsTableView: View {
     private func quickListSection(for group: StandingsGroup) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             ForEach(group.entries) { entry in
-                Text(entry.quickListText)
-                    .font(.subheadline)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 6)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityLabel(entry.quickListText)
+                NavigationLink(destination: TeamScheduleView(team: scheduleTeam(from: entry.team), sport: sport)) {
+                    Text(entry.quickListText)
+                        .font(.subheadline)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(entry.quickListText)
+                .accessibilityHint("Opens \(entry.team.displayName) schedule")
             }
         }
         .padding(.bottom, 16)
@@ -358,20 +371,24 @@ struct StandingsTableView: View {
     private func fullListSection(for group: StandingsGroup) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(group.entries) { entry in
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(entry.team.displayName)
-                        .font(.headline)
-                    Text(entry.fullListText)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                NavigationLink(destination: TeamScheduleView(team: scheduleTeam(from: entry.team), sport: sport)) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(entry.team.displayName)
+                            .font(.headline)
+                        Text(entry.fullListText)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.secondary.opacity(0.05))
+                    .cornerRadius(8)
+                    .padding(.horizontal, 12)
                 }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.secondary.opacity(0.05))
-                .cornerRadius(8)
-                .padding(.horizontal, 12)
+                .buttonStyle(.plain)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(entry.fullListText)
+                .accessibilityHint("Opens \(entry.team.displayName) schedule")
             }
         }
         .padding(.bottom, 16)
