@@ -30,6 +30,13 @@ struct TeamScheduleView: View {
         return f
     }()
 
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .none
+        f.timeStyle = .short   // e.g. "3:05 PM"
+        return f
+    }()
+
     // Group games by "Month Year" string
     private var groupedGames: [(month: String, games: [ScheduleGame])] {
         var dict: [(String, [ScheduleGame])] = []
@@ -153,20 +160,32 @@ struct TeamScheduleView: View {
 
             // Score / Status column
             VStack(alignment: .trailing, spacing: 2) {
-                if game.isCompleted, let myScore = (game.homeTeam.id == team.id ? game.homeTeam : game.awayTeam).score,
-                   let oppScore = (game.homeTeam.id == team.id ? game.awayTeam : game.homeTeam).score {
-                    let won = myScore > oppScore
-                    Text(won ? "W" : (myScore == oppScore ? "T" : "L"))
-                        .font(.caption.bold())
-                        .foregroundColor(won ? .green : (myScore == oppScore ? .secondary : .red))
-                    Text("\(myScore)-\(oppScore)")
-                        .font(.caption.monospacedDigit())
-                        .foregroundColor(.secondary)
-                } else {
+                if game.isCompleted {
+                    let myTeam  = game.homeTeam.id == team.id ? game.homeTeam : game.awayTeam
+                    let oppTeam = game.homeTeam.id == team.id ? game.awayTeam : game.homeTeam
+                    if let myScore = myTeam.score, let oppScore = oppTeam.score {
+                        let won = myScore > oppScore
+                        Text(won ? "W" : (myScore == oppScore ? "T" : "L"))
+                            .font(.caption.bold())
+                            .foregroundColor(won ? .green : (myScore == oppScore ? .secondary : .red))
+                        Text("\(myScore)-\(oppScore)")
+                            .font(.caption.monospacedDigit())
+                            .foregroundColor(.secondary)
+                    } else {
+                        Text("Final")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                } else if game.isInProgress {
                     Text(game.statusText)
                         .font(.caption)
-                        .foregroundColor(game.isInProgress ? .green : .secondary)
+                        .foregroundColor(.green)
                         .multilineTextAlignment(.trailing)
+                } else {
+                    // Scheduled: show local game time derived from the parsed date
+                    Text(Self.timeFormatter.string(from: game.date))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
             }
         }
@@ -180,7 +199,22 @@ struct TeamScheduleView: View {
         let opponent = isHome ? game.awayTeam : game.homeTeam
         let homeAway = isHome ? "vs" : "at"
         let dateStr = Self.dayFormatter.string(from: game.date)
-        return "\(dateStr), \(homeAway) \(opponent.displayName), \(game.statusText)"
+        let statusPart: String
+        if game.isCompleted {
+            let myTeam  = game.homeTeam.id == team.id ? game.homeTeam : game.awayTeam
+            let oppTeam = game.homeTeam.id == team.id ? game.awayTeam : game.homeTeam
+            if let myScore = myTeam.score, let oppScore = oppTeam.score {
+                let result = myScore > oppScore ? "Win" : (myScore == oppScore ? "Tie" : "Loss")
+                statusPart = "\(result), \(myScore) to \(oppScore)"
+            } else {
+                statusPart = "Final"
+            }
+        } else if game.isInProgress {
+            statusPart = game.statusText
+        } else {
+            statusPart = Self.timeFormatter.string(from: game.date)
+        }
+        return "\(dateStr), \(homeAway) \(opponent.displayName), \(statusPart)"
     }
 }
 
