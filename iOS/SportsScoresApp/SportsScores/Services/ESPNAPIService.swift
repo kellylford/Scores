@@ -13,15 +13,29 @@ class ESPNAPIService {
     private let baseURL = "https://site.api.espn.com/apis/site/v2/sports"
     /// Standings uses a different ESPN API base path (v2, not site/v2)
     private let standingsBaseURL = "https://site.api.espn.com/apis/v2/sports"
-    /// Core API for leaders/statistics
+    /// Core API for leaders/statistics and week calendar data
     private let coreAPIBaseURL = "https://sports.core.api.espn.com/v2/sports"
     private let session: URLSession
-    
+
+    // MARK: - Caches (historical season data)
+
+    /// Keyed by "{SportRawValue}-{season}" → SeasonCalendar
+    private var seasonCalendarCache: [String: SeasonCalendar] = [:]
+    /// Keyed by "{SportRawValue}-{season}-{seasonType}-{week}" → (start, end, label)
+    private var weekDateRangeCache: [String: (start: Date, end: Date, text: String)] = [:]
+
     private init() {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
         config.timeoutIntervalForResource = 60
         self.session = URLSession(configuration: config)
+    }
+
+    // MARK: - Core API league name helper
+
+    /// Returns the ESPN Core API league identifier for a football sport.
+    private func coreLeagueName(for sport: Sport) -> String {
+        sport == .nfl ? "nfl" : "college-football"
     }
     
     // MARK: - Fetch Games (non-football, optional date)
@@ -87,6 +101,138 @@ class ESPNAPIService {
             seasonType: resolvedSeasonType,
             season: resolvedSeason
         )
+    }
+
+    // MARK: - Historical Football Calendar (Core API)
+
+    /// Fetches the season calendar from the ESPN Core API for a specific football
+    /// season year.  Returns a `SeasonCalendar` describing which season types
+    /// (preseason / regular / postseason) exist and how many weeks each has.
+    ///
+    /// Results are cached in memory so repeated calls for the same sport+season
+    /// cost nothing after the first fetch.
+    func fetchFootballCalendar(sport: Sport, season: Int) async throws -> SeasonCalendar {
+        let cacheKey = "\(sport.rawValue)-\(season)"
+        if let cached = seasonCalendarCache[cacheKey] { return cached }
+
+        let league = coreLeagueName(for: sport)
+
+        // Fetch week counts for all three season types in parallel.
+        async let preCount  = fetchWeekCount(league: league, season: season, seasonType: 1)
+        async let regCount  = fetchWeekCount(league: league, season: season, seasonType: 2)
+        async let postCount = fetchWeekCount(league: league, season: season, seasonType: 3)
+
+        let (pre, reg, post) = await (preCount, regCount, postCount)
+
+        var types: [SeasonTypeInfo] = []
+        if pre  > 0 { types.append(SeasonTypeInfo(type: 1, weekCount: pre)) }
+        if reg  > 0 { types.append(SeasonTypeInfo(type: 2, weekCount: reg)) }
+        if post > 0 { types.append(SeasonTypeInfo(type: 3, weekCount: post)) }
+
+        let calendar = SeasonCalendar(sport: sport, season: season, seasonTypes: types)
+        seasonCalendarCache[cacheKey] = calendar
+        return calendar
+    }
+
+    /// Returns the number of weeks in a given season type, or 0 on error / missing data.
+    private func fetchWeekCount(league: String, season: Int, seasonType: Int) async -> Int {
+        let urlString = "\(coreAPIBaseURL)/football/leagues/\(league)/seasons/\(season)/types/\(seasonType)/weeks?limit=100"
+        guard let url = URL(string: urlString) else { return 0 }
+        guard let (data, response) = try? await session.data(from: url),
+              let http = response as? HTTPURLResponse, http.statusCode == 200 else { return 0 }
+        struct WeeksResponse: Decodable { let count: Int? }
+        return (try? JSONDecoder().decode(WeeksResponse.self, from: data))?.count ?? 0
+    }
+
+    // MARK: - Historical Football Week Games (Core API + date-range scoreboard)
+
+    /// Fetches games for a specific week of a **historical** football season.
+    ///
+    /// Because the site scoreboard endpoint rejects `season=YEAR` params for past
+    /// seasons, this method:
+    /// 1. Gets the week's `startDate`/`endDate` from the Core API.
+    /// 2. Fetches the site scoreboard with `?dates=YYYYMMDD-YYYYMMDD`.
+    ///
+    /// Both the week date range and the scoreboard result are cached so that
+    /// navigating back and forth between weeks is cheap.
+    func fetchFootballWeek(
+        sport: Sport,
+        season: Int,
+        seasonType: Int,
+        week: Int
+    ) async throws -> FootballScoreboardResult {
+        // Step 1 — get the date range for this week (cached after first fetch).
+        let weekCacheKey = "\(sport.rawValue)-\(season)-\(seasonType)-\(week)"
+        let weekRange: (start: Date, end: Date, text: String)
+
+        if let cached = weekDateRangeCache[weekCacheKey] {
+            weekRange = cached
+        } else {
+            let league = coreLeagueName(for: sport)
+            let weekURLString = "\(coreAPIBaseURL)/football/leagues/\(league)/seasons/\(season)/types/\(seasonType)/weeks/\(week)"
+            guard let weekURL = URL(string: weekURLString) else { throw APIError.invalidURL }
+
+            let (weekData, weekResponse) = try await session.data(from: weekURL)
+            guard let weekHttp = weekResponse as? HTTPURLResponse,
+                  weekHttp.statusCode == 200 else { throw APIError.invalidResponse }
+
+            struct CoreWeek: Decodable {
+                let number: Int
+                let startDate: String
+                let endDate: String
+                let text: String?
+            }
+            let coreWeek = try JSONDecoder().decode(CoreWeek.self, from: weekData)
+            let start = parseESPNDateString(coreWeek.startDate) ?? Date()
+            let end   = parseESPNDateString(coreWeek.endDate)   ?? Date()
+            let text  = coreWeek.text ?? "Week \(week)"
+            weekRange = (start: start, end: end, text: text)
+            weekDateRangeCache[weekCacheKey] = weekRange
+        }
+
+        // Step 2 — fetch the scoreboard using the date range.
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyyMMdd"
+        let startStr = fmt.string(from: weekRange.start)
+        let endStr   = fmt.string(from: weekRange.end)
+        let scoreboardURLString = "\(baseURL)/\(sport.apiPath)/scoreboard?dates=\(startStr)-\(endStr)"
+        guard let scoreboardURL = URL(string: scoreboardURLString) else { throw APIError.invalidURL }
+
+        let (data, response) = try await session.data(from: scoreboardURL)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw APIError.invalidResponse
+        }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let apiResponse = try decoder.decode(ScoreboardResponse.self, from: data)
+        let games = try apiResponse.events.map { try Game(from: $0, seasonType: seasonType) }
+
+        return FootballScoreboardResult(
+            games: games,
+            week: week,
+            weekLabel: weekRange.text,
+            seasonType: seasonType,
+            season: season
+        )
+    }
+
+    /// Parse an ESPN date string that may be formatted with or without seconds.
+    /// ESPN typically returns `"2022-09-08T07:00Z"` (no seconds).
+    private func parseESPNDateString(_ s: String) -> Date? {
+        let formats = [
+            "yyyy-MM-dd'T'HH:mm:ssZ",
+            "yyyy-MM-dd'T'HH:mm'Z'",
+            "yyyy-MM-dd'T'HH:mmZ",
+            "yyyy-MM-dd"
+        ]
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US_POSIX")
+        for fmt in formats {
+            df.dateFormat = fmt
+            if let d = df.date(from: s) { return d }
+        }
+        return nil
     }
 
     // MARK: - Fetch News

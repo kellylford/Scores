@@ -144,7 +144,7 @@ struct ScoresView: View {
                     .frame(width: 44, height: 36)
                     .contentShape(Rectangle())
             }
-            .disabled(viewModel.isLoading)
+            .disabled(viewModel.isLoading || (sport.isFootball && viewModel.isAtWeekStart))
             .accessibilityLabel(sport.isFootball ? "Previous Week" : "Previous Day")
 
             Spacer()
@@ -159,31 +159,59 @@ struct ScoresView: View {
                         .font(.subheadline.bold())
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
+                        // Static text — VoiceOver reads it as part of the row; no interactive trait.
+                        .accessibilityLabel(weekText)
 
-                    // Season year picker — lets users jump to historical seasons
-                    let currentYear = Calendar.current.component(.year, from: Date())
-                    let availableSeasons = Array((viewModel.earliestFootballSeason...currentYear).reversed())
-                    Menu {
-                        ForEach(availableSeasons, id: \.self) { year in
-                            Button(String(year)) {
-                                Task { await viewModel.goToSeason(year, for: sport); announceNavigation() }
+                    HStack(spacing: 6) {
+                        // Season year picker
+                        Menu {
+                            ForEach(sport.availableSeasonYears, id: \.self) { year in
+                                Button(String(year)) {
+                                    Task { await viewModel.goToSeason(year, for: sport); announceNavigation() }
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 3) {
+                                Text(String(viewModel.resolvedSeason))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Image(systemName: "chevron.up.chevron.down")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.secondary)
                             }
                         }
-                    } label: {
-                        HStack(spacing: 3) {
-                            Text(String(viewModel.resolvedSeason))
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Image(systemName: "chevron.up.chevron.down")
-                                .font(.system(size: 9))
-                                .foregroundColor(.secondary)
+                        .accessibilityLabel("\(viewModel.resolvedSeason) season")
+                        .accessibilityHint("Select to change season")
+
+                        // Season type picker (only when calendar is loaded with >1 type)
+                        if viewModel.availableSeasonTypes.count > 1 {
+                            let currentTypeName = viewModel.availableSeasonTypes
+                                .first { $0.type == viewModel.currentSeasonType }?.label ?? "Regular"
+                            Menu {
+                                ForEach(viewModel.availableSeasonTypes) { typeInfo in
+                                    Button(typeInfo.label) {
+                                        Task { await viewModel.goToSeasonType(typeInfo.type, for: sport); announceNavigation() }
+                                    }
+                                }
+                            } label: {
+                                let shortLabel = viewModel.availableSeasonTypes
+                                    .first { $0.type == viewModel.currentSeasonType }?.shortLabel ?? "Reg"
+                                HStack(spacing: 2) {
+                                    Text(shortLabel)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Image(systemName: "chevron.up.chevron.down")
+                                        .font(.system(size: 9))
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .accessibilityLabel("\(currentTypeName)")
+                            .accessibilityHint("Select to change between preseason, regular, and postseason")
                         }
                     }
-                    .accessibilityLabel("Season \(viewModel.resolvedSeason). Tap to pick a different season year.")
                 }
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("Currently viewing \(weekText), \(viewModel.resolvedSeason) season")
-                .accessibilityAddTraits(.isButton)
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("\(weekText), \(viewModel.resolvedSeason)")
                 .accessibilityHint("Swipe up for next week, swipe down for previous week")
                 .accessibilityAdjustableAction { direction in
                     Task {
@@ -196,29 +224,55 @@ struct ScoresView: View {
                     }
                 }
             } else {
-                Button { showDatePicker = true } label: {
-                    HStack(spacing: 4) {
-                        Text(viewModel.dateLabelText)
-                            .font(.subheadline.bold())
-                        Image(systemName: "calendar")
-                            .font(.caption)
-                    }
-                    .foregroundColor(.primary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .background(Color.secondary.opacity(0.12))
-                    .cornerRadius(8)
-                }
-                .accessibilityLabel("Currently viewing \(viewModel.dateAccessibilityString). Tap to open date picker.")
-                .accessibilityHint("Swipe up for next day, swipe down for previous day")
-                .accessibilityAdjustableAction { direction in
-                    Task {
-                        switch direction {
-                        case .increment: await viewModel.goForward(for: sport)
-                        case .decrement: await viewModel.goBack(for: sport)
-                        @unknown default: break
+                VStack(spacing: 2) {
+                    Button { showDatePicker = true } label: {
+                        HStack(spacing: 4) {
+                            Text(viewModel.dateLabelText)
+                                .font(.subheadline.bold())
+                            Image(systemName: "calendar")
+                                .font(.caption)
                         }
-                        announceNavigation()
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background(Color.secondary.opacity(0.12))
+                        .cornerRadius(8)
+                    }
+                    .accessibilityLabel(viewModel.dateAccessibilityString)
+                    .accessibilityHint("Opens date picker. Swipe up for next day, swipe down for previous day")
+                    .accessibilityAdjustableAction { direction in
+                        Task {
+                            switch direction {
+                            case .increment: await viewModel.goForward(for: sport)
+                            case .decrement: await viewModel.goBack(for: sport)
+                            @unknown default: break
+                            }
+                            announceNavigation()
+                        }
+                    }
+
+                    // Season picker for non-football, non-soccer sports
+                    if !sport.isSoccer {
+                        let displayYear = viewModel.displaySeasonYear(for: sport)
+                        let seasonName  = sport.seasonDisplayName(year: displayYear)
+                        Menu {
+                            ForEach(sport.availableSeasonYears, id: \.self) { year in
+                                Button(sport.seasonDisplayName(year: year)) {
+                                    Task { await viewModel.goToSeason(year, for: sport); announceNavigation() }
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 3) {
+                                Text(seasonName)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Image(systemName: "chevron.up.chevron.down")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .accessibilityLabel("\(seasonName) season")
+                        .accessibilityHint("Select to change season")
                     }
                 }
             }
@@ -234,7 +288,7 @@ struct ScoresView: View {
                     .frame(width: 44, height: 36)
                     .contentShape(Rectangle())
             }
-            .disabled(viewModel.isLoading)
+            .disabled(viewModel.isLoading || (sport.isFootball && viewModel.isAtWeekEnd))
             .accessibilityLabel(sport.isFootball ? "Next Week" : "Next Day")
 
             // ── Today button (only when not on today / current week) ──────
@@ -269,9 +323,9 @@ struct ScoresView: View {
             let weekText = viewModel.weekLabel.isEmpty
                 ? (viewModel.currentWeek.map { "Week \($0)" } ?? "Current Week")
                 : viewModel.weekLabel
-            description = "\(sport.displayName), \(weekText), \(viewModel.resolvedSeason)"
+            description = "\(weekText), \(viewModel.resolvedSeason)"
         } else {
-            description = "\(sport.displayName), \(viewModel.dateAccessibilityString)"
+            description = viewModel.dateAccessibilityString
         }
         UIAccessibility.post(notification: .announcement, argument: description)
     }

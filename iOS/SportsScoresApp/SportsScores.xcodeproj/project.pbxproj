@@ -12,8 +12,7 @@
 		13A69BFC319671031E87986D /* StadiumGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C54D54E4F45E8D6A098DFF0B /* StadiumGeometry.swift */; };
 		148D279BE802BAA35FF18C92 /* News.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C2563CBCB32601D5263CEEF /* News.swift */; };
 		17DD6D3CA0A61007F2DF8FC2 /* SportsScoresApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CF458B8B4585D69E60DA8FF /* SportsScoresApp.swift */; };
-		19E3A581324D154BA8CAB60C /* Schedule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CEB663233BEB6B8AC40C34A /* Schedule.swift */; };
-		1A468450657E6A4E5C798D40 /* PollsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAB026ED5A307D8628CB7D79 /* PollsViewModel.swift */; };
+		19E3A581324D154BA8CAB60C /* Schedule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CEB663233BEB6B8AC40C34A /* Schedule.swift */; };			AA44BC00DEADBEEF00001001 /* SeasonCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44BC00DEADBEEF00001000 /* SeasonCalendar.swift */; };		1A468450657E6A4E5C798D40 /* PollsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAB026ED5A307D8628CB7D79 /* PollsViewModel.swift */; };
 		31603CE4AE41B5ABE907C348 /* TeamNamePreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AAC57811BB4C42BC2619656 /* TeamNamePreference.swift */; };
 		32A6FF663F55FDB3009D64C7 /* TeamScheduleViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 915340F68BA4D0A9C2068191 /* TeamScheduleViewModel.swift */; };
 		39FB1132256178B6106EA884 /* FootballFieldTourView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62F4C1D901EF7B90EED9E637 /* FootballFieldTourView.swift */; };
@@ -103,8 +102,7 @@
 		797D09AB2E8244D9B87B18DD /* DatePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatePickerView.swift; sourceTree = "<group>"; };
 		8AA9D3C2F2CF69EA0F2C44FC /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		8B5D54CA4176A888905B0A8B /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		8CEB663233BEB6B8AC40C34A /* Schedule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Schedule.swift; sourceTree = "<group>"; };
-		915340F68BA4D0A9C2068191 /* TeamScheduleViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamScheduleViewModel.swift; sourceTree = "<group>"; };
+		8CEB663233BEB6B8AC40C34A /* Schedule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Schedule.swift; sourceTree = "<group>"; };			AA44BC00DEADBEEF00001000 /* SeasonCalendar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeasonCalendar.swift; sourceTree = "<group>"; };		915340F68BA4D0A9C2068191 /* TeamScheduleViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamScheduleViewModel.swift; sourceTree = "<group>"; };
 		93169AB8FB73DA57C45D0C7A /* BaseballFieldTourView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseballFieldTourView.swift; sourceTree = "<group>"; };
 		95F96BD2C7E1B5D0F0EC4DE8 /* StandingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StandingsView.swift; sourceTree = "<group>"; };
 		9AAC57811BB4C42BC2619656 /* TeamNamePreference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamNamePreference.swift; sourceTree = "<group>"; };
@@ -260,6 +258,7 @@
 				08AB11969A6D49301493C976 /* Game.swift */,
 				3C2563CBCB32601D5263CEEF /* News.swift */,
 				8CEB663233BEB6B8AC40C34A /* Schedule.swift */,
+				AA44BC00DEADBEEF00001000 /* SeasonCalendar.swift */,
 				069ACD1D5C73DAD2A7D76927 /* Sport.swift */,
 				C54D54E4F45E8D6A098DFF0B /* StadiumGeometry.swift */,
 				2F730ED25EF184C36C9EEC13 /* Standings.swift */,
@@ -376,6 +375,7 @@
 				F8BF3E6E1722253CFF729BD8 /* PollsView.swift in Sources */,
 				1A468450657E6A4E5C798D40 /* PollsViewModel.swift in Sources */,
 				19E3A581324D154BA8CAB60C /* Schedule.swift in Sources */,
+				AA44BC00DEADBEEF00001001 /* SeasonCalendar.swift in Sources */,
 				55CE2ABE26480CA6F22E8419 /* ScoreMonitorService.swift in Sources */,
 				3CF5D8B7E440EC82D67DAC1F /* ScoresView.swift in Sources */,
 				B4010B138E30A62510C01960 /* ScoresViewModel.swift in Sources */,

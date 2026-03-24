@@ -122,6 +122,72 @@ enum Sport: String, CaseIterable, Identifiable {
         self == .ncaaf || self == .ncaam || self == .ncaawb
     }
 
+    // MARK: - Season navigation helpers
+
+    /// Earliest season year available in the ESPN API for this sport.
+    var earliestSeason: Int {
+        switch self {
+        case .ncaaf:         return 2005
+        case .ncaah, .ncaawh: return 2012
+        default:             return 2001
+        }
+    }
+
+    /// All season years available for display in the season picker, newest first.
+    var availableSeasonYears: [Int] {
+        let currentYear = Calendar.current.component(.year, from: Date())
+        return Array((earliestSeason...currentYear).reversed())
+    }
+
+    /// Human-readable season label for the given API year.
+    ///
+    /// - For year+1 sports (NBA, NHL, NCAAM, …):  2023 → "2022-23"
+    /// - For single-year sports (MLB, NFL, WNBA): 2023 → "2023"
+    func seasonDisplayName(year: Int) -> String {
+        // WNBA runs within a single calendar year even though usesNextYearFormat = true
+        // for the ESPN API convention. Show as plain year to avoid "2025-26" confusion.
+        if self == .wnba {
+            return String(year - 1)
+        }
+        if usesNextYearFormat {
+            let shortYear = String(year).suffix(2)
+            return "\(year - 1)-\(shortYear)"
+        }
+        return String(year)
+    }
+
+    /// The date to jump to when the user selects a historical season via the picker
+    /// for non-football sports. Returns an approximate regular-season opening date.
+    ///
+    /// `year` is the **ESPN API season year** (i.e. the value you would pass as
+    /// `season=` to the API), which for `usesNextYearFormat` sports is one more
+    /// than the calendar year the season starts in.
+    func approximateSeasonStartDate(year: Int) -> Date {
+        var comps = DateComponents()
+        switch self {
+        case .mlb:
+            // Regular season opens ~late March / early April
+            comps.year = year; comps.month = 4; comps.day = 1
+        case .wnba:
+            // WNBA opens ~mid May (API year = year, not year+1 for display)
+            // When the user picks display year N, API year = N+1; we show May of N.
+            comps.year = year - 1; comps.month = 5; comps.day = 14
+        case .nba, .ncaam:
+            // Season starts ~mid October of the prior calendar year
+            comps.year = year - 1; comps.month = 10; comps.day = 18
+        case .ncaawb:
+            comps.year = year - 1; comps.month = 11; comps.day = 5
+        case .nhl:
+            comps.year = year - 1; comps.month = 10; comps.day = 8
+        case .ncaah, .ncaawh:
+            comps.year = year - 1; comps.month = 10; comps.day = 15
+        default:
+            // Soccer leagues and others: default to January of the display year
+            comps.year = year; comps.month = 1; comps.day = 1
+        }
+        return Calendar.current.date(from: comps) ?? Date()
+    }
+
     var icon: String {
         switch self {
         case .mlb:    return "MLB"
