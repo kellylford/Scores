@@ -22,7 +22,6 @@
 		4EBA8B3274D13D19014A34C4 /* BoxScoreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DB8AE94C204A50146E9F867 /* BoxScoreView.swift */; };
 		513083EA6C93ED8413B1C342 /* DivisionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CEE4CE2353099109FF62D72 /* DivisionMapper.swift */; };
 		537EDE5289F5FA56EDBB33E6 /* ViewMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F02454A9066804EF35F956A /* ViewMode.swift */; };
-		55CE2ABE26480CA6F22E8419 /* ScoreMonitorService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC2D08B7D16F9E319C4B0346 /* ScoreMonitorService.swift */; };
 		64472E5262DAF76B2D31956D /* VenueToursView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D140CFB6388D35A8A6DAA98A /* VenueToursView.swift */; };
 		66941444CDF6D80C2263573F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C7235DC0E2395602DD8FA74 /* ContentView.swift */; };
 		5207A68ACEDF4B39AE17EAC3 /* GameDetails.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3EFC144E52A4E08A79D3215 /* GameDetails.swift */; };
@@ -110,7 +109,6 @@
 		AA74734FB552A44C1F62E3C7 /* SportSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportSelectionView.swift; sourceTree = "<group>"; };
 		AD66FC8613BE001BF933296A /* PitchMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PitchMapView.swift; sourceTree = "<group>"; };
 		BAB026ED5A307D8628CB7D79 /* PollsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PollsViewModel.swift; sourceTree = "<group>"; };
-		BC2D08B7D16F9E319C4B0346 /* ScoreMonitorService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoreMonitorService.swift; sourceTree = "<group>"; };
 		BDDD36E16EA39ADB21259034 /* PollsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PollsView.swift; sourceTree = "<group>"; };
 		BDEC309880AB2ADBB9696E41 /* ScoresViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoresViewModel.swift; sourceTree = "<group>"; };
 		C54D54E4F45E8D6A098DFF0B /* StadiumGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StadiumGeometry.swift; sourceTree = "<group>"; };
@@ -161,7 +159,6 @@
 				21AFFA6521B030C9D6A32C28 /* ESPNAPIService.swift */,
 				403903D8B1E6F2AE0AC92E30 /* FieldAudioEngine.swift */,
 				F659A5D114F5225EE0FE626D /* PitchAudioEngine.swift */,
-				BC2D08B7D16F9E319C4B0346 /* ScoreMonitorService.swift */,
 				730BF6E5A4FF66C7DF52BCC3 /* TouchTourAnnouncementService.swift */,
 			);
 			path = Services;
@@ -376,7 +373,6 @@
 				1A468450657E6A4E5C798D40 /* PollsViewModel.swift in Sources */,
 				19E3A581324D154BA8CAB60C /* Schedule.swift in Sources */,
 				AA44BC00DEADBEEF00001001 /* SeasonCalendar.swift in Sources */,
-				55CE2ABE26480CA6F22E8419 /* ScoreMonitorService.swift in Sources */,
 				3CF5D8B7E440EC82D67DAC1F /* ScoresView.swift in Sources */,
 				B4010B138E30A62510C01960 /* ScoresViewModel.swift in Sources */,
 				AD2514C8D08879F4B4B46D8F /* SettingsView.swift in Sources */,

@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import UserNotifications
 
 @main
 struct SportsScoresApp: App {
@@ -16,11 +15,6 @@ struct SportsScoresApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(appSettings)
-                .onAppear {
-                    UNUserNotificationCenter.current().requestAuthorization(
-                        options: [.alert, .sound, .badge]
-                    ) { _, _ in }
-                }
         }
     }
 }

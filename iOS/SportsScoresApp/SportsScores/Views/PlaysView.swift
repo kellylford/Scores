@@ -18,13 +18,37 @@ import SwiftUI
 
 // MARK: - Data model helpers
 
+/// One entry in the expanded half-inning list: an at-bat or a player-change event.
+private enum HalfInningItem: Identifiable {
+    /// A full at-bat (batter vs pitcher sequence).
+    case atBat(AtBatGroup)
+    /// A mid-inning player substitution — e.g. a pitching change.
+    /// `id` is the underlying ESPN play id; `text` is the announcement ("Newcomb relieved Smith").
+    case playerChange(id: String, text: String)
+
+    var id: String {
+        switch self {
+        case .atBat(let ab):             return ab.id
+        case .playerChange(let id, _):   return id
+        }
+    }
+}
+
 private struct HalfInningGroup: Identifiable {
     let id: String              // e.g. "Top-3"
     let halfType: String        // "Top" / "Bottom"
     let inningNumber: Int
     let inningLabel: String     // "3rd Inning"
-    let atBats: [AtBatGroup]
+    let items: [HalfInningItem] // at-bats interleaved with player-change banners
     let runsScored: Int         // sum of scoreValue in this half
+
+    /// Number of actual at-bat entries (excludes player-change rows).
+    var atBatCount: Int {
+        items.reduce(0) { total, item in
+            if case .atBat = item { return total + 1 }
+            return total
+        }
+    }
 }
 
 private struct AtBatGroup: Identifiable {
@@ -203,7 +227,7 @@ struct MLBPlaysView: View {
                             .font(.caption.bold())
                             .foregroundColor(.green)
                     } else {
-                        Text("\(half.atBats.count) AB")
+                        Text("\(half.atBatCount) AB")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -219,8 +243,8 @@ struct MLBPlaysView: View {
 
             if isOpen {
                 VStack(spacing: 3) {
-                    ForEach(half.atBats) { ab in
-                        atBatRow(ab)
+                    ForEach(half.items) { item in
+                        halfInningItemView(item)
                     }
                 }
                 .padding(.horizontal, 8)
@@ -230,6 +254,41 @@ struct MLBPlaysView: View {
         .background(Color.secondary.opacity(0.04))
         .cornerRadius(8)
         .padding(.horizontal, 4)
+    }
+
+    // MARK: - Half-inning item dispatch
+
+    @ViewBuilder
+    private func halfInningItemView(_ item: HalfInningItem) -> some View {
+        switch item {
+        case .atBat(let ab):
+            atBatRow(ab)
+        case .playerChange(_, let text):
+            playerChangeRow(text)
+        }
+    }
+
+    /// A compact banner shown between at-bats when a player substitution occurs
+    /// (e.g. a pitching change).  Uses summaryType == "C" from the ESPN API.
+    private func playerChangeRow(_ text: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "arrow.triangle.2.circlepath")
+                .font(.caption.bold())
+                .foregroundColor(.orange)
+                .frame(width: 22)
+            Text(text)
+                .font(.caption.bold())
+                .foregroundColor(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Color.orange.opacity(0.10))
+        .cornerRadius(6)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Player change: \(text)")
+        .accessibilityAddTraits(.isStaticText)
     }
 
     // MARK: - At-bat level (with VoiceOver adjustable pitches)
@@ -516,26 +575,37 @@ struct MLBPlaysView: View {
             abPlays[abKey, default: []].append(play)
         }
 
-        let atBats: [AtBatGroup] = abOrder.compactMap { abKey -> AtBatGroup? in
-            guard let group = abPlays[abKey] else { return nil }
-            // Skip groups with no actual at-bat marker (pure inning-headers or
-            // substitution-only plays that ESPN puts on the same atBatId as the next batter)
-            guard group.contains(where: { $0.summaryType == "A" }) else { return nil }
+        // Build interleaved list of at-bats and player-change banners.
+        var items: [HalfInningItem] = []
 
-            let header = group.first(where: { $0.summaryType == "A" })?.text
-                      ?? group.first?.text
-                      ?? "At-bat"
+        for abKey in abOrder {
+            guard let group = abPlays[abKey] else { continue }
+
+            // Emit any player-change (summaryType == "C") plays that appear before
+            // the at-bat marker.  ESPN places mid-inning substitutions (pitching
+            // changes, defensive replacements) at the start of the next batter's group.
+            let aIndex = group.firstIndex(where: { $0.summaryType == "A" })
+            let preRange = aIndex.map { group[..<$0] } ?? ArraySlice(group)
+            for play in preRange where play.summaryType == "C" {
+                if let txt = play.text, !txt.isEmpty {
+                    items.append(.playerChange(id: "chg-\(play.id)", text: txt))
+                }
+            }
+
+            // If there is no at-bat marker this group is substitution-only — done.
+            guard let aIdx = aIndex else { continue }
+
+            let header = group[aIdx].text ?? "At-bat"
 
             // Only search for the result AFTER the 'A' marker so that pre-at-bat
             // substitution 'N' plays ("Gilbert in center field.") aren't mistaken for results.
-            let aIndex = group.firstIndex(where: { $0.summaryType == "A" }) ?? 0
-            let playsAfterABat = Array(group[aIndex...])
+            let playsAfterABat = Array(group[aIdx...])
             let resultPlay = playsAfterABat.first(where: { $0.summaryType == "S" })
                           ?? playsAfterABat.first(where: { $0.summaryType == "N" })
             let result = resultPlay?.text
             let pitches = group.filter { $0.summaryType == "P" && $0.isPitch }
             let isScoringPlay = resultPlay?.summaryType == "S"
-            return AtBatGroup(
+            items.append(.atBat(AtBatGroup(
                 id: abKey,
                 headerText: header,
                 resultText: result,
@@ -544,7 +614,7 @@ struct MLBPlaysView: View {
                 isScoringPlay: isScoringPlay,
                 awayScoreAfter: isScoringPlay ? resultPlay?.awayScore : nil,
                 homeScoreAfter: isScoringPlay ? resultPlay?.homeScore : nil
-            )
+            )))
         }
 
         let runsScored = plays.reduce(0) { $0 + max(0, $1.scoreValue ?? 0) }
@@ -553,7 +623,7 @@ struct MLBPlaysView: View {
             halfType: meta.type,
             inningNumber: meta.number,
             inningLabel: meta.label,
-            atBats: atBats,
+            items: items,
             runsScored: runsScored
         )
     }
@@ -701,14 +771,14 @@ struct GenericPlaysView: View {
                 // What happened — most important, always first
                 Text(playText)
                     .font(isPlayerChange ? .callout : .body)
-                    .foregroundColor(isPlayerChange ? .purple : .primary)
+                    .foregroundColor(.primary)
                     .fixedSize(horizontal: false, vertical: true)
                 // When + impact — secondary context below
                 HStack(spacing: 6) {
                     if let clock = play.clock {
                         Text(clock.displayValue)
                             .font(.caption.bold())
-                            .foregroundColor(isPlayerChange ? .purple : .blue)
+                            .foregroundColor(isPlayerChange ? .secondary : .blue)
                     }
                     Spacer()
                     if let away = play.awayScore, let home = play.homeScore {

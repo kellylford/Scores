@@ -173,7 +173,6 @@ class ScoresViewModel: ObservableObject {
             } else {
                 games = try await apiService.fetchGames(for: sport, date: currentDate)
             }
-            ScoreMonitorService.shared.checkForChanges(games: games)
         } catch {
             errorMessage = "Failed to load games: \(error.localizedDescription)"
         }

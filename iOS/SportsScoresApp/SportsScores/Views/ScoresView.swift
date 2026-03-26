@@ -423,12 +423,6 @@ struct ScoresView: View {
         NavigationLink(destination: GameDetailView(game: game, sport: sport)) {
             GameRow(game: game, sport: sport, sectionContext: context)
         }
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            MonitorToggleButton(game: game)
-        }
-        .contextMenu {
-            MonitorContextMenuItem(game: game)
-        }
     }
 }
 
@@ -627,41 +621,6 @@ struct TeamScoreRow: View {
                     .fontWeight(.bold)
                     .monospacedDigit()
             }
-        }
-    }
-}
-
-// MARK: - Swipe action button
-
-private struct MonitorToggleButton: View {
-    let game: Game
-    @ObservedObject private var monitor = ScoreMonitorService.shared
-
-    var body: some View {
-        let watched = monitor.isMonitored(gameId: game.id)
-        Button {
-            monitor.toggle(game: game)
-        } label: {
-            Label(watched ? "Unwatch" : "Watch",
-                  systemImage: watched ? "bell.slash.fill" : "bell.fill")
-        }
-        .tint(watched ? .gray : .orange)
-    }
-}
-
-// MARK: - Context menu item
-
-private struct MonitorContextMenuItem: View {
-    let game: Game
-    @ObservedObject private var monitor = ScoreMonitorService.shared
-
-    var body: some View {
-        let watched = monitor.isMonitored(gameId: game.id)
-        Button {
-            monitor.toggle(game: game)
-        } label: {
-            Label(watched ? "Stop Monitoring Score" : "Monitor Score",
-                  systemImage: watched ? "bell.slash" : "bell")
         }
     }
 }
