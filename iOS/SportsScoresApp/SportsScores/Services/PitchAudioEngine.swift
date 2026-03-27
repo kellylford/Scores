@@ -81,8 +81,10 @@ final class PitchAudioEngine: ObservableObject {
     /// Stop any playing tone / sequence immediately.
     func stop() {
         sequenceTask?.cancel()
+        dragTask?.cancel()
         engine?.stop()
         engine = nil
+        stopDragTone()
         isPlaying = false
         statusMessage = ""
     }
@@ -251,6 +253,109 @@ final class PitchAudioEngine: ObservableObject {
             if !(sequenceTask?.isCancelled ?? true) { isPlaying = false }
         }
     }
+
+    // MARK: - Continuous drag tone (real-time zone / field exploration)
+    //
+    // Uses AVAudioSourceNode — the render callback runs at audio-thread speed and
+    // reads `dragState.frequency` written on the main actor. The race is benign:
+    // at worst one render quantum (< 3 ms) plays the previous frequency before
+    // the new one takes effect. `dragState.phase` is owned solely by the audio
+    // thread (written + read inside the callback only).
+    //
+    // Pan is updated by repositioning the source inside AVAudioEnvironmentNode —
+    // the same zero-latency approach FieldAudioEngine uses for terrain panning.
+
+    private let dragState = DragToneState()
+    private var ctEngine:  AVAudioEngine?
+    private var ctSource:  AVAudioSourceNode?
+
+    /// Begin a continuously-playing spatial tone mapped to the normalised canvas
+    /// position (normX 0=left…1=right, normY 0=top…1=bottom). Call on first drag touch.
+    func beginDragTone(normX: Double, normY: Double) {
+        stopDragTone()   // clean up any previous session
+
+        let (freq, pan) = dragAudioParams(normX: normX, normY: normY)
+        dragState.frequency = freq
+        dragState.phase     = 0.0
+
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch { return }
+
+        let mono   = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1)!
+        let stereo = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 2)!
+        let eng    = AVAudioEngine()
+        let env    = AVAudioEnvironmentNode()
+
+        env.listenerPosition = AVAudio3DPoint(x: 0, y: 0, z: 0)
+
+        // Render callback — audio thread, reads dragState by reference (@unchecked Sendable)
+        let state = dragState
+        let sr = sampleRate
+        let src = AVAudioSourceNode(format: mono) { _, _, frameCount, audioBufferList in
+            let ablPointer = UnsafeMutableAudioBufferListPointer(audioBufferList)
+            let freq = state.frequency
+            let step = 2.0 * Double.pi * freq / sr
+            for frame in 0..<Int(frameCount) {
+                let p = state.phase
+                // Harmonic-rich waveform: fundamental + 30% 2nd + 10% 3rd (vibraphone timbre)
+                let s = Float(0.35 * (sin(p) + 0.30 * sin(2 * p) + 0.10 * sin(3 * p)))
+                state.phase = (p + step).truncatingRemainder(dividingBy: 2.0 * .pi)
+                for buf in ablPointer {
+                    buf.mData!.assumingMemoryBound(to: Float.self)[frame] = s
+                }
+            }
+            return noErr
+        }
+
+        eng.attach(src)
+        eng.attach(env)
+        eng.connect(src, to: env, format: mono)
+        eng.connect(env, to: eng.mainMixerNode, format: stereo)
+
+        guard (try? eng.start()) != nil else { return }
+
+        // Position the source for immediate stereo pan
+        src.position = AVAudio3DPoint(x: Float(pan * 4.0), y: 0, z: -1)
+
+        ctEngine = eng
+        ctSource  = src
+    }
+
+    /// Update frequency and pan on every drag-changed event — no throttle needed.
+    func updateDragTone(normX: Double, normY: Double) {
+        let (freq, pan) = dragAudioParams(normX: normX, normY: normY)
+        dragState.frequency = freq
+        ctSource?.position  = AVAudio3DPoint(x: Float(pan * 4.0), y: 0, z: -1)
+    }
+
+    /// Stop the continuous drag tone (call on drag end or view disappear).
+    func stopDragTone() {
+        ctEngine?.stop()
+        ctEngine = nil
+        ctSource  = nil
+    }
+
+    private func dragAudioParams(normX: Double, normY: Double) -> (frequency: Double, pan: Double) {
+        // normY: 0=top (high pitch), 1=bottom (low pitch) — invert for note index
+        let yNorm     = (1.0 - normY).clamped(to: 0...1)
+        let noteIndex = Int(yNorm * Double(pentatonicHz.count - 1)).clamped(to: 0..<pentatonicHz.count)
+        let freq      = pentatonicHz[noteIndex]
+        let pan       = (normX * 2.0 - 1.0).clamped(to: -1.0...1.0)
+        return (freq, pan)
+    }
+}
+
+// MARK: - Shared drag-tone state (audio-thread ↔ main-actor bridge)
+
+/// Mutable state shared between the main-actor PitchAudioEngine and the
+/// audio-thread render callback. Marked @unchecked Sendable — the caller accepts
+/// responsibility for the benign frequency-write race.
+private final class DragToneState: @unchecked Sendable {
+    var frequency: Double = 440.0
+    /// Phase accumulator — written and read exclusively on the audio thread.
+    var phase:     Double = 0.0
 }
 
 // MARK: - Comparable clamp helper

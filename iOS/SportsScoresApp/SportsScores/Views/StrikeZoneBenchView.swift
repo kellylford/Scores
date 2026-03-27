@@ -18,7 +18,7 @@ import UIKit
 
 // MARK: - Batter hand
 
-private enum BatterHand: String, CaseIterable, Identifiable {
+fileprivate enum BatterHand: String, CaseIterable, Identifiable {
     case right = "R"
     case left  = "L"
     var id: String { rawValue }
@@ -53,6 +53,20 @@ struct StrikeZoneInfoView: View {
             } header: { Text("Standard Dimensions") }
 
             Section {
+                dimensionRow(label: "At the knees",    value: "~18\"–26\" off the ground")
+                dimensionRow(label: "Belt high",       value: "~26\"–34\" off the ground")
+                dimensionRow(label: "At the letters",  value: "~34\"–42\" off the ground")
+                Text(
+                    "Based on a 6-foot batter in a natural batting stance. Knee height, " +
+                    "belt position, and letter height all scale with the batter — " +
+                    "these figures represent an average major-league stance."
+                )
+                .font(.footnote)
+                .foregroundColor(.secondary)
+                .padding(.vertical, 2)
+            } header: { Text("Body References (6-Foot Batter)") }
+
+            Section {
                 Text(
                     "Home plate is a five-sided rubber slab. The front edge facing " +
                     "the pitcher is 17 inches wide — exactly as wide as the strike " +
@@ -65,14 +79,24 @@ struct StrikeZoneInfoView: View {
 
             Section {
                 Text(
-                    "Audio tones rise in pitch as you move higher in the zone and " +
-                    "pan left or right as you cross the plate. A chime fires when " +
-                    "you reach home plate. Inside and outside labels swap depending " +
-                    "on which side the batter stands."
+                    "This view uses the catcher's perspective — the same angle shown " +
+                    "on TV broadcasts, looking out toward the pitcher.\n\n" +
+                    "For a right-handed batter: the left edge of the screen is inside " +
+                    "(close to the batter) and the right edge is outside. For a " +
+                    "left-handed batter those labels flip.\n\n" +
+                    "When you lift your finger, the app announces \"Strike\" or \"Ball\" " +
+                    "followed by the location. Strikes are described using body-part " +
+                    "references — at the knees, belt high, or at the letters — based " +
+                    "on a 6-foot batter in a natural stance. Balls use broadcast " +
+                    "phrasing: high, low, inside, outside, or combinations like " +
+                    "\"high and outside.\"\n\n" +
+                    "Audio tones rise in pitch as you move higher in the zone and pan " +
+                    "left or right across the plate. Chimes fire at each zone edge and " +
+                    "at home plate."
                 )
                 .font(.body)
                 .padding(.vertical, 4)
-            } header: { Text("How to Explore") }
+            } header: { Text("Perspective & How to Explore") }
         }
         .navigationTitle("Strike Zone")
         .toolbar {
@@ -118,9 +142,9 @@ struct StrikeZoneTouchView: View {
 
     // MARK: Init
 
-    let initialHand: BatterHand
+    fileprivate let initialHand: BatterHand
 
-    init(initialHand: BatterHand) {
+    fileprivate init(initialHand: BatterHand) {
         self.initialHand = initialHand
         _currentHand = State(initialValue: initialHand)
     }
@@ -138,21 +162,26 @@ struct StrikeZoneTouchView: View {
     @State private var nearPlate  = false
     @State private var lastIn     = false
     @State private var lastNear   = false
-    @State private var lastAudioFire: Date = .distantPast
+    // Track which zone edges the finger is beyond so we chime once per crossing
+    @State private var edgeBeyondLeft   = false
+    @State private var edgeBeyondRight  = false
+    @State private var edgeBeyondTop    = false
+    @State private var edgeBeyondBottom = false
+    @State private var nearBatter       = false
 
     // MARK: Layout constants (normalized: x=0 left, x=1 right, y=0 top, y=1 bottom)
     //
     // Sized for a 6-foot batter viewed from the catcher's perspective.
-    // The zone is centred horizontally; home plate sits below it.
+    // Zone pushed high; plate pushed toward bottom — uses most of the vertical space.
     //   zoneTop    ≈ 42" off the ground (high in zone, near top of canvas)
     //   zoneBottom ≈ 18" off the ground (low in zone, above the plate)
     //   plateCenterY — home plate pentagon centroid
 
-    private let zoneLeft:      CGFloat = 0.28
-    private let zoneRight:     CGFloat = 0.72
-    private let zoneTop:       CGFloat = 0.18
-    private let zoneBottom:    CGFloat = 0.60
-    private let plateCenterY:  CGFloat = 0.80
+    private let zoneLeft:      CGFloat = 0.22
+    private let zoneRight:     CGFloat = 0.78
+    private let zoneTop:       CGFloat = 0.08
+    private let zoneBottom:    CGFloat = 0.62
+    private let plateCenterY:  CGFloat = 0.86
 
     // MARK: Body
 
@@ -180,8 +209,9 @@ struct StrikeZoneTouchView: View {
                                 x: v.location.x / sz.width,
                                 y: v.location.y / sz.height
                             )
+                            let starting = fingerNorm == nil
                             fingerNorm = n
-                            handleDrag(norm: n)
+                            handleDrag(norm: n, starting: starting)
                         }
                         .onEnded { _ in handleDragEnd() }
                 )
@@ -206,14 +236,54 @@ struct StrikeZoneTouchView: View {
 
     // MARK: - Interaction
 
-    private func handleDrag(norm: CGPoint) {
+    private func handleDrag(norm: CGPoint, starting: Bool = false) {
         let nowIn   = isInZone(norm)
         let nowNear = isNearPlate(norm)
 
-        if nowIn != lastIn {
+        // Zone boundary crossing: haptic + chime for each of the four edges
+        let nowBeyondLeft   = norm.x < zoneLeft
+        let nowBeyondRight  = norm.x > zoneRight
+        let nowBeyondTop    = norm.y < zoneTop
+        let nowBeyondBottom = norm.y > zoneBottom
+
+        let isRight = currentHand == .right
+
+        // Fire on any edge state change — announce edge name on entry into the beyond region
+        if nowBeyondLeft != edgeBeyondLeft {
+            fieldAudio.playLandmark()
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            lastIn = nowIn
+            if nowBeyondLeft { TouchTourAnnouncementService.shared.announce(isRight ? "inside edge" : "outside edge") }
+            edgeBeyondLeft = nowBeyondLeft
         }
+        if nowBeyondRight != edgeBeyondRight {
+            fieldAudio.playLandmark()
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            if nowBeyondRight { TouchTourAnnouncementService.shared.announce(isRight ? "outside edge" : "inside edge") }
+            edgeBeyondRight = nowBeyondRight
+        }
+        if nowBeyondTop != edgeBeyondTop {
+            fieldAudio.playLandmark()
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            if nowBeyondTop { TouchTourAnnouncementService.shared.announce("top edge") }
+            edgeBeyondTop = nowBeyondTop
+        }
+        if nowBeyondBottom != edgeBeyondBottom {
+            fieldAudio.playLandmark()
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            if nowBeyondBottom { TouchTourAnnouncementService.shared.announce("bottom edge") }
+            edgeBeyondBottom = nowBeyondBottom
+        }
+
+        // Batter figure — chime + announce on entry
+        let nowNearBatter = isNearBatter(norm)
+        if nowNearBatter && !nearBatter {
+            fieldAudio.playLandmark()
+            UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+            TouchTourAnnouncementService.shared.announce("batter")
+        }
+        nearBatter = nowNearBatter
+
+        if nowIn != lastIn { lastIn = nowIn }
 
         if nowNear && !lastNear {
             fieldAudio.playLandmark()
@@ -224,24 +294,29 @@ struct StrikeZoneTouchView: View {
         inZone    = nowIn
         nearPlate = nowNear
 
-        let now = Date()
-        if now.timeIntervalSince(lastAudioFire) > 0.30 {
-            lastAudioFire = now
-            let (ex, ey) = toESPN(norm)
-            pitchAudio.playCoordinate(espnX: ex, espnY: ey)
+        // Continuous real-time tone — no throttle; engine updates in-place each tick
+        if starting {
+            pitchAudio.beginDragTone(normX: Double(norm.x), normY: Double(norm.y))
+        } else {
+            pitchAudio.updateDragTone(normX: Double(norm.x), normY: Double(norm.y))
         }
     }
 
     private func handleDragEnd() {
-        pitchAudio.stop()
+        pitchAudio.stopDragTone()
         if let fn = fingerNorm {
             TouchTourAnnouncementService.shared.announce(positionLabel(fn))
         }
-        fingerNorm = nil
-        inZone     = false
-        nearPlate  = false
-        lastIn     = false
-        lastNear   = false
+        fingerNorm       = nil
+        inZone           = false
+        nearPlate        = false
+        lastIn           = false
+        lastNear         = false
+        edgeBeyondLeft   = false
+        edgeBeyondRight  = false
+        edgeBeyondTop    = false
+        edgeBeyondBottom = false
+        nearBatter       = false
     }
 
     // MARK: - Geometry helpers
@@ -254,46 +329,116 @@ struct StrikeZoneTouchView: View {
         abs(n.x - 0.5) < 0.25 && abs(n.y - plateCenterY) < 0.09
     }
 
-    /// Canvas (0–1) → ESPN coordinate space (0–255).
-    /// PitchAudioEngine inverts y internally so y=0 (canvas top) → highest note.
-    private func toESPN(_ n: CGPoint) -> (Int, Int) {
-        let ex = Int(max(0, min(n.x * 255, 255)))
-        let ey = Int(max(0, min(n.y * 255, 255)))
-        return (ex, ey)
+    /// True when the touch is over the stick-figure batter.
+    /// The batter is drawn just outside the inside edge of the strike zone,
+    /// spanning vertically from the top of the zone down to home plate.
+    private func isNearBatter(_ n: CGPoint) -> Bool {
+        let inY = n.y >= (zoneTop - 0.03) && n.y <= (plateCenterY + 0.02)
+        if currentHand == .right {
+            return n.x >= (zoneLeft - 0.14) && n.x <= (zoneLeft + 0.01) && inY
+        } else {
+            return n.x >= (zoneRight - 0.01) && n.x <= (zoneRight + 0.14) && inY
+        }
+    }
+
+    // MARK: - Real-world dimension helpers
+    //
+    // Zone is 17" wide × 24" tall (18"–42" off ground for a 6-foot batter).
+    // We convert the 0–1 canvas fraction to inches within the zone.
+    // Outside the zone we write the overshoot in inches too.
+
+    private let zoneWidthInches:  Double = 17.0
+    private let zoneHeightInches: Double = 24.0   // 42" top − 18" bottom
+    private let zoneBottomInches: Double = 18.0   // height off ground at zone bottom
+
+    /// Vertical position from the ground in inches (zone bottom = 18", top = 42").
+    private func heightFromGround(_ normY: CGFloat) -> Double {
+        let fracFromBottom = 1.0 - Double((normY - zoneTop) / (zoneBottom - zoneTop))
+        let clampedFrac = max(-1.5, min(1.5, fracFromBottom))  // allow modest overshoot
+        return zoneBottomInches + clampedFrac * zoneHeightInches
+    }
+
+    /// Horizontal distance from plate center in inches (positive = away from center).
+    /// Returns (distanceFromCenter, isInsideZone)
+    private func distanceFromCenter(_ normX: CGFloat) -> (Double, Bool) {
+        let halfW = zoneWidthInches / 2.0
+        let fracFromCenter = Double(normX - 0.5) / Double((zoneRight - zoneLeft) / 2.0)
+        let inches = fracFromCenter * halfW
+        return (abs(inches), abs(inches) <= halfW)
     }
 
     // MARK: - Position label (announced on lift)
+    //
+    // Format:
+    //   Strike: "Strike, [vertical], [horizontal] ([height]" off the ground, [dist]" from center)"
+    //   Ball:   "Ball, [direction] ([height]" off the ground, [dist]" from center)"
+    //
+    // Vertical strike labels assume a 6-foot batter in batting stance:
+    //   • At the letters — top third of zone, ~34"–42" off the ground
+    //   • Belt high      — middle third,      ~26"–34"
+    //   • At the knees   — bottom third,      ~18"–26"
+    //
+    // Ball directions follow broadcast convention:
+    //   high / low / inside / outside / high and inside / high and outside /
+    //   low and inside / low and outside
 
     private func positionLabel(_ n: CGPoint) -> String {
         if isNearPlate(n) { return "Home plate" }
-        var parts: [String] = []
 
-        // Vertical
-        if n.y < zoneTop {
-            parts.append("Above the zone")
-        } else if n.y > zoneBottom {
-            parts.append("Below the zone")
-        } else {
-            let frac = (n.y - zoneTop) / (zoneBottom - zoneTop)
-            if frac < 0.34      { parts.append("High in the zone") }
-            else if frac < 0.67 { parts.append("Middle of the zone") }
-            else                { parts.append("Low in the zone") }
-        }
-
-        // Horizontal — inside/outside depend on batter side (catcher's view)
         let isRight = currentHand == .right
-        if n.x < zoneLeft {
-            parts.append(isRight ? "inside" : "outside")
-        } else if n.x > zoneRight {
-            parts.append(isRight ? "outside" : "inside")
-        } else {
-            let frac = (n.x - zoneLeft) / (zoneRight - zoneLeft)
-            if frac < 0.34      { parts.append(isRight ? "inner third" : "outer third") }
-            else if frac < 0.67 { parts.append("middle of the plate") }
-            else                { parts.append(isRight ? "outer third" : "inner third") }
-        }
+        let heightIn = heightFromGround(n.y)
+        let heightStr = String(format: "%.0f\" off the ground", heightIn)
+        let (distIn, _) = distanceFromCenter(n.x)
+        let distStr = String(format: "%.1f\" from center", distIn)
+        let dims = "(\(heightStr), \(distStr))"
 
-        return parts.joined(separator: ", ")
+        if isInZone(n) {
+            // Vertical body-part label — zone top = ~42", bottom = ~18"
+            let vertFrac = Double((n.y - zoneTop) / (zoneBottom - zoneTop)) // 0=top, 1=bottom
+            let vertLabel: String
+            if vertFrac < 0.33 {
+                vertLabel = "at the letters"   // ~34"–42"
+            } else if vertFrac < 0.67 {
+                vertLabel = "belt high"        // ~26"–34"
+            } else {
+                vertLabel = "at the knees"     // ~18"–26"
+            }
+
+            // Horizontal label — always relative to batter's body (inside/outside swap by hand)
+            let horizFrac = Double((n.x - zoneLeft) / (zoneRight - zoneLeft)) // 0=screen-left, 1=screen-right
+            let insideFrac = isRight ? horizFrac : (1.0 - horizFrac) // 0=inside for this batter
+            let horizLabel: String
+            if insideFrac < 0.33 {
+                horizLabel = "inner third"
+            } else if insideFrac < 0.67 {
+                horizLabel = "down the middle"
+            } else {
+                horizLabel = "outer third"
+            }
+
+            return "Strike, \(vertLabel), \(horizLabel) \(dims)"
+        } else {
+            // Ball — broadcast directional phrasing
+            let vertDesc: String? = n.y < zoneTop ? "high" : n.y > zoneBottom ? "low" : nil
+            let horizDesc: String?
+            if n.x < zoneLeft {
+                horizDesc = isRight ? "inside" : "outside"
+            } else if n.x > zoneRight {
+                horizDesc = isRight ? "outside" : "inside"
+            } else {
+                horizDesc = nil
+            }
+
+            let locationDesc: String
+            switch (vertDesc, horizDesc) {
+            case let (v?, h?): locationDesc = "\(v) and \(h)"
+            case let (v?, nil): locationDesc = v
+            case let (nil, h?): locationDesc = h
+            default:            locationDesc = "off the plate"
+            }
+
+            return "Ball, \(locationDesc) \(dims)"
+        }
     }
 
     private var canvasA11yLabel: String {
@@ -366,8 +511,8 @@ struct StrikeZoneTouchView: View {
         path.addLine(to: CGPoint(x: plateL,               y: plateTopY))
         path.move(to:    CGPoint(x: zoneRight * sz.width, y: zoneBottom * sz.height))
         path.addLine(to: CGPoint(x: plateR,               y: plateTopY))
-        ctx.stroke(path, with: .color(.white.opacity(0.25)), lineWidth: 1,
-                   style: StrokeStyle(dash: [5, 4]))
+        ctx.stroke(path, with: .color(.white.opacity(0.25)),
+                   style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
     }
 
     // Strike zone rectangle with a 3×3 inner grid
