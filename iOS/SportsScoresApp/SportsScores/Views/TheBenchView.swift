@@ -18,6 +18,12 @@ struct TheBenchView: View {
                     icon: "figure.baseball",
                     destination: BaseballTourInfoView()
                 )
+                rowLink(
+                    title: "Strike Zone",
+                    subtitle: "17\" wide · 24\" tall · audio touch exploration",
+                    icon: "square.grid.3x3",
+                    destination: StrikeZoneInfoView()
+                )
             } header: {
                 Text("Baseball")
             }

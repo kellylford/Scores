@@ -197,8 +197,11 @@ final class AccessibleDataTableView: UIView,
     func accessibilityHeaderElements(forColumn column: Int)
         -> [any UIAccessibilityContainerDataTableCell]?
     {
-        guard column < headerElements.count else { return nil }
-        return [headerElements[column]]
+        // Capture a local snapshot: VoiceOver calls these from a background AX thread
+        // while rebuild() may run concurrently on the main thread.
+        let headers = headerElements
+        guard column < headers.count else { return nil }
+        return [headers[column]]
     }
 
     /// Row header for each data row — the column-0 cell (team name / stat name).
@@ -210,31 +213,35 @@ final class AccessibleDataTableView: UIView,
         -> [any UIAccessibilityContainerDataTableCell]?
     {
         guard row > 0 else { return nil }  // row 0 = column-header row; no row-header for it
+        let rows = rowElements  // local snapshot
         let dataRow = row - 1
-        guard dataRow < rowElements.count,
-            !rowElements[dataRow].isEmpty
-        else { return nil }
-        return [rowElements[dataRow][0]]  // column-0 cell is the row header
+        guard dataRow < rows.count, !rows[dataRow].isEmpty else { return nil }
+        return [rows[dataRow][0]]  // column-0 cell is the row header
     }
 
     @objc func accessibilityDataTableCellElement(forRow row: Int, column: Int)
         -> (any UIAccessibilityContainerDataTableCell)?
     {
+        // Capture local snapshots so bounds check and subscript access use the
+        // same array state — guards against concurrent rebuild() on the main thread.
+        let headers = headerElements
+        let rows = rowElements
         if row == 0 {
-            return column < headerElements.count ? headerElements[column] : nil
+            guard column < headers.count else { return nil }
+            return headers[column]
         }
         let dataRow = row - 1
-        guard dataRow < rowElements.count,
-            column < rowElements[dataRow].count
-        else { return nil }
-        return rowElements[dataRow][column]
+        guard dataRow < rows.count, column < rows[dataRow].count else { return nil }
+        return rows[dataRow][column]
     }
 
     // Standard accessibility traversal (used by VoiceOver for swipe navigation)
     override var accessibilityElements: [Any]? {
         get {
-            var all: [Any] = headerElements
-            rowElements.forEach { all.append(contentsOf: $0) }
+            let headers = headerElements  // local snapshot
+            let rows = rowElements        // local snapshot
+            var all: [Any] = headers
+            rows.forEach { all.append(contentsOf: $0) }
             return all
         }
         set {}
