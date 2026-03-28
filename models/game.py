@@ -89,19 +89,29 @@ class GameData:
                     home_team = t
             
             # Build display with proper away @ home ordering
+            is_scheduled = self.status and self.status.lower() == "scheduled"
             display_parts = []
             if away_team and home_team:
                 # Standard case: we have both home and away identified
                 for team in [away_team, home_team]:
                     abbrev = team.get("name") or team.get("abbreviation", "?")
                     score = team.get("score")
-                    display_parts.append(f"{abbrev}{' ' + score if score else ''}")
+                    record = team.get("record", "")
+                    # For scheduled games, show record instead of 0 score
+                    if is_scheduled and record:
+                        display_parts.append(f"{abbrev} ({record})")
+                    else:
+                        display_parts.append(f"{abbrev}{' ' + score if score else ''}")
             else:
                 # Fallback: home_away not available, use teams as-is
                 for t in self.teams:
                     abbrev = t.get("name") or t.get("abbreviation", "?")
                     score = t.get("score")
-                    display_parts.append(f"{abbrev}{' ' + score if score else ''}")
+                    record = t.get("record", "")
+                    if is_scheduled and record:
+                        display_parts.append(f"{abbrev} ({record})")
+                    else:
+                        display_parts.append(f"{abbrev}{' ' + score if score else ''}")
             
             parts.append(" at ".join(display_parts))
         else:

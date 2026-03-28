@@ -970,10 +970,15 @@ def get_scores(league_key, date=None, week=None, seasontype=None):
             else:
                 team_name = team.get("name", team.get("abbreviation", "Unknown"))
             
+            # Extract overall record (first entry in records list)
+            records = competitor.get("records", [])
+            record_summary = records[0].get("summary", "") if records else ""
+
             team_info = {
                 "name": team_name,
                 "abbreviation": team.get("abbreviation", ""),
                 "score": score,
+                "record": record_summary,
                 "home_away": home_away
             }
             team_scores.append(team_info)
