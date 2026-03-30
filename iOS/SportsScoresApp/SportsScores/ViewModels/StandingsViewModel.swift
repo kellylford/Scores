@@ -16,7 +16,7 @@ class StandingsViewModel: ObservableObject {
     private let apiService = ESPNAPIService.shared
     
     func fetchStandings(for sport: Sport) async {
-        isLoading = true
+        isLoading = standingsGroups.isEmpty
         errorMessage = nil
         
         do {

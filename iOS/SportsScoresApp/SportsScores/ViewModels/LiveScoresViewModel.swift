@@ -24,7 +24,7 @@ class LiveScoresViewModel: ObservableObject {
     }
     
     func fetchAllGames() async {
-        isLoading = true
+        isLoading = liveGames.isEmpty && completedGames.isEmpty && upcomingGames.isEmpty
         errorMessage = nil
 
         // Today's date boundaries for filtering

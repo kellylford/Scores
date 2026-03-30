@@ -14,7 +14,7 @@ class NewsViewModel: ObservableObject {
     private let apiService = ESPNAPIService.shared
 
     func fetchNews(for sport: Sport) async {
-        isLoading = true
+        isLoading = articles.isEmpty
         errorMessage = nil
         do {
             articles = try await apiService.fetchNews(for: sport)

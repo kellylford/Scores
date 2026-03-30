@@ -22,7 +22,7 @@ class SoccerLiveViewModel: ObservableObject {
     }
 
     func fetchAllGames() async {
-        isLoading = true
+        isLoading = liveGames.isEmpty && completedGames.isEmpty && upcomingGames.isEmpty
         errorMessage = nil
 
         let calendar = Calendar.current

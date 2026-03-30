@@ -22,7 +22,7 @@ class PollsViewModel: ObservableObject {
     }
 
     func fetchRankings(for sport: Sport) async {
-        isLoading = true
+        isLoading = polls.isEmpty
         errorMessage = nil
 
         do {

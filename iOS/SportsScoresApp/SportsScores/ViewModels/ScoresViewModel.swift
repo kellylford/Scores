@@ -137,7 +137,7 @@ class ScoresViewModel: ObservableObject {
     private let apiService = ESPNAPIService.shared
 
     func fetchGames(for sport: Sport) async {
-        isLoading = true
+        isLoading = games.isEmpty
         errorMessage = nil
 
         do {

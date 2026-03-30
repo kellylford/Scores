@@ -266,13 +266,17 @@ extension Game {
         let homeCompetitor = competitions?.competitors.first(where: { $0.homeAway == "home" })
         let awayCompetitor = competitions?.competitors.first(where: { $0.homeAway == "away" })
         
+        let isPreGame = apiResponse.status.type.state == "pre"
+
         self.homeTeam = Team(
             id: homeCompetitor?.team.id ?? "",
             name: homeCompetitor?.team.name ?? "",
             abbreviation: homeCompetitor?.team.abbreviation ?? "",
             displayName: homeCompetitor?.team.displayName ?? "",
-            // flatMap returns nil when score is nil or non-numeric (e.g. pre-game "")
-            score: homeCompetitor?.score.flatMap({ Int($0) }),
+            // flatMap returns nil when score is nil or non-numeric (e.g. pre-game "").
+            // We also suppress the score entirely for pre-game states so upcoming games
+            // show records instead of a meaningless 0–0.
+            score: isPreGame ? nil : homeCompetitor?.score.flatMap({ Int($0) }),
             record: homeCompetitor?.records?.first?.summary,
             logo: homeCompetitor?.team.logo
         )
@@ -282,7 +286,7 @@ extension Game {
             name: awayCompetitor?.team.name ?? "",
             abbreviation: awayCompetitor?.team.abbreviation ?? "",
             displayName: awayCompetitor?.team.displayName ?? "",
-            score: awayCompetitor?.score.flatMap({ Int($0) }),
+            score: isPreGame ? nil : awayCompetitor?.score.flatMap({ Int($0) }),
             record: awayCompetitor?.records?.first?.summary,
             logo: awayCompetitor?.team.logo
         )

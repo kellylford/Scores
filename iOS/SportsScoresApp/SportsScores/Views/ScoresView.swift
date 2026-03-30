@@ -62,8 +62,14 @@ struct ScoresView: View {
         }
         .navigationTitle(sport.displayName)
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                autoRefreshMenu
+            // Only show auto-refresh on the Scores tab and only when viewing current data.
+            // Historical dates/weeks can't meaningfully auto-refresh, and other tabs
+            // (Standings, News, Stats, Polls) are not wired to this refresh loop.
+            let isViewingCurrent = sport.isFootball ? viewModel.isOnCurrentWeek : viewModel.isOnToday
+            if selectedTab == .scores && isViewingCurrent {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    autoRefreshMenu
+                }
             }
         }
         .task {
@@ -75,14 +81,18 @@ struct ScoresView: View {
                 await viewModel.fetchGames(for: sport)
             }
         }
-        // Auto-refresh loop — cancels and restarts whenever the interval changes
+        // Auto-refresh loop — cancels and restarts whenever the interval changes.
+        // Only actually refreshes when on the Scores tab viewing current data.
         .task(id: appSettings.autoRefreshInterval) {
             while !Task.isCancelled {
                 let secs = appSettings.autoRefreshInterval.rawValue
                 if secs > 0 {
                     try? await Task.sleep(for: .seconds(secs))
                     guard !Task.isCancelled else { break }
-                    await viewModel.refresh(for: sport)
+                    let isViewingCurrent = sport.isFootball ? viewModel.isOnCurrentWeek : viewModel.isOnToday
+                    if selectedTab == .scores && isViewingCurrent {
+                        await viewModel.refresh(for: sport)
+                    }
                 } else {
                     // Manual — park until cancelled
                     try? await Task.sleep(for: .seconds(86400))
