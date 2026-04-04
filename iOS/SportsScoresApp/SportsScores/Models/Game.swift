@@ -35,6 +35,8 @@ struct Game: Identifiable, Codable {
     var scoreDisplay: String {
         if status.state == "pre" {
             return displayTime
+        } else if status.isPostponed || status.isCancelled {
+            return status.detail
         } else {
             return "\(awayTeam.score ?? 0) - \(homeTeam.score ?? 0)"
         }
@@ -79,6 +81,8 @@ struct Game: Identifiable, Codable {
         let detail: String
         let period: Int?
         let clock: String?
+        /// ESPN status name, e.g. "STATUS_FINAL", "STATUS_POSTPONED", "STATUS_CANCELED".
+        let name: String?
         
         var displayText: String {
             if state == "in",
@@ -114,6 +118,23 @@ struct Game: Identifiable, Codable {
         
         var isCompleted: Bool {
             state == "post"
+        }
+
+        /// True when the game was postponed (did not take place).
+        var isPostponed: Bool {
+            if let n = name {
+                return n == "STATUS_POSTPONED"
+            }
+            return detail.lowercased() == "postponed"
+        }
+
+        /// True when the game was cancelled/suspended and will not be played.
+        var isCancelled: Bool {
+            if let n = name {
+                return n == "STATUS_CANCELED" || n == "STATUS_CANCELLED" || n == "STATUS_SUSPENDED"
+            }
+            let d = detail.lowercased()
+            return d == "canceled" || d == "cancelled" || d == "suspended"
         }
     }
     
@@ -258,13 +279,18 @@ extension Game {
             state: apiResponse.status.type.state,
             detail: apiResponse.status.type.detail,
             period: apiResponse.status.period,
-            clock: apiResponse.status.displayClock
+            clock: apiResponse.status.displayClock,
+            name: apiResponse.status.type.name
         )
         
         // Parse teams
         let competitions = apiResponse.competitions.first
         let homeCompetitor = competitions?.competitors.first(where: { $0.homeAway == "home" })
         let awayCompetitor = competitions?.competitors.first(where: { $0.homeAway == "away" })
+
+        // For postponed/cancelled games the API may return "0" as a placeholder score.
+        // Suppress those scores so we don't display a misleading "0 - 0" result.
+        let suppressScores = self.status.isPostponed || self.status.isCancelled
         
         self.homeTeam = Team(
             id: homeCompetitor?.team.id ?? "",
@@ -272,7 +298,7 @@ extension Game {
             abbreviation: homeCompetitor?.team.abbreviation ?? "",
             displayName: homeCompetitor?.team.displayName ?? "",
             // flatMap returns nil when score is nil or non-numeric (e.g. pre-game "")
-            score: homeCompetitor?.score.flatMap({ Int($0) }),
+            score: suppressScores ? nil : homeCompetitor?.score.flatMap({ Int($0) }),
             record: homeCompetitor?.records?.first?.summary,
             logo: homeCompetitor?.team.logo
         )
@@ -282,7 +308,7 @@ extension Game {
             name: awayCompetitor?.team.name ?? "",
             abbreviation: awayCompetitor?.team.abbreviation ?? "",
             displayName: awayCompetitor?.team.displayName ?? "",
-            score: awayCompetitor?.score.flatMap({ Int($0) }),
+            score: suppressScores ? nil : awayCompetitor?.score.flatMap({ Int($0) }),
             record: awayCompetitor?.records?.first?.summary,
             logo: awayCompetitor?.team.logo
         )
@@ -346,6 +372,8 @@ struct APIGame: Codable {
         struct APIStatusType: Codable {
             let state: String
             let detail: String
+            /// ESPN status identifier, e.g. "STATUS_FINAL", "STATUS_POSTPONED", "STATUS_CANCELED".
+            let name: String?
         }
     }
     

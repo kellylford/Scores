@@ -414,6 +414,18 @@ struct ScoresView: View {
                         .accessibilityAddTraits(.isHeader)
                 }
             }
+
+            // ── Postponed / Cancelled ─────────────────────────────────────
+            if !viewModel.postponedGames.isEmpty {
+                Section {
+                    ForEach(viewModel.postponedGames) { game in
+                        gameRow(game, context: .postponed)
+                    }
+                } header: {
+                    Text("Postponed / Cancelled")
+                        .accessibilityAddTraits(.isHeader)
+                }
+            }
         }
         .listStyle(.plain)
     }
@@ -431,7 +443,7 @@ struct ScoresView: View {
 /// Indicates which status section a game row is displayed in.
 /// Used to suppress redundant VoiceOver status words (design debt #5).
 enum GameSectionContext {
-    case inProgress, upcoming, completed
+    case inProgress, upcoming, completed, postponed
 }
 
 // MARK: - Game Row
@@ -511,6 +523,14 @@ struct GameRow: View {
                 .foregroundColor(.red)
                 .font(.caption)
                 .fontWeight(.semibold)
+        } else if game.status.isPostponed {
+            Text("Postponed")
+                .font(.caption)
+                .foregroundColor(.orange)
+        } else if game.status.isCancelled {
+            Text(game.status.detail.isEmpty ? "Cancelled" : game.status.detail)
+                .font(.caption)
+                .foregroundColor(.orange)
         } else if game.status.isCompleted {
             Text("Final")
                 .font(.caption)
@@ -528,8 +548,11 @@ struct GameRow: View {
 
         // Suppress status word when section heading already communicates it (design debt #5)
         let suppressFinal = sectionContext == .completed
+        let suppressPostponed = sectionContext == .postponed
 
-        if game.status.isCompleted && !suppressFinal { parts.append("Final") }
+        if game.status.isPostponed && !suppressPostponed { parts.append("Postponed") }
+        else if game.status.isCancelled && !suppressPostponed { parts.append(game.status.detail.isEmpty ? "Cancelled" : game.status.detail) }
+        else if game.status.isCompleted && !suppressFinal { parts.append("Final") }
 
         // Scores
         parts.append(

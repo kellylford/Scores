@@ -121,6 +121,11 @@ struct GameDetailView: View {
             if game.status.isLive {
                 Label(game.status.displayText, systemImage: "circle.fill")
                     .foregroundColor(.red).font(.headline)
+            } else if game.status.isPostponed {
+                Text("Postponed").font(.headline).foregroundColor(.orange)
+            } else if game.status.isCancelled {
+                Text(game.status.detail.isEmpty ? "Cancelled" : game.status.detail)
+                    .font(.headline).foregroundColor(.orange)
             } else if game.status.isCompleted {
                 Text("Final").font(.headline).foregroundColor(.secondary)
             } else {

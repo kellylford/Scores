@@ -89,7 +89,9 @@ class ScoresViewModel: ObservableObject {
 
     var inProgressGames: [Game] { games.filter { $0.status.isLive } }
     var upcomingGames:   [Game] { games.filter { !$0.status.isLive && !$0.status.isCompleted }.sorted { $0.date < $1.date } }
-    var completedGames:  [Game] { games.filter { $0.status.isCompleted } }
+    var completedGames:  [Game] { games.filter { $0.status.isCompleted && !$0.status.isPostponed && !$0.status.isCancelled } }
+    /// Games that were postponed, cancelled, or otherwise did not take place.
+    var postponedGames:  [Game] { games.filter { $0.status.isPostponed || $0.status.isCancelled } }
 
     // MARK: - Today / current-week state
 
