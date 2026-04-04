@@ -675,7 +675,7 @@ struct GameArticleRow: View {
                 name: "Sample Game",
                 shortName: "LAD @ SD",
                 date: Date(),
-                status: Game.GameStatus(state: "post", detail: "Final", period: nil, clock: nil),
+                status: Game.GameStatus(state: "post", detail: "Final", period: nil, clock: nil, name: nil),
                 homeTeam: Game.Team(id: "1", name: "Padres", abbreviation: "SD",
                                     displayName: "San Diego Padres", score: 5, record: "82-80", logo: nil),
                 awayTeam: Game.Team(id: "2", name: "Dodgers", abbreviation: "LAD",
