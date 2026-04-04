@@ -38,7 +38,8 @@ struct ScheduleGame: Identifiable {
                 state: isCompleted ? "post" : isInProgress ? "in" : "pre",
                 detail: statusText,
                 period: nil,
-                clock: nil
+                clock: nil,
+                name: nil
             ),
             homeTeam: Game.Team(
                 id: homeTeam.id,
