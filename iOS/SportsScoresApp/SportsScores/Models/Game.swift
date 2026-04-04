@@ -129,6 +129,8 @@ struct Game: Identifiable, Codable {
         }
 
         /// True when the game was cancelled/suspended and will not be played.
+        /// STATUS_SUSPENDED is included here because suspended games (like weather-halted
+        /// games that are called official) also have no valid final score to display.
         var isCancelled: Bool {
             if let n = name {
                 return n == "STATUS_CANCELED" || n == "STATUS_CANCELLED" || n == "STATUS_SUSPENDED"

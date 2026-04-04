@@ -548,10 +548,11 @@ struct GameRow: View {
 
         // Suppress status word when section heading already communicates it (design debt #5)
         let suppressFinal = sectionContext == .completed
-        let suppressPostponed = sectionContext == .postponed
+        // Suppress "Postponed"/"Cancelled" announcement when the section heading already says so
+        let suppressNonPlayedStatus = sectionContext == .postponed
 
-        if game.status.isPostponed && !suppressPostponed { parts.append("Postponed") }
-        else if game.status.isCancelled && !suppressPostponed { parts.append(game.status.detail.isEmpty ? "Cancelled" : game.status.detail) }
+        if game.status.isPostponed && !suppressNonPlayedStatus { parts.append("Postponed") }
+        else if game.status.isCancelled && !suppressNonPlayedStatus { parts.append(game.status.detail.isEmpty ? "Cancelled" : game.status.detail) }
         else if game.status.isCompleted && !suppressFinal { parts.append("Final") }
 
         // Scores
