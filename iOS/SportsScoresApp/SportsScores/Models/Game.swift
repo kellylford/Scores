@@ -33,7 +33,13 @@ struct Game: Identifiable, Codable {
     }
     
     var scoreDisplay: String {
-        if status.state == "pre" {
+        // Prioritise non-played status so a postponed/cancelled game with state == "pre"
+        // never accidentally shows its scheduled time as if it were a normal upcoming game.
+        if status.isPostponed || status.isCancelled {
+            let detail = status.detail.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !detail.isEmpty { return detail }
+            return status.isPostponed ? "Postponed" : "Cancelled"
+        } else if status.state == "pre" {
             return displayTime
         } else {
             return "\(awayTeam.score ?? 0) - \(homeTeam.score ?? 0)"
@@ -79,6 +85,8 @@ struct Game: Identifiable, Codable {
         let detail: String
         let period: Int?
         let clock: String?
+        /// ESPN status identifier, e.g. "STATUS_FINAL", "STATUS_POSTPONED", "STATUS_CANCELED".
+        let name: String? = nil
         
         var displayText: String {
             if state == "in",
@@ -114,6 +122,23 @@ struct Game: Identifiable, Codable {
         
         var isCompleted: Bool {
             state == "post"
+        }
+
+        /// True when the game was postponed and did not take place.
+        var isPostponed: Bool {
+            if let n = name { return n == "STATUS_POSTPONED" }
+            return detail.lowercased() == "postponed"
+        }
+
+        /// True when the game was cancelled/suspended and will not be played.
+        /// STATUS_SUSPENDED is included because games suspended and called official
+        /// also have no valid final score to display.
+        var isCancelled: Bool {
+            if let n = name {
+                return n == "STATUS_CANCELED" || n == "STATUS_CANCELLED" || n == "STATUS_SUSPENDED"
+            }
+            let d = detail.lowercased()
+            return d == "canceled" || d == "cancelled" || d == "suspended"
         }
     }
     
@@ -258,15 +283,19 @@ extension Game {
             state: apiResponse.status.type.state,
             detail: apiResponse.status.type.detail,
             period: apiResponse.status.period,
-            clock: apiResponse.status.displayClock
+            clock: apiResponse.status.displayClock,
+            name: apiResponse.status.type.name
         )
         
         // Parse teams
         let competitions = apiResponse.competitions.first
         let homeCompetitor = competitions?.competitors.first(where: { $0.homeAway == "home" })
         let awayCompetitor = competitions?.competitors.first(where: { $0.homeAway == "away" })
-        
+
+        // Suppress scores for pre-game states (show records instead of 0–0) and for
+        // postponed/cancelled games where the API returns "0" as a placeholder.
         let isPreGame = apiResponse.status.type.state == "pre"
+        let suppressScores = isPreGame || self.status.isPostponed || self.status.isCancelled
 
         self.homeTeam = Team(
             id: homeCompetitor?.team.id ?? "",
@@ -274,9 +303,7 @@ extension Game {
             abbreviation: homeCompetitor?.team.abbreviation ?? "",
             displayName: homeCompetitor?.team.displayName ?? "",
             // flatMap returns nil when score is nil or non-numeric (e.g. pre-game "").
-            // We also suppress the score entirely for pre-game states so upcoming games
-            // show records instead of a meaningless 0–0.
-            score: isPreGame ? nil : homeCompetitor?.score.flatMap({ Int($0) }),
+            score: suppressScores ? nil : homeCompetitor?.score.flatMap({ Int($0) }),
             record: homeCompetitor?.records?.first?.summary,
             logo: homeCompetitor?.team.logo
         )
@@ -286,7 +313,7 @@ extension Game {
             name: awayCompetitor?.team.name ?? "",
             abbreviation: awayCompetitor?.team.abbreviation ?? "",
             displayName: awayCompetitor?.team.displayName ?? "",
-            score: isPreGame ? nil : awayCompetitor?.score.flatMap({ Int($0) }),
+            score: suppressScores ? nil : awayCompetitor?.score.flatMap({ Int($0) }),
             record: awayCompetitor?.records?.first?.summary,
             logo: awayCompetitor?.team.logo
         )
@@ -350,6 +377,8 @@ struct APIGame: Codable {
         struct APIStatusType: Codable {
             let state: String
             let detail: String
+            /// ESPN status identifier, e.g. "STATUS_FINAL", "STATUS_POSTPONED", "STATUS_CANCELED".
+            let name: String?
         }
     }
     

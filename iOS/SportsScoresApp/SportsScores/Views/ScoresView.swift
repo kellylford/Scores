@@ -424,6 +424,18 @@ struct ScoresView: View {
                         .accessibilityAddTraits(.isHeader)
                 }
             }
+
+            // ── Postponed / Cancelled ──────────────────────────────────────
+            if !viewModel.postponedGames.isEmpty {
+                Section {
+                    ForEach(viewModel.postponedGames) { game in
+                        gameRow(game, context: .postponed)
+                    }
+                } header: {
+                    Text("Postponed / Cancelled")
+                        .accessibilityAddTraits(.isHeader)
+                }
+            }
         }
         .listStyle(.plain)
     }
@@ -441,7 +453,7 @@ struct ScoresView: View {
 /// Indicates which status section a game row is displayed in.
 /// Used to suppress redundant VoiceOver status words (design debt #5).
 enum GameSectionContext {
-    case inProgress, upcoming, completed
+    case inProgress, upcoming, completed, postponed
 }
 
 // MARK: - Game Row
@@ -521,6 +533,14 @@ struct GameRow: View {
                 .foregroundColor(.red)
                 .font(.caption)
                 .fontWeight(.semibold)
+        } else if game.status.isPostponed {
+            Text("Postponed")
+                .font(.caption)
+                .foregroundColor(.orange)
+        } else if game.status.isCancelled {
+            Text(game.status.detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Cancelled" : game.status.detail)
+                .font(.caption)
+                .foregroundColor(.orange)
         } else if game.status.isCompleted {
             Text("Final")
                 .font(.caption)
@@ -539,7 +559,27 @@ struct GameRow: View {
         // Suppress status word when section heading already communicates it (design debt #5)
         let suppressFinal = sectionContext == .completed
 
-        if game.status.isCompleted && !suppressFinal { parts.append("Final") }
+        if game.status.isPostponed {
+            // Suppress "Postponed" in the dedicated section; always announce elsewhere.
+            if sectionContext != .postponed { parts.append("Postponed") }
+        } else if game.status.isCancelled {
+            // Determine the actual status word for this game.
+            let statusDetail = game.status.detail.trimmingCharacters(in: .whitespacesAndNewlines)
+            // STATUS_SUSPENDED is grouped under isCancelled but is NOT mentioned in the
+            // "Postponed / Cancelled" section header, so always announce it.
+            let isSuspended: Bool
+            if let n = game.status.name {
+                isSuspended = n == "STATUS_SUSPENDED"
+            } else {
+                isSuspended = statusDetail.lowercased() == "suspended"
+            }
+            let suppressInSection = sectionContext == .postponed && !isSuspended
+            if !suppressInSection {
+                parts.append(statusDetail.isEmpty ? "Cancelled" : statusDetail)
+            }
+        } else if game.status.isCompleted && !suppressFinal {
+            parts.append("Final")
+        }
 
         // Scores
         parts.append(
@@ -549,7 +589,9 @@ struct GameRow: View {
             "at \(game.homeTeam.voiceOverName(for: pref)) \(game.homeTeam.score.map { "\($0)" } ?? "")"
         )
 
-        if !game.status.isLive && !game.status.isCompleted {
+        // Show scheduled time only for genuinely upcoming games, not non-played ones.
+        if !game.status.isLive && !game.status.isCompleted &&
+           !game.status.isPostponed && !game.status.isCancelled {
             parts.append(game.displayTime)
         }
 
