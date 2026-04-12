@@ -21,30 +21,27 @@ struct GolfLeaderboardView: View {
 
     // MARK: - Column definitions
 
-    private let headers = ["Pos", "Player", "Ctry", "Score", "R1", "R2", "R3", "R4"]
+    private let headers = ["Pos", "Player", "Today", "Thru", "Score", "R1", "R2", "R3", "R4", "Tot"]
 
     private func rowData(for competitor: GolfCompetitor) -> [String] {
         [
             competitor.positionDisplay,
             competitor.shortName,
-            competitor.country,
+            competitor.currentRoundDisplayScore,
+            competitor.thruDisplay(tournamentInProgress: tournament.isInProgress),
             competitor.overallScore,
             competitor.roundScore(for: 1),
             competitor.roundScore(for: 2),
             competitor.roundScore(for: 3),
-            competitor.roundScore(for: 4)
+            competitor.roundScore(for: 4),
+            competitor.totalStrokesDisplay
         ]
     }
 
-    /// Full names + thru-hole annotation for the AccessibleDataTable overlay.
+    /// Full names for the AccessibleDataTable overlay (VoiceOver reads full name as row header).
     private func accessibleRowData(for competitor: GolfCompetitor) -> [String] {
         var cols = rowData(for: competitor)
         if cols.count > 1 { cols[1] = competitor.playerName }
-        // Annotate the Score cell with "thru N holes" when in progress
-        if let progress = competitor.currentRoundProgress, tournament.isInProgress,
-           let scoreIdx = headers.firstIndex(of: "Score") {
-            cols[scoreIdx] = "\(competitor.overallScore), through \(progress.holesPlayed) holes"
-        }
         return cols
     }
 
@@ -141,13 +138,15 @@ struct GolfLeaderboardView: View {
         VStack(spacing: 0) {
             // Header row
             HStack(spacing: 0) {
-                Text("Pos").font(.caption.bold()).frame(width: 36)
+                Text("Pos").font(.caption.bold()).frame(width: 28)
                 Text("Player").font(.caption.bold()).frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 8)
-                Text("Ctry").font(.caption.bold()).frame(width: 38)
-                Text("Score").font(.caption.bold()).frame(width: 48)
+                Text("Today").font(.caption.bold()).frame(width: 36)
+                Text("Thru").font(.caption.bold()).frame(width: 30)
+                Text("Score").font(.caption.bold()).frame(width: 38)
                 ForEach(1...4, id: \.self) { round in
-                    Text("R\(round)").font(.caption.bold()).frame(width: 38)
+                    Text("R\(round)").font(.caption.bold()).frame(width: 28)
                 }
+                Text("Tot").font(.caption.bold()).frame(width: 36)
             }
             .padding(.vertical, 6)
             .padding(.horizontal, 8)
@@ -205,7 +204,7 @@ struct GolfLeaderboardView: View {
             // Position
             Text(comp.positionDisplay)
                 .font(.caption.monospacedDigit())
-                .frame(width: 36)
+                .frame(width: 28)
                 .foregroundColor(positionColor(comp.position))
 
             // Player name
@@ -216,32 +215,37 @@ struct GolfLeaderboardView: View {
                 .lineLimit(1)
                 .foregroundColor(comp.isActive ? .primary : .secondary)
 
-            // Country
-            Text(comp.country.prefix(3).uppercased())
-                .font(.caption2)
+            // Today (current round score to par)
+            Text(comp.currentRoundDisplayScore)
+                .font(.caption.monospacedDigit().bold())
+                .frame(width: 36)
+                .foregroundColor(scoreColor(comp.currentRoundDisplayScore))
+
+            // Thru (holes completed in current round)
+            Text(comp.thruDisplay(tournamentInProgress: tournament.isInProgress))
+                .font(.caption.monospacedDigit())
+                .frame(width: 30)
                 .foregroundColor(.secondary)
+
+            // Overall score to par
+            Text(comp.overallScore)
+                .font(.subheadline.monospacedDigit().bold())
                 .frame(width: 38)
+                .foregroundColor(scoreColor(comp.overallScore))
 
-            // Overall score
-            VStack(spacing: 1) {
-                Text(comp.overallScore)
-                    .font(.subheadline.monospacedDigit().bold())
-                    .foregroundColor(scoreColor(comp.overallScore))
-                if let progress = comp.currentRoundProgress, tournament.isInProgress {
-                    Text("T\(progress.holesPlayed)")
-                        .font(.caption2.monospacedDigit())
-                        .foregroundColor(.secondary)
-                }
-            }
-            .frame(width: 48)
-
-            // Round scores
+            // Round stroke totals
             ForEach(1...4, id: \.self) { round in
                 Text(comp.roundScore(for: round))
                     .font(.caption.monospacedDigit())
-                    .frame(width: 38)
+                    .frame(width: 28)
                     .foregroundColor(.secondary)
             }
+
+            // Overall stroke total (completed rounds only)
+            Text(comp.totalStrokesDisplay)
+                .font(.caption.monospacedDigit())
+                .frame(width: 36)
+                .foregroundColor(.secondary)
         }
         .padding(.vertical, 7)
         .padding(.horizontal, 8)
@@ -257,12 +261,17 @@ struct GolfLeaderboardView: View {
             } else {
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(tournament.competitors) { comp in
-                        Text(comp.quickListText)
+                        let values = rowData(for: comp).joined(separator: "  ")
+                        Text(values)
                             .font(.subheadline.monospacedDigit())
                             .padding(.horizontal, 16)
                             .padding(.vertical, 6)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .accessibilityLabel(comp.quickListText)
+                            .accessibilityLabel(
+                                zip(headers, accessibleRowData(for: comp))
+                                    .map { "\($0): \($1)" }
+                                    .joined(separator: ". ")
+                            )
                     }
                 }
                 .padding(.vertical, 8)
@@ -279,42 +288,16 @@ struct GolfLeaderboardView: View {
             } else {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(tournament.competitors) { comp in
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Text(comp.positionDisplay)
-                                    .font(.headline.monospacedDigit())
-                                    .foregroundColor(positionColor(comp.position))
-                                Text(comp.playerName)
-                                    .font(.headline)
-                                Spacer()
-                                Text(comp.overallScore)
-                                    .font(.title3.bold().monospacedDigit())
-                                    .foregroundColor(scoreColor(comp.overallScore))
-                            }
-
-                            if !comp.country.isEmpty {
-                                Text(comp.country)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-
-                            if !comp.rounds.isEmpty {
-                                HStack(spacing: 16) {
-                                    ForEach(comp.rounds) { round in
-                                        VStack(spacing: 2) {
-                                            Text(round.label)
-                                                .font(.caption2)
-                                                .foregroundColor(.secondary)
-                                            Text(round.isComplete ? round.displayScore : "--")
-                                                .font(.subheadline.monospacedDigit())
-                                                .foregroundColor(scoreColor(round.displayScore))
-                                            if round.isComplete {
-                                                Text("(\(round.strokes))")
-                                                    .font(.caption2)
-                                                    .foregroundColor(.secondary)
-                                            }
-                                        }
-                                    }
+                        let pairs = Array(zip(headers, rowData(for: comp)))
+                        VStack(alignment: .leading, spacing: 3) {
+                            ForEach(pairs, id: \.0) { header, value in
+                                HStack(spacing: 6) {
+                                    Text("\(header):")
+                                        .font(.caption.bold())
+                                        .foregroundColor(.secondary)
+                                        .frame(width: 44, alignment: .leading)
+                                    Text(value)
+                                        .font(.subheadline.monospacedDigit())
                                 }
                             }
                         }
@@ -324,7 +307,11 @@ struct GolfLeaderboardView: View {
                         .cornerRadius(8)
                         .padding(.horizontal, 12)
                         .accessibilityElement(children: .ignore)
-                        .accessibilityLabel("\(comp.positionDisplay). \(comp.playerName). \(comp.country). \(comp.fullListText)")
+                        .accessibilityLabel(
+                            zip(headers, accessibleRowData(for: comp))
+                                .map { "\($0): \($1)" }
+                                .joined(separator: ". ")
+                        )
                     }
                 }
                 .padding(.vertical, 8)

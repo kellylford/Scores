@@ -56,17 +56,12 @@ struct GolfRound: Identifiable {
     /// Number of holes actually played (strokes > 0) in this round.
     var holesPlayed: Int { holes.filter { $0.strokes > 0 }.count }
 
-    /// True when the full 18 holes are accounted for (uses hole data when available,
-    /// falls back to the round-level stroke total for rounds without hole-detail).
-    var isComplete: Bool {
-        if !holes.isEmpty { return holesPlayed == 18 }
-        return strokes > 0
-    }
+    var isComplete: Bool { strokes > 0 }
 
-    /// Score for display in a compact table cell, using displayScore.
+    /// Stroke total for display in a compact table cell (e.g. "67").
     var tableCellText: String {
         guard isComplete else { return "--" }
-        return displayScore
+        return String(strokes)
     }
 }
 
@@ -96,6 +91,35 @@ struct GolfCompetitor: Identifiable {
         rounds.first(where: { $0.period == round })?.tableCellText ?? "--"
     }
 
+    /// Holes completed in the player's current/latest round.
+    /// Returns the hole count mid-round, "F" when the round is finished,
+    /// or "--" when the player hasn't teed off yet.
+    func thruDisplay(tournamentInProgress: Bool) -> String {
+        if let progress = currentRoundProgress {
+            return "\(progress.holesPlayed)"
+        }
+        if tournamentInProgress && isActive && !rounds.filter(\.isComplete).isEmpty {
+            return "F"
+        }
+        return "--"
+    }
+
+    /// Current round's score to par (e.g. "-4"), or "--" if not started.
+    var currentRoundDisplayScore: String {
+        rounds.filter { $0.strokes > 0 }.sorted { $0.period > $1.period }.first?.displayScore ?? "--"
+    }
+
+    /// Sum of strokes across fully completed rounds (all 18 holes played).
+    var totalStrokes: Int {
+        rounds.filter { $0.holesPlayed == 18 }.reduce(0) { $0 + $1.strokes }
+    }
+
+    /// Formatted total for display; "--" if no rounds completed yet.
+    var totalStrokesDisplay: String {
+        let t = totalStrokes
+        return t > 0 ? String(t) : "--"
+    }
+
     /// When the tournament is live and this player is mid-round, returns
     /// the (round number, holes completed) pair; otherwise nil.
     var currentRoundProgress: (round: Int, holesPlayed: Int)? {
@@ -111,22 +135,34 @@ struct GolfCompetitor: Identifiable {
 
     // MARK: Accessible table helpers
 
-    /// Quick-list: "1. Cameron Young (USA)  -12 (thru 12)  67 / 69 / 68 / --"
+    /// "thru 9" when mid-round, nil otherwise (doesn't need tournamentInProgress).
+    var thruText: String? {
+        guard let progress = currentRoundProgress else { return nil }
+        return "thru \(progress.holesPlayed)"
+    }
+
+    /// Quick-list: "1. Justin Rose  -4 thru 10  -12  70 / 69 / 69 / 36  208"
     var quickListText: String {
         let scores = (1...4).map { roundScore(for: $0) }.joined(separator: " / ")
-        let thru = currentRoundProgress.map { " (thru \($0.holesPlayed))" } ?? ""
-        return "\(positionDisplay). \(playerName)  \(overallScore)\(thru)  \(scores)"
+        let thru: String
+        if let progress = currentRoundProgress {
+            thru = "thru \(progress.holesPlayed)"
+        } else if currentRoundDisplayScore != "--" {
+            thru = "F"
+        } else {
+            thru = "--"
+        }
+        return "\(positionDisplay). \(playerName)  \(currentRoundDisplayScore) \(thru)  \(overallScore)  \(scores)  \(totalStrokesDisplay)"
     }
 
     /// Full-list (card) description for VoiceOver.
     var fullListText: String {
         var lines = ["Score: \(overallScore)"]
-        if let p = currentRoundProgress {
-            lines.append("Round \(p.round) in progress, through \(p.holesPlayed) holes")
-        }
+        if currentRoundDisplayScore != "--" { lines.append("Today: \(currentRoundDisplayScore)") }
         for r in rounds where r.isComplete {
             lines.append("Round \(r.period): \(r.displayScore) (\(r.strokes) strokes)")
         }
+        if totalStrokesDisplay != "--" { lines.append("Total: \(totalStrokesDisplay)") }
         return lines.joined(separator: "; ")
     }
 }
