@@ -64,6 +64,13 @@
 		EDF2DE37CADCCD46B40AB0AB /* DataTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB9F89C51E04B48DBF663845 /* DataTableView.swift */; };
 		F0325420BCF8E453528C1728 /* BaseballFieldTourView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93169AB8FB73DA57C45D0C7A /* BaseballFieldTourView.swift */; };
 		F8BF3E6E1722253CFF729BD8 /* PollsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDDD36E16EA39ADB21259034 /* PollsView.swift */; };
+		A1B2C3D4E5F6071829AABB12 /* GolfAPIModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6071829AABB11 /* GolfAPIModels.swift */; };
+		A1B2C3D4E5F6071829AABB22 /* Golf.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6071829AABB21 /* Golf.swift */; };
+		A1B2C3D4E5F6071829AABB32 /* GolfViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6071829AABB31 /* GolfViewModel.swift */; };
+		A1B2C3D4E5F6071829AABB42 /* GolfLeaderboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6071829AABB41 /* GolfLeaderboardView.swift */; };
+		A1B2C3D4E5F6071829AABB52 /* GolfScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6071829AABB51 /* GolfScheduleView.swift */; };
+		A1B2C3D4E5F6071829AABB62 /* GolfLeagueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6071829AABB61 /* GolfLeagueView.swift */; };
+		A1B2C3D4E5F6071829AABB72 /* GolfHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6071829AABB71 /* GolfHubView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -85,6 +92,13 @@
 		F2A3B4C5D6E707182AABB002 /* TheBenchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheBenchView.swift; sourceTree = "<group>"; };
 		B7E1A2C3D4F60718AABB0011 /* StrikeZoneBenchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrikeZoneBenchView.swift; sourceTree = "<group>"; };
 		F2A3B4C5D6E707182AABB004 /* SoccerPitchTourView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoccerPitchTourView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6071829AABB11 /* GolfAPIModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GolfAPIModels.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6071829AABB21 /* Golf.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Golf.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6071829AABB31 /* GolfViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GolfViewModel.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6071829AABB41 /* GolfLeaderboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GolfLeaderboardView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6071829AABB51 /* GolfScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GolfScheduleView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6071829AABB61 /* GolfLeagueView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GolfLeagueView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6071829AABB71 /* GolfHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GolfHubView.swift; sourceTree = "<group>"; };
 		2F730ED25EF184C36C9EEC13 /* Standings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Standings.swift; sourceTree = "<group>"; };
 		3A041149D09737E052D28AFD /* LiveScoresView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveScoresView.swift; sourceTree = "<group>"; };
 		3C2563CBCB32601D5263CEEF /* News.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = News.swift; sourceTree = "<group>"; };
@@ -204,6 +218,7 @@
 				D3E43F7CCDE27769D46915D8 /* StandingsViewModel.swift */,
 				170934144144BFF79BD8E765 /* StatisticsViewModel.swift */,
 				915340F68BA4D0A9C2068191 /* TeamScheduleViewModel.swift */,
+				A1B2C3D4E5F6071829AABB31 /* GolfViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -232,6 +247,10 @@
 				F2A3B4C5D6E707182AABB002 /* TheBenchView.swift */,
 				B7E1A2C3D4F60718AABB0011 /* StrikeZoneBenchView.swift */,
 				F2A3B4C5D6E707182AABB004 /* SoccerPitchTourView.swift */,
+				A1B2C3D4E5F6071829AABB41 /* GolfLeaderboardView.swift */,
+				A1B2C3D4E5F6071829AABB51 /* GolfScheduleView.swift */,
+				A1B2C3D4E5F6071829AABB61 /* GolfLeagueView.swift */,
+				A1B2C3D4E5F6071829AABB71 /* GolfHubView.swift */,
 				95F96BD2C7E1B5D0F0EC4DE8 /* StandingsView.swift */,
 				67992CF671BB379D522254C7 /* StatisticsView.swift */,
 				5B7A3E63F22E1898869FDC94 /* TeamScheduleView.swift */,
@@ -262,6 +281,8 @@
 				069ACD1D5C73DAD2A7D76927 /* Sport.swift */,
 				C54D54E4F45E8D6A098DFF0B /* StadiumGeometry.swift */,
 				2F730ED25EF184C36C9EEC13 /* Standings.swift */,
+				A1B2C3D4E5F6071829AABB11 /* GolfAPIModels.swift */,
+				A1B2C3D4E5F6071829AABB21 /* Golf.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -366,6 +387,13 @@
 				F2A3B4C5D6E707182AABB001 /* TheBenchView.swift in Sources */,
 				B7E1A2C3D4F60718AABB0012 /* StrikeZoneBenchView.swift in Sources */,
 				F2A3B4C5D6E707182AABB003 /* SoccerPitchTourView.swift in Sources */,
+				A1B2C3D4E5F6071829AABB12 /* GolfAPIModels.swift in Sources */,
+				A1B2C3D4E5F6071829AABB22 /* Golf.swift in Sources */,
+				A1B2C3D4E5F6071829AABB32 /* GolfViewModel.swift in Sources */,
+				A1B2C3D4E5F6071829AABB42 /* GolfLeaderboardView.swift in Sources */,
+				A1B2C3D4E5F6071829AABB52 /* GolfScheduleView.swift in Sources */,
+				A1B2C3D4E5F6071829AABB62 /* GolfLeagueView.swift in Sources */,
+				A1B2C3D4E5F6071829AABB72 /* GolfHubView.swift in Sources */,
 				148D279BE802BAA35FF18C92 /* News.swift in Sources */,
 				B49424A188C213E59DF44F28 /* NewsView.swift in Sources */,
 				AA53FCD9577528CAAD72E565 /* NewsViewModel.swift in Sources */,

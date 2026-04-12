@@ -18,6 +18,8 @@ private enum StorageKeys {
     static let useDirectTouchForTours = "useDirectTouchForTours"
     static let sportOrder = "sportOrder"
     static let hiddenSports = "hiddenSports"
+    static let soccerHubEnabled = "soccerHubEnabled"
+    static let golfHubEnabled = "golfHubEnabled"
 }
 
 @MainActor
@@ -52,6 +54,16 @@ final class AppSettings: ObservableObject {
         didSet {
             UserDefaults.standard.set(Array(hiddenSports.map(\.rawValue)), forKey: StorageKeys.hiddenSports)
         }
+    }
+
+    /// Whether the Soccer hub row is shown on the home page.
+    @Published var soccerHubEnabled: Bool {
+        didSet { UserDefaults.standard.set(soccerHubEnabled, forKey: StorageKeys.soccerHubEnabled) }
+    }
+
+    /// Whether the Golf hub row is shown on the home page.
+    @Published var golfHubEnabled: Bool {
+        didSet { UserDefaults.standard.set(golfHubEnabled, forKey: StorageKeys.golfHubEnabled) }
     }
 
     /// Sports in user-defined order, filtering out hidden ones — ready for the home page ForEach.
@@ -115,6 +127,19 @@ final class AppSettings: ObservableObject {
             hiddenSports = Set(savedHidden.compactMap { Sport(rawValue: $0) })
         } else {
             hiddenSports = []
+        }
+
+        // Hub toggles — default on if never set
+        if UserDefaults.standard.object(forKey: StorageKeys.soccerHubEnabled) == nil {
+            soccerHubEnabled = true
+        } else {
+            soccerHubEnabled = UserDefaults.standard.bool(forKey: StorageKeys.soccerHubEnabled)
+        }
+
+        if UserDefaults.standard.object(forKey: StorageKeys.golfHubEnabled) == nil {
+            golfHubEnabled = true
+        } else {
+            golfHubEnabled = UserDefaults.standard.bool(forKey: StorageKeys.golfHubEnabled)
         }
     }
 }

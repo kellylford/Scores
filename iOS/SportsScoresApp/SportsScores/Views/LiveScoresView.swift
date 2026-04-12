@@ -7,8 +7,35 @@
 
 import SwiftUI
 
+// MARK: - Golf live state (lightweight, separate from team-sport viewmodel)
+
+@MainActor
+private class GolfLiveViewModel: ObservableObject {
+    @Published var activeTournaments: [(sport: Sport, tournament: GolfTournament)] = []
+    private let api = ESPNAPIService.shared
+
+    func fetch() async {
+        var found: [(sport: Sport, tournament: GolfTournament)] = []
+        await withTaskGroup(of: (Sport, GolfTournament?).self) { group in
+            for tour in Sport.golfTours {
+                group.addTask {
+                    let result = try? await self.api.fetchGolfTournament(for: tour)
+                    return (tour, result?.tournament)
+                }
+            }
+            for await (tour, tournament) in group {
+                if let t = tournament, t.isInProgress {
+                    found.append((sport: tour, tournament: t))
+                }
+            }
+        }
+        activeTournaments = found.sorted { $0.sport.rawValue < $1.sport.rawValue }
+    }
+}
+
 struct LiveScoresView: View {
     @StateObject private var viewModel = LiveScoresViewModel()
+    @StateObject private var golfVM   = GolfLiveViewModel()
     @EnvironmentObject private var appSettings: AppSettings
 
     var body: some View {
@@ -61,6 +88,7 @@ struct LiveScoresView: View {
         }
         .task {
             await viewModel.fetchAllGames()
+            if appSettings.golfHubEnabled { await golfVM.fetch() }
         }
         .task(id: appSettings.autoRefreshInterval) {
             while !Task.isCancelled {
@@ -69,6 +97,7 @@ struct LiveScoresView: View {
                     try? await Task.sleep(for: .seconds(secs))
                     guard !Task.isCancelled else { break }
                     await viewModel.refresh()
+                    if appSettings.golfHubEnabled { await golfVM.fetch() }
                 } else {
                     try? await Task.sleep(for: .seconds(86400))
                 }
@@ -76,12 +105,27 @@ struct LiveScoresView: View {
         }
         .refreshable {
             await viewModel.refresh()
+            if appSettings.golfHubEnabled { await golfVM.fetch() }
         }
     }
     
     private var scrollContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
+                // Golf Live Now section (shown first when a tournament is in progress)
+                if appSettings.golfHubEnabled && !golfVM.activeTournaments.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        sectionHeader(title: "⛳ GOLF LIVE", count: golfVM.activeTournaments.count)
+                        ForEach(golfVM.activeTournaments, id: \.sport.rawValue) { item in
+                            NavigationLink(destination: GolfLeagueView(sport: item.sport)) {
+                                golfTournamentRow(item.tournament, sport: item.sport)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+
                 // Live Games Section
                 if !viewModel.liveGames.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
@@ -118,7 +162,7 @@ struct LiveScoresView: View {
                     .padding(.horizontal)
                 }
                 
-                if viewModel.liveGames.isEmpty && viewModel.completedGames.isEmpty && viewModel.upcomingGames.isEmpty {
+                if viewModel.liveGames.isEmpty && viewModel.completedGames.isEmpty && viewModel.upcomingGames.isEmpty && (!appSettings.golfHubEnabled || golfVM.activeTournaments.isEmpty) {
                     VStack(spacing: 16) {
                         Image(systemName: "calendar.badge.exclamationmark")
                             .font(.system(size: 48))
@@ -187,6 +231,51 @@ struct LiveScoresView: View {
     
     private func totalCount(_ sportGames: [LiveScoresViewModel.SportGames]) -> Int {
         sportGames.reduce(0) { $0 + $1.games.count }
+    }
+
+    private func golfTournamentRow(_ tournament: GolfTournament, sport: Sport) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: sport.systemImage)
+                    .font(.title3)
+                Text(sport.displayName)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Spacer()
+                Label(tournament.roundStatusText, systemImage: "circle.fill")
+                    .font(.caption)
+                    .foregroundColor(.red)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color.secondary.opacity(0.1))
+            .cornerRadius(8)
+
+            HStack {
+                Text(tournament.name)
+                    .font(.subheadline)
+                Spacer()
+                // Top 3 leaders
+                if !tournament.competitors.isEmpty {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        ForEach(tournament.competitors.prefix(3)) { comp in
+                            Text("\(comp.positionDisplay). \(comp.shortName)  \(comp.overallScore)")
+                                .font(.caption.monospacedDigit())
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 4)
+        }
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel({
+            let leaders = tournament.competitors.prefix(3).map { "\($0.positionDisplay). \($0.playerName), \($0.overallScore)" }.joined(separator: "; ")
+            return "\(sport.displayName), \(tournament.name), \(tournament.roundStatusText). Leaders: \(leaders)"
+        }())
+        .accessibilityHint("Opens \(sport.displayName) leaderboard")
     }
 }
 

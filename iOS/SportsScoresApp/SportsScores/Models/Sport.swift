@@ -20,6 +20,10 @@ enum Sport: String, CaseIterable, Identifiable {
     case ncaah  = "NCAAH"   // NCAA Men's Hockey — ESPN data is often incomplete
     case ncaawh = "NCAAWH"  // NCAA Women's Hockey — same caveat
 
+    // ── Golf tours (appear in Golf hub, not the main home page list) ─────────
+    case pga  = "PGA"
+    case lpga = "LPGA"
+
     // ── Soccer leagues (appear in Soccer hub + Live Scores, not the main home page list) ──
     case soccerEPL        = "EPL"
     case soccerMLS        = "MLS"
@@ -47,6 +51,9 @@ enum Sport: String, CaseIterable, Identifiable {
          .soccerSerieA, .soccerLigue1, .soccerUCL, .soccerUEL, .soccerLigaMX, .soccerCONCACAF]
     }
 
+    /// All golf tour cases. Feed these to the Golf hub.
+    static var golfTours: [Sport] { [.pga, .lpga] }
+
     var displayName: String {
         switch self {
         case .mlb:              return "MLB Baseball"
@@ -70,6 +77,8 @@ enum Sport: String, CaseIterable, Identifiable {
         case .soccerUEL:        return "Europa League"
         case .soccerLigaMX:     return "Liga MX"
         case .soccerCONCACAF:   return "CONCACAF Champions Cup"
+        case .pga:              return "PGA Tour"
+        case .lpga:             return "LPGA Tour"
         }
     }
 
@@ -96,6 +105,8 @@ enum Sport: String, CaseIterable, Identifiable {
         case .soccerUEL:        return "soccer/uefa.europa"
         case .soccerLigaMX:     return "soccer/mex.1"
         case .soccerCONCACAF:   return "soccer/concacaf.champions"
+        case .pga:              return "golf/pga"
+        case .lpga:             return "golf/lpga"
         }
     }
 
@@ -107,6 +118,11 @@ enum Sport: String, CaseIterable, Identifiable {
     /// True for soccer league cases.
     var isSoccer: Bool {
         Sport.soccerLeagues.contains(self)
+    }
+
+    /// True for golf tour cases.
+    var isGolf: Bool {
+        Sport.golfTours.contains(self)
     }
 
     /// True for sports where the season year uses year+1 (NBA, WNBA, NHL and NCAA basketball/hockey).
@@ -200,6 +216,8 @@ enum Sport: String, CaseIterable, Identifiable {
         case .wnba:   return "WNBA"
         case .ncaah:  return "NCAAH"
         case .ncaawh: return "NCAAWH"
+        case .pga:    return "PGA"
+        case .lpga:   return "LPGA"
         default:      return "SOC"
         }
     }
@@ -211,6 +229,7 @@ enum Sport: String, CaseIterable, Identifiable {
         case .nfl, .ncaaf:                      return "figure.american.football"
         case .nba, .ncaam, .ncaawb, .wnba:     return "figure.basketball"
         case .nhl, .ncaah, .ncaawh:            return "figure.hockey"
+        case .pga, .lpga:                       return "figure.golf"
         default:                                return "figure.soccer"
         }
     }

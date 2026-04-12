@@ -59,20 +59,42 @@ struct SportSelectionView: View {
                         }
 
                         // Soccer hub — single entry for all soccer leagues
-                        NavigationLink(destination: SoccerHubView(initialDate: homeVM.selectedDate)) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "figure.soccer")
-                                    .font(.title2)
-                                    .foregroundColor(.accentColor)
-                                    .frame(width: 36)
-                                Text("Soccer")
-                                    .font(.headline)
-                                Spacer()
-                                soccerBadge
+                        if appSettings.soccerHubEnabled {
+                            NavigationLink(destination: SoccerHubView(initialDate: homeVM.selectedDate)) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "figure.soccer")
+                                        .font(.title2)
+                                        .foregroundColor(.accentColor)
+                                        .frame(width: 36)
+                                    Text("Soccer")
+                                        .font(.headline)
+                                    Spacer()
+                                    soccerBadge
+                                }
+                                .padding(.vertical, 4)
                             }
-                            .padding(.vertical, 4)
+                            .accessibilityLabel(soccerAccessibilityLabel)
                         }
-                        .accessibilityLabel(soccerAccessibilityLabel)
+
+                        // Golf hub — PGA Tour and LPGA Tour
+                        if appSettings.golfHubEnabled {
+                            NavigationLink(destination: GolfHubView()) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "figure.golf")
+                                        .font(.title2)
+                                        .foregroundColor(.accentColor)
+                                        .frame(width: 36)
+                                    Text("Golf")
+                                        .font(.headline)
+                                    Spacer()
+                                    Text("PGA · LPGA")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                .padding(.vertical, 4)
+                            }
+                            .accessibilityLabel("Golf — PGA Tour and LPGA Tour")
+                        }
                     } header: {
                         Text("Browse by Sport")
                     }

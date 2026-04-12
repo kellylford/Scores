@@ -43,14 +43,12 @@ struct StatisticsView: View {
     }
     
     private func categorySection(_ category: LeagueLeaderCategory) -> some View {
-        let headers = ["Rank", "Player", "Team", "Value"]
-        let rows = category.leaders.map { entry in
-            [
-                "\(entry.rank)",
-                entry.athleteName,
-                entry.teamAbbreviation,
-                entry.displayValue
-            ]
+        let hasTeams = category.leaders.contains { !$0.teamAbbreviation.isEmpty }
+        let headers  = hasTeams ? ["Rank", "Player", "Team", "Value"] : ["Rank", "Player", "Value"]
+        let rows = category.leaders.map { entry -> [String] in
+            hasTeams
+                ? ["\(entry.rank)", entry.athleteName, entry.teamAbbreviation, entry.displayValue]
+                : ["\(entry.rank)", entry.athleteName, entry.displayValue]
         }
         
         return VStack(alignment: .leading, spacing: 8) {
@@ -71,10 +69,12 @@ struct StatisticsView: View {
                         .foregroundColor(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.leading, 12)
-                    Text("Team")
-                        .font(.caption.bold())
-                        .foregroundColor(.secondary)
-                        .frame(width: 60, alignment: .center)
+                    if hasTeams {
+                        Text("Team")
+                            .font(.caption.bold())
+                            .foregroundColor(.secondary)
+                            .frame(width: 60, alignment: .center)
+                    }
                     Text("Value")
                         .font(.caption.bold())
                         .foregroundColor(.secondary)
@@ -98,10 +98,12 @@ struct StatisticsView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.leading, 12)
                             .lineLimit(1)
-                        Text(entry.teamAbbreviation)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .frame(width: 60, alignment: .center)
+                        if hasTeams {
+                            Text(entry.teamAbbreviation)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .frame(width: 60, alignment: .center)
+                        }
                         Text(entry.displayValue)
                             .font(.subheadline.bold())
                             .monospacedDigit()

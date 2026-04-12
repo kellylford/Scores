@@ -560,4 +560,45 @@ class ESPNAPIService {
         let apiResponse = try JSONDecoder().decode(RankingsAPIResponse.self, from: data)
         return apiResponse.rankings.map { RankingsPoll(from: $0) }
     }
+
+    // MARK: - Fetch Golf Tournament / Schedule
+
+    /// Fetches the current or date-specific golf tournament for PGA or LPGA.
+    ///
+    /// - `startDate` nil → returns the currently featured tournament (no `?dates` param).
+    /// - `startDate` provided → fetches the scoreboard for that date, which ESPN returns
+    ///   the tournament active during that week.
+    ///
+    /// Always returns the full season calendar from `leagues[0].calendar` regardless
+    /// of whether a tournament is active.
+    func fetchGolfTournament(for sport: Sport, startDate: Date? = nil) async throws -> GolfTournamentResult {
+        var urlString = "\(baseURL)/\(sport.apiPath)/scoreboard"
+        if let date = startDate {
+            let fmt = DateFormatter()
+            fmt.dateFormat = "yyyyMMdd"
+            urlString += "?dates=\(fmt.string(from: date))"
+        }
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+
+        let (data, response) = try await session.data(from: url)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw APIError.invalidResponse
+        }
+
+        let decoder = JSONDecoder()
+        // Golf date strings omit seconds ("2026-04-09T04:00Z") — use lenient parser
+        let apiResponse = try decoder.decode(GolfScoreboardResponse.self, from: data)
+
+        let calendar = apiResponse.leagues.first?.calendar.compactMap { entry -> GolfCalendarEntry? in
+            guard let start = parseESPNDateString(entry.startDate),
+                  let end   = parseESPNDateString(entry.endDate) else { return nil }
+            return GolfCalendarEntry(id: entry.id, name: entry.label, startDate: start, endDate: end)
+        } ?? []
+
+        let tournament = apiResponse.events.first.map {
+            GolfTournament(from: $0, parseDate: { [weak self] s in self?.parseESPNDateString(s) })
+        }
+
+        return GolfTournamentResult(tournament: tournament, calendar: calendar)
+    }
 }

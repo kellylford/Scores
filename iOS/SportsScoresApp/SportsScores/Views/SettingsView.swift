@@ -87,10 +87,45 @@ struct SettingsView: View {
             .onMove { source, destination in
                 appSettings.sportOrder.move(fromOffsets: source, toOffset: destination)
             }
+
+            // Hub sports — toggle only (no reordering; they appear below the main sports list)
+            Toggle(isOn: $appSettings.soccerHubEnabled) {
+                HStack(spacing: 12) {
+                    Text("⚽")
+                        .font(.title3)
+                        .frame(width: 28)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Soccer")
+                            .font(.headline)
+                        Text("EPL, MLS, Champions League and more")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .accessibilityLabel("Soccer hub")
+            .accessibilityHint(appSettings.soccerHubEnabled ? "On. Tap to hide Soccer from the home page." : "Off. Tap to show Soccer on the home page.")
+
+            Toggle(isOn: $appSettings.golfHubEnabled) {
+                HStack(spacing: 12) {
+                    Image(systemName: "figure.golf")
+                        .font(.title3)
+                        .frame(width: 28)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Golf")
+                            .font(.headline)
+                        Text("PGA Tour and LPGA Tour")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .accessibilityLabel("Golf hub")
+            .accessibilityHint(appSettings.golfHubEnabled ? "On. Tap to hide Golf from the home page." : "Off. Tap to show Golf on the home page.")
         } header: {
             Text("Home Page Sports")
         } footer: {
-            Text("Drag to reorder. Toggle to show or hide a sport. Live Scores is always first.")
+            Text("Drag to reorder. Toggle to show or hide a sport. Soccer and Golf are hub sports — toggle only.")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
