@@ -38,6 +38,12 @@ Thumbs.db
 # Project specific
 AccessibleNews/
 
+# Test and coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
 # Logs and temporary files
 *.log
 *.tmp
