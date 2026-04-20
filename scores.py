@@ -3264,19 +3264,20 @@ class GameDetailsView(BaseView):
         return max(count, 1)
 
     def _runs_in_half(self, plays, score_key):
-        """Return runs scored in a half-inning using score-field delta.
+        """Return runs scored in a half-inning.
 
-        awayScore increments only during top halves; homeScore only during
-        bottom halves.  The delta (max - min) across all plays in the half
-        equals runs scored regardless of how ESPN populates scoreValue.
+        Primary: sum scoreValue from summaryType='S' plays only. ESPN sets
+        scoreValue on both announcement ('A') and result ('S') plays for the
+        same at-bat, so summing all plays double-counts. Using only 'S' plays
+        avoids this.
+        Fallback: last-minus-first score delta for data that lacks summaryType.
         """
-        scores = [
-            int(p[score_key]) for p in plays
-            if p.get(score_key) is not None
-        ]
-        if not scores:
-            return 0
-        return max(0, max(scores) - min(scores))
+        s_plays = [p for p in plays if p.get("summaryType") == "S"]
+        if s_plays:
+            return sum(max(0, int(p.get("scoreValue") or 0)) for p in s_plays)
+        # Fallback: use score on the last play minus score on the first play
+        scores = [int(p[score_key]) for p in plays if p.get(score_key) is not None]
+        return max(0, scores[-1] - scores[0]) if len(scores) >= 2 else 0
 
     def _build_football_tree(self, plays_tree, data):
         """Build NFL/NCAAF hierarchical tree: Quarter → Drive → Plays"""
