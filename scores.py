@@ -3732,10 +3732,16 @@ class GameDetailsView(BaseView):
                 non_change[0].get("text", "At-bat") if non_change else "At-bat"
             )
 
-            # Result: prefer scoring "S" over plain note "N"
+            # Result: prefer scoring "S" over plain note "N", then any
+            # non-announcement non-pitch play with text (ESPN sometimes omits
+            # the summaryType on result plays, especially late in games).
             result_play = (
                 next((p for p in non_change if p.get("summaryType") == "S"), None)
                 or next((p for p in non_change if p.get("summaryType") == "N"), None)
+                or next((p for p in non_change
+                         if p.get("summaryType") not in ("A", "P", "C")
+                         and p.get("text", "").strip()
+                         and p is not a_play), None)
             )
             result_text = result_play.get("text", "") if result_play else ""
             is_scoring = result_play is not None and result_play.get("summaryType") == "S"
