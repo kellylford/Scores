@@ -3160,251 +3160,302 @@ class GameDetailsView(BaseView):
         return "Generic"
     
     def _build_baseball_tree(self, plays_tree, data):
-        """Build baseball-specific hierarchical tree with enhanced information"""
-        # Group plays by inning/period
-        inning_groups = {}
+        """Build baseball-specific hierarchical tree: Inning → Half → At-bat → Pitches"""
+        if not data:
+            return
+
+        away_label, home_label = self._get_basketball_team_labels()
+
+        # Group plays by inning number (int), preserving encounter order
+        inning_order = []
+        inning_halves = {}  # inning_num -> {"top": [], "bottom": [], "label": str}
+
         for play in data:
-            period_info = play.get("period", {})
+            period_info = play.get("period", {}) or {}
             period_number = period_info.get("number", 0)
-            period_display = period_info.get("displayValue", f"Period {period_number}")
-            period_type = period_info.get("type", "Unknown").lower()
-            
-            if period_display not in inning_groups:
-                inning_groups[period_display] = {"top": [], "bottom": []}
-            
-            # Use the actual period type from ESPN data
-            if period_type == "top":
-                inning_groups[period_display]["top"].append(play)
-            elif period_type == "bottom":
-                inning_groups[period_display]["bottom"].append(play)
+            period_type = period_info.get("type", "").lower()
+            period_display = period_info.get("displayValue", f"Inning {period_number}")
+
+            if period_number not in inning_halves:
+                inning_order.append(period_number)
+                inning_halves[period_number] = {"top": [], "bottom": [], "label": period_display}
+
+            if period_type == "bottom":
+                inning_halves[period_number]["bottom"].append(play)
             else:
-                # Fallback for other sports or unknown types
-                inning_groups[period_display]["top"].append(play)
-        
-        # Calculate running scores and pitcher info
-        score_tracker = self._calculate_running_scores(data)
-        
-        # Build tree structure
-        for period_display in sorted(inning_groups.keys(), key=lambda x: int(x.split()[0][:-2]) if x.split()[0][:-2].isdigit() else 0):
-            inning_item = QTreeWidgetItem([period_display])
-            inning_item.setExpanded(True)  # Expand by default
-            plays_tree.addTopLevelItem(inning_item)
-            
-            period_data = inning_groups[period_display]
-            inning_num = period_display.split()[0]  # "1st", "2nd", etc.
-            
-            # Add top half (if any plays)
-            if period_data["top"]:
-                # Get score after top half and pitcher info
-                half_key = f"{period_display}_top"
-                score_info = score_tracker.get(half_key, {})
-                pitcher_info = self._extract_pitcher_info(period_data["top"])
-                
-                # Create enhanced label with score and pitcher
-                label = self._create_enhanced_half_inning_label(f"Top of the {inning_num}", score_info, pitcher_info)
-                top_item = QTreeWidgetItem([label])
-                top_item.setExpanded(True)
-                inning_item.addChild(top_item)
-                self._add_baseball_plays_to_tree_group(top_item, period_data["top"])
-            
-            # Add bottom half (if any plays)
-            if period_data["bottom"]:
-                # Get score after bottom half and pitcher info
-                half_key = f"{period_display}_bottom"
-                score_info = score_tracker.get(half_key, {})
-                pitcher_info = self._extract_pitcher_info(period_data["bottom"])
-                
-                # Create enhanced label with score and pitcher
-                label = self._create_enhanced_half_inning_label(f"Bottom of the {inning_num}", score_info, pitcher_info)
-                bottom_item = QTreeWidgetItem([label])
-                bottom_item.setExpanded(True)
-                inning_item.addChild(bottom_item)
-                self._add_baseball_plays_to_tree_group(bottom_item, period_data["bottom"])
-    
-    def _calculate_running_scores(self, plays_data):
-        """Calculate running scores after each half-inning"""
-        score_tracker = {}
-        home_score = 0
-        away_score = 0
-        
-        # Group plays by inning and half for scoring calculations
-        for play in plays_data:
-            period_info = play.get("period", {})
-            period_display = period_info.get("displayValue", "Unknown")
-            period_type = period_info.get("type", "Unknown").lower()
-            
-            # Track scoring plays
-            if play.get("scoringPlay", False):
-                # Extract runs scored from play text
-                runs_scored = self._extract_runs_from_play(play.get("text", ""))
-                team_id = play.get("team", {}).get("id")
-                
-                # Determine if home or away team scored
-                if self._is_home_team_batting(period_type):
-                    home_score += runs_scored
-                else:
-                    away_score += runs_scored
-            
-            # Store score after this half-inning
-            half_key = f"{period_display}_{period_type}"
-            score_tracker[half_key] = {
-                "home": home_score,
-                "away": away_score,
-                "total_runs": home_score + away_score
-            }
-        
-        return score_tracker
-    
-    def _extract_runs_from_play(self, play_text):
-        """Extract number of runs scored from a play description"""
-        import re
-        # Look for patterns like "scores", "2 runs score", etc.
-        if "scores" in play_text.lower():
-            # Try to find number before "run" or "runs"
-            match = re.search(r'(\d+)\s+runs?\s+score', play_text.lower())
-            if match:
-                return int(match.group(1))
-            # Single run if just "scores"
-            return 1
-        return 0
-    
-    def _is_home_team_batting(self, period_type):
-        """Determine if home team is batting based on period type"""
-        return period_type == "bottom"
-    
-    def _extract_pitcher_info(self, half_inning_plays):
-        """Extract pitcher information from half-inning plays"""
-        pitcher_name = "Unknown"
-        pitcher_changes = []
-        
-        for play in half_inning_plays:
-            play_text = play.get("text", "")
-            
-            # Look for pitcher announcements
-            if " pitches to " in play_text:
-                parts = play_text.split(" pitches to ")
-                if len(parts) >= 2:
-                    pitcher_name = parts[0].strip()
+                inning_halves[period_number]["top"].append(play)
+
+        for inning_num in inning_order:
+            inning_data = inning_halves[inning_num]
+            top_plays = inning_data["top"]
+            bottom_plays = inning_data["bottom"]
+            inning_label = inning_data["label"]
+
+            # Runs scored each half — use score deltas (awayScore/homeScore only go up)
+            # Summing scoreValue is unreliable; ESPN sets it on non-scoring plays too.
+            top_runs = self._runs_in_half(top_plays, "awayScore")
+            bottom_runs = self._runs_in_half(bottom_plays, "homeScore")
+            total_runs = top_runs + bottom_runs
+
+            # Final score after inning from last play that carries score data
+            final_score_text = ""
+            for play in reversed(top_plays + bottom_plays):
+                away = self._safe_int(play.get("awayScore"))
+                home = self._safe_int(play.get("homeScore"))
+                if away is not None and home is not None:
+                    final_score_text = f"  [{away_label} {away} - {home_label} {home}]"
                     break
-            
-            # Look for pitching changes
-            if "pitching change" in play_text.lower() or "new pitcher" in play_text.lower():
-                pitcher_changes.append(play_text)
-        
-        return {
-            "pitcher": pitcher_name,
-            "changes": pitcher_changes
-        }
-    
-    def _create_enhanced_half_inning_label(self, base_label, score_info, pitcher_info):
-        """Create enhanced label with score and pitcher information"""
-        label_parts = [base_label]
-        
-        # Add score information if available
-        if score_info and score_info.get("total_runs", 0) > 0:
-            away_score = score_info.get("away", 0)
-            home_score = score_info.get("home", 0)
-            label_parts.append(f"({away_score}-{home_score})")
-        
-        # Add pitcher information if available
-        pitcher = pitcher_info.get("pitcher")
-        if pitcher and pitcher != "Unknown":
-            # Keep it concise - just last name if possible
-            pitcher_parts = pitcher.split()
-            display_pitcher = pitcher_parts[-1] if pitcher_parts else pitcher
-            label_parts.append(f"- {display_pitcher} pitching")
-        
-        return " ".join(label_parts)
-    
+
+            # Build inning header: "3rd Inning — NYM 2R, MIL 1R  [NYM 3 - MIL 2]"
+            runs_parts = []
+            if top_runs > 0:
+                runs_parts.append(f"{away_label} {top_runs}R")
+            if bottom_runs > 0:
+                runs_parts.append(f"{home_label} {bottom_runs}R")
+
+            if runs_parts:
+                inning_header = f"{inning_label} — {', '.join(runs_parts)}{final_score_text}"
+            else:
+                inning_header = f"{inning_label}{final_score_text}"
+
+            inning_item = QTreeWidgetItem([inning_header])
+            inning_item.setExpanded(True)
+            if total_runs > 0:
+                inning_item.setBackground(0, QColor(230, 255, 230))  # light green for scoring innings
+            plays_tree.addTopLevelItem(inning_item)
+
+            # Top half
+            if top_plays:
+                ab_count = self._count_at_bats_in_plays(top_plays)
+                runs_badge = f"  {top_runs}R" if top_runs > 0 else f"  {ab_count} AB"
+                top_label = f"Top — {away_label} Batting{runs_badge}"
+                top_item = QTreeWidgetItem([top_label])
+                top_item.setExpanded(True)
+                if top_runs > 0:
+                    top_item.setBackground(0, QColor(200, 255, 200))
+                inning_item.addChild(top_item)
+                self._add_baseball_plays_to_tree_group(top_item, top_plays, away_label, home_label)
+
+            # Bottom half
+            if bottom_plays:
+                ab_count = self._count_at_bats_in_plays(bottom_plays)
+                runs_badge = f"  {bottom_runs}R" if bottom_runs > 0 else f"  {ab_count} AB"
+                bottom_label = f"Bottom — {home_label} Batting{runs_badge}"
+                bottom_item = QTreeWidgetItem([bottom_label])
+                bottom_item.setExpanded(True)
+                if bottom_runs > 0:
+                    bottom_item.setBackground(0, QColor(200, 255, 200))
+                inning_item.addChild(bottom_item)
+                self._add_baseball_plays_to_tree_group(bottom_item, bottom_plays, away_label, home_label)
+
+    def _count_at_bats_in_plays(self, plays):
+        """Count distinct at-bats in a list of plays (for half-inning badge)"""
+        seen = set()
+        count = 0
+        for play in plays:
+            ab_id = play.get("atBatId")
+            st = play.get("summaryType", "")
+            if ab_id:
+                if ab_id not in seen and st == "A":
+                    seen.add(ab_id)
+                    count += 1
+            elif " pitches to " in play.get("text", ""):
+                count += 1
+        return max(count, 1)
+
+    def _runs_in_half(self, plays, score_key):
+        """Return runs scored in a half-inning using score-field delta.
+
+        awayScore increments only during top halves; homeScore only during
+        bottom halves.  The delta (max - min) across all plays in the half
+        equals runs scored regardless of how ESPN populates scoreValue.
+        """
+        scores = [
+            int(p[score_key]) for p in plays
+            if p.get(score_key) is not None
+        ]
+        if not scores:
+            return 0
+        return max(0, max(scores) - min(scores))
+
     def _build_football_tree(self, plays_tree, data):
-        """Build NFL-specific hierarchical tree"""
-        # Group plays by quarter and drive
-        quarter_groups = {}
-        
+        """Build NFL/NCAAF hierarchical tree: Quarter → Drive → Plays"""
+        away_label, home_label = self._get_basketball_team_labels()
+
+        # Group plays into quarters, preserving drive order within each quarter
+        quarter_order = []
+        quarter_data = {}  # period_display -> {"drive_order": [], "drives": {key: []}, "team_names": {key: str}}
+
         for play in data:
-            period_info = play.get("period", {})
-            period_number = period_info.get("number", 1)
-            period_display = period_info.get("displayValue", f"{period_number}Q")
-            
-            drive_number = play.get("driveNumber", "Unknown")
-            drive_team = play.get("team", {}).get("id", "Unknown")
-            
-            if period_display not in quarter_groups:
-                quarter_groups[period_display] = {}
-            
-            drive_key = f"Drive {drive_number} (Team {drive_team})"
-            if drive_key not in quarter_groups[period_display]:
-                quarter_groups[period_display][drive_key] = []
-            
-            quarter_groups[period_display][drive_key].append(play)
-        
-        # Build tree structure
-        for period_display in sorted(quarter_groups.keys()):
-            quarter_item = QTreeWidgetItem([period_display])
+            period_info = play.get("period", {}) or {}
+            period_num = period_info.get("number", 1)
+            period_display = period_info.get("displayValue", f"Q{period_num}")
+
+            drive_number = play.get("driveNumber") or ""
+            team_obj = play.get("team", {}) or {}
+            team_abbr = (team_obj.get("abbreviation")
+                         or team_obj.get("shortDisplayName")
+                         or team_obj.get("displayName")
+                         or "")
+            drive_key = str(drive_number)
+
+            if period_display not in quarter_data:
+                quarter_order.append(period_display)
+                quarter_data[period_display] = {"drive_order": [], "drives": {}, "team_names": {}}
+
+            qd = quarter_data[period_display]
+            if drive_key not in qd["drives"]:
+                qd["drive_order"].append(drive_key)
+                qd["drives"][drive_key] = []
+                qd["team_names"][drive_key] = team_abbr
+            elif team_abbr and not qd["team_names"][drive_key]:
+                qd["team_names"][drive_key] = team_abbr
+
+            qd["drives"][drive_key].append(play)
+
+        for period_display in quarter_order:
+            qd = quarter_data[period_display]
+
+            # Score at end of quarter from last play with score data
+            quarter_score = ""
+            for dk in reversed(qd["drive_order"]):
+                for play in reversed(qd["drives"][dk]):
+                    away = self._safe_int(play.get("awayScore"))
+                    home = self._safe_int(play.get("homeScore"))
+                    if away is not None and home is not None:
+                        quarter_score = f"  [{away_label} {away} - {home_label} {home}]"
+                        break
+                if quarter_score:
+                    break
+
+            quarter_item = QTreeWidgetItem([f"{period_display}{quarter_score}"])
             quarter_item.setExpanded(True)
             plays_tree.addTopLevelItem(quarter_item)
-            
-            drives = quarter_groups[period_display]
-            for drive_key in sorted(drives.keys()):
-                drive_plays = drives[drive_key]
-                if drive_plays:
-                    # Determine drive result
-                    drive_result = self._determine_drive_result(drive_plays)
-                    drive_display = f"{drive_key}: {drive_result}" if drive_result else drive_key
-                    
-                    drive_item = QTreeWidgetItem([drive_display])
-                    drive_item.setExpanded(False)  # Collapsed by default
-                    quarter_item.addChild(drive_item)
-                    
-                    self._add_football_plays_to_drive(drive_item, drive_plays)
+
+            for drive_key in qd["drive_order"]:
+                drive_plays = qd["drives"][drive_key]
+                if not drive_plays:
+                    continue
+
+                team_abbr = qd["team_names"][drive_key]
+                drive_result = self._determine_drive_result(drive_plays)
+
+                # Score at end of drive
+                drive_score = ""
+                for play in reversed(drive_plays):
+                    away = self._safe_int(play.get("awayScore"))
+                    home = self._safe_int(play.get("homeScore"))
+                    if away is not None and home is not None:
+                        drive_score = f"  ({away}-{home})"
+                        break
+
+                play_count = len(drive_plays)
+                team_prefix = f"{team_abbr}: " if team_abbr else "Drive: "
+                drive_header = f"{team_prefix}{drive_result}{drive_score}  ({play_count} plays)"
+
+                drive_item = QTreeWidgetItem([drive_header])
+                drive_item.setExpanded(False)
+                if any(s in drive_result.lower() for s in ("touchdown", "field goal", "safety")):
+                    drive_item.setBackground(0, QColor(220, 255, 220))
+
+                quarter_item.addChild(drive_item)
+                self._add_football_plays_to_drive(drive_item, drive_plays)
     
     def _build_generic_tree(self, plays_tree, data):
-        """Build generic hierarchical tree for unknown sports"""
-        # Group by period only
-        period_groups = {}
+        """Build generic hierarchical tree — used for NHL, Soccer, and unknown sports"""
+        away_label, home_label = self._get_basketball_team_labels()
+
+        period_order = []
+        period_groups = {}  # key -> {"plays": [], "label": str}
+
         for play in data:
-            period_info = play.get("period", {})
-            period_display = period_info.get("displayValue", "Unknown Period")
-            
-            if period_display not in period_groups:
-                period_groups[period_display] = []
-            period_groups[period_display].append(play)
-        
-        # Build simple tree
-        for period_display in sorted(period_groups.keys()):
-            period_item = QTreeWidgetItem([period_display])
+            period_info = play.get("period", {}) or {}
+            period_num = period_info.get("number", 1)
+            period_display = period_info.get("displayValue", f"Period {period_num}")
+            key = f"{period_num}:{period_display}"
+
+            if key not in period_groups:
+                period_order.append(key)
+                period_groups[key] = {"plays": [], "label": period_display}
+            period_groups[key]["plays"].append(play)
+
+        for key in period_order:
+            pg = period_groups[key]
+            plays_in_period = pg["plays"]
+            period_label = pg["label"]
+
+            # Score at end of period + goal/score count
+            period_score = ""
+            goals_this_period = sum(max(0, p.get("scoreValue", 0) or 0) for p in plays_in_period)
+            for play in reversed(plays_in_period):
+                away = self._safe_int(play.get("awayScore"))
+                home = self._safe_int(play.get("homeScore"))
+                if away is not None and home is not None:
+                    period_score = f"  [{away_label} {away} - {home_label} {home}]"
+                    break
+
+            if goals_this_period > 0:
+                g = goals_this_period
+                period_header = f"{period_label}  ({g} goal{'s' if g != 1 else ''}){period_score}"
+            else:
+                period_header = f"{period_label}{period_score}"
+
+            period_item = QTreeWidgetItem([period_header])
             period_item.setExpanded(True)
             plays_tree.addTopLevelItem(period_item)
-            
-            for play in period_groups[period_display]:
+
+            for play in plays_in_period:
                 play_text = play.get("text", "Unknown play")
                 clock_time = self._extract_play_clock_display(play)
                 score_info = self._extract_basketball_score_info(play)
-                if clock_time != "--:--":
+
+                if clock_time not in ("--:--", ""):
                     formatted_text = self._format_clock_play_entry(play_text, clock_time, score_info)
                 else:
                     formatted_text = play_text
+
                 play_item = QTreeWidgetItem([formatted_text])
+                if play.get("scoringPlay", False) or (play.get("scoreValue", 0) or 0) > 0:
+                    play_item.setBackground(0, QColor(220, 255, 220))
                 period_item.addChild(play_item)
 
     def _build_basketball_tree(self, plays_tree, data):
-        """Build basketball-specific tree with time/action/score formatting"""
-        period_groups = {}
+        """Build basketball-specific tree: Period → Plays with clock + score"""
+        away_label, home_label = self._get_basketball_team_labels()
+
+        period_order = []
+        period_groups = {}  # period_num -> {"plays": [], "label": str}
+
         for play in data:
-            period_info = play.get("period", {})
-            period_display = period_info.get("displayValue", "Unknown Period")
+            period_info = play.get("period", {}) or {}
+            period_num = period_info.get("number", 1)
+            period_display = period_info.get("displayValue", str(period_num))
 
-            if period_display not in period_groups:
-                period_groups[period_display] = []
-            period_groups[period_display].append(play)
+            if period_num not in period_groups:
+                period_order.append(period_num)
+                period_groups[period_num] = {"plays": [], "label": period_display}
+            period_groups[period_num]["plays"].append(play)
 
-        for period_display in sorted(period_groups.keys()):
-            period_item = QTreeWidgetItem([f"Period {period_display}"])
+        for period_num in period_order:
+            pg = period_groups[period_num]
+            plays_in_period = pg["plays"]
+            period_label = self._ordinal_period_label(period_num, pg["label"])
+
+            # Score at end of period
+            period_score = ""
+            for play in reversed(plays_in_period):
+                away = self._safe_int(play.get("awayScore"))
+                home = self._safe_int(play.get("homeScore"))
+                if away is not None and home is not None:
+                    period_score = f"  [{away_label} {away} - {home_label} {home}]"
+                    break
+
+            period_item = QTreeWidgetItem([f"{period_label}{period_score}"])
             period_item.setExpanded(True)
             plays_tree.addTopLevelItem(period_item)
 
             period_plays = sorted(
-                period_groups[period_display],
+                plays_in_period,
                 key=lambda p: self._parse_basketball_clock(p.get("clock", "00:00")),
                 reverse=True,
             )
@@ -3420,6 +3471,20 @@ class GameDetailsView(BaseView):
                 play_item = QTreeWidgetItem([formatted_play])
                 self._apply_basketball_play_styling(play_item, play)
                 period_item.addChild(play_item)
+
+    def _ordinal_period_label(self, period_num, fallback_display=""):
+        """Convert period number to a readable label (1st Quarter, OT, etc.)"""
+        fb_lower = fallback_display.lower()
+        if "ot" in fb_lower or "overtime" in fb_lower or "extra" in fb_lower:
+            ot_num = period_num - 4
+            return f"OT{ot_num if ot_num > 1 else ''}"
+        ordinals = {1: "1st", 2: "2nd", 3: "3rd", 4: "4th"}
+        if period_num in ordinals:
+            return f"{ordinals[period_num]} Quarter"
+        if period_num > 4:
+            ot_num = period_num - 4
+            return f"OT{ot_num if ot_num > 1 else ''}"
+        return fallback_display or f"Period {period_num}"
 
     def _parse_basketball_clock(self, clock_str):
         """Parse basketball clock value into seconds for sorting"""
@@ -3596,202 +3661,330 @@ class GameDetailsView(BaseView):
         elif play.get("scoringPlay", False):
             play_item.setBackground(0, QBrush(QColor(176, 224, 230, 50)))
     
-    def _add_baseball_plays_to_tree_group(self, parent_item, plays):
-        """Add plays to a tree group, organizing by at-bat with result as main node"""
-        # Filter out transition plays (inning markers, etc.)
-        meaningful_plays = []
+    def _add_baseball_plays_to_tree_group(self, parent_item, plays, away_label="Away", home_label="Home"):
+        """Add plays to a tree group, organizing by at-bat with result as main node.
+
+        Uses ESPN's atBatId + summaryType when available (preferred), otherwise
+        falls back to text-pattern matching for older API responses.
+        """
+        has_at_bat_ids = any(p.get("atBatId") for p in plays)
+        if has_at_bat_ids:
+            self._add_baseball_plays_by_at_bat_id(parent_item, plays, away_label, home_label)
+        else:
+            self._add_baseball_plays_by_text_pattern(parent_item, plays)
+
+    def _add_baseball_plays_by_at_bat_id(self, parent_item, plays, away_label, home_label):
+        """Group baseball plays by ESPN atBatId + summaryType codes.
+
+        summaryType key:
+          A = at-bat announcement ("Lopez pitches to Meadows")
+          P = pitch (isPitch == True means it's an actual pitch)
+          N = non-scoring result note
+          S = scoring result
+          C = player change / substitution
+        """
+        # Build ordered at-bat groups
+        ab_order = []
+        ab_plays = {}  # atBatId -> [plays]
+
         for play in plays:
-            play_text = play.get("text", "")
-            
-            # Skip inning transition markers and empty plays
-            if (play_text.startswith("Top of the") or 
-                play_text.startswith("Bottom of the") or 
-                play_text.startswith("End of the") or
-                play_text.startswith("Middle of the") or
-                not play_text.strip()):
+            ab_id = play.get("atBatId") or play.get("id", "")
+            st = play.get("summaryType", "")
+            text = play.get("text", "")
+
+            # Skip bare inning-transition markers that have no summaryType
+            if not st and any(text.startswith(m) for m in (
+                "Top of the", "Bottom of the", "End of the", "Middle of the"
+            )):
                 continue
-                
-            meaningful_plays.append(play)
-        
-        # Group plays by at-bat
+            if not st and not text.strip():
+                continue
+
+            if ab_id not in ab_plays:
+                ab_order.append(ab_id)
+                ab_plays[ab_id] = []
+            ab_plays[ab_id].append(play)
+
+        for ab_id in ab_order:
+            group = ab_plays[ab_id]
+
+            # Separate player-change plays
+            change_plays = [p for p in group if p.get("summaryType") == "C"]
+            non_change = [p for p in group if p.get("summaryType") != "C"]
+
+            # Emit player-change banners before the at-bat
+            for cp in change_plays:
+                text = cp.get("text", "").strip()
+                if text:
+                    chg_item = QTreeWidgetItem([f">> {text}"])
+                    chg_item.setBackground(0, QColor(255, 235, 200))  # light orange
+                    parent_item.addChild(chg_item)
+
+            # Find the at-bat announcement (summaryType == "A")
+            a_play = next((p for p in non_change if p.get("summaryType") == "A"), None)
+
+            # If the group is all player changes, nothing more to do
+            if a_play is None and not non_change:
+                continue
+
+            header_text = a_play.get("text", "At-bat") if a_play else (
+                non_change[0].get("text", "At-bat") if non_change else "At-bat"
+            )
+
+            # Result: prefer scoring "S" over plain note "N"
+            result_play = (
+                next((p for p in non_change if p.get("summaryType") == "S"), None)
+                or next((p for p in non_change if p.get("summaryType") == "N"), None)
+            )
+            result_text = result_play.get("text", "") if result_play else ""
+            is_scoring = result_play is not None and result_play.get("summaryType") == "S"
+
+            # Pitches: summaryType "P" AND isPitch == True
+            pitches = [p for p in non_change if p.get("summaryType") == "P" and p.get("isPitch", False)]
+
+            # Build at-bat header line
+            score_suffix = ""
+            if is_scoring:
+                away = self._safe_int(result_play.get("awayScore"))
+                home = self._safe_int(result_play.get("homeScore"))
+                if away is not None and home is not None:
+                    score_suffix = f"  ({away_label} {away} - {home_label} {home})"
+
+            # Compose: "⚾ Header: Result  (score)  [Np xB yK zF]"
+            prefix = "⚾ " if is_scoring else ""
+            if result_text and result_text != header_text:
+                main_text = f"{prefix}{header_text}: {result_text}{score_suffix}"
+            else:
+                main_text = f"{prefix}{header_text}{score_suffix}"
+
+            if pitches:
+                summary = self._build_pitch_count_summary(pitches)
+                main_text += f"  [{len(pitches)}p{summary}]"
+
+            at_bat_item = QTreeWidgetItem([main_text])
+            at_bat_item.setExpanded(False)
+            if is_scoring:
+                at_bat_item.setBackground(0, QColor(255, 255, 150))
+            parent_item.addChild(at_bat_item)
+
+            for i, pitch in enumerate(pitches):
+                at_bat_item.addChild(self._build_pitch_tree_item(pitch, i + 1, len(pitches)))
+
+    def _add_baseball_plays_by_text_pattern(self, parent_item, plays):
+        """Fallback at-bat grouper using text-pattern matching when atBatId is absent."""
+        TRANSITION_PREFIXES = ("Top of the", "Bottom of the", "End of the", "Middle of the")
+        OUTCOMES = [
+            "struck out", "grounded out", "flied out", "popped out", "lined out",
+            "fouled out", "reached on error", "singled", "doubled", "tripled",
+            "homered", "walked", "hit by pitch", "reached on fielder's choice",
+            "reached on", "grounded into", "flied into", "popped into",
+            "single to", "double to",
+        ]
+
+        meaningful_plays = [
+            p for p in plays
+            if p.get("text", "").strip()
+            and not any(p.get("text", "").startswith(t) for t in TRANSITION_PREFIXES)
+        ]
+
         at_bats = []
         current_at_bat = None
-        
+
         for play in meaningful_plays:
             play_text = play.get("text", "")
-            
-            # Check if this is a batter announcement (start of new at-bat)
+
             if " pitches to " in play_text:
-                # End previous at-bat if exists
                 if current_at_bat:
                     at_bats.append(current_at_bat)
-                
-                # Start new at-bat
                 parts = play_text.split(" pitches to ")
-                if len(parts) >= 2:
-                    batter_name = parts[1].strip()
-                    current_at_bat = {
-                        "batter": batter_name,
-                        "plays": [],
-                        "result": None,
-                        "scoring": False
-                    }
+                batter_name = parts[1].strip() if len(parts) >= 2 else ""
+                current_at_bat = {
+                    "batter": batter_name,
+                    "header": play_text,
+                    "plays": [],
+                    "result": None,
+                    "scoring": False,
+                }
                 continue
-            
-            # Add play to current at-bat
+
             if current_at_bat:
                 current_at_bat["plays"].append(play)
-                
-                # Check if this is the result play (final outcome)
-                # Look for player name in the play text to identify result plays
                 batter_name = current_at_bat["batter"]
-                name_words = batter_name.split()
-                
-                # Check if any part of the player's name appears in the play text
-                name_found_in_play = any(name_part.lower() in play_text.lower() 
-                                       for name_part in name_words if len(name_part) > 2)
-                
-                if name_found_in_play or any(outcome in play_text.lower() for outcome in 
-                       ["struck out", "grounded out", "flied out", "popped out", "lined out", 
-                        "fouled out", "reached on error", "singled", "doubled", "tripled", "homered",
-                        "walked", "hit by pitch", "reached on fielder's choice", "reached on",
-                        "grounded into", "flied into", "popped into", "lined into", "single to", "double to"]):
+                name_found = any(
+                    w.lower() in play_text.lower()
+                    for w in batter_name.split() if len(w) > 2
+                )
+                outcome_found = any(o in play_text.lower() for o in OUTCOMES)
+                if name_found or outcome_found:
                     current_at_bat["result"] = play_text
                     if play.get("scoringPlay", False):
                         current_at_bat["scoring"] = True
-                        current_at_bat["score"] = f"({play.get('awayScore', 0)}-{play.get('homeScore', 0)})"
-                    
-                    # End this at-bat
+                        away = self._safe_int(play.get("awayScore")) or 0
+                        home = self._safe_int(play.get("homeScore")) or 0
+                        current_at_bat["score"] = f"({away}-{home})"
                     at_bats.append(current_at_bat)
                     current_at_bat = None
-        
-        # Add any remaining at-bat
+
         if current_at_bat:
-            # If no clear result, use last play as result
             if current_at_bat["plays"] and not current_at_bat["result"]:
-                last_play = current_at_bat["plays"][-1]
-                current_at_bat["result"] = last_play.get("text", "At-bat in progress")
+                current_at_bat["result"] = current_at_bat["plays"][-1].get("text", "At-bat in progress")
             at_bats.append(current_at_bat)
-        
-        # Create tree nodes for each at-bat
+
         for at_bat in at_bats:
-            if not at_bat["batter"] or not at_bat["result"]:
-                continue
-                
-            # Create main node with batter name and result
-            result_text = at_bat["result"]
+            header = at_bat.get("header") or at_bat.get("batter", "Unknown")
+            result_text = at_bat.get("result", "")
+
             if at_bat["scoring"]:
-                main_text = f"⚾ {at_bat['batter']}: {result_text} {at_bat.get('score', '')}"
+                main_text = f"⚾ {header}: {result_text} {at_bat.get('score', '')}"
+            elif result_text and result_text != header:
+                main_text = f"{header}: {result_text}"
             else:
-                main_text = f"{at_bat['batter']}: {result_text}"
-            
+                main_text = header
+
             at_bat_item = QTreeWidgetItem([main_text])
-            at_bat_item.setExpanded(False)  # Collapsed by default
-            
-            # Highlight scoring at-bats
+            at_bat_item.setExpanded(False)
             if at_bat["scoring"]:
-                at_bat_item.setBackground(0, QColor(255, 255, 150))  # Light yellow
-            
+                at_bat_item.setBackground(0, QColor(255, 255, 150))
             parent_item.addChild(at_bat_item)
-            
-            # Add pitch-by-pitch details as children (excluding the result play)
-            pitch_count = 0
-            for play in at_bat["plays"]:
-                play_text = play.get("text", "")
-                
-                # Skip the result play since it's already in the main node
-                if play_text == at_bat["result"]:
-                    continue
-                
-                # Add pitch details
-                if "Pitch" in play_text or any(pitch_type in play_text.lower() for pitch_type in 
-                                             ["ball", "strike", "foul", "looking", "swinging"]):
-                    pitch_count += 1
-                    
-                    # Extract additional pitch details if available
-                    enhanced_text = play_text
-                    velocity = play.get("pitchVelocity")
-                    pitch_type = play.get("pitchType", {})
-                    pitch_type_text = pitch_type.get("text", "") if isinstance(pitch_type, dict) else ""
-                    pitch_coordinate = play.get("pitchCoordinate", {})
-                    
-                    # Get pitch location with absolute coordinates
-                    location = ""
-                    if pitch_coordinate and isinstance(pitch_coordinate, dict):
-                        espn_x = pitch_coordinate.get("x")  # Horizontal (absolute)
-                        espn_y = pitch_coordinate.get("y")  # Vertical (absolute)
-                        if espn_x is not None and espn_y is not None:
-                            # Try to determine batter handedness
-                            batter_side = None
-                            
-                            # Check if we can extract batter info from the play data
-                            if isinstance(play, dict) and 'participants' in play:
-                                for participant in play.get('participants', []):
-                                    if isinstance(participant, dict) and participant.get('type') == 'batter':
-                                        batter_side = participant.get('batSide')
-                                        break
-                            
-                            # For now, use simple heuristics for known players
-                            # TODO: Improve batter data extraction from ESPN API
-                            if not batter_side:
-                                batter_name = at_bat.get('batter', '') if isinstance(at_bat, dict) else ''
-                                if 'Lindor' in batter_name:
-                                    batter_side = 'L'  # Based on our hit-by-pitch analysis
-                                # Add more known players as needed
-                            
-                            # Get location with batter context  
-                            location = get_pitch_location(espn_x, espn_y, batter_side)
-                    
-                    # Build enhanced text with velocity, type, and coordinates
-                    # Note: location now contains coordinates, so no need for separate coordinates_text
-                    details = []
-                    if velocity:
-                        details.append(f"{velocity} mph")
-                    if pitch_type_text:
-                        details.append(pitch_type_text)
-                    
-                        # Show only raw coordinates if available
-                        coord_text = ""
-                        if espn_x is not None and espn_y is not None:
-                            coord_text = f"({espn_x}, {espn_y})"
-                        if details:
-                            detail_text = " ".join(details)
-                            if coord_text:
-                                enhanced_text = f"{play_text} ({detail_text}) - {coord_text}"
-                            else:
-                                enhanced_text = f"{play_text} ({detail_text})"
-                        elif coord_text:
-                            enhanced_text = f"{play_text} - {coord_text}"
-                        else:
-                            enhanced_text = play_text
-                    
-                    pitch_item = QTreeWidgetItem([f"  {enhanced_text}"])
-                    
-                    # Store pitch data for audio playback
-                    pitch_data = {
-                        'x': espn_x,
-                        'y': espn_y,
-                        'velocity': velocity,
-                        'pitch_type': pitch_type_text,
-                        'batter_hand': batter_side,
-                        'is_pitch': True
-                    }
-                    pitch_item.setData(0, Qt.ItemDataRole.UserRole, pitch_data)
-                    at_bat_item.addChild(pitch_item)
-                else:
-                    # Other play details (substitutions, etc.)
-                    detail_item = QTreeWidgetItem([f"  {play_text}"])
-                    at_bat_item.addChild(detail_item)
+
+            pitches = [
+                p for p in at_bat["plays"]
+                if p.get("text", "") != result_text
+                and (
+                    "Pitch" in p.get("text", "")
+                    or any(k in p.get("text", "").lower()
+                           for k in ["ball", "strike", "foul", "looking", "swinging"])
+                )
+            ]
+            for i, play in enumerate(pitches):
+                at_bat_item.addChild(self._build_pitch_tree_item(play, i + 1, len(pitches)))
+
+    # ------------------------------------------------------------------ #
+    #  Pitch helper methods                                                #
+    # ------------------------------------------------------------------ #
+
+    def _build_pitch_count_summary(self, pitches):
+        """Return a short count string like ' 3B 2K 1F' from a list of pitch plays."""
+        balls = strikes = fouls = 0
+        for p in pitches:
+            t = (p.get("type", {}) or {}).get("type", "").lower()
+            if "ball" in t:
+                balls += 1
+            elif "called-strike" in t or "swinging-strike" in t:
+                strikes += 1
+            elif "foul" in t:
+                fouls += 1
+        parts = []
+        if balls:   parts.append(f"{balls}B")
+        if strikes: parts.append(f"{strikes}K")
+        if fouls:   parts.append(f"{fouls}F")
+        return " " + " ".join(parts) if parts else ""
+
+    def _build_pitch_tree_item(self, play, pitch_num, total_pitches):
+        """Build a QTreeWidgetItem for a single pitch with full details."""
+        play_text = play.get("text", "")
+        velocity = play.get("pitchVelocity")
+        pitch_type_obj = play.get("pitchType", {}) or {}
+        pitch_type_text = pitch_type_obj.get("text", "") if isinstance(pitch_type_obj, dict) else ""
+        pitch_coordinate = play.get("pitchCoordinate", {}) or {}
+        result_count = play.get("resultCount", {}) or {}
+
+        # Ball-strike count BEFORE this pitch (from resultCount)
+        count_text = ""
+        if isinstance(result_count, dict) and ("balls" in result_count or "strikes" in result_count):
+            b = result_count.get("balls", 0)
+            s = result_count.get("strikes", 0)
+            count_text = f"{b}-{s}"
+
+        # Short pitch result label
+        type_obj = play.get("type", {}) or {}
+        type_type = type_obj.get("type", "").lower()
+        pitch_label = self._get_pitch_result_label(type_type, play_text)
+
+        # Coordinates and location
+        espn_x = None
+        espn_y = None
+        batter_side = None
+        location = ""
+        if pitch_coordinate and isinstance(pitch_coordinate, dict):
+            espn_x = pitch_coordinate.get("x")
+            espn_y = pitch_coordinate.get("y")
+            if espn_x is not None and espn_y is not None:
+                if isinstance(play, dict) and "participants" in play:
+                    for participant in play.get("participants", []):
+                        if isinstance(participant, dict) and participant.get("type") == "batter":
+                            batter_side = participant.get("batSide")
+                            break
+                location = get_pitch_location(espn_x, espn_y, batter_side)
+
+        # Build display: "#N [label]  Type  Vel  count  location"
+        parts = [f"#{pitch_num}"]
+        if pitch_label:
+            parts.append(f"[{pitch_label}]")
+        if pitch_type_text:
+            parts.append(pitch_type_text)
+        if velocity:
+            parts.append(f"{velocity} mph")
+        if count_text:
+            parts.append(f"count {count_text}")
+        if location:
+            parts.append(location)
+        elif espn_x is not None and espn_y is not None:
+            parts.append(f"({espn_x}, {espn_y})")
+
+        display_text = "  " + "  ".join(parts)
+        pitch_item = QTreeWidgetItem([display_text])
+
+        bg = self._get_pitch_bg_color(type_type)
+        if bg:
+            pitch_item.setBackground(0, bg)
+
+        pitch_data = {
+            "x": espn_x,
+            "y": espn_y,
+            "velocity": velocity,
+            "pitch_type": pitch_type_text,
+            "batter_hand": batter_side,
+            "is_pitch": True,
+        }
+        pitch_item.setData(0, Qt.ItemDataRole.UserRole, pitch_data)
+        return pitch_item
+
+    def _get_pitch_result_label(self, type_type, play_text=""):
+        """Return a 1-letter pitch result label (B, C, S, F, X)."""
+        if "ball" in type_type:             return "B"
+        if "called-strike" in type_type:    return "C"
+        if "swinging-strike" in type_type:  return "S"
+        if "foul" in type_type:             return "F"
+        if "in-play" in type_type:          return "X"
+        # Text fallback
+        tl = play_text.lower()
+        if "ball" in tl:                             return "B"
+        if "called strike" in tl or "looking" in tl: return "C"
+        if "swinging" in tl:                         return "S"
+        if "foul" in tl:                             return "F"
+        return ""
+
+    def _get_pitch_bg_color(self, type_type):
+        """Return a QColor background for a pitch result, or None."""
+        if "ball" in type_type:
+            return QColor(200, 220, 255, 80)   # light blue
+        if "called-strike" in type_type or "swinging-strike" in type_type:
+            return QColor(255, 200, 200, 80)   # light red
+        if "foul" in type_type:
+            return QColor(255, 230, 180, 80)   # light orange
+        if "in-play-score" in type_type:
+            return QColor(180, 255, 180, 80)   # light green
+        return None
 
     def _determine_drive_result(self, drive_plays):
         """Determine the result of an NFL drive"""
         if not drive_plays:
             return "No plays"
-        
+
         last_play = drive_plays[-1]
         play_text = last_play.get("text", "").lower()
-        
-        # Check for common drive outcomes
+
         if "touchdown" in play_text:
             return "Touchdown"
         elif "field goal" in play_text:
@@ -3808,37 +4001,62 @@ class GameDetailsView(BaseView):
             return f"{len(drive_plays)} plays"
     
     def _add_football_plays_to_drive(self, parent_item, plays):
-        """Add NFL plays to a drive, organizing by meaningful sequences"""
+        """Add NFL/NCAAF plays to a drive with down/distance, clock, and score."""
         for play in plays:
             play_text = play.get("text", "Unknown play")
-            
-            # Extract down and distance info if available
-            down = play.get("down")
-            distance = play.get("distance")
-            yard_line = play.get("yardLine")
-            
-            # Enhance play text with context
-            enhanced_text = play_text
-            if down and distance:
-                enhanced_text = f"{down} & {distance}: {play_text}"
-            
-            if yard_line:
-                enhanced_text = f"{enhanced_text} (at {yard_line})"
+
+            # Down & distance come from the play's start dict (not top-level fields)
+            start = play.get("start", {}) or {}
+            down = start.get("down", 0)
+            distance = start.get("distance", 0)
+            possession_text = start.get("possessionText", "")
+            yards_to_endzone = start.get("yardsToEndzone", 0)
+            stat_yardage = play.get("statYardage", 0) or 0
+
+            # Build situation prefix
+            situation = ""
+            if yards_to_endzone and yards_to_endzone <= 5:
+                situation = "GOAL LINE "
+            elif yards_to_endzone and yards_to_endzone <= 20:
+                situation = "RED ZONE "
+            elif down == 4:
+                situation = "4TH DOWN "
+
+            if down:
+                if possession_text:
+                    down_text = f"[{situation}{down} & {distance} from {possession_text}] "
+                else:
+                    down_text = f"[{situation}{down} & {distance}] "
+            else:
+                down_text = ""
+
+            # Yardage prefix
+            if stat_yardage > 0:
+                yardage_prefix = f"(+{stat_yardage} yds) "
+            elif stat_yardage < 0:
+                yardage_prefix = f"({stat_yardage} yds) "
+            else:
+                yardage_prefix = ""
+
+            enhanced_text = f"{yardage_prefix}{play_text}"
 
             clock_time = self._extract_play_clock_display(play)
             score_info = self._extract_basketball_score_info(play)
-            if clock_time != "--:--":
-                formatted_text = self._format_clock_play_entry(enhanced_text, clock_time, score_info)
+
+            if clock_time not in ("--:--", ""):
+                formatted_text = self._format_clock_play_entry(
+                    f"{down_text}{enhanced_text}", clock_time, score_info
+                )
             else:
-                formatted_text = enhanced_text
+                formatted_text = f"{down_text}{enhanced_text}"
 
-            # Create play item
             play_item = QTreeWidgetItem([formatted_text])
-
-            # Highlight scoring plays
             if play.get("scoringPlay", False):
-                play_item.setBackground(0, QColor(255, 255, 150))  # Light yellow
-            
+                play_item.setBackground(0, QColor(255, 255, 150))
+            elif yards_to_endzone and yards_to_endzone <= 5:
+                play_item.setBackground(0, QColor(255, 235, 235))
+            elif yards_to_endzone and yards_to_endzone <= 20:
+                play_item.setBackground(0, QColor(255, 248, 235))
             parent_item.addChild(play_item)
 
     def _is_pitch_item(self, tree_item):
