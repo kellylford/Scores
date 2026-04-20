@@ -3674,6 +3674,23 @@ class GameDetailsView(BaseView):
         else:
             self._add_baseball_plays_by_text_pattern(parent_item, plays)
 
+    def _is_substitution_play(self, play):
+        """Return True if this play is a player substitution/change.
+
+        ESPN usually sets summaryType='C' but sometimes omits it for pinch
+        hitters/runners.  Fall back to type field and text-pattern detection.
+        """
+        if play.get("summaryType") == "C":
+            return True
+        type_text = (play.get("type") or {}).get("text", "").lower()
+        if "substitut" in type_text or "line change" in type_text:
+            return True
+        text = play.get("text", "").lower()
+        # "Perkins hit for Jones", "Smith ran for Doe", "entered for"
+        if " hit for " in text or " ran for " in text or " entered for " in text:
+            return True
+        return False
+
     def _add_baseball_plays_by_at_bat_id(self, parent_item, plays, away_label, home_label):
         """Group baseball plays by ESPN atBatId + summaryType codes.
 
@@ -3709,9 +3726,10 @@ class GameDetailsView(BaseView):
         for ab_id in ab_order:
             group = ab_plays[ab_id]
 
-            # Separate player-change plays
-            change_plays = [p for p in group if p.get("summaryType") == "C"]
-            non_change = [p for p in group if p.get("summaryType") != "C"]
+            # Separate player-change plays. ESPN sometimes omits summaryType="C"
+            # on pinch-hit/pinch-run announcements, so also detect them by text.
+            change_plays = [p for p in group if self._is_substitution_play(p)]
+            non_change = [p for p in group if not self._is_substitution_play(p)]
 
             # Emit player-change banners before the at-bat
             for cp in change_plays:
