@@ -3710,12 +3710,12 @@ class GameDetailsView(BaseView):
             st = play.get("summaryType", "")
             text = play.get("text", "")
 
-            # Skip bare inning-transition markers that have no summaryType
-            if not st and any(text.startswith(m) for m in (
+            # Skip inning-transition markers (summaryType 'I' or empty) and blank plays
+            if any(text.startswith(m) for m in (
                 "Top of the", "Bottom of the", "End of the", "Middle of the"
             )):
                 continue
-            if not st and not text.strip():
+            if st in ("I",) or (not st and not text.strip()):
                 continue
 
             if ab_id not in ab_plays:
@@ -3750,22 +3750,26 @@ class GameDetailsView(BaseView):
                 non_change[0].get("text", "At-bat") if non_change else "At-bat"
             )
 
-            # Result: prefer scoring "S" over plain note "N", then any
-            # non-announcement non-pitch play with text (ESPN sometimes omits
-            # the summaryType on result plays, especially late in games).
+            # Result: prefer scoring 'S', then a non-substitution 'N' play.
+            # ESPN uses summaryType='N' for BOTH outcomes and substitutions
+            # (e.g. "Perkins hit for Jones" also has st='N'), so filter those out.
             result_play = (
                 next((p for p in non_change if p.get("summaryType") == "S"), None)
-                or next((p for p in non_change if p.get("summaryType") == "N"), None)
                 or next((p for p in non_change
-                         if p.get("summaryType") not in ("A", "P", "C")
+                         if p.get("summaryType") == "N"
+                         and not self._is_substitution_play(p)), None)
+                or next((p for p in non_change
+                         if p.get("summaryType") not in ("A", "P", "C", "I", "S", "N")
                          and p.get("text", "").strip()
-                         and p is not a_play), None)
+                         and p is not a_play
+                         and not self._is_substitution_play(p)), None)
             )
             result_text = result_play.get("text", "") if result_play else ""
             is_scoring = result_play is not None and result_play.get("summaryType") == "S"
 
-            # Pitches: summaryType "P" AND isPitch == True
-            pitches = [p for p in non_change if p.get("summaryType") == "P" and p.get("isPitch", False)]
+            # Pitches: summaryType "P". ESPN's isPitch flag is unreliable
+            # (often missing or empty string), so don't require it.
+            pitches = [p for p in non_change if p.get("summaryType") == "P"]
 
             # Build at-bat header line
             score_suffix = ""
