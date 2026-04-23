@@ -8,6 +8,7 @@
 
 import Foundation
 import SwiftUI
+import UIKit
 
 enum ViewMode: String, CaseIterable {
     case table = "Table View"
@@ -74,9 +75,11 @@ struct ViewModeToggleButton: View {
     
     var body: some View {
         Button(action: {
+            let next = currentMode.next()
             withAnimation(.easeInOut(duration: 0.2)) {
-                currentMode = currentMode.next()
+                currentMode = next
             }
+            UIAccessibility.post(notification: .announcement, argument: next.rawValue)
         }) {
             Label("Cycle View", systemImage: "arrow.triangle.2.circlepath")
         }

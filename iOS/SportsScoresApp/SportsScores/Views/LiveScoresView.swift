@@ -36,6 +36,7 @@ private class GolfLiveViewModel: ObservableObject {
 struct LiveScoresView: View {
     @StateObject private var viewModel = LiveScoresViewModel()
     @StateObject private var golfVM   = GolfLiveViewModel()
+    @State private var viewMode: ViewMode = .table
     @EnvironmentObject private var appSettings: AppSettings
 
     var body: some View {
@@ -85,6 +86,9 @@ struct LiveScoresView: View {
                     .font(.subheadline)
                 }
             }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                ViewModeToggleButton(currentMode: $viewMode)
+            }
         }
         .task {
             await viewModel.fetchAllGames()
@@ -110,8 +114,12 @@ struct LiveScoresView: View {
     }
     
     private var scrollContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+        VStack(spacing: 0) {
+            ViewModePicker(selectedMode: $viewMode)
+                .padding(.vertical, 8)
+            Divider()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
                 // Golf Live Now section (shown first when a tournament is in progress)
                 if appSettings.golfHubEnabled && !golfVM.activeTournaments.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
@@ -177,6 +185,7 @@ struct LiveScoresView: View {
             }
             .padding(.vertical)
         }
+        }
     }
     
     private func sectionHeader(title: String, count: Int) -> some View {
@@ -219,16 +228,129 @@ struct LiveScoresView: View {
             .accessibilityAddTraits(.isHeader)
             
             // Games List
-            ForEach(sportGames.games) { game in
-                NavigationLink(destination: GameDetailView(game: game, sport: sportGames.sport)) {
-                    CompactGameRow(game: game, isLive: isLive, sport: sportGames.sport)
+            switch viewMode {
+            case .table:
+                liveTableSection(games: sportGames.games, sport: sportGames.sport)
+            case .quickList:
+                liveQuickSection(games: sportGames.games, sport: sportGames.sport, isLive: isLive)
+            case .fullList:
+                ForEach(sportGames.games) { game in
+                    NavigationLink(destination: GameDetailView(game: game, sport: sportGames.sport)) {
+                        CompactGameRow(game: game, isLive: isLive, sport: sportGames.sport)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
         }
         .padding(.vertical, 4)
     }
     
+    private func liveGameRow(_ game: Game) -> [String] {
+        let away = game.awayTeam.abbreviation + (game.awayTeam.score.map { " \($0)" } ?? "")
+        let home = game.homeTeam.abbreviation + (game.homeTeam.score.map { " \($0)" } ?? "")
+        let status = game.status.isLive ? game.status.displayText : (game.status.isCompleted ? "Final" : game.displayTime)
+        return [away, home, status]
+    }
+
+    private func liveAccessibleGameRow(_ game: Game) -> [String] {
+        let pref = appSettings.teamNamePreference
+        let away = game.awayTeam.voiceOverName(for: pref) + (game.awayTeam.score.map { " \($0)" } ?? "")
+        let home = game.homeTeam.voiceOverName(for: pref) + (game.homeTeam.score.map { " \($0)" } ?? "")
+        var statusParts: [String] = []
+        if game.status.isLive {
+            statusParts.append(game.status.displayText)
+            if let sit = game.situation, let t = sit.displayText, !t.isEmpty {
+                statusParts.append(t)
+            }
+        } else if game.status.isCompleted { statusParts.append("Final") }
+        else { statusParts.append(game.displayTime) }
+        return [away, home, statusParts.joined(separator: ", ")]
+    }
+
+    private func liveTableSection(games: [Game], sport: Sport) -> some View {
+        let headers = ["Away", "Home", "Status"]
+        let rows = games.map { liveAccessibleGameRow($0) }
+        return VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                ForEach(headers, id: \.self) { h in
+                    Text(h)
+                        .font(.caption.bold())
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .background(Color.secondary.opacity(0.12))
+                }
+            }
+            .accessibilityHidden(true)
+            ForEach(Array(games.enumerated()), id: \.element.id) { idx, game in
+                NavigationLink(destination: GameDetailView(game: game, sport: sport)) {
+                    HStack(spacing: 0) {
+                        ForEach(Array(liveGameRow(game).enumerated()), id: \.offset) { _, val in
+                            Text(val)
+                                .font(.subheadline)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                        }
+                    }
+                    .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.04))
+                }
+                .buttonStyle(.plain)
+                .accessibilityHidden(true)
+                if idx < games.count - 1 { Divider() }
+            }
+        }
+        .background(Color.secondary.opacity(0.04))
+        .cornerRadius(8)
+        .accessibilityHidden(true)
+        .overlay(
+            AccessibleDataTable(headers: headers, rows: rows)
+                .allowsHitTesting(false)
+        )
+    }
+
+    private func liveQuickSection(games: [Game], sport: Sport, isLive: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(games) { game in
+                NavigationLink(destination: GameDetailView(game: game, sport: sport)) {
+                    Text(liveQuickText(game))
+                        .font(.subheadline)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(liveQuickAccessibilityText(game))
+                .accessibilityHint("Opens game details")
+            }
+        }
+    }
+
+    private func liveQuickText(_ game: Game) -> String {
+        let away = game.awayTeam.abbreviation + (game.awayTeam.score.map { " \($0)" } ?? "")
+        let home = game.homeTeam.abbreviation + (game.homeTeam.score.map { " \($0)" } ?? "")
+        let status = game.status.isLive ? game.status.displayText : (game.status.isCompleted ? "Final" : game.displayTime)
+        return "\(away) @ \(home) \u{2014} \(status)"
+    }
+
+    private func liveQuickAccessibilityText(_ game: Game) -> String {
+        let pref = appSettings.teamNamePreference
+        let away = game.awayTeam.voiceOverName(for: pref) + (game.awayTeam.score.map { " \($0)" } ?? "")
+        let home = game.homeTeam.voiceOverName(for: pref) + (game.homeTeam.score.map { " \($0)" } ?? "")
+        var statusParts: [String] = []
+        if game.status.isLive {
+            statusParts.append(game.status.displayText)
+            if let sit = game.situation, let t = sit.displayText, !t.isEmpty {
+                statusParts.append(t)
+            }
+        } else if game.status.isCompleted { statusParts.append("Final") }
+        else { statusParts.append(game.displayTime) }
+        var label = "\(away) at \(home), \(statusParts.joined(separator: ", "))"
+        if game.shouldShowBroadcastInfo, let broadcast = game.broadcasts.first, !broadcast.isEmpty {
+            label += ", on \(broadcast)"
+        }
+        return label
+    }
+
     private func totalCount(_ sportGames: [LiveScoresViewModel.SportGames]) -> Int {
         sportGames.reduce(0) { $0 + $1.games.count }
     }
@@ -395,36 +517,37 @@ struct CompactGameRow: View {
 
     private var compactAccessibilityLabel: String {
         let pref = appSettings.teamNamePreference
-        var parts: [String] = []
 
-        // Section headings in LiveScoresView already communicate status —
-        // omit "Live" / "Final" to avoid redundancy (design debt #5).
-        // Scores
-        parts.append(
-            "\(game.awayTeam.voiceOverName(for: pref)) \(game.awayTeam.score.map { "\($0)" } ?? "")"
-        )
-        parts.append(
-            "at \(game.homeTeam.voiceOverName(for: pref)) \(game.homeTeam.score.map { "\($0)" } ?? "")"
-        )
+        // Away / Home with scores
+        let awayScore = game.awayTeam.score.map { " \($0)" } ?? ""
+        let awayPart = "Away: \(game.awayTeam.voiceOverName(for: pref))\(awayScore)"
+        let homeScore = game.homeTeam.score.map { " \($0)" } ?? ""
+        let homePart = "Home: \(game.homeTeam.voiceOverName(for: pref))\(homeScore)"
 
+        // Status field — section headings communicate live/final, omit to avoid redundancy
+        var statusParts: [String] = []
         if !game.status.isLive && !game.status.isCompleted {
-            parts.append(game.displayTime)
+            statusParts.append(game.displayTime)
         }
-
-        // For live games: inning first for baseball so listeners get game context immediately,
-        // then situation. For all other sports, situation leads and period/clock follows.
         if isLive {
+            // For live games: inning first for baseball, then situation.
+            // For all other sports, situation leads and period/clock follows.
             if sport == .mlb {
-                parts.append(game.status.detail)
-                if let sit = game.situation, let t = sit.displayText {
-                    parts.append(t)
+                statusParts.append(game.status.detail)
+                if let sit = game.situation, let t = sit.displayText, !t.isEmpty {
+                    statusParts.append(t)
                 }
             } else {
-                if let sit = game.situation, let t = sit.displayText {
-                    parts.append(t)
+                if let sit = game.situation, let t = sit.displayText, !t.isEmpty {
+                    statusParts.append(t)
                 }
-                parts.append(game.status.displayText)
+                statusParts.append(game.status.displayText)
             }
+        }
+
+        var parts = [awayPart, homePart]
+        if !statusParts.isEmpty {
+            parts.append("Status: \(statusParts.joined(separator: ", "))")
         }
 
         // Broadcast last

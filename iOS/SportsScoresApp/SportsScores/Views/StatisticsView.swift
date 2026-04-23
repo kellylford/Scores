@@ -11,6 +11,7 @@ import SwiftUI
 struct StatisticsView: View {
     let sport: Sport
     @StateObject private var viewModel = StatisticsViewModel()
+    @State private var viewMode: ViewMode = .table
 
     var body: some View {
         Group {
@@ -27,18 +28,28 @@ struct StatisticsView: View {
         }
         .task { await viewModel.fetchLeaders(for: sport) }
         .refreshable { await viewModel.refresh(for: sport) }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                ViewModeToggleButton(currentMode: $viewMode)
+            }
+        }
     }
 
     // MARK: - Leaders list
 
     private var leadersList: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                ForEach(viewModel.categories) { category in
-                    categorySection(category)
+        VStack(spacing: 0) {
+            ViewModePicker(selectedMode: $viewMode)
+                .padding(.vertical, 8)
+            Divider()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    ForEach(viewModel.categories) { category in
+                        categorySection(category)
+                    }
                 }
+                .padding()
             }
-            .padding()
         }
     }
     
@@ -50,80 +61,171 @@ struct StatisticsView: View {
                 ? ["\(entry.rank)", entry.athleteName, entry.teamAbbreviation, entry.displayValue]
                 : ["\(entry.rank)", entry.athleteName, entry.displayValue]
         }
-        
+
         return VStack(alignment: .leading, spacing: 8) {
             Text(category.displayName)
                 .font(.headline)
                 .foregroundColor(.primary)
                 .accessibilityAddTraits(.isHeader)
-            
-            VStack(spacing: 0) {
-                // Header row
+
+            switch viewMode {
+            case .table:
+                statsTableSection(category: category, headers: headers, rows: rows, hasTeams: hasTeams)
+            case .quickList:
+                statsQuickListSection(category: category, hasTeams: hasTeams)
+            case .fullList:
+                statsFullListSection(category: category, hasTeams: hasTeams)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func statsTableSection(category: LeagueLeaderCategory, headers: [String], rows: [[String]], hasTeams: Bool) -> some View {
+        VStack(spacing: 0) {
+            // Header row
+            HStack(spacing: 0) {
+                Text("Rank")
+                    .font(.caption.bold())
+                    .foregroundColor(.secondary)
+                    .frame(width: 50, alignment: .trailing)
+                Text("Player")
+                    .font(.caption.bold())
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.leading, 12)
+                if hasTeams {
+                    Text("Team")
+                        .font(.caption.bold())
+                        .foregroundColor(.secondary)
+                        .frame(width: 60, alignment: .center)
+                }
+                Text("Value")
+                    .font(.caption.bold())
+                    .foregroundColor(.secondary)
+                    .frame(width: 70, alignment: .trailing)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color.secondary.opacity(0.12))
+            .accessibilityHidden(true)
+
+            // Data rows
+            ForEach(Array(category.leaders.enumerated()), id: \.element.id) { idx, entry in
                 HStack(spacing: 0) {
-                    Text("Rank")
+                    Text("\(entry.rank)")
                         .font(.caption.bold())
-                        .foregroundColor(.secondary)
+                        .monospacedDigit()
                         .frame(width: 50, alignment: .trailing)
-                    Text("Player")
-                        .font(.caption.bold())
-                        .foregroundColor(.secondary)
+                        .foregroundColor(rankColor(entry.rank))
+                    Text(entry.athleteName)
+                        .font(.subheadline)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.leading, 12)
+                        .lineLimit(1)
                     if hasTeams {
-                        Text("Team")
-                            .font(.caption.bold())
+                        Text(entry.teamAbbreviation)
+                            .font(.caption)
                             .foregroundColor(.secondary)
                             .frame(width: 60, alignment: .center)
                     }
-                    Text("Value")
-                        .font(.caption.bold())
-                        .foregroundColor(.secondary)
+                    Text(entry.displayValue)
+                        .font(.subheadline.bold())
+                        .monospacedDigit()
                         .frame(width: 70, alignment: .trailing)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(Color.secondary.opacity(0.12))
+                .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.04))
                 .accessibilityHidden(true)
-                
-                // Data rows
-                ForEach(Array(category.leaders.enumerated()), id: \.element.id) { idx, entry in
-                    HStack(spacing: 0) {
-                        Text("\(entry.rank)")
+            }
+        }
+        .background(Color.secondary.opacity(0.04))
+        .cornerRadius(8)
+        .accessibilityHidden(true)
+        .overlay(
+            AccessibleDataTable(headers: headers, rows: rows)
+                .allowsHitTesting(false)
+        )
+    }
+
+    @ViewBuilder
+    private func statsQuickListSection(category: LeagueLeaderCategory, hasTeams: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            ForEach(Array(category.leaders.enumerated()), id: \.element.id) { idx, entry in
+                HStack {
+                    Text("#\(entry.rank)")
+                        .font(.caption.bold())
+                        .foregroundColor(.secondary)
+                        .monospacedDigit()
+                        .frame(width: 36, alignment: .trailing)
+                    Text(entry.athleteName)
+                        .font(.subheadline)
+                    if hasTeams {
+                        Text(entry.teamAbbreviation)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    Text(entry.displayValue)
+                        .font(.subheadline.bold())
+                        .monospacedDigit()
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 5)
+                .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.04))
+                .accessibilityLabel("#\(entry.rank) \(entry.athleteName)\(hasTeams ? " \(entry.teamAbbreviation)" : "") — \(entry.displayValue)")
+            }
+        }
+        .background(Color.secondary.opacity(0.04))
+        .cornerRadius(8)
+    }
+
+    @ViewBuilder
+    private func statsFullListSection(category: LeagueLeaderCategory, hasTeams: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(category.leaders) { entry in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(entry.athleteName)
+                        .font(.headline)
+                    HStack(alignment: .top) {
+                        Text("Rank:")
                             .font(.caption.bold())
-                            .monospacedDigit()
-                            .frame(width: 50, alignment: .trailing)
-                            .foregroundColor(rankColor(entry.rank))
-                        Text(entry.athleteName)
-                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .frame(width: 80, alignment: .leading)
+                        Text("#\(entry.rank)")
+                            .font(.caption)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.leading, 12)
-                            .lineLimit(1)
-                        if hasTeams {
+                    }
+                    if hasTeams {
+                        HStack(alignment: .top) {
+                            Text("Team:")
+                                .font(.caption.bold())
+                                .foregroundColor(.secondary)
+                                .frame(width: 80, alignment: .leading)
                             Text(entry.teamAbbreviation)
                                 .font(.caption)
-                                .foregroundColor(.secondary)
-                                .frame(width: 60, alignment: .center)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        Text(entry.displayValue)
-                            .font(.subheadline.bold())
-                            .monospacedDigit()
-                            .frame(width: 70, alignment: .trailing)
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.04))
-                    .accessibilityHidden(true)
+                    HStack(alignment: .top) {
+                        Text("Value:")
+                            .font(.caption.bold())
+                            .foregroundColor(.secondary)
+                            .frame(width: 80, alignment: .leading)
+                        Text(entry.displayValue)
+                            .font(.caption)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
+                .padding(12)
+                .background(Color.secondary.opacity(0.05))
+                .cornerRadius(8)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("#\(entry.rank) \(entry.athleteName)\(hasTeams ? ", \(entry.teamAbbreviation)" : ""), \(entry.displayValue)")
             }
-            .background(Color.secondary.opacity(0.04))
-            .cornerRadius(8)
-            .accessibilityHidden(true)
-            .overlay(
-                AccessibleDataTable(headers: headers, rows: rows)
-                    .allowsHitTesting(false)
-            )
         }
     }
+
     
     private func rankColor(_ rank: Int) -> Color {
         switch rank {

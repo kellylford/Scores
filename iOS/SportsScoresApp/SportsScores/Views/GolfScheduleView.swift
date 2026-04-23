@@ -14,6 +14,7 @@ struct GolfScheduleView: View {
     let calendar: [GolfCalendarEntry]
     let selectedIndex: Int?
     let onSelect: (Int) -> Void
+    @State private var viewMode: ViewMode = .table
 
     private var groupedByMonth: [(String, [(Int, GolfCalendarEntry)])] {
         let fmt = DateFormatter()
@@ -51,17 +52,120 @@ struct GolfScheduleView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            List {
-                ForEach(groupedByMonth, id: \.0) { month, entries in
-                    Section(header: Text(month).accessibilityAddTraits(.isHeader)) {
-                        ForEach(entries, id: \.0) { idx, entry in
-                            tournamentRow(entry: entry, index: idx)
+            VStack(spacing: 0) {
+                ViewModePicker(selectedMode: $viewMode)
+                    .padding(.vertical, 8)
+                Divider()
+                switch viewMode {
+                case .table:
+                    tournamentTableView
+                case .quickList:
+                    tournamentQuickListView
+                case .fullList:
+                    tournamentFullListView
+                }
+            }
+        }
+    }
+
+    // MARK: - Table view mode
+
+    private var tournamentTableView: some View {
+        let headers = ["Tournament", "Dates", "Status"]
+        let rows = calendar.map { tournamentTableRowData($0) }
+        return ScrollView {
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    ForEach(headers, id: \.self) { h in
+                        Text(h)
+                            .font(.caption.bold())
+                            .foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                            .background(Color.secondary.opacity(0.12))
+                    }
+                }
+                .accessibilityHidden(true)
+                ForEach(Array(calendar.enumerated()), id: \.element.id) { idx, entry in
+                    Button { onSelect(idx) } label: {
+                        HStack(spacing: 0) {
+                            ForEach(Array(tournamentTableRowData(entry).enumerated()), id: \.offset) { colIdx, val in
+                                Text(val)
+                                    .font(colIdx == 0 ? .subheadline : .caption)
+                                    .frame(maxWidth: .infinity, alignment: colIdx == 0 ? .leading : .center)
+                                    .padding(.vertical, 8)
+                                    .padding(.horizontal, colIdx == 0 ? 8 : 4)
+                            }
                         }
+                        .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.04))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHidden(true)
+                    if idx < calendar.count - 1 { Divider() }
+                }
+            }
+            .background(Color.secondary.opacity(0.04))
+            .cornerRadius(8)
+            .accessibilityHidden(true)
+            .overlay(
+                AccessibleDataTable(headers: headers, rows: rows)
+                    .allowsHitTesting(false)
+            )
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+        }
+    }
+
+    private func tournamentStatusText(_ entry: GolfCalendarEntry) -> String {
+        let isActive = entry.startDate <= Date() && entry.endDate >= Date()
+        let isPast = entry.endDate < Date()
+        return isActive ? "Active" : (isPast ? "Past" : "Upcoming")
+    }
+
+    private func tournamentTableRowData(_ entry: GolfCalendarEntry) -> [String] {
+        [entry.name, entry.dateRangeText, tournamentStatusText(entry)]
+    }
+
+    // MARK: - Quick List view mode
+
+    private var tournamentQuickListView: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 2) {
+                ForEach(Array(calendar.enumerated()), id: \.element.id) { idx, entry in
+                    Button { onSelect(idx) } label: {
+                        Text(tournamentQuickText(entry))
+                            .font(.subheadline)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 6)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.04))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(tournamentQuickText(entry))
+                    .accessibilityHint("Double tap to view leaderboard")
+                }
+            }
+            .padding(.vertical, 8)
+        }
+    }
+
+    private func tournamentQuickText(_ entry: GolfCalendarEntry) -> String {
+        "\(entry.name) — \(entry.dateRangeText) [\(tournamentStatusText(entry))]"
+    }
+
+    // MARK: - Full List view mode
+
+    private var tournamentFullListView: some View {
+        List {
+            ForEach(groupedByMonth, id: \.0) { month, entries in
+                Section(header: Text(month).accessibilityAddTraits(.isHeader)) {
+                    ForEach(entries, id: \.0) { idx, entry in
+                        tournamentRow(entry: entry, index: idx)
                     }
                 }
             }
-            .listStyle(.insetGrouped)
         }
+        .listStyle(.insetGrouped)
     }
 
     private func tournamentRow(entry: GolfCalendarEntry, index: Int) -> some View {

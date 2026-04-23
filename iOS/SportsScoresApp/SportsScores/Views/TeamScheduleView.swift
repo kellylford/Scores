@@ -11,6 +11,7 @@ struct TeamScheduleView: View {
     let team: Game.Team
     let sport: Sport
     @StateObject private var viewModel: TeamScheduleViewModel
+    @State private var viewMode: ViewMode = .table
 
     init(team: Game.Team, sport: Sport) {
         self.team = team
@@ -67,7 +68,19 @@ struct TeamScheduleView: View {
                         .foregroundColor(.secondary)
                 }
             } else {
-                scheduleList
+                VStack(spacing: 0) {
+                    ViewModePicker(selectedMode: $viewMode)
+                        .padding(.vertical, 8)
+                    Divider()
+                    switch viewMode {
+                    case .table:
+                        scheduleTableView
+                    case .quickList:
+                        scheduleQuickListView
+                    case .fullList:
+                        scheduleList
+                    }
+                }
             }
         }
         .navigationTitle("\(team.abbreviation) Schedule")
@@ -75,6 +88,11 @@ struct TeamScheduleView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 yearPicker
+            }
+            if !viewModel.games.isEmpty {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    ViewModeToggleButton(currentMode: $viewMode)
+                }
             }
         }
         .task { await viewModel.fetchSchedule() }
@@ -98,6 +116,137 @@ struct TeamScheduleView: View {
             }
         }
         .accessibilityLabel("Season year, currently \(viewModel.selectedYear)")
+    }
+
+    // MARK: - Table view mode
+
+    private var scheduleTableView: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 16) {
+                ForEach(groupedGames, id: \.month) { section in
+                    scheduleTableSection(month: section.month, games: section.games)
+                }
+            }
+            .padding(.vertical)
+        }
+    }
+
+    private func scheduleTableSection(month: String, games: [ScheduleGame]) -> some View {
+        let headers = ["Date", "Opp", "Result"]
+        let tableRows = games.map { g -> [String] in
+            let isHome = g.homeTeam.id == team.id
+            let opp = isHome ? g.awayTeam : g.homeTeam
+            return [Self.dayFormatter.string(from: g.date),
+                    (isHome ? "vs " : "@ ") + opp.abbreviation,
+                    scheduleResultText(g)]
+        }
+        return VStack(alignment: .leading, spacing: 0) {
+            Text(month)
+                .font(.subheadline.bold())
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 6)
+                .accessibilityAddTraits(.isHeader)
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    ForEach(headers, id: \.self) { h in
+                        Text(h)
+                            .font(.caption.bold())
+                            .foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                            .background(Color.secondary.opacity(0.12))
+                    }
+                }
+                .accessibilityHidden(true)
+                ForEach(Array(games.enumerated()), id: \.element.id) { idx, game in
+                    let isHome = game.homeTeam.id == team.id
+                    let opp = isHome ? game.awayTeam : game.homeTeam
+                    let row = [Self.dayFormatter.string(from: game.date),
+                               (isHome ? "vs " : "@ ") + opp.abbreviation,
+                               scheduleResultText(game)]
+                    NavigationLink(destination: GameDetailView(game: game.toGame(), sport: sport)) {
+                        HStack(spacing: 0) {
+                            ForEach(row.indices, id: \.self) { colIdx in
+                                Text(row[colIdx])
+                                    .font(.subheadline)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                            }
+                        }
+                        .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.04))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHidden(true)
+                    if idx < games.count - 1 { Divider() }
+                }
+            }
+            .background(Color.secondary.opacity(0.04))
+            .cornerRadius(8)
+            .accessibilityHidden(true)
+            .overlay(
+                AccessibleDataTable(headers: headers, rows: tableRows)
+                    .allowsHitTesting(false)
+            )
+            .padding(.horizontal)
+        }
+    }
+
+    private func scheduleResultText(_ game: ScheduleGame) -> String {
+        if game.isCompleted {
+            let myTeam  = game.homeTeam.id == team.id ? game.homeTeam : game.awayTeam
+            let oppTeam = game.homeTeam.id == team.id ? game.awayTeam : game.homeTeam
+            if let my = myTeam.score, let opp = oppTeam.score {
+                let wl = my > opp ? "W" : (my == opp ? "T" : "L")
+                return "\(wl) \(my)-\(opp)"
+            }
+            return "Final"
+        } else if game.isInProgress {
+            return game.statusText
+        } else {
+            return Self.timeFormatter.string(from: game.date)
+        }
+    }
+
+    // MARK: - Quick List view mode
+
+    private var scheduleQuickListView: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 16) {
+                ForEach(groupedGames, id: \.month) { section in
+                    scheduleQuickSection(month: section.month, games: section.games)
+                }
+            }
+            .padding()
+        }
+    }
+
+    private func scheduleQuickSection(month: String, games: [ScheduleGame]) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(month)
+                .font(.subheadline.bold())
+                .foregroundColor(.secondary)
+                .accessibilityAddTraits(.isHeader)
+            ForEach(games) { game in
+                NavigationLink(destination: GameDetailView(game: game.toGame(), sport: sport)) {
+                    Text(scheduleQuickText(game))
+                        .font(.subheadline)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(scheduleQuickText(game))
+                .accessibilityHint("Opens game details")
+            }
+        }
+    }
+
+    private func scheduleQuickText(_ game: ScheduleGame) -> String {
+        let isHome = game.homeTeam.id == team.id
+        let opp = isHome ? game.awayTeam : game.homeTeam
+        let matchup = (isHome ? "vs " : "@ ") + opp.abbreviation
+        return "\(Self.dayFormatter.string(from: game.date)) \(matchup) \u{2014} \(scheduleResultText(game))"
     }
 
     // MARK: - Schedule List

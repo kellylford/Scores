@@ -19,6 +19,7 @@ struct ScoresView: View {
     @State private var selectedTab = ScoresTab.scores
     @State private var showDatePicker = false
     @State private var hasLoadedInitialData = false
+    @State private var viewMode: ViewMode = .quickList
     @EnvironmentObject private var appSettings: AppSettings
 
     init(sport: Sport, initialDate: Date? = nil) {
@@ -69,6 +70,11 @@ struct ScoresView: View {
             if selectedTab == .scores && isViewingCurrent {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     autoRefreshMenu
+                }
+            }
+            if selectedTab == .scores && !viewModel.games.isEmpty {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    ViewModeToggleButton(currentMode: $viewMode)
                 }
             }
         }
@@ -382,9 +388,197 @@ struct ScoresView: View {
                     }
                 }
             } else {
-                gamesList
+                VStack(spacing: 0) {
+                    ViewModePicker(selectedMode: $viewMode)
+                        .padding(.vertical, 8)
+                    Divider()
+                    switch viewMode {
+                    case .table:
+                        gamesTableView
+                    case .quickList:
+                        gamesQuickListView
+                    case .fullList:
+                        gamesList
+                    }
+                }
             }
         }
+    }
+
+    // MARK: - Table view mode
+
+    private var gamesTableView: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 16) {
+                if !viewModel.inProgressGames.isEmpty {
+                    gamesTableSection(title: "In Progress", games: viewModel.inProgressGames)
+                }
+                if !viewModel.upcomingGames.isEmpty {
+                    gamesTableSection(title: "Upcoming", games: viewModel.upcomingGames)
+                }
+                if !viewModel.completedGames.isEmpty {
+                    gamesTableSection(title: "Completed", games: viewModel.completedGames)
+                }
+                if !viewModel.postponedGames.isEmpty {
+                    gamesTableSection(title: "Postponed / Cancelled", games: viewModel.postponedGames)
+                }
+            }
+            .padding(.vertical)
+        }
+    }
+
+    private func gamesTableSection(title: String, games: [Game]) -> some View {
+        let headers = ["Away", "Home", "Status"]
+        let tableRows = games.map { gameAccessibleTableRow($0) }
+        return VStack(alignment: .leading, spacing: 0) {
+            Text(title)
+                .font(.subheadline.bold())
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 6)
+                .accessibilityAddTraits(.isHeader)
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    ForEach(headers, id: \.self) { h in
+                        Text(h)
+                            .font(.caption.bold())
+                            .foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                            .background(Color.secondary.opacity(0.12))
+                    }
+                }
+                .accessibilityHidden(true)
+                ForEach(Array(games.enumerated()), id: \.element.id) { idx, game in
+                    NavigationLink(destination: GameDetailView(game: game, sport: sport)) {
+                        HStack(spacing: 0) {
+                            ForEach(Array(gameTableRow(game).enumerated()), id: \.offset) { _, val in
+                                Text(val)
+                                    .font(.subheadline)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                            }
+                        }
+                        .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.04))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHidden(true)
+                    if idx < games.count - 1 { Divider() }
+                }
+            }
+            .background(Color.secondary.opacity(0.04))
+            .cornerRadius(8)
+            .accessibilityHidden(true)
+            .overlay(
+                AccessibleDataTable(headers: headers, rows: tableRows)
+                    .allowsHitTesting(false)
+            )
+            .padding(.horizontal)
+        }
+    }
+
+    private func gameTableRow(_ game: Game) -> [String] {
+        let away = game.awayTeam.abbreviation + (game.awayTeam.score.map { " \($0)" } ?? "")
+        let home = game.homeTeam.abbreviation + (game.homeTeam.score.map { " \($0)" } ?? "")
+        let status: String
+        if game.status.isLive { status = game.status.displayText }
+        else if game.status.isPostponed { status = "PPD" }
+        else if game.status.isCancelled { status = "Cxl" }
+        else if game.status.isCompleted { status = "Final" }
+        else { status = game.displayTime }
+        return [away, home, status]
+    }
+
+    private func gameAccessibleTableRow(_ game: Game) -> [String] {
+        let pref = appSettings.teamNamePreference
+        let away = game.awayTeam.voiceOverName(for: pref) + (game.awayTeam.score.map { " \($0)" } ?? "")
+        let home = game.homeTeam.voiceOverName(for: pref) + (game.homeTeam.score.map { " \($0)" } ?? "")
+        var statusParts: [String] = []
+        if game.status.isLive {
+            statusParts.append(game.status.displayText)
+            if let sit = game.situation, let t = sit.displayText, !t.isEmpty {
+                statusParts.append(t)
+            }
+        } else if game.status.isPostponed { statusParts.append("Postponed") }
+        else if game.status.isCancelled { statusParts.append("Cancelled") }
+        else if game.status.isCompleted { statusParts.append("Final") }
+        else { statusParts.append(game.displayTime) }
+        return [away, home, statusParts.joined(separator: ", ")]
+    }
+
+    // MARK: - Quick List view mode
+
+    private var gamesQuickListView: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 16) {
+                gamesQuickSection(title: "In Progress", games: viewModel.inProgressGames)
+                gamesQuickSection(title: "Upcoming", games: viewModel.upcomingGames)
+                gamesQuickSection(title: "Completed", games: viewModel.completedGames)
+                gamesQuickSection(title: "Postponed / Cancelled", games: viewModel.postponedGames)
+            }
+            .padding()
+        }
+    }
+
+    @ViewBuilder
+    private func gamesQuickSection(title: String, games: [Game]) -> some View {
+        if !games.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.subheadline.bold())
+                    .foregroundColor(.secondary)
+                    .accessibilityAddTraits(.isHeader)
+                ForEach(games) { game in
+                    NavigationLink(destination: GameDetailView(game: game, sport: sport)) {
+                        Text(gameQuickText(game))
+                            .font(.subheadline)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(gameQuickAccessibilityText(game))
+                    .accessibilityHint("Opens game details")
+                }
+            }
+        }
+    }
+
+    private func gameQuickText(_ game: Game) -> String {
+        let away = game.awayTeam.abbreviation + (game.awayTeam.score.map { " \($0)" } ?? "")
+        let home = game.homeTeam.abbreviation + (game.homeTeam.score.map { " \($0)" } ?? "")
+        let status: String
+        if game.status.isLive {
+            var parts = [game.status.displayText]
+            if let sit = game.situation, let sitText = sit.displayText, !sitText.isEmpty {
+                parts.append(sitText)
+            }
+            status = parts.joined(separator: " · ")
+        } else if game.status.isPostponed { status = "PPD" }
+        else if game.status.isCancelled { status = "Cancelled" }
+        else if game.status.isCompleted { status = "Final" }
+        else { status = game.displayTime }
+        return "\(away) @ \(home) — \(status)"
+    }
+
+    private func gameQuickAccessibilityText(_ game: Game) -> String {
+        let pref = appSettings.teamNamePreference
+        let away = game.awayTeam.voiceOverName(for: pref) + (game.awayTeam.score.map { " \($0)" } ?? "")
+        let home = game.homeTeam.voiceOverName(for: pref) + (game.homeTeam.score.map { " \($0)" } ?? "")
+        let status: String
+        if game.status.isLive {
+            var parts = [game.status.displayText]
+            if let sit = game.situation, let t = sit.displayText, !t.isEmpty { parts.append(t) }
+            status = parts.joined(separator: ", ")
+        } else if game.status.isPostponed { status = "Postponed" }
+        else if game.status.isCancelled { status = "Cancelled" }
+        else if game.status.isCompleted { status = "Final" }
+        else { status = game.displayTime }
+        var label = "\(away) at \(home), \(status)"
+        if game.shouldShowBroadcastInfo, let broadcast = game.broadcasts.first, !broadcast.isEmpty {
+            label += ", on \(broadcast)"
+        }
+        return label
     }
 
     private var gamesList: some View {
@@ -554,19 +748,22 @@ struct GameRow: View {
 
     private var accessibilityLabel: String {
         let pref = appSettings.teamNamePreference
-        var parts: [String] = []
 
+        // Away / Home with scores
+        let awayScore = game.awayTeam.score.map { " \($0)" } ?? ""
+        let awayPart = "Away: \(game.awayTeam.voiceOverName(for: pref))\(awayScore)"
+        let homeScore = game.homeTeam.score.map { " \($0)" } ?? ""
+        let homePart = "Home: \(game.homeTeam.voiceOverName(for: pref))\(homeScore)"
+
+        // Status field — same data as quick list, field name added here (full list mode)
         // Suppress status word when section heading already communicates it (design debt #5)
         let suppressFinal = sectionContext == .completed
+        var statusParts: [String] = []
 
         if game.status.isPostponed {
-            // Suppress "Postponed" in the dedicated section; always announce elsewhere.
-            if sectionContext != .postponed { parts.append("Postponed") }
+            if sectionContext != .postponed { statusParts.append("Postponed") }
         } else if game.status.isCancelled {
-            // Determine the actual status word for this game.
             let statusDetail = game.status.detail.trimmingCharacters(in: .whitespacesAndNewlines)
-            // STATUS_SUSPENDED is grouped under isCancelled but is NOT mentioned in the
-            // "Postponed / Cancelled" section header, so always announce it.
             let isSuspended: Bool
             if let n = game.status.name {
                 isSuspended = n == "STATUS_SUSPENDED"
@@ -575,52 +772,32 @@ struct GameRow: View {
             }
             let suppressInSection = sectionContext == .postponed && !isSuspended
             if !suppressInSection {
-                parts.append(statusDetail.isEmpty ? "Cancelled" : statusDetail)
+                statusParts.append(statusDetail.isEmpty ? "Cancelled" : statusDetail)
             }
-        } else if game.status.isCompleted && !suppressFinal {
-            parts.append("Final")
-        }
-
-        // Scores
-        parts.append(
-            "\(game.awayTeam.voiceOverName(for: pref)) \(game.awayTeam.score.map { "\($0)" } ?? "")"
-        )
-        parts.append(
-            "at \(game.homeTeam.voiceOverName(for: pref)) \(game.homeTeam.score.map { "\($0)" } ?? "")"
-        )
-
-        // Show scheduled time only for genuinely upcoming games, not non-played ones.
-        if !game.status.isLive && !game.status.isCompleted &&
-           !game.status.isPostponed && !game.status.isCancelled {
-            parts.append(game.displayTime)
-        }
-
-        // For live games: inning first for baseball so listeners get game context immediately,
-        // then situation. For all other sports, situation leads and period/clock follows.
-        if game.status.isLive {
+        } else if game.status.isCompleted {
+            if !suppressFinal { statusParts.append("Final") }
+        } else if game.status.isLive {
+            // For live games: inning first for baseball, then situation.
+            // For all other sports, situation leads and period/clock follows.
             if sport == .mlb {
-                parts.append(game.status.detail)
+                statusParts.append(game.status.detail)
                 if let sit = game.situation, let t = sit.displayText, !t.isEmpty {
-                    parts.append(t)
+                    statusParts.append(t)
                 }
             } else {
                 if let sit = game.situation {
-                    if let t = sit.displayText, !t.isEmpty {
-                        parts.append(t)
-                    }
-                    if sit.isRedZone == true { parts.append("Red Zone") }
+                    if let t = sit.displayText, !t.isEmpty { statusParts.append(t) }
+                    if sit.isRedZone == true { statusParts.append("Red Zone") }
                 }
+                statusParts.append(game.status.displayText)
             }
+        } else {
+            statusParts.append(game.displayTime)
         }
 
-        // Period / clock — the key time-reference for live games (e.g. "3rd Quarter - 8:42")
-        // Baseball: omit clock (ESPN sends "0:00" but baseball has no game clock)
-        if game.status.isLive {
-            if sport == .mlb {
-                // Already appended detail above
-            } else {
-                parts.append(game.status.displayText)
-            }
+        var parts = [awayPart, homePart]
+        if !statusParts.isEmpty {
+            parts.append("Status: \(statusParts.joined(separator: ", "))")
         }
 
         // Broadcast last

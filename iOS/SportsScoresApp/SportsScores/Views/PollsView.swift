@@ -11,6 +11,7 @@ import SwiftUI
 struct PollsView: View {
     let sport: Sport
     @StateObject private var viewModel = PollsViewModel()
+    @State private var viewMode: ViewMode = .table
 
     var body: some View {
         Group {
@@ -33,10 +34,19 @@ struct PollsView: View {
 
     private var pollsContent: some View {
         VStack(spacing: 0) {
+            ViewModePicker(selectedMode: $viewMode)
+                .padding(.vertical, 8)
+            Divider()
             if let poll = viewModel.selectedPoll {
-                rankingList(poll: poll)
+                switch viewMode {
+                case .table:
+                    rankingTableView(poll: poll)
+                case .quickList:
+                    rankingQuickListView(poll: poll)
+                case .fullList:
+                    rankingList(poll: poll)
+                }
             }
-
             if viewModel.polls.count > 1 {
                 Divider()
                 pollPicker
@@ -56,6 +66,81 @@ struct PollsView: View {
         }
         .pickerStyle(.segmented)
         .accessibilityLabel("Select poll")
+    }
+
+    // MARK: - Table view mode
+
+    private func rankingTableView(poll: RankingsPoll) -> some View {
+        let headers = ["Rank", "Team", "Record", "Pts"]
+        let rows = poll.ranks.map { rankTableRow($0) }
+        return ScrollView {
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    ForEach(headers, id: \.self) { h in
+                        Text(h)
+                            .font(.caption.bold())
+                            .foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                            .background(Color.secondary.opacity(0.12))
+                    }
+                }
+                .accessibilityHidden(true)
+                ForEach(Array(poll.ranks.enumerated()), id: \.element.id) { idx, entry in
+                    HStack(spacing: 0) {
+                        ForEach(Array(rankTableRow(entry).enumerated()), id: \.offset) { _, val in
+                            Text(val)
+                                .font(.subheadline)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                        }
+                    }
+                    .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.04))
+                    .accessibilityHidden(true)
+                    if idx < poll.ranks.count - 1 { Divider() }
+                }
+            }
+            .background(Color.secondary.opacity(0.04))
+            .cornerRadius(8)
+            .accessibilityHidden(true)
+            .overlay(
+                AccessibleDataTable(headers: headers, rows: rows)
+                    .allowsHitTesting(false)
+            )
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+        }
+    }
+
+    private func rankTableRow(_ entry: RankingsPoll.RankEntry) -> [String] {
+        let pts = entry.points.map { String(format: $0 >= 100 ? "%.0f" : "%.1f", $0) } ?? "-"
+        return ["\(entry.current)", entry.teamDisplayName, entry.recordSummary ?? "-", pts]
+    }
+
+    // MARK: - Quick List view mode
+
+    private func rankingQuickListView(poll: RankingsPoll) -> some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 2) {
+                ForEach(Array(poll.ranks.enumerated()), id: \.element.id) { idx, entry in
+                    Text(rankQuickText(entry))
+                        .font(.subheadline)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.04))
+                        .accessibilityLabel(rankQuickText(entry))
+                }
+            }
+            .padding(.vertical, 8)
+        }
+    }
+
+    private func rankQuickText(_ entry: RankingsPoll.RankEntry) -> String {
+        let pts = entry.points.map { String(format: $0 >= 100 ? "%.0f" : "%.1f", $0) } ?? ""
+        let record = entry.recordSummary.map { " \($0)" } ?? ""
+        let ptsStr = pts.isEmpty ? "" : " \u{2014} \(pts) pts"
+        return "#\(entry.current) \(entry.teamDisplayName)\(record)\(ptsStr)"
     }
 
     // MARK: - Ranking list

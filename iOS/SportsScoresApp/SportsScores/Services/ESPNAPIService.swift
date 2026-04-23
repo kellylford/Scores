@@ -601,4 +601,54 @@ class ESPNAPIService {
 
         return GolfTournamentResult(tournament: tournament, calendar: calendar)
     }
+
+    // MARK: - NFL Draft
+
+    func fetchDraft(year: Int) async throws -> DraftResponse {
+        let urlString = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/draft?season=\(year)"
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+        let (data, response) = try await session.data(from: url)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw APIError.invalidResponse
+        }
+        return try JSONDecoder().decode(DraftResponse.self, from: data)
+    }
+
+    // MARK: - Transactions
+
+    /// Fetches paginated transactions for a sport.
+    /// - Parameters:
+    ///   - sport: The sport/league to query.
+    ///   - page: 1-based page index (default 1).
+    ///   - limit: Transactions per page (default 25).
+    ///   - dateRange: Optional `(start, end)` strings in `"yyyyMMdd"` format for `?dates=` filtering.
+    func fetchTransactions(
+        sport: Sport,
+        page: Int = 1,
+        limit: Int = 25,
+        dateRange: (start: String, end: String)? = nil
+    ) async throws -> TransactionResponse {
+        var urlString = "\(baseURL)/\(sport.apiPath)/transactions?limit=\(limit)&page=\(page)"
+        if let range = dateRange {
+            urlString += "&dates=\(range.start)-\(range.end)"
+        }
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+        let (data, response) = try await session.data(from: url)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw APIError.invalidResponse
+        }
+        return try JSONDecoder().decode(TransactionResponse.self, from: data)
+    }
+
+    /// Fetches all teams for a sport, sorted by display name.
+    func fetchTeamsForSport(sport: Sport) async throws -> [TransactionTeam] {
+        let urlString = "\(baseURL)/\(sport.apiPath)/teams"
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+        let (data, response) = try await session.data(from: url)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw APIError.invalidResponse
+        }
+        let parsed = try JSONDecoder().decode(TeamsAPIResponse.self, from: data)
+        return parsed.sports.first?.leagues.first?.teams.map(\.team) ?? []
+    }
 }

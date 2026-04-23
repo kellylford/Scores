@@ -40,6 +40,7 @@ struct BoxScoreView: View {
     let sport: Sport
     @State private var showingAllStats = false
     @State private var selectedPage: BoxScorePage?
+    @State private var viewMode: ViewMode = .table
 
     // MARK: - Page List
 
@@ -103,6 +104,10 @@ struct BoxScoreView: View {
             if pages.count > 1 {
                 pageTabBar
             }
+
+            ViewModePicker(selectedMode: $viewMode)
+                .padding(.vertical, 8)
+            Divider()
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
@@ -226,55 +231,111 @@ struct BoxScoreView: View {
                 Text("No team statistics available.")
                     .foregroundColor(.secondary)
             } else {
-                VStack(spacing: 0) {
-                    // Header row
-                    HStack(spacing: 0) {
-                        Text("Stat")
-                            .font(.caption.bold())
-                            .foregroundColor(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        ForEach(teams, id: \.team.displayName) { team in
-                            Text(team.team.abbreviation)
-                                .font(.caption.bold())
-                                .foregroundColor(.secondary)
-                                .frame(minWidth: 60, alignment: .trailing)
-                        }
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color.secondary.opacity(0.12))
-                    .accessibilityHidden(true)
-
-                    // Data rows
-                    ForEach(Array(filteredItems.enumerated()), id: \.element.name) { rowIdx, stat in
+                switch viewMode {
+                case .table:
+                    VStack(spacing: 0) {
+                        // Header row
                         HStack(spacing: 0) {
-                            Text(stat.displayName)
-                                .font(.caption)
+                            Text("Stat")
+                                .font(.caption.bold())
                                 .foregroundColor(.secondary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             ForEach(teams, id: \.team.displayName) { team in
-                                let matchedStat = team.statistics
-                                    .first(where: { $0.name == catEntry?.name })?
-                                    .stats?
-                                    .first(where: { $0.name == stat.name })
-                                Text(matchedStat?.displayValue ?? "–")
-                                    .font(.caption.monospacedDigit())
+                                Text(team.team.abbreviation)
+                                    .font(.caption.bold())
+                                    .foregroundColor(.secondary)
                                     .frame(minWidth: 60, alignment: .trailing)
                             }
                         }
                         .padding(.horizontal, 12)
-                        .padding(.vertical, 4)
-                        .background((rowIdx % 2 == 0) ? Color.clear : Color.secondary.opacity(0.04))
+                        .padding(.vertical, 6)
+                        .background(Color.secondary.opacity(0.12))
                         .accessibilityHidden(true)
+
+                        // Data rows
+                        ForEach(Array(filteredItems.enumerated()), id: \.element.name) { rowIdx, stat in
+                            HStack(spacing: 0) {
+                                Text(stat.displayName)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                ForEach(teams, id: \.team.displayName) { team in
+                                    let matchedStat = team.statistics
+                                        .first(where: { $0.name == catEntry?.name })?
+                                        .stats?
+                                        .first(where: { $0.name == stat.name })
+                                    Text(matchedStat?.displayValue ?? "–")
+                                        .font(.caption.monospacedDigit())
+                                        .frame(minWidth: 60, alignment: .trailing)
+                                }
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 4)
+                            .background((rowIdx % 2 == 0) ? Color.clear : Color.secondary.opacity(0.04))
+                            .accessibilityHidden(true)
+                        }
+                    }
+                    .background(Color.secondary.opacity(0.04))
+                    .cornerRadius(8)
+                    .accessibilityHidden(true)
+                    .overlay(
+                        AccessibleDataTable(headers: tableHeaders, rows: tableRows)
+                            .allowsHitTesting(false)
+                    )
+                case .quickList:
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(Array(filteredItems.enumerated()), id: \.element.name) { idx, stat in
+                            HStack {
+                                Text(stat.displayName)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                ForEach(teams, id: \.team.displayName) { team in
+                                    let val = team.statistics
+                                        .first(where: { $0.name == catEntry?.name })?
+                                        .stats?
+                                        .first(where: { $0.name == stat.name })?
+                                        .displayValue ?? "–"
+                                    Text("\(team.team.abbreviation): \(val)")
+                                        .font(.caption.monospacedDigit())
+                                }
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 5)
+                            .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.04))
+                        }
+                    }
+                    .background(Color.secondary.opacity(0.04))
+                    .cornerRadius(8)
+                case .fullList:
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(filteredItems, id: \.name) { stat in
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(stat.displayName)
+                                    .font(.caption.bold())
+                                    .foregroundColor(.secondary)
+                                ForEach(teams, id: \.team.displayName) { team in
+                                    let val = team.statistics
+                                        .first(where: { $0.name == catEntry?.name })?
+                                        .stats?
+                                        .first(where: { $0.name == stat.name })?
+                                        .displayValue ?? "–"
+                                    HStack {
+                                        Text(team.team.abbreviation)
+                                            .font(.caption.bold())
+                                            .frame(width: 50, alignment: .leading)
+                                        Text(val)
+                                            .font(.caption.monospacedDigit())
+                                    }
+                                }
+                            }
+                            .padding(10)
+                            .background(Color.secondary.opacity(0.05))
+                            .cornerRadius(8)
+                            .accessibilityElement(children: .combine)
+                        }
                     }
                 }
-                .background(Color.secondary.opacity(0.04))
-                .cornerRadius(8)
-                .accessibilityHidden(true)
-                .overlay(
-                    AccessibleDataTable(headers: tableHeaders, rows: tableRows)
-                        .allowsHitTesting(false)
-                )
             }
         }
     }
@@ -301,51 +362,102 @@ struct BoxScoreView: View {
             }
         }
 
-        return VStack(spacing: 0) {
-            // Header row
-            HStack(spacing: 0) {
-                Text("")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                ForEach(teams, id: \.team.displayName) { team in
-                    Text(team.team.abbreviation)
-                        .font(.subheadline.bold())
-                        .frame(minWidth: 70, alignment: .trailing)
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Color.secondary.opacity(0.12))
-            .accessibilityHidden(true)
+        return Group {
+            switch viewMode {
+            case .table:
+                VStack(spacing: 0) {
+                    // Header row
+                    HStack(spacing: 0) {
+                        Text("")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        ForEach(teams, id: \.team.displayName) { team in
+                            Text(team.team.abbreviation)
+                                .font(.subheadline.bold())
+                                .frame(minWidth: 70, alignment: .trailing)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.secondary.opacity(0.12))
+                    .accessibilityHidden(true)
 
-            // Data rows
-            ForEach(Array(rows.enumerated()), id: \.element.name) { rowIdx, stat in
-                let statName = stat.label ?? stat.displayName ?? stat.name
-
-                HStack(spacing: 0) {
-                    Text(statName)
-                        .font(.caption)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    ForEach(teams, id: \.team.displayName) { team in
-                        let matchedStat = team.statistics
-                            .first(where: { $0.name == stat.name })
-                        Text(matchedStat?.displayValue ?? "–")
-                            .font(.caption.monospacedDigit())
-                            .frame(minWidth: 70, alignment: .trailing)
+                    // Data rows
+                    ForEach(Array(rows.enumerated()), id: \.element.name) { rowIdx, stat in
+                        let statName = stat.label ?? stat.displayName ?? stat.name
+                        HStack(spacing: 0) {
+                            Text(statName)
+                                .font(.caption)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            ForEach(teams, id: \.team.displayName) { team in
+                                let matchedStat = team.statistics
+                                    .first(where: { $0.name == stat.name })
+                                Text(matchedStat?.displayValue ?? "–")
+                                    .font(.caption.monospacedDigit())
+                                    .frame(minWidth: 70, alignment: .trailing)
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 4)
+                        .background((rowIdx % 2 == 0) ? Color.clear : Color.secondary.opacity(0.04))
+                        .accessibilityHidden(true)
                     }
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 4)
-                .background((rowIdx % 2 == 0) ? Color.clear : Color.secondary.opacity(0.04))
+                .background(Color.secondary.opacity(0.04))
+                .cornerRadius(8)
                 .accessibilityHidden(true)
+                .overlay(
+                    AccessibleDataTable(headers: tableHeaders, rows: tableRows)
+                        .allowsHitTesting(false)
+                )
+            case .quickList:
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(Array(rows.enumerated()), id: \.element.name) { idx, stat in
+                        let statName = stat.label ?? stat.displayName ?? stat.name
+                        HStack {
+                            Text(statName)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            ForEach(teams, id: \.team.displayName) { team in
+                                let val = team.statistics.first(where: { $0.name == stat.name })?.displayValue ?? "–"
+                                Text("\(team.team.abbreviation): \(val)")
+                                    .font(.caption.monospacedDigit())
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 5)
+                        .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.04))
+                    }
+                }
+                .background(Color.secondary.opacity(0.04))
+                .cornerRadius(8)
+            case .fullList:
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(rows, id: \.name) { stat in
+                        let statName = stat.label ?? stat.displayName ?? stat.name
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(statName)
+                                .font(.caption.bold())
+                                .foregroundColor(.secondary)
+                            ForEach(teams, id: \.team.displayName) { team in
+                                let val = team.statistics.first(where: { $0.name == stat.name })?.displayValue ?? "–"
+                                HStack {
+                                    Text(team.team.abbreviation)
+                                        .font(.caption.bold())
+                                        .frame(width: 50, alignment: .leading)
+                                    Text(val)
+                                        .font(.caption.monospacedDigit())
+                                }
+                            }
+                        }
+                        .padding(10)
+                        .background(Color.secondary.opacity(0.05))
+                        .cornerRadius(8)
+                        .accessibilityElement(children: .combine)
+                    }
+                }
             }
         }
-        .background(Color.secondary.opacity(0.04))
-        .cornerRadius(8)
-        .accessibilityHidden(true)
-        .overlay(
-            AccessibleDataTable(headers: tableHeaders, rows: tableRows)
-                .allowsHitTesting(false)
-        )
     }
 
     // MARK: - Player Stat Group View
@@ -381,70 +493,129 @@ struct BoxScoreView: View {
         guard !athletes.isEmpty, !filteredStatNames.isEmpty else {
             return AnyView(EmptyView())
         }
-        
-        return AnyView(
-            ScrollView(.horizontal, showsIndicators: true) {
-                VStack(spacing: 0) {
-                    // Header row
-                    HStack(spacing: 0) {
-                        Text("Player")
-                                .font(.caption.bold())
-                                .foregroundColor(.secondary)
-                                .frame(width: 140, alignment: .leading)
-                            
-                            Text("Pos")
-                                .font(.caption.bold())
-                                .foregroundColor(.secondary)
-                                .frame(width: 45, alignment: .center)
-                            
-                            ForEach(filteredStatNames.indices, id: \.self) { idx in
-                                Text(filteredStatNames[idx])
+
+        switch viewMode {
+        case .table:
+            return AnyView(
+                ScrollView(.horizontal, showsIndicators: true) {
+                    VStack(spacing: 0) {
+                        // Header row
+                        HStack(spacing: 0) {
+                            Text("Player")
                                     .font(.caption.bold())
                                     .foregroundColor(.secondary)
-                                    .frame(width: 50, alignment: .trailing)
-                            }
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.secondary.opacity(0.12))
-                        .accessibilityHidden(true)
-                        
-                        // Player rows
-                        ForEach(filteredAthletes.indices, id: \.self) { athleteIdx in
-                            let entry = filteredAthletes[athleteIdx]
-                            
-                            HStack(spacing: 0) {
-                                Text(entry.athlete.athlete.displayName)
-                                    .font(.caption)
                                     .frame(width: 140, alignment: .leading)
-                                    .lineLimit(1)
                                 
-                                Text(entry.athlete.athlete.position?.abbreviation ?? "")
-                                    .font(.caption2)
+                                Text("Pos")
+                                    .font(.caption.bold())
                                     .foregroundColor(.secondary)
                                     .frame(width: 45, alignment: .center)
                                 
-                                ForEach(entry.filteredStats.indices, id: \.self) { statIdx in
-                                    Text(entry.filteredStats[statIdx])
-                                        .font(.caption.monospacedDigit())
+                                ForEach(filteredStatNames.indices, id: \.self) { idx in
+                                    Text(filteredStatNames[idx])
+                                        .font(.caption.bold())
+                                        .foregroundColor(.secondary)
                                         .frame(width: 50, alignment: .trailing)
                                 }
                             }
                             .padding(.horizontal, 12)
-                            .padding(.vertical, 4)
-                            .background((athleteIdx % 2 == 0) ? Color.clear : Color.secondary.opacity(0.04))
+                            .padding(.vertical, 6)
+                            .background(Color.secondary.opacity(0.12))
                             .accessibilityHidden(true)
+                            
+                            // Player rows
+                            ForEach(filteredAthletes.indices, id: \.self) { athleteIdx in
+                                let entry = filteredAthletes[athleteIdx]
+                                
+                                HStack(spacing: 0) {
+                                    Text(entry.athlete.athlete.displayName)
+                                        .font(.caption)
+                                        .frame(width: 140, alignment: .leading)
+                                        .lineLimit(1)
+                                    
+                                    Text(entry.athlete.athlete.position?.abbreviation ?? "")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                        .frame(width: 45, alignment: .center)
+                                    
+                                    ForEach(entry.filteredStats.indices, id: \.self) { statIdx in
+                                        Text(entry.filteredStats[statIdx])
+                                            .font(.caption.monospacedDigit())
+                                            .frame(width: 50, alignment: .trailing)
+                                    }
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 4)
+                                .background((athleteIdx % 2 == 0) ? Color.clear : Color.secondary.opacity(0.04))
+                                .accessibilityHidden(true)
+                            }
                         }
+                        .accessibilityHidden(true)
+                        .overlay(
+                            AccessibleDataTable(headers: tableHeaders, rows: tableRows)
+                                .allowsHitTesting(false)
+                        )
                     }
-                    .accessibilityHidden(true)
-                    .overlay(
-                        AccessibleDataTable(headers: tableHeaders, rows: tableRows)
-                            .allowsHitTesting(false)
-                    )
+                    .background(Color.secondary.opacity(0.04))
+                    .cornerRadius(8)
+            )
+        case .quickList:
+            return AnyView(
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(filteredAthletes.indices, id: \.self) { idx in
+                        let entry = filteredAthletes[idx]
+                        let name = entry.athlete.athlete.displayName
+                        let pos = entry.athlete.athlete.position?.abbreviation ?? ""
+                        let statsText = zip(filteredStatNames, entry.filteredStats)
+                            .map { "\($0): \($1)" }.joined(separator: ", ")
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(name) (\(pos))")
+                                .font(.caption.bold())
+                                .lineLimit(1)
+                            Text(statsText)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.04))
+                        .accessibilityLabel("\(name) (\(pos)), \(statsText)")
+                    }
                 }
                 .background(Color.secondary.opacity(0.04))
                 .cornerRadius(8)
-        )
+            )
+        case .fullList:
+            return AnyView(
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(filteredAthletes.indices, id: \.self) { idx in
+                        let entry = filteredAthletes[idx]
+                        let name = entry.athlete.athlete.displayName
+                        let pos = entry.athlete.athlete.position?.abbreviation ?? ""
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("\(name)\(pos.isEmpty ? "" : " (\(pos))")")
+                                .font(.headline)
+                            ForEach(Array(zip(filteredStatNames, entry.filteredStats).enumerated()), id: \.offset) { _, pair in
+                                HStack(alignment: .top) {
+                                    Text("\(pair.0):")
+                                        .font(.caption.bold())
+                                        .foregroundColor(.secondary)
+                                        .frame(width: 60, alignment: .leading)
+                                    Text(pair.1)
+                                        .font(.caption.monospacedDigit())
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                            }
+                        }
+                        .padding(10)
+                        .background(Color.secondary.opacity(0.05))
+                        .cornerRadius(8)
+                        .accessibilityElement(children: .combine)
+                    }
+                }
+            )
+        }
     }
     
     /// Filter stat column names based on the sport profile

@@ -10,6 +10,7 @@
 		12D1B45EAF2BBCDCEBEB1005 /* PlaysView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 730BF6E5A4FF66C7DF52BCC2 /* PlaysView.swift */; };
 		12D1B45EAF2BBCDCEBEB1006 /* TouchTourAnnouncementService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 730BF6E5A4FF66C7DF52BCC3 /* TouchTourAnnouncementService.swift */; };
 		13A69BFC319671031E87986D /* StadiumGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C54D54E4F45E8D6A098DFF0B /* StadiumGeometry.swift */; };
+		AA44BC00DEADBEEF00002001 /* Draft.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44BC00DEADBEEF00002000 /* Draft.swift */; };
 		148D279BE802BAA35FF18C92 /* News.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C2563CBCB32601D5263CEEF /* News.swift */; };
 		17DD6D3CA0A61007F2DF8FC2 /* SportsScoresApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CF458B8B4585D69E60DA8FF /* SportsScoresApp.swift */; };
 		19E3A581324D154BA8CAB60C /* Schedule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CEB663233BEB6B8AC40C34A /* Schedule.swift */; };			AA44BC00DEADBEEF00001001 /* SeasonCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44BC00DEADBEEF00001000 /* SeasonCalendar.swift */; };		1A468450657E6A4E5C798D40 /* PollsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAB026ED5A307D8628CB7D79 /* PollsViewModel.swift */; };
@@ -44,6 +45,8 @@
 		F1A2B3C4D5E6071829AAC002 /* SoccerLiveViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6071829AABB62 /* SoccerLiveViewModel.swift */; };
 		F1A2B3C4D5E6071829AABBDD /* SoccerHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6071829AABBCC /* SoccerHubView.swift */; };
 		F1A2B3C4D5E6071829AABBFF /* SoccerLiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6071829AABBEE /* SoccerLiveView.swift */; };
+		AA44BC00DEADBEEF00003001 /* NFLDraftView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44BC00DEADBEEF00003000 /* NFLDraftView.swift */; };
+		AA44BC00DEADBEEF00004001 /* NFLDraftViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44BC00DEADBEEF00004000 /* NFLDraftViewModel.swift */; };
 		F2A3B4C5D6E707182AABB001 /* TheBenchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A3B4C5D6E707182AABB002 /* TheBenchView.swift */; };
 		B7E1A2C3D4F60718AABB0012 /* StrikeZoneBenchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E1A2C3D4F60718AABB0011 /* StrikeZoneBenchView.swift */; };
 		F2A3B4C5D6E707182AABB003 /* SoccerPitchTourView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A3B4C5D6E707182AABB004 /* SoccerPitchTourView.swift */; };
@@ -71,12 +74,18 @@
 		A1B2C3D4E5F6071829AABB52 /* GolfScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6071829AABB51 /* GolfScheduleView.swift */; };
 		A1B2C3D4E5F6071829AABB62 /* GolfLeagueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6071829AABB61 /* GolfLeagueView.swift */; };
 		A1B2C3D4E5F6071829AABB72 /* GolfHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6071829AABB71 /* GolfHubView.swift */; };
+		AA44BC00DEADBEEF00005001 /* Transaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44BC00DEADBEEF00005000 /* Transaction.swift */; };
+		AA44BC00DEADBEEF00006001 /* TransactionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44BC00DEADBEEF00006000 /* TransactionViewModel.swift */; };
+		AA44BC00DEADBEEF00007001 /* TransactionHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44BC00DEADBEEF00007000 /* TransactionHubView.swift */; };
+		AA44BC00DEADBEEF00008001 /* TransactionTeamPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44BC00DEADBEEF00008000 /* TransactionTeamPickerView.swift */; };
+		AA44BC00DEADBEEF00009001 /* TransactionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA44BC00DEADBEEF00009000 /* TransactionListView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		069ACD1D5C73DAD2A7D76927 /* Sport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sport.swift; sourceTree = "<group>"; };
 		B3EFC144E52A4E08A79D3215 /* GameDetails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameDetails.swift; sourceTree = "<group>"; };
 		70D3777E39C54AF89E5D371D /* ESPNAPIResponseModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ESPNAPIResponseModels.swift; sourceTree = "<group>"; };
+		AA44BC00DEADBEEF00002000 /* Draft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Draft.swift; sourceTree = "<group>"; };
 		08AB11969A6D49301493C976 /* Game.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Game.swift; sourceTree = "<group>"; };
 		730BF6E5A4FF66C7DF52BCC3 /* TouchTourAnnouncementService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchTourAnnouncementService.swift; sourceTree = "<group>"; };
 		170934144144BFF79BD8E765 /* StatisticsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsViewModel.swift; sourceTree = "<group>"; };
@@ -89,6 +98,8 @@
 		F1A2B3C4D5E6071829AABB62 /* SoccerLiveViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoccerLiveViewModel.swift; sourceTree = "<group>"; };
 		F1A2B3C4D5E6071829AABBCC /* SoccerHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoccerHubView.swift; sourceTree = "<group>"; };
 		F1A2B3C4D5E6071829AABBEE /* SoccerLiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoccerLiveView.swift; sourceTree = "<group>"; };
+		AA44BC00DEADBEEF00003000 /* NFLDraftView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NFLDraftView.swift; sourceTree = "<group>"; };
+		AA44BC00DEADBEEF00004000 /* NFLDraftViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NFLDraftViewModel.swift; sourceTree = "<group>"; };
 		F2A3B4C5D6E707182AABB002 /* TheBenchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheBenchView.swift; sourceTree = "<group>"; };
 		B7E1A2C3D4F60718AABB0011 /* StrikeZoneBenchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrikeZoneBenchView.swift; sourceTree = "<group>"; };
 		F2A3B4C5D6E707182AABB004 /* SoccerPitchTourView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoccerPitchTourView.swift; sourceTree = "<group>"; };
@@ -99,6 +110,11 @@
 		A1B2C3D4E5F6071829AABB51 /* GolfScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GolfScheduleView.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6071829AABB61 /* GolfLeagueView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GolfLeagueView.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6071829AABB71 /* GolfHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GolfHubView.swift; sourceTree = "<group>"; };
+		AA44BC00DEADBEEF00005000 /* Transaction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transaction.swift; sourceTree = "<group>"; };
+		AA44BC00DEADBEEF00006000 /* TransactionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionViewModel.swift; sourceTree = "<group>"; };
+		AA44BC00DEADBEEF00007000 /* TransactionHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionHubView.swift; sourceTree = "<group>"; };
+		AA44BC00DEADBEEF00008000 /* TransactionTeamPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionTeamPickerView.swift; sourceTree = "<group>"; };
+		AA44BC00DEADBEEF00009000 /* TransactionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionListView.swift; sourceTree = "<group>"; };
 		2F730ED25EF184C36C9EEC13 /* Standings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Standings.swift; sourceTree = "<group>"; };
 		3A041149D09737E052D28AFD /* LiveScoresView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveScoresView.swift; sourceTree = "<group>"; };
 		3C2563CBCB32601D5263CEEF /* News.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = News.swift; sourceTree = "<group>"; };
@@ -218,7 +234,9 @@
 				D3E43F7CCDE27769D46915D8 /* StandingsViewModel.swift */,
 				170934144144BFF79BD8E765 /* StatisticsViewModel.swift */,
 				915340F68BA4D0A9C2068191 /* TeamScheduleViewModel.swift */,
+				AA44BC00DEADBEEF00004000 /* NFLDraftViewModel.swift */,
 				A1B2C3D4E5F6071829AABB31 /* GolfViewModel.swift */,
+				AA44BC00DEADBEEF00006000 /* TransactionViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -245,12 +263,16 @@
 				F1A2B3C4D5E6071829AABBCC /* SoccerHubView.swift */,
 				F1A2B3C4D5E6071829AABBEE /* SoccerLiveView.swift */,
 				F2A3B4C5D6E707182AABB002 /* TheBenchView.swift */,
+				AA44BC00DEADBEEF00003000 /* NFLDraftView.swift */,
 				B7E1A2C3D4F60718AABB0011 /* StrikeZoneBenchView.swift */,
 				F2A3B4C5D6E707182AABB004 /* SoccerPitchTourView.swift */,
 				A1B2C3D4E5F6071829AABB41 /* GolfLeaderboardView.swift */,
 				A1B2C3D4E5F6071829AABB51 /* GolfScheduleView.swift */,
 				A1B2C3D4E5F6071829AABB61 /* GolfLeagueView.swift */,
 				A1B2C3D4E5F6071829AABB71 /* GolfHubView.swift */,
+				AA44BC00DEADBEEF00007000 /* TransactionHubView.swift */,
+				AA44BC00DEADBEEF00008000 /* TransactionTeamPickerView.swift */,
+				AA44BC00DEADBEEF00009000 /* TransactionListView.swift */,
 				95F96BD2C7E1B5D0F0EC4DE8 /* StandingsView.swift */,
 				67992CF671BB379D522254C7 /* StatisticsView.swift */,
 				5B7A3E63F22E1898869FDC94 /* TeamScheduleView.swift */,
@@ -274,6 +296,7 @@
 				1CEE4CE2353099109FF62D72 /* DivisionMapper.swift */,
 				B3EFC144E52A4E08A79D3215 /* GameDetails.swift */,
 				70D3777E39C54AF89E5D371D /* ESPNAPIResponseModels.swift */,
+				AA44BC00DEADBEEF00002000 /* Draft.swift */,
 				08AB11969A6D49301493C976 /* Game.swift */,
 				3C2563CBCB32601D5263CEEF /* News.swift */,
 				8CEB663233BEB6B8AC40C34A /* Schedule.swift */,
@@ -283,6 +306,7 @@
 				2F730ED25EF184C36C9EEC13 /* Standings.swift */,
 				A1B2C3D4E5F6071829AABB11 /* GolfAPIModels.swift */,
 				A1B2C3D4E5F6071829AABB21 /* Golf.swift */,
+				AA44BC00DEADBEEF00005000 /* Transaction.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -372,6 +396,7 @@
 				39FB1132256178B6106EA884 /* FootballFieldTourView.swift in Sources */,
 				5207A68ACEDF4B39AE17EAC3 /* GameDetails.swift in Sources */,
 				6AA11FE748A64C8F80FFEA4B /* ESPNAPIResponseModels.swift in Sources */,
+				AA44BC00DEADBEEF00002001 /* Draft.swift in Sources */,
 				67AE8DCB8DE650FF5D655562 /* Game.swift in Sources */,
 				20E58D065E1B426F87A7F45A /* GameDetailViewModel.swift in Sources */,
 				01F165A66E134B43B32E555E /* HomeViewModel.swift in Sources */,
@@ -385,6 +410,7 @@
 				F1A2B3C4D5E6071829AABBDD /* SoccerHubView.swift in Sources */,
 				F1A2B3C4D5E6071829AABBFF /* SoccerLiveView.swift in Sources */,
 				F2A3B4C5D6E707182AABB001 /* TheBenchView.swift in Sources */,
+				AA44BC00DEADBEEF00003001 /* NFLDraftView.swift in Sources */,
 				B7E1A2C3D4F60718AABB0012 /* StrikeZoneBenchView.swift in Sources */,
 				F2A3B4C5D6E707182AABB003 /* SoccerPitchTourView.swift in Sources */,
 				A1B2C3D4E5F6071829AABB12 /* GolfAPIModels.swift in Sources */,
@@ -420,9 +446,15 @@
 				31603CE4AE41B5ABE907C348 /* TeamNamePreference.swift in Sources */,
 				3B583CE5901CF86D24E84764 /* TeamScheduleView.swift in Sources */,
 				32A6FF663F55FDB3009D64C7 /* TeamScheduleViewModel.swift in Sources */,
+				AA44BC00DEADBEEF00004001 /* NFLDraftViewModel.swift in Sources */,
 				12D1B45EAF2BBCDCEBEB1006 /* TouchTourAnnouncementService.swift in Sources */,
 				64472E5262DAF76B2D31956D /* VenueToursView.swift in Sources */,
 				537EDE5289F5FA56EDBB33E6 /* ViewMode.swift in Sources */,
+				AA44BC00DEADBEEF00005001 /* Transaction.swift in Sources */,
+				AA44BC00DEADBEEF00006001 /* TransactionViewModel.swift in Sources */,
+				AA44BC00DEADBEEF00007001 /* TransactionHubView.swift in Sources */,
+				AA44BC00DEADBEEF00008001 /* TransactionTeamPickerView.swift in Sources */,
+				AA44BC00DEADBEEF00009001 /* TransactionListView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

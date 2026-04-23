@@ -156,6 +156,7 @@ struct StandingsTableView: View {
     let sport: Sport
     @State private var viewMode: ViewMode = .table
     @State private var showExpanded = false
+    @EnvironmentObject private var appSettings: AppSettings
 
     // MARK: Column definitions
 
@@ -215,13 +216,27 @@ struct StandingsTableView: View {
         }
     }
 
-    /// Same as `rowData(for:)` but uses the full team display name in column 0
-    /// — used by the UIKit accessibility table overlay so VoiceOver speaks the
-    /// full name ("Los Angeles Dodgers") rather than the abbreviation ("LAD").
+    /// Same as `rowData(for:)` but uses the preference-aware team name in column 0
+    /// — used by the UIKit accessibility table overlay so VoiceOver speaks the name
+    /// according to the user's team name setting.
     private func accessibleRowData(for entry: StandingsEntry) -> [String] {
         var cols = rowData(for: entry)
-        if !cols.isEmpty { cols[0] = entry.team.displayName }
+        if !cols.isEmpty { cols[0] = entry.team.voiceOverName(for: appSettings.teamNamePreference) }
         return cols
+    }
+
+    /// Accessibility label for quick list mode: no field names, canonical order, preference-aware team name.
+    private func quickListAccessibilityLabel(for entry: StandingsEntry) -> String {
+        let teamName = entry.team.voiceOverName(for: appSettings.teamNamePreference)
+        let s = entry.stats
+        return "\(teamName), \(s.wins)-\(s.losses), \(s.displayWinPercent), GB: \(s.gamesBack)"
+    }
+
+    /// Accessibility label for full list mode: field names prefix each value, preference-aware team name.
+    private func fullListAccessibilityLabel(for entry: StandingsEntry) -> String {
+        let teamName = entry.team.voiceOverName(for: appSettings.teamNamePreference)
+        let s = entry.stats
+        return "Rank: \(entry.rank); Team: \(teamName); Wins: \(s.wins); Losses: \(s.losses); Win%: \(s.displayWinPercent); Games Back: \(s.gamesBack); Streak: \(s.streak); Record: \(s.record)"
     }
 
     /// Convert a standings TeamInfo into the Game.Team type that TeamScheduleView expects.
@@ -359,7 +374,7 @@ struct StandingsTableView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(entry.quickListText)
+                .accessibilityLabel(quickListAccessibilityLabel(for: entry))
                 .accessibilityHint("Opens \(entry.team.displayName) schedule")
             }
         }
@@ -387,7 +402,7 @@ struct StandingsTableView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(entry.fullListText)
+                .accessibilityLabel(fullListAccessibilityLabel(for: entry))
                 .accessibilityHint("Opens \(entry.team.displayName) schedule")
             }
         }

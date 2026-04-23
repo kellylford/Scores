@@ -13,6 +13,24 @@ struct TheBenchView: View {
         List {
             Section {
                 rowLink(
+                    title: "NFL Draft",
+                    subtitle: "Pick-by-pick results & history",
+                    icon: "person.3.sequence.fill",
+                    destination: NFLDraftView()
+                )
+            }
+
+            Section {
+                rowLink(
+                    title: "Transaction Hub",
+                    subtitle: "Player moves, signings & releases",
+                    icon: "arrow.left.arrow.right",
+                    destination: TransactionHubView()
+                )
+            }
+
+            Section {
+                rowLink(
                     title: "MLB Stadiums",
                     subtitle: "All 30 parks — real wall distances",
                     icon: "figure.baseball",

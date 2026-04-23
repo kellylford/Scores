@@ -25,6 +25,21 @@ struct StandingsEntry: Identifiable {
         let abbreviation: String
         let displayName: String
         let logo: String?
+
+        var cityName: String {
+            guard displayName.hasSuffix(name) else { return displayName }
+            let city = String(displayName.dropLast(name.count)).trimmingCharacters(in: .whitespaces)
+            return city.isEmpty ? displayName : city
+        }
+
+        func voiceOverName(for preference: TeamNamePreference) -> String {
+            switch preference {
+            case .full:         return displayName
+            case .mascot:       return name
+            case .city:         return cityName
+            case .abbreviation: return abbreviation
+            }
+        }
     }
     
     struct StandingsStats {
