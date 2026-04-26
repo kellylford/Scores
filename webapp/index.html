@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Live sports scores, standings, schedules and news.">
+  <meta name="theme-color" content="#1e3a5f">
+  <title>Sports Scores</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+
+  <header role="banner" class="app-header">
+    <h1 class="app-title">Sports Scores</h1>
+    <nav class="app-nav" role="navigation" aria-label="Main navigation">
+      <button id="home-btn" aria-label="Home – Sport Selection" aria-keyshortcuts="Alt+H">
+        Home <span class="shortcut-hint" aria-hidden="true">(Alt+H)</span>
+      </button>
+      <button id="settings-btn" aria-label="Settings (Alt+G)" aria-keyshortcuts="Alt+G" title="Settings">&#9881;</button>
+    </nav>
+  </header>
+
+  <!-- Screen reader live regions -->
+  <div id="sr-announce" aria-live="polite" aria-atomic="true" class="visually-hidden"></div>
+  <div id="sr-announce-assertive" aria-live="assertive" aria-atomic="true" class="visually-hidden"></div>
+
+  <main id="main-content" role="main">
+
+    <!-- ── VIEW: Home / Sport Selection ─────────────────────────────────── -->
+    <section id="view-home" class="app-view" aria-labelledby="home-heading">
+      <h2 id="home-heading" class="view-heading">Select a Sport</h2>
+      <div class="date-nav" role="navigation" aria-label="Date navigation">
+        <button id="prev-date-btn" aria-label="Previous date">&#8592;</button>
+        <button id="current-date-btn" data-date-display aria-label="Select date" aria-haspopup="dialog">Today</button>
+        <button id="next-date-btn" aria-label="Next date">&#8594;</button>
+      </div>
+      <div id="sport-grid" class="sport-grid" role="list" aria-label="Available sports"></div>
+    </section>
+
+    <!-- ── VIEW: Scores (shared for all tabbed sport sections) ───────────── -->
+    <section id="view-scores" class="app-view" hidden aria-labelledby="scores-heading">
+      <div class="view-toolbar">
+        <button class="back-btn" data-target="home" aria-label="Back to sport selection">&#8592; Back</button>
+        <h2 id="scores-heading" class="view-heading"></h2>
+        <div id="football-nav" class="football-nav" hidden>
+          <select id="season-type-select" aria-label="Season type">
+            <option value="1">Preseason</option>
+            <option value="2" selected>Regular Season</option>
+            <option value="3">Postseason</option>
+          </select>
+          <button id="prev-week-btn" aria-label="Previous week">&#8592; Wk</button>
+          <span id="week-display" aria-live="polite" class="week-display"></span>
+          <button id="next-week-btn" aria-label="Next week">Wk &#8594;</button>
+        </div>
+        <div class="date-nav" role="navigation" aria-label="Date navigation">
+          <button class="prev-date-btn-scores" aria-label="Previous date">&#8592;</button>
+          <button class="date-display-scores" data-date-display aria-haspopup="dialog" aria-label="Select date">Today</button>
+          <button class="next-date-btn-scores" aria-label="Next date">&#8594;</button>
+        </div>
+        <div class="view-mode-toggle" role="group" aria-label="View mode">
+          <button class="view-mode-btn active" data-view="card" aria-pressed="true" aria-label="Card view" aria-keyshortcuts="Alt+V" title="Card view (Alt+V)">&#9646;&#9646;</button>
+          <button class="view-mode-btn" data-view="table" aria-pressed="false" aria-label="Table view" title="Table view">&#9776;</button>
+          <button class="view-mode-btn" data-view="list" aria-pressed="false" aria-label="List view" title="List view">&#9472;</button>
+        </div>
+      </div>
+      <nav class="sport-subnav" role="tablist" aria-label="Sport sections">
+        <button role="tab" aria-selected="true"  data-section="scores"    class="subnav-tab">Scores</button>
+        <button role="tab" aria-selected="false" data-section="standings" class="subnav-tab">Standings</button>
+        <button role="tab" aria-selected="false" data-section="news"      class="subnav-tab">News</button>
+        <button role="tab" aria-selected="false" data-section="stats"     class="subnav-tab">Stats</button>
+      </nav>
+      <div id="scores-content" aria-live="polite" class="section-content"></div>
+    </section>
+
+    <!-- ── VIEW: Game Detail ─────────────────────────────────────────────── -->
+    <section id="view-game" class="app-view" hidden aria-labelledby="game-heading">
+      <div class="view-toolbar">
+        <button class="back-btn" data-target="scores" aria-label="Back to scores">&#8592; Back</button>
+        <h2 id="game-heading" class="view-heading"></h2>
+      </div>
+      <div id="game-content" class="section-content"></div>
+    </section>
+
+    <!-- ── VIEW: Team Schedule ───────────────────────────────────────────── -->
+    <section id="view-schedule" class="app-view" hidden aria-labelledby="schedule-heading">
+      <div class="view-toolbar">
+        <button class="back-btn" data-target="scores" aria-label="Back to scores">&#8592; Back</button>
+        <h2 id="schedule-heading" class="view-heading"></h2>
+        <select id="season-select" aria-label="Select season"></select>
+      </div>
+      <div id="schedule-content" class="section-content"></div>
+    </section>
+
+    <!-- ── VIEW: Soccer Hub ──────────────────────────────────────────────── -->
+    <section id="view-soccer" class="app-view" hidden aria-labelledby="soccer-heading">
+      <div class="view-toolbar">
+        <button class="back-btn" data-target="home" aria-label="Back to home">&#8592; Back</button>
+        <h2 id="soccer-heading" class="view-heading">Soccer</h2>
+        <div class="date-nav" role="navigation" aria-label="Date navigation">
+          <button class="prev-date-btn-soccer" aria-label="Previous date">&#8592;</button>
+          <button class="date-display-soccer" data-date-display aria-haspopup="dialog" aria-label="Select date">Today</button>
+          <button class="next-date-btn-soccer" aria-label="Next date">&#8594;</button>
+        </div>
+        <div class="view-mode-toggle" role="group" aria-label="View mode">
+          <button class="view-mode-btn active" data-view="card" aria-pressed="true" aria-label="Card view">&#9646;&#9646;</button>
+          <button class="view-mode-btn" data-view="table" aria-pressed="false" aria-label="Table view">&#9776;</button>
+          <button class="view-mode-btn" data-view="list" aria-pressed="false" aria-label="List view">&#9472;</button>
+        </div>
+      </div>
+      <div id="soccer-content" class="section-content"></div>
+    </section>
+
+    <!-- ── VIEW: Golf Hub ────────────────────────────────────────────────── -->
+    <section id="view-golf" class="app-view" hidden aria-labelledby="golf-heading">
+      <div class="view-toolbar">
+        <button class="back-btn" data-target="home" aria-label="Back to home">&#8592; Back</button>
+        <h2 id="golf-heading" class="view-heading">Golf</h2>
+      </div>
+      <div id="golf-content" class="section-content"></div>
+    </section>
+
+    <!-- ── VIEW: Live Scores ─────────────────────────────────────────────── -->
+    <section id="view-live" class="app-view" hidden aria-labelledby="live-heading">
+      <div class="view-toolbar">
+        <button class="back-btn" data-target="home" aria-label="Back to home">&#8592; Back</button>
+        <h2 id="live-heading" class="view-heading">Live Scores</h2>
+        <span id="live-refresh-countdown" aria-live="polite" class="refresh-countdown"></span>
+        <button id="live-refresh-btn" aria-label="Refresh live scores">&#8635;</button>
+      </div>
+      <div id="live-content" class="section-content"></div>
+    </section>
+
+  </main>
+
+  <!-- ── Date Picker Modal ──────────────────────────────────────────────── -->
+  <div id="date-picker-modal" class="modal" role="dialog" aria-labelledby="date-picker-title" aria-modal="true" hidden>
+    <div class="modal-content">
+      <h3 id="date-picker-title">Select Date</h3>
+      <input type="date" id="date-picker-input" aria-label="Select date">
+      <div class="modal-buttons">
+        <button id="date-picker-ok">Go</button>
+        <button id="date-picker-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Settings Panel ────────────────────────────────────────────────── -->
+  <div id="settings-panel" class="panel" role="dialog" aria-labelledby="settings-title" aria-modal="true" hidden>
+    <div class="panel-content">
+      <div class="panel-header">
+        <h3 id="settings-title">Settings <span class="shortcut-hint" aria-hidden="true">(Alt+G)</span></h3>
+        <button id="settings-close" aria-label="Close settings">&#10005;</button>
+      </div>
+      <div id="settings-content"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
