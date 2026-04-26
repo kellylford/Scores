@@ -818,6 +818,9 @@ function renderGameDetail(details, sport) {
   if (details.boxscore) {
     renderBoxScore(details.boxscore, sport, container);
   }
+  if (details.plays && details.plays.length) {
+    renderPlayByPlay(details, sport, container);
+  }
 }
 
 function renderGameHeader(details, container, sport) {
@@ -973,6 +976,563 @@ function renderBoxScore(boxscore, sport, container) {
 
   table.appendChild(tbody);
   section.appendChild(table);
+  container.appendChild(section);
+}
+
+/* ── Play-by-Play ────────────────────────────────────────────────────────── */
+
+let _pbpNodeId = 0;
+
+function makePbpNode(label, children = [], options = {}) {
+  const hasChildren = children && children.length > 0;
+  return {
+    id: `pbp-${++_pbpNodeId}`,
+    label,
+    children,
+    scoring:  options.scoring  || false,
+    expanded: options.expanded !== undefined ? options.expanded : !hasChildren,
+    cssClass: options.cssClass || '',
+  };
+}
+
+function pbpExtractClock(clockValue) {
+  if (!clockValue) return '';
+  if (typeof clockValue === 'string') return clockValue;
+  if (typeof clockValue === 'object') {
+    return clockValue.displayValue || clockValue.value || clockValue.text || '';
+  }
+  return '';
+}
+
+function pbpParseClock(clockStr) {
+  const s = pbpExtractClock(clockStr);
+  const m = s.match(/^(\d+):(\d+)/);
+  return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : 0;
+}
+
+function pbpSafeInt(v) {
+  if (v == null || v === '') return null;
+  const n = parseInt(v, 10);
+  return isNaN(n) ? null : n;
+}
+
+function pbpScoreText(play, awayAbbr, homeAbbr) {
+  const away = pbpSafeInt(play.awayScore);
+  const home = pbpSafeInt(play.homeScore);
+  return (away != null && home != null) ? `${awayAbbr} ${away} - ${homeAbbr} ${home}` : '';
+}
+
+function pbpFormatClockPlay(text, clock, play, awayAbbr, homeAbbr) {
+  const score = pbpScoreText(play, awayAbbr, homeAbbr);
+  if (clock && clock !== '--:--') {
+    return score ? `${text} - ${clock} (${score})` : `${text} - ${clock}`;
+  }
+  return score ? `${text} (${score})` : text;
+}
+
+function pbpGetTeamLabels(details) {
+  let awayAbbr = 'Away', homeAbbr = 'Home';
+  const comp = details?.header?.competitions?.[0];
+  if (comp) {
+    (comp.competitors || []).forEach(c => {
+      const abbr = c?.team?.abbreviation || c?.team?.shortDisplayName || c?.team?.displayName;
+      if (!abbr) return;
+      if (c.homeAway === 'away') awayAbbr = abbr;
+      if (c.homeAway === 'home') homeAbbr = abbr;
+    });
+  }
+  return [awayAbbr, homeAbbr];
+}
+
+// ── Baseball ──────────────────────────────────────────────────────────────
+
+function buildBaseballPbpTree(plays, awayAbbr, homeAbbr) {
+  const SKIP_PREFIXES = ['Top of the', 'Bottom of the', 'End of the', 'Middle of the'];
+  const isSub = p => {
+    if (p.summaryType === 'C') return true;
+    const t = (p.text || '').toLowerCase();
+    return t.includes(' hit for ') || t.includes(' ran for ') || t.includes(' entered for ');
+  };
+
+  const inningOrder = [];
+  const inningHalves = {};
+  for (const play of plays) {
+    const pd = play.period || {};
+    const num = pd.number || 0;
+    const type = (pd.type || '').toLowerCase();
+    const label = pd.displayValue || `Inning ${num}`;
+    if (!inningHalves[num]) { inningOrder.push(num); inningHalves[num] = { top: [], bottom: [], label }; }
+    if (type === 'bottom') inningHalves[num].bottom.push(play);
+    else inningHalves[num].top.push(play);
+  }
+
+  const runsInHalf = (halfPlays, scoreKey) => {
+    const sPlays = halfPlays.filter(p => p.summaryType === 'S');
+    if (sPlays.length) return sPlays.reduce((acc, p) => acc + Math.max(0, parseInt(p.scoreValue || 0, 10)), 0);
+    const scores = halfPlays.map(p => pbpSafeInt(p[scoreKey])).filter(v => v != null);
+    return scores.length >= 2 ? Math.max(0, scores[scores.length - 1] - scores[0]) : 0;
+  };
+
+  const buildHalfAtBats = (halfPlays) => {
+    const abOrder = [], abGroups = {};
+    for (const play of halfPlays) {
+      const text = play.text || '';
+      if (SKIP_PREFIXES.some(pfx => text.startsWith(pfx))) continue;
+      if (play.summaryType === 'I' || (!play.summaryType && !text.trim())) continue;
+      const abId = play.atBatId || `_solo_${play.id || abOrder.length}`;
+      if (!abGroups[abId]) { abOrder.push(abId); abGroups[abId] = []; }
+      abGroups[abId].push(play);
+    }
+    const nodes = [];
+    for (const abId of abOrder) {
+      const group = abGroups[abId];
+      const changePlays = group.filter(isSub);
+      const nonChange   = group.filter(p => !isSub(p));
+      for (const cp of changePlays) {
+        const txt = (cp.text || '').trim();
+        if (txt) nodes.push(makePbpNode(`>> ${txt}`, [], { cssClass: 'pbp-item--sub' }));
+      }
+      if (!nonChange.length) continue;
+      const aPlay      = nonChange.find(p => p.summaryType === 'A') || null;
+      const headerText = aPlay?.text || nonChange[0]?.text || 'At-bat';
+      const resultPlay = nonChange.find(p => p.summaryType === 'S')
+                      || nonChange.find(p => p.summaryType === 'N' && !isSub(p))
+                      || null;
+      const isScoring  = resultPlay?.summaryType === 'S';
+      const resultText = resultPlay?.text || '';
+      const pitches    = nonChange.filter(p => p.summaryType === 'P');
+      let scoreSuffix  = '';
+      if (isScoring) {
+        const a = pbpSafeInt(resultPlay?.awayScore), h = pbpSafeInt(resultPlay?.homeScore);
+        if (a != null && h != null) scoreSuffix = ` (${awayAbbr} ${a} - ${homeAbbr} ${h})`;
+      }
+      const prefix   = isScoring ? '⚾ ' : '';
+      let mainText   = (resultText && resultText !== headerText)
+        ? `${prefix}${headerText}: ${resultText}${scoreSuffix}`
+        : `${prefix}${headerText}${scoreSuffix}`;
+      if (pitches.length) mainText += `  [${pitches.length}p]`;
+      const pitchNodes = pitches.map((pitch, i) =>
+        makePbpNode(`Pitch ${i + 1}: ${pitch.text || ''}`, [], {})
+      );
+      nodes.push(makePbpNode(mainText, pitchNodes, {
+        scoring:  isScoring,
+        expanded: false,
+        cssClass: isScoring ? 'pbp-item--scoring' : '',
+      }));
+    }
+    return nodes;
+  };
+
+  return inningOrder.map(num => {
+    const { top, bottom, label } = inningHalves[num];
+    const topRuns    = runsInHalf(top,    'awayScore');
+    const bottomRuns = runsInHalf(bottom, 'homeScore');
+    const totalRuns  = topRuns + bottomRuns;
+    let scoreText = '';
+    for (const play of [...top, ...bottom].reverse()) {
+      const a = pbpSafeInt(play.awayScore), h = pbpSafeInt(play.homeScore);
+      if (a != null && h != null) { scoreText = `  [${awayAbbr} ${a} - ${homeAbbr} ${h}]`; break; }
+    }
+    const runParts = [];
+    if (topRuns    > 0) runParts.push(`${awayAbbr} ${topRuns}R`);
+    if (bottomRuns > 0) runParts.push(`${homeAbbr} ${bottomRuns}R`);
+    const inningLabel = runParts.length
+      ? `${label} — ${runParts.join(', ')}${scoreText}`
+      : `${label}${scoreText}`;
+    const children = [];
+    if (top.length) {
+      const abCount = Math.max(top.filter(p => p.summaryType === 'A').length, 1);
+      const badge   = topRuns > 0 ? `  ${topRuns}R` : `  ${abCount} AB`;
+      children.push(makePbpNode(`Top — ${awayAbbr} Batting${badge}`, buildHalfAtBats(top), {
+        expanded: true, scoring: topRuns > 0, cssClass: topRuns > 0 ? 'pbp-item--scoring-half' : '',
+      }));
+    }
+    if (bottom.length) {
+      const abCount = Math.max(bottom.filter(p => p.summaryType === 'A').length, 1);
+      const badge   = bottomRuns > 0 ? `  ${bottomRuns}R` : `  ${abCount} AB`;
+      children.push(makePbpNode(`Bottom — ${homeAbbr} Batting${badge}`, buildHalfAtBats(bottom), {
+        expanded: true, scoring: bottomRuns > 0, cssClass: bottomRuns > 0 ? 'pbp-item--scoring-half' : '',
+      }));
+    }
+    return makePbpNode(inningLabel, children, {
+      expanded: true, scoring: totalRuns > 0, cssClass: totalRuns > 0 ? 'pbp-item--scoring-inning' : '',
+    });
+  });
+}
+
+// ── Football ──────────────────────────────────────────────────────────────
+
+function buildFootballPbpTree(plays, awayAbbr, homeAbbr) {
+  const driveResult = drivePlays => {
+    if (!drivePlays.length) return 'No plays';
+    const t = (drivePlays[drivePlays.length - 1]?.text || '').toLowerCase();
+    if (t.includes('touchdown'))  return 'Touchdown';
+    if (t.includes('field goal')) return 'Field Goal';
+    if (t.includes('punt'))       return 'Punt';
+    if (t.includes('turnover') || t.includes('interception') || t.includes('fumble')) return 'Turnover';
+    if (t.includes('safety'))     return 'Safety';
+    if (t.includes('end of quarter') || t.includes('end of half') || t.includes('end of game')) return 'End of Period';
+    return `${drivePlays.length} plays`;
+  };
+
+  const quarterOrder = [], quarterData = {};
+  for (const play of plays) {
+    const pd      = play.period || {};
+    const display = pd.displayValue || `Q${pd.number || 1}`;
+    const dk      = String(play.driveNumber || '');
+    const abbr    = play.team?.abbreviation || play.team?.shortDisplayName || play.team?.displayName || '';
+    if (!quarterData[display]) { quarterOrder.push(display); quarterData[display] = { driveOrder: [], drives: {}, teamNames: {} }; }
+    const qd = quarterData[display];
+    if (!qd.drives[dk]) { qd.driveOrder.push(dk); qd.drives[dk] = []; qd.teamNames[dk] = abbr; }
+    else if (abbr && !qd.teamNames[dk]) qd.teamNames[dk] = abbr;
+    qd.drives[dk].push(play);
+  }
+
+  return quarterOrder.map(display => {
+    const qd = quarterData[display];
+    let quarterScore = '';
+    outer: for (const dk of [...qd.driveOrder].reverse()) {
+      for (const p of [...qd.drives[dk]].reverse()) {
+        const a = pbpSafeInt(p.awayScore), h = pbpSafeInt(p.homeScore);
+        if (a != null && h != null) { quarterScore = `  [${awayAbbr} ${a} - ${homeAbbr} ${h}]`; break outer; }
+      }
+    }
+    const driveNodes = qd.driveOrder.map(dk => {
+      const drivePlays = qd.drives[dk];
+      if (!drivePlays.length) return null;
+      const result  = driveResult(drivePlays);
+      const scoring = ['Touchdown', 'Field Goal', 'Safety'].includes(result);
+      let driveScore = '';
+      for (const p of [...drivePlays].reverse()) {
+        const a = pbpSafeInt(p.awayScore), h = pbpSafeInt(p.homeScore);
+        if (a != null && h != null) { driveScore = `  (${a}-${h})`; break; }
+      }
+      const prefix     = qd.teamNames[dk] ? `${qd.teamNames[dk]}: ` : 'Drive: ';
+      const driveLabel = `${prefix}${result}${driveScore}  (${drivePlays.length} plays)`;
+      const playNodes  = drivePlays.map(play => {
+        const start  = play.start || {};
+        const down   = start.down || 0;
+        const dist   = start.distance || 0;
+        const poss   = start.possessionText || '';
+        const yardEZ = start.yardsToEndzone || 0;
+        const statY  = play.statYardage || 0;
+        let situation = '';
+        if      (yardEZ && yardEZ <= 5)  situation = 'GOAL LINE ';
+        else if (yardEZ && yardEZ <= 20) situation = 'RED ZONE ';
+        else if (down === 4)             situation = '4TH DOWN ';
+        const downText = down
+          ? (poss ? `[${situation}${down} & ${dist} from ${poss}] ` : `[${situation}${down} & ${dist}] `)
+          : '';
+        const yardsPfx = statY > 0 ? `(+${statY} yds) ` : statY < 0 ? `(${statY} yds) ` : '';
+        const clock    = pbpExtractClock(play.clock);
+        const playText = `${downText}${yardsPfx}${play.text || 'Unknown play'}`;
+        const formatted = pbpFormatClockPlay(playText, clock, play, awayAbbr, homeAbbr);
+        let cls = '';
+        if      (play.scoringPlay)              cls = 'pbp-item--scoring';
+        else if (yardEZ && yardEZ <= 5)         cls = 'pbp-item--goalline';
+        else if (yardEZ && yardEZ <= 20)        cls = 'pbp-item--redzone';
+        return makePbpNode(formatted, [], { scoring: !!play.scoringPlay, cssClass: cls });
+      });
+      return makePbpNode(driveLabel, playNodes, {
+        scoring, expanded: false, cssClass: scoring ? 'pbp-item--scoring-drive' : '',
+      });
+    }).filter(Boolean);
+    return makePbpNode(`${display}${quarterScore}`, driveNodes, { expanded: true });
+  });
+}
+
+// ── Basketball ────────────────────────────────────────────────────────────
+
+function buildBasketballPbpTree(plays, awayAbbr, homeAbbr) {
+  const periodOrder = [], periodGroups = {};
+  for (const play of plays) {
+    const pd  = play.period || {};
+    const num = pd.number || 1;
+    if (!periodGroups[num]) { periodOrder.push(num); periodGroups[num] = { plays: [], label: pd.displayValue || String(num) }; }
+    periodGroups[num].plays.push(play);
+  }
+  const ordinalLabel = (num, fallback) => {
+    const fl = (fallback || '').toLowerCase();
+    if (fl.includes('ot') || fl.includes('overtime') || fl.includes('extra')) {
+      const o = num - 4; return o > 1 ? `OT${o}` : 'OT';
+    }
+    const ord = { 1: '1st', 2: '2nd', 3: '3rd', 4: '4th' };
+    if (ord[num]) return `${ord[num]} Quarter`;
+    if (num > 4) { const o = num - 4; return o > 1 ? `OT${o}` : 'OT'; }
+    return fallback || `Period ${num}`;
+  };
+  const bbClass = play => {
+    const t = (play.text || '').toLowerCase();
+    if ((t.includes('makes') || t.includes('made')) && (t.includes('three') || t.includes('3-pt'))) return 'pbp-item--bb-three';
+    if ((t.includes('makes') || t.includes('made')) && (t.includes('layup') || t.includes('dunk') || t.includes('tip'))) return 'pbp-item--bb-layup';
+    if ((t.includes('makes') || t.includes('made')) && t.includes('free throw')) return 'pbp-item--bb-ft';
+    if (t.includes('misses') && (t.includes('three') || t.includes('3-pt'))) return 'pbp-item--bb-miss3';
+    if (t.includes('foul') && !t.includes('technical')) return 'pbp-item--bb-foul';
+    if (t.includes('technical foul') || t.includes('flagrant')) return 'pbp-item--bb-technical';
+    if (t.includes('timeout')) return 'pbp-item--bb-timeout';
+    if (t.includes('substitution')) return 'pbp-item--bb-sub';
+    return '';
+  };
+  return periodOrder.map(num => {
+    const pg          = periodGroups[num];
+    const periodLabel = ordinalLabel(num, pg.label);
+    let periodScore   = '';
+    for (const p of [...pg.plays].reverse()) {
+      const a = pbpSafeInt(p.awayScore), h = pbpSafeInt(p.homeScore);
+      if (a != null && h != null) { periodScore = `  [${awayAbbr} ${a} - ${homeAbbr} ${h}]`; break; }
+    }
+    const sorted    = [...pg.plays].sort((a, b) => pbpParseClock(b.clock) - pbpParseClock(a.clock));
+    const playNodes = sorted.map(play => {
+      const clock     = pbpExtractClock(play.clock) || '0:00';
+      const score     = pbpScoreText(play, awayAbbr, homeAbbr);
+      const txt       = (play.text || '').trim().replace(/\s+/g, ' ');
+      const formatted = score ? `${txt} - ${clock} (${score})` : `${txt} - ${clock}`;
+      return makePbpNode(formatted, [], { scoring: !!play.scoringPlay, cssClass: bbClass(play) });
+    });
+    return makePbpNode(`${periodLabel}${periodScore}`, playNodes, { expanded: true });
+  });
+}
+
+// ── Generic (NHL, soccer, others) ─────────────────────────────────────────
+
+function buildGenericPbpTree(plays, awayAbbr, homeAbbr) {
+  const periodOrder = [], periodGroups = {};
+  for (const play of plays) {
+    const pd    = play.period || {};
+    const num   = pd.number || 1;
+    const label = pd.displayValue || `Period ${num}`;
+    const key   = `${num}:${label}`;
+    if (!periodGroups[key]) { periodOrder.push(key); periodGroups[key] = { plays: [], label }; }
+    periodGroups[key].plays.push(play);
+  }
+  return periodOrder.map(key => {
+    const pg    = periodGroups[key];
+    const goals = pg.plays.reduce((acc, p) => acc + Math.max(0, parseInt(p.scoreValue || 0, 10)), 0);
+    let periodScore = '';
+    for (const p of [...pg.plays].reverse()) {
+      const a = pbpSafeInt(p.awayScore), h = pbpSafeInt(p.homeScore);
+      if (a != null && h != null) { periodScore = `  [${awayAbbr} ${a} - ${homeAbbr} ${h}]`; break; }
+    }
+    const goalStr     = goals > 0 ? `  (${goals} goal${goals !== 1 ? 's' : ''})` : '';
+    const periodLabel = `${pg.label}${goalStr}${periodScore}`;
+    const playNodes   = pg.plays.map(play => {
+      const txt   = play.text || 'Unknown play';
+      const clock = pbpExtractClock(play.clock);
+      const score = pbpScoreText(play, awayAbbr, homeAbbr);
+      const formatted = (clock && clock !== '--:--')
+        ? (score ? `${txt} - ${clock} (${score})` : `${txt} - ${clock}`)
+        : (score ? `${txt} (${score})` : txt);
+      const scoring = !!play.scoringPlay || (play.scoreValue || 0) > 0;
+      return makePbpNode(formatted, [], { scoring, cssClass: scoring ? 'pbp-item--scoring' : '' });
+    });
+    return makePbpNode(periodLabel, playNodes, { expanded: true, scoring: goals > 0 });
+  });
+}
+
+// ── DOM rendering ─────────────────────────────────────────────────────────
+
+function renderPbpNodes(nodes, parentEl, level) {
+  for (const node of nodes) {
+    const hasChildren = node.children && node.children.length > 0;
+    const item = document.createElement('div');
+    item.className = 'pbp-item' + (node.cssClass ? ' ' + node.cssClass : '');
+    item.setAttribute('role', 'treeitem');
+    item.setAttribute('aria-level', String(level + 1));
+    item.setAttribute('tabindex', '-1');
+    item.style.setProperty('--level', level);
+    item.dataset.pbpId = node.id;
+    if (hasChildren) item.setAttribute('aria-expanded', node.expanded ? 'true' : 'false');
+
+    const inner = document.createElement('div');
+    inner.className = 'pbp-item-inner';
+    const toggleOrSpacer = document.createElement('span');
+    toggleOrSpacer.setAttribute('aria-hidden', 'true');
+    if (hasChildren) {
+      toggleOrSpacer.className = 'pbp-toggle';
+      toggleOrSpacer.textContent = node.expanded ? '▼' : '▶';
+    } else {
+      toggleOrSpacer.className = 'pbp-toggle-spacer';
+    }
+    inner.appendChild(toggleOrSpacer);
+    const labelEl = document.createElement('span');
+    labelEl.className = 'pbp-label';
+    labelEl.textContent = node.label;
+    inner.appendChild(labelEl);
+    item.appendChild(inner);
+
+    if (hasChildren) {
+      const group = document.createElement('div');
+      group.setAttribute('role', 'group');
+      group.className = 'pbp-children';
+      if (!node.expanded) group.hidden = true;
+      renderPbpNodes(node.children, group, level + 1);
+      item.appendChild(group);
+    }
+    parentEl.appendChild(item);
+  }
+}
+
+// ── Keyboard navigation ───────────────────────────────────────────────────
+
+function pbpGetVisibleItems(treeEl) {
+  return Array.from(treeEl.querySelectorAll('[role="treeitem"]')).filter(el => {
+    let node = el.parentElement;
+    while (node && node !== treeEl) {
+      if (node.getAttribute('role') === 'group' && node.hidden) return false;
+      node = node.parentElement;
+    }
+    return true;
+  });
+}
+
+function pbpGetSelected(treeEl) {
+  return treeEl.querySelector('[role="treeitem"][aria-selected="true"]');
+}
+
+function pbpSetSelected(item, treeEl) {
+  const prev = pbpGetSelected(treeEl);
+  if (prev) {
+    prev.removeAttribute('aria-selected');
+    prev.setAttribute('tabindex', '-1');
+  }
+  if (item) {
+    item.setAttribute('aria-selected', 'true');
+    item.setAttribute('tabindex', '0');
+    item.focus();
+  }
+}
+
+function pbpToggle(item) {
+  const expanded = item.getAttribute('aria-expanded');
+  if (expanded === null) return;
+  const group  = item.querySelector(':scope > [role="group"]');
+  const toggle = item.querySelector(':scope > .pbp-item-inner > .pbp-toggle');
+  if (expanded === 'true') {
+    item.setAttribute('aria-expanded', 'false');
+    if (group)  group.hidden = true;
+    if (toggle) toggle.textContent = '▶';
+    announceToScreenReader(`Collapsed ${item.querySelector('.pbp-label')?.textContent || ''}`);
+  } else {
+    item.setAttribute('aria-expanded', 'true');
+    if (group)  group.hidden = false;
+    if (toggle) toggle.textContent = '▼';
+    announceToScreenReader(`Expanded ${item.querySelector('.pbp-label')?.textContent || ''}`);
+  }
+}
+
+function pbpParentItem(item, treeEl) {
+  let node = item.parentElement;
+  while (node && node !== treeEl) {
+    if (node.getAttribute('role') === 'treeitem') return node;
+    node = node.parentElement;
+  }
+  return null;
+}
+
+function attachPbpKeyboard(treeEl) {
+  treeEl.addEventListener('keydown', e => {
+    const visible = pbpGetVisibleItems(treeEl);
+    if (!visible.length) return;
+    // Prefer the actually-focused item; fall back to aria-selected or first item
+    const active = document.activeElement;
+    const current = (active && treeEl.contains(active) && active.getAttribute('role') === 'treeitem')
+      ? active
+      : (pbpGetSelected(treeEl) || visible[0]);
+    const idx     = visible.indexOf(current);
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        if (idx < visible.length - 1) pbpSetSelected(visible[idx + 1], treeEl);
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        if (idx > 0) pbpSetSelected(visible[idx - 1], treeEl);
+        break;
+      case 'ArrowRight':
+        e.preventDefault();
+        if (current.getAttribute('aria-expanded') === 'false') {
+          pbpToggle(current);
+        } else if (current.getAttribute('aria-expanded') === 'true') {
+          const newVisible = pbpGetVisibleItems(treeEl);
+          const ni = newVisible.indexOf(current);
+          if (ni < newVisible.length - 1) pbpSetSelected(newVisible[ni + 1], treeEl);
+        }
+        break;
+      case 'ArrowLeft':
+        e.preventDefault();
+        if (current.getAttribute('aria-expanded') === 'true') {
+          pbpToggle(current);
+        } else {
+          const parent = pbpParentItem(current, treeEl);
+          if (parent) pbpSetSelected(parent, treeEl);
+        }
+        break;
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        pbpToggle(current);
+        break;
+      case 'Home':
+        e.preventDefault();
+        pbpSetSelected(visible[0], treeEl);
+        break;
+      case 'End':
+        e.preventDefault();
+        pbpSetSelected(visible[visible.length - 1], treeEl);
+        break;
+    }
+  });
+
+  treeEl.addEventListener('click', e => {
+    const item = e.target.closest('[role="treeitem"]');
+    if (!item) return;
+    pbpSetSelected(item, treeEl);
+    pbpToggle(item);
+  });
+}
+
+// ── Entry point ───────────────────────────────────────────────────────────
+
+function renderPlayByPlay(details, sport, container) {
+  const plays = details.plays;
+  if (!plays || !plays.length) return;
+
+  const [awayAbbr, homeAbbr] = pbpGetTeamLabels(details);
+  const BASKETBALL = ['nba', 'ncaam', 'ncaawb', 'wnba', 'ncaaw'];
+  const FOOTBALL   = ['nfl', 'ncaaf'];
+
+  let nodes;
+  if (sport === 'mlb') {
+    nodes = buildBaseballPbpTree(plays, awayAbbr, homeAbbr);
+  } else if (FOOTBALL.includes(sport)) {
+    nodes = buildFootballPbpTree(plays, awayAbbr, homeAbbr);
+  } else if (BASKETBALL.includes(sport)) {
+    nodes = buildBasketballPbpTree(plays, awayAbbr, homeAbbr);
+  } else {
+    nodes = buildGenericPbpTree(plays, awayAbbr, homeAbbr);
+  }
+  if (!nodes || !nodes.length) return;
+
+  const section = document.createElement('section');
+  section.className = 'pbp-section';
+  const h3 = document.createElement('h3');
+  h3.textContent = `Play-by-Play (${plays.length} plays)`;
+  section.appendChild(h3);
+
+  const treeEl = document.createElement('div');
+  treeEl.className = 'pbp-tree';
+  treeEl.setAttribute('role', 'tree');
+  treeEl.setAttribute('aria-label', 'Play by play');
+
+  _pbpNodeId = 0;
+  renderPbpNodes(nodes, treeEl, 0);
+  // Give the first item tabindex="0" so Tab enters the tree on the first item
+  const firstItem = treeEl.querySelector('[role="treeitem"]');
+  if (firstItem) firstItem.setAttribute('tabindex', '0');
+  attachPbpKeyboard(treeEl);
+
+  section.appendChild(treeEl);
   container.appendChild(section);
 }
 

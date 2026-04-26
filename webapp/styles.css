@@ -573,8 +573,8 @@ button:focus-visible {
 .matchup-score { font-size: 2.5rem; font-weight: 800; color: var(--color-text); line-height: 1; }
 .matchup-vs { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; }
 
-.linescore-section, .boxscore-section { margin-top: 1.25rem; }
-.linescore-section h3, .boxscore-section h3 {
+.linescore-section, .boxscore-section, .pbp-section { margin-top: 1.25rem; }
+.linescore-section h3, .boxscore-section h3, .pbp-section h3 {
   font-size: 0.9rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -606,6 +606,107 @@ button:focus-visible {
 .schedule-table td:first-child { text-align: left; }
 .schedule-table td:nth-child(3) { text-align: left; }
 .schedule-table .today-row td { background: rgba(15,124,74,0.12); font-weight: 600; }
+
+/* ── Play-by-Play ────────────────────────────────────────────────────────── */
+.pbp-tree {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.25rem 0;
+  font-size: 0.875rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+/* Individual items receive focus; suppress default outline, use blue bg as indicator */
+.pbp-item:focus {
+  outline: none;
+}
+.pbp-item:focus-visible > .pbp-item-inner {
+  outline: 3px solid var(--color-border-focus);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}
+.pbp-item {
+  display: block;
+}
+.pbp-item-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  padding: 0.3rem 0.5rem;
+  padding-left: calc(var(--level, 0) * 1.25rem + 0.5rem);
+  cursor: default;
+  border-radius: var(--radius-sm);
+  user-select: none;
+}
+.pbp-item[aria-selected="true"] > .pbp-item-inner {
+  background: var(--color-btn-active);
+  color: #fff;
+}
+.pbp-item[aria-expanded] > .pbp-item-inner {
+  font-weight: 600;
+}
+.pbp-toggle {
+  flex-shrink: 0;
+  width: 1em;
+  font-size: 0.65em;
+  line-height: 1.6;
+  color: var(--color-text-muted);
+}
+.pbp-item[aria-selected="true"] > .pbp-item-inner .pbp-toggle {
+  color: rgba(255, 255, 255, 0.8);
+}
+.pbp-toggle-spacer {
+  flex-shrink: 0;
+  width: 1em;
+  display: inline-block;
+}
+.pbp-label {
+  flex: 1;
+  word-break: break-word;
+}
+.pbp-children {
+  display: block;
+}
+
+/* Scoring highlights — not applied when item is selected (blue bg takes over) */
+.pbp-item--scoring-inning > .pbp-item-inner,
+.pbp-item--scoring-half   > .pbp-item-inner {
+  background: rgba(34, 197, 94, 0.12);
+}
+.pbp-item--scoring        > .pbp-item-inner,
+.pbp-item--scoring-drive  > .pbp-item-inner {
+  background: rgba(34, 197, 94, 0.18);
+}
+.pbp-item--sub > .pbp-item-inner {
+  background: rgba(251, 191, 36, 0.15);
+}
+.pbp-item--goalline > .pbp-item-inner { background: rgba(239, 68, 68, 0.10); }
+.pbp-item--redzone  > .pbp-item-inner { background: rgba(251, 146, 60, 0.10); }
+
+/* Basketball play types */
+.pbp-item--bb-three   > .pbp-item-inner { background: rgba(147, 197, 253, 0.20); }
+.pbp-item--bb-layup   > .pbp-item-inner { background: rgba(134, 239, 172, 0.20); }
+.pbp-item--bb-ft      > .pbp-item-inner { background: rgba(254, 240, 138, 0.20); }
+.pbp-item--bb-miss3   > .pbp-item-inner { background: rgba(252, 165, 165, 0.20); }
+.pbp-item--bb-foul    > .pbp-item-inner { background: rgba(253, 186, 116, 0.20); }
+.pbp-item--bb-technical > .pbp-item-inner { background: rgba(251, 146, 60, 0.25); }
+.pbp-item--bb-timeout > .pbp-item-inner { background: rgba(209, 213, 219, 0.30); }
+.pbp-item--bb-sub     > .pbp-item-inner { background: rgba(199, 210, 254, 0.20); }
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .pbp-item--scoring-inning > .pbp-item-inner,
+  .pbp-item--scoring-half   > .pbp-item-inner { background: rgba(34, 197, 94, 0.15); }
+  .pbp-item--scoring        > .pbp-item-inner,
+  .pbp-item--scoring-drive  > .pbp-item-inner { background: rgba(34, 197, 94, 0.22); }
+  .pbp-item--sub            > .pbp-item-inner { background: rgba(251, 191, 36, 0.18); }
+}
+body.dark .pbp-item--scoring-inning > .pbp-item-inner,
+body.dark .pbp-item--scoring-half   > .pbp-item-inner { background: rgba(34, 197, 94, 0.15); }
+body.dark .pbp-item--scoring        > .pbp-item-inner,
+body.dark .pbp-item--scoring-drive  > .pbp-item-inner { background: rgba(34, 197, 94, 0.22); }
+body.dark .pbp-item--sub            > .pbp-item-inner { background: rgba(251, 191, 36, 0.18); }
 
 /* ── Standings ───────────────────────────────────────────────────────────── */
 .standings-division {
