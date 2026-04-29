@@ -116,7 +116,7 @@ extension StandingsEntry {
             wins:          Int(stat("wins")?.value ?? 0),
             losses:        Int(stat("losses")?.value ?? 0),
             winPercent:    stat("winPercent")?.value ?? 0,
-            gamesBack:     stat("gamesBehind")?.displayValue ?? "-",
+            gamesBack:     stat("divisionGamesBehind")?.displayValue ?? stat("gamesBehind")?.displayValue ?? "-",
             streak:        stat("streak")?.displayValue ?? "-",
             record:        stat("overall")?.displayValue ?? "-",
             pointsFor:     stat("pointsFor").map { Int($0.value) },
