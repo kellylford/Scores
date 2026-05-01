@@ -47,10 +47,6 @@ struct GolfLeaderboardView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ViewModePicker(selectedMode: $viewMode)
-                .padding(.vertical, 8)
-
-            Divider()
 
             // Status banner
             if !tournament.isScheduled {
@@ -70,7 +66,7 @@ struct GolfLeaderboardView: View {
         }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                ViewModeToggleButton(currentMode: $viewMode)
+                ViewModeMenuButton(currentMode: $viewMode)
             }
         }
     }

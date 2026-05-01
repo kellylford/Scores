@@ -53,9 +53,6 @@ struct GolfScheduleView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             VStack(spacing: 0) {
-                ViewModePicker(selectedMode: $viewMode)
-                    .padding(.vertical, 8)
-                Divider()
                 switch viewMode {
                 case .table:
                     tournamentTableView
@@ -63,6 +60,11 @@ struct GolfScheduleView: View {
                     tournamentQuickListView
                 case .fullList:
                     tournamentFullListView
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    ViewModeMenuButton(currentMode: $viewMode)
                 }
             }
         }

@@ -74,7 +74,7 @@ struct ScoresView: View {
             }
             if selectedTab == .scores && !viewModel.games.isEmpty {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    ViewModeToggleButton(currentMode: $viewMode)
+                    ViewModeMenuButton(currentMode: $viewMode)
                 }
             }
         }
@@ -389,9 +389,6 @@ struct ScoresView: View {
                 }
             } else {
                 VStack(spacing: 0) {
-                    ViewModePicker(selectedMode: $viewMode)
-                        .padding(.vertical, 8)
-                    Divider()
                     switch viewMode {
                     case .table:
                         gamesTableView

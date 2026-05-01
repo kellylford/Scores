@@ -69,9 +69,6 @@ struct TeamScheduleView: View {
                 }
             } else {
                 VStack(spacing: 0) {
-                    ViewModePicker(selectedMode: $viewMode)
-                        .padding(.vertical, 8)
-                    Divider()
                     switch viewMode {
                     case .table:
                         scheduleTableView
@@ -91,7 +88,7 @@ struct TeamScheduleView: View {
             }
             if !viewModel.games.isEmpty {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    ViewModeToggleButton(currentMode: $viewMode)
+                    ViewModeMenuButton(currentMode: $viewMode)
                 }
             }
         }

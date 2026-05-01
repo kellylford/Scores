@@ -13,15 +13,11 @@ struct DataTableView: View {
     let headers: [String]
     let rows: [[String]]
     @State private var viewMode: ViewMode = .table
+    @State private var viewModeInitialized = false
+    @EnvironmentObject private var appSettings: AppSettings
     
     var body: some View {
         VStack(spacing: 0) {
-            // View Mode Picker
-            ViewModePicker(selectedMode: $viewMode)
-                .padding(.vertical, 8)
-            
-            Divider()
-            
             // Content based on view mode
             ScrollView {
                 switch viewMode {
@@ -36,8 +32,13 @@ struct DataTableView: View {
         }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                ViewModeToggleButton(currentMode: $viewMode)
+                ViewModeMenuButton(currentMode: $viewMode)
             }
+        }
+        .onAppear {
+            guard !viewModeInitialized else { return }
+            viewMode = appSettings.defaultTableViewMode
+            viewModeInitialized = true
         }
     }
     
@@ -155,6 +156,7 @@ struct StandingsTableView: View {
     let standingsGroups: [StandingsGroup]
     let sport: Sport
     @State private var viewMode: ViewMode = .table
+    @State private var viewModeInitialized = false
     @State private var showExpanded = false
     @EnvironmentObject private var appSettings: AppSettings
 
@@ -247,11 +249,6 @@ struct StandingsTableView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ViewModePicker(selectedMode: $viewMode)
-                .padding(.vertical, 8)
-
-            Divider()
-
             // Single vertical ScrollView — NO nested vertical scroll views
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
@@ -297,8 +294,13 @@ struct StandingsTableView: View {
                     }
                     .accessibilityLabel(showExpanded ? "Show basic columns" : "Show expanded columns")
                 }
-                ViewModeToggleButton(currentMode: $viewMode)
+                ViewModeMenuButton(currentMode: $viewMode)
             }
+        }
+        .onAppear {
+            guard !viewModeInitialized else { return }
+            viewMode = appSettings.defaultTableViewMode
+            viewModeInitialized = true
         }
     }
 

@@ -66,7 +66,8 @@ struct StandingsEntry: Identifiable {
         let differential: String?   // formatted e.g. "+61", "-7"
 
         var displayWinPercent: String {
-            String(format: "%.3f", winPercent)
+            let formatted = String(format: "%.3f", winPercent)
+            return formatted.hasPrefix("0") ? String(formatted.dropFirst()) : formatted
         }
     }
     

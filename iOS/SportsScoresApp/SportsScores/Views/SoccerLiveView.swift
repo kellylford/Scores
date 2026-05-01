@@ -59,7 +59,7 @@ struct SoccerLiveView: View {
                 }
             }
             ToolbarItem(placement: .navigationBarTrailing) {
-                ViewModeToggleButton(currentMode: $viewMode)
+                ViewModeMenuButton(currentMode: $viewMode)
             }
         }
         .task {
@@ -84,9 +84,6 @@ struct SoccerLiveView: View {
 
     private var scrollContent: some View {
         VStack(spacing: 0) {
-            ViewModePicker(selectedMode: $viewMode)
-                .padding(.vertical, 8)
-            Divider()
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                 if !viewModel.liveGames.isEmpty {

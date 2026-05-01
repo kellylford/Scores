@@ -28,15 +28,17 @@ struct PollsView: View {
         }
         .task { await viewModel.fetchRankings(for: sport) }
         .refreshable { await viewModel.refresh(for: sport) }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                ViewModeMenuButton(currentMode: $viewMode)
+            }
+        }
     }
 
     // MARK: - Main Content
 
     private var pollsContent: some View {
         VStack(spacing: 0) {
-            ViewModePicker(selectedMode: $viewMode)
-                .padding(.vertical, 8)
-            Divider()
             if let poll = viewModel.selectedPoll {
                 switch viewMode {
                 case .table:

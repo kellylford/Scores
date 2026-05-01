@@ -105,10 +105,6 @@ struct BoxScoreView: View {
                 pageTabBar
             }
 
-            ViewModePicker(selectedMode: $viewMode)
-                .padding(.vertical, 8)
-            Divider()
-
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     if boxscore.teams.isEmpty {
@@ -127,6 +123,11 @@ struct BoxScoreView: View {
         }
         .onAppear {
             if selectedPage == nil { selectedPage = pages.first }
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                ViewModeMenuButton(currentMode: $viewMode)
+            }
         }
     }
 

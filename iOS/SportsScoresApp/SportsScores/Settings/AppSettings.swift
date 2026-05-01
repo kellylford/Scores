@@ -20,6 +20,7 @@ private enum StorageKeys {
     static let hiddenSports = "hiddenSports"
     static let soccerHubEnabled = "soccerHubEnabled"
     static let golfHubEnabled = "golfHubEnabled"
+    static let defaultTableViewMode = "defaultTableViewMode"
 }
 
 @MainActor
@@ -82,6 +83,18 @@ final class AppSettings: ObservableObject {
         }
     }
 
+    // MARK: - Default Table View Mode
+
+    /// Controls which view mode (Table, Quick List, Full List) tables open in by default.
+    @Published var defaultTableViewMode: ViewMode {
+        didSet {
+            UserDefaults.standard.set(
+                defaultTableViewMode.rawValue,
+                forKey: StorageKeys.defaultTableViewMode
+            )
+        }
+    }
+
     // MARK: - Auto-Refresh Interval
 
     /// Shared refresh cadence used by both ScoresView and LiveScoresView.
@@ -100,6 +113,9 @@ final class AppSettings: ObservableObject {
     init() {
         let raw = UserDefaults.standard.string(forKey: StorageKeys.teamNamePreference) ?? ""
         teamNamePreference = TeamNamePreference(rawValue: raw) ?? .full
+
+        let rawViewMode = UserDefaults.standard.string(forKey: StorageKeys.defaultTableViewMode) ?? ""
+        defaultTableViewMode = ViewMode(rawValue: rawViewMode) ?? .quickList
 
         let storedInterval = UserDefaults.standard.object(forKey: StorageKeys.autoRefreshInterval) as? Int
         autoRefreshInterval = storedInterval.flatMap { AutoRefreshInterval(rawValue: $0) } ?? .manual

@@ -53,38 +53,23 @@ enum ViewMode: String, CaseIterable {
     }
 }
 
-// MARK: - View Mode Picker Component
-struct ViewModePicker: View {
-    @Binding var selectedMode: ViewMode
-    
-    var body: some View {
-        Picker("View Mode", selection: $selectedMode) {
-            ForEach(ViewMode.allCases, id: \.self) { mode in
-                Label(mode.rawValue, systemImage: mode.icon)
-                    .tag(mode)
-            }
-        }
-        .pickerStyle(.segmented)
-        .padding(.horizontal)
-    }
-}
-
-// MARK: - View Mode Toggle Button
-struct ViewModeToggleButton: View {
+// MARK: - View Mode Menu Button
+struct ViewModeMenuButton: View {
     @Binding var currentMode: ViewMode
-    
+
     var body: some View {
-        Button(action: {
-            let next = currentMode.next()
-            withAnimation(.easeInOut(duration: 0.2)) {
-                currentMode = next
+        Menu {
+            Picker("View Mode", selection: $currentMode) {
+                ForEach(ViewMode.allCases, id: \.self) { mode in
+                    Label(mode.rawValue, systemImage: mode.icon).tag(mode)
+                }
             }
-            UIAccessibility.post(notification: .announcement, argument: next.rawValue)
-        }) {
-            Label("Cycle View", systemImage: "arrow.triangle.2.circlepath")
+            .pickerStyle(.inline)
+        } label: {
+            Image(systemName: currentMode.icon)
         }
-        .accessibilityLabel("Cycle through view modes")
-        .accessibilityHint("Currently in \(currentMode.rawValue)")
+        .accessibilityLabel("View mode: \(currentMode.rawValue)")
+        .accessibilityHint("Tap to change table view mode")
     }
 }
 

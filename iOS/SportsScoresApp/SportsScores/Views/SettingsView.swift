@@ -13,11 +13,30 @@ struct SettingsView: View {
     var body: some View {
         Form {
             teamNameSection
+            tableDisplaySection
             sportsSection
             stadiumExplorationSection
             aboutSection
         }
         .navigationTitle("Settings")
+    }
+
+    // MARK: - Table Display Section
+
+    private var tableDisplaySection: some View {
+        Section {
+            Picker("Default view", selection: $appSettings.defaultTableViewMode) {
+                ForEach(ViewMode.allCases, id: \.self) { mode in
+                    Text(mode.rawValue).tag(mode)
+                }
+            }
+        } header: {
+            Text("Table Default")
+        } footer: {
+            Text(appSettings.defaultTableViewMode.description)
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
     }
 
     // MARK: - Team Name Section

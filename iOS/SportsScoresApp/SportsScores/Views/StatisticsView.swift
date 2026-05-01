@@ -30,7 +30,7 @@ struct StatisticsView: View {
         .refreshable { await viewModel.refresh(for: sport) }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                ViewModeToggleButton(currentMode: $viewMode)
+                ViewModeMenuButton(currentMode: $viewMode)
             }
         }
     }
@@ -39,9 +39,6 @@ struct StatisticsView: View {
 
     private var leadersList: some View {
         VStack(spacing: 0) {
-            ViewModePicker(selectedMode: $viewMode)
-                .padding(.vertical, 8)
-            Divider()
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     ForEach(viewModel.categories) { category in
