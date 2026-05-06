@@ -654,8 +654,8 @@ class ESPNAPIService {
 
     /// Fetches conferences with their member teams for college sports.
     /// Uses the standings endpoint which groups teams by conference.
-    /// Returns an empty array if the sport has no conference structure (caller
-    /// should fall back to fetchTeamsForSport).
+    /// Returns an empty array if the sport has no usable conference structure
+    /// (caller should fall back to fetchTeamsForSport).
     func fetchConferencesWithTeams(for sport: Sport) async throws -> [ConferenceGroup] {
         let urlString = "\(standingsBaseURL)/\(sport.apiPath)/standings"
         guard let url = URL(string: urlString) else { throw APIError.invalidURL }
@@ -681,11 +681,11 @@ class ESPNAPIService {
             )
         }
 
-        // Extract teams from a conference node (flattening sub-divisions)
+        // Extract teams from a conference node, flattening sub-divisions (e.g. Sun Belt)
         func teamsFrom(_ conf: ConferencesAPIResponse.APIConference) -> [TransactionTeam] {
-            var teams = conf.standings.entries.map { toTeam($0.team) }
+            var teams = conf.standings?.entries.map { toTeam($0.team) } ?? []
             for sub in conf.children ?? [] {
-                teams += sub.standings.entries.map { toTeam($0.team) }
+                teams += sub.standings?.entries.map { toTeam($0.team) } ?? []
             }
             return teams.sorted { $0.displayName < $1.displayName }
         }
@@ -697,10 +697,14 @@ class ESPNAPIService {
                 guard !teams.isEmpty else { return nil }
                 return ConferenceGroup(id: conf.id ?? conf.name, name: conf.name, teams: teams)
             }
-            if !groups.isEmpty { return groups }
+            // Only return conference groups if we have a meaningful number of teams.
+            // Sports like NCAAH have conference structure but near-empty standings data —
+            // in that case return [] so the caller falls back to fetchTeamsForSport.
+            let totalTeams = groups.reduce(0) { $0 + $1.teams.count }
+            if totalTeams >= 20 { return groups }
         }
 
-        // No conference children — sport may have a flat standings list (e.g. NCAAWH)
+        // No usable conference data — caller will fall back to a flat team list.
         return []
     }
 
@@ -788,27 +792,48 @@ class ESPNAPIService {
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             throw APIError.invalidResponse
         }
-        let api = try JSONDecoder().decode(RosterAPIResponse.self, from: data)
 
-        let players: [RosterPlayer] = (api.athletes ?? []).flatMap { group in
-            group.items.map { athlete in
-                RosterPlayer(
-                    id: athlete.id,
-                    jerseyNumber: athlete.jersey ?? "–",
-                    displayName: athlete.displayName ?? "Unknown",
-                    positionAbbreviation: athlete.position?.abbreviation ?? "–",
-                    age: athlete.age.map { String($0) } ?? "–"
-                )
+        func coachNameFrom(_ coaches: [RosterAPIResponse.RosterCoach]?) -> String? {
+            coaches?.first.flatMap { c in
+                let name = [c.firstName, c.lastName].compactMap { $0 }.joined(separator: " ")
+                return name.isEmpty ? nil : name
             }
         }
 
-        let coachName: String? = api.coach?.first.flatMap { coach in
-            let parts = [coach.firstName, coach.lastName].compactMap { $0 }
-            let name = parts.joined(separator: " ")
-            return name.isEmpty ? nil : name
+        func makePlayer(id: String, displayName: String?, jersey: String?,
+                        positionAbbr: String?, age: Int?) -> RosterPlayer {
+            RosterPlayer(
+                id: id,
+                jerseyNumber: jersey ?? "–",
+                displayName: displayName ?? "Unknown",
+                positionAbbreviation: positionAbbr ?? "–",
+                age: age.map { String($0) } ?? "–"
+            )
         }
 
-        return (players, coachName)
+        // Try grouped format first (MLB, NFL, NHL, NBA)
+        if let api = try? JSONDecoder().decode(RosterAPIResponse.self, from: data) {
+            let grouped: [RosterPlayer] = (api.athletes ?? []).flatMap { group in
+                (group.items ?? []).map { a in
+                    makePlayer(id: a.id, displayName: a.displayName,
+                               jersey: a.jersey, positionAbbr: a.position?.abbreviation, age: a.age)
+                }
+            }
+            if !grouped.isEmpty {
+                return (grouped, coachNameFrom(api.coach))
+            }
+        }
+
+        // Fall back to flat format (college sports — athletes is a direct array of players)
+        if let flat = try? JSONDecoder().decode(FlatRosterAPIResponse.self, from: data) {
+            let players: [RosterPlayer] = (flat.athletes ?? []).map { a in
+                makePlayer(id: a.id, displayName: a.displayName,
+                           jersey: a.jersey, positionAbbr: a.position?.abbreviation, age: a.age)
+            }
+            return (players, coachNameFrom(flat.coach))
+        }
+
+        return ([], nil)
     }
 
     // MARK: - Team Hub: News (team-filtered, falls back to league)

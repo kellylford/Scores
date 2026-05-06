@@ -124,6 +124,9 @@ struct TeamInfoAPIResponse: Decodable {
 }
 
 // MARK: - Decodable API Response: Roster endpoint (/teams/{id}/roster)
+// ESPN returns two different shapes depending on sport:
+//   Grouped (MLB, NFL, NHL, NBA): athletes = [{position: "Pitchers", items: [players]}]
+//   Flat (college sports):        athletes = [players directly]
 
 struct RosterAPIResponse: Decodable {
     let athletes: [RosterPositionGroup]?
@@ -131,7 +134,7 @@ struct RosterAPIResponse: Decodable {
 
     struct RosterPositionGroup: Decodable {
         let position: String?
-        let items: [RosterAthlete]
+        let items: [RosterAthlete]?
     }
 
     struct RosterAthlete: Decodable {
@@ -154,5 +157,23 @@ struct RosterAPIResponse: Decodable {
     struct RosterCoach: Decodable {
         let firstName: String?
         let lastName: String?
+    }
+}
+
+/// Flat roster format used by college sports — athletes is a direct array of players.
+struct FlatRosterAPIResponse: Decodable {
+    let athletes: [FlatRosterAthlete]?
+    let coach: [RosterAPIResponse.RosterCoach]?
+
+    struct FlatRosterAthlete: Decodable {
+        let id: String
+        let displayName: String?
+        let jersey: String?
+        let age: Int?
+        let position: Position?
+
+        struct Position: Decodable {
+            let abbreviation: String?
+        }
     }
 }

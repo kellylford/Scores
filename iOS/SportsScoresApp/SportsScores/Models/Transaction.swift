@@ -87,7 +87,10 @@ struct ConferencesAPIResponse: Codable {
         let id: String?
         let name: String
         let children: [APIConference]?
-        let standings: APIStandings
+        // standings is absent for some conferences (e.g. Sun Belt which only has
+        // East/West sub-division children). Must be optional to avoid a decode error
+        // crashing the entire response.
+        let standings: APIStandings?
 
         struct APIStandings: Codable {
             let entries: [APIEntry]
