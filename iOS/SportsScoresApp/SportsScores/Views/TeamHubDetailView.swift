@@ -58,7 +58,7 @@ struct TeamHubDetailView: View {
             }
             .tag(TeamHubTab.news)
 
-            TeamScheduleTabView(viewModel: viewModel, sport: sport)
+            TeamScheduleTabView(viewModel: viewModel, team: team, sport: sport)
             .tabItem {
                 Label(TeamHubTab.schedule.rawValue, systemImage: TeamHubTab.schedule.systemImage)
             }

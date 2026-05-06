@@ -9,11 +9,19 @@ import SwiftUI
 
 struct TeamHubTeamPickerView: View {
     let sport: Sport
+    let conferenceName: String?
+    let preloadedTeams: [TransactionTeam]?
     @State private var teams: [TransactionTeam] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
 
     private let apiService = ESPNAPIService.shared
+
+    init(sport: Sport, conferenceName: String? = nil, preloadedTeams: [TransactionTeam]? = nil) {
+        self.sport = sport
+        self.conferenceName = conferenceName
+        self.preloadedTeams = preloadedTeams
+    }
 
     var body: some View {
         Group {
@@ -67,11 +75,15 @@ struct TeamHubTeamPickerView: View {
                 }
             }
         }
-        .navigationTitle(sport.displayName)
+        .navigationTitle(conferenceName ?? sport.displayName)
         .task { await loadTeams() }
     }
 
     private func loadTeams() async {
+        if let preloaded = preloadedTeams {
+            teams = preloaded
+            return
+        }
         isLoading = true
         errorMessage = nil
         do {

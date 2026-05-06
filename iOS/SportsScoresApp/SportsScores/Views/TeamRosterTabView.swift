@@ -11,11 +11,11 @@ struct TeamRosterTabView: View {
     @ObservedObject var viewModel: TeamHubViewModel
     @EnvironmentObject private var appSettings: AppSettings
 
-    private let headers = ["#", "Name", "Position", "Age"]
+    private let headers = ["Name", "#", "Position", "Age"]
 
     private var rows: [[String]] {
         viewModel.roster.map { player in
-            [player.jerseyNumber, player.displayName, player.positionAbbreviation, player.age]
+            [player.displayName, player.jerseyNumber, player.positionAbbreviation, player.age]
         }
     }
 

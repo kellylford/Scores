@@ -44,12 +44,12 @@ struct DataTableView: View {
     
     // MARK: - Table View
     private var tableView: some View {
-        ZStack(alignment: .topLeading) {
-            tableGrid
-                .accessibilityHidden(true)
-            AccessibleDataTable(headers: headers, rows: rows)
-                .allowsHitTesting(false)
-        }
+        tableGrid
+            .accessibilityHidden(true)
+            .overlay(
+                AccessibleDataTable(headers: headers, rows: rows)
+                    .allowsHitTesting(false)
+            )
     }
 
     private var tableGrid: some View {
@@ -100,7 +100,7 @@ struct DataTableView: View {
                         .cornerRadius(6)
                 }
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("Row \(index + 1): \(row.joined(separator: ", "))")
+                .accessibilityLabel(row.joined(separator: ", "))
             }
         }
         .padding(.horizontal)
@@ -112,7 +112,7 @@ struct DataTableView: View {
         VStack(alignment: .leading, spacing: 16) {
             ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Item \(index + 1)")
+                    Text(row.first ?? "")
                         .font(.headline)
                         .foregroundColor(.primary)
                     
@@ -135,7 +135,7 @@ struct DataTableView: View {
                 .background(Color.secondary.opacity(0.05))
                 .cornerRadius(8)
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel(createFullAccessibilityLabel(for: row, at: index))
+                .accessibilityLabel(createFullAccessibilityLabel(for: row))
             }
         }
         .padding(.horizontal)
@@ -143,14 +143,8 @@ struct DataTableView: View {
     }
     
     // MARK: - Accessibility Helpers
-    private func createAccessibilityLabel(for row: [String], at index: Int) -> String {
-        let pairs = zip(headers, row).map { "\($0): \($1)" }
-        return "Row \(index + 1). " + pairs.joined(separator: "; ")
-    }
-    
-    private func createFullAccessibilityLabel(for row: [String], at index: Int) -> String {
-        let pairs = zip(headers, row).map { "\($0): \($1)" }
-        return "Item \(index + 1). " + pairs.joined(separator: "; ")
+    private func createFullAccessibilityLabel(for row: [String]) -> String {
+        zip(headers, row).map { "\($0): \($1)" }.joined(separator: "; ")
     }
 }
 

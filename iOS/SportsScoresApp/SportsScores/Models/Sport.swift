@@ -128,6 +128,14 @@ enum Sport: String, CaseIterable, Identifiable {
         Sport.golfTours.contains(self)
     }
 
+    /// True for college sports — Team Hub shows a conference picker before the team list.
+    var isCollegeSport: Bool {
+        switch self {
+        case .ncaaf, .ncaam, .ncaawb, .ncaah, .ncaawh: return true
+        default: return false
+        }
+    }
+
     /// True for sports where the season year uses year+1 (NBA, WNBA, NHL and NCAA basketball/hockey).
     var usesNextYearFormat: Bool {
         switch self {

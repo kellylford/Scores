@@ -12,12 +12,14 @@ struct TransactionListView: View {
     @State private var showingDatePicker = false
     @State private var pickerMonth: Int
     @State private var pickerYear: Int
+    let hideTeamLabel: Bool
 
-    init(sport: Sport, team: TransactionTeam?) {
+    init(sport: Sport, team: TransactionTeam?, hideTeamLabel: Bool = false) {
         let vm = TransactionViewModel(sport: sport, team: team)
         _viewModel = StateObject(wrappedValue: vm)
         _pickerMonth = State(initialValue: vm.selectedMonth)
         _pickerYear  = State(initialValue: vm.selectedYear)
+        self.hideTeamLabel = hideTeamLabel
     }
 
     var body: some View {
@@ -170,23 +172,25 @@ struct TransactionListView: View {
     @ViewBuilder
     private func transactionRow(_ item: TransactionItem) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            // Team abbreviation badge
-            Text(item.team.abbreviation)
-                .font(.caption.weight(.bold))
-                .foregroundColor(.white)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 3)
-                .background(colorFromHex(item.team.color))
-                .cornerRadius(4)
-                .fixedSize()
+            // Team abbreviation badge — hidden when viewing a single team
+            if !hideTeamLabel {
+                Text(item.team.abbreviation)
+                    .font(.caption.weight(.bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 3)
+                    .background(colorFromHex(item.team.color))
+                    .cornerRadius(4)
+                    .fixedSize()
+            }
 
             Text(item.description)
                 .font(.body)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.vertical, 2)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(item.team.displayName): \(item.description)")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(hideTeamLabel ? item.description : "\(item.team.displayName): \(item.description)")
     }
 
     // MARK: - State views

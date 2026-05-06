@@ -12,7 +12,7 @@ struct TeamTransactionsTabView: View {
     let sport: Sport
 
     var body: some View {
-        TransactionListView(sport: sport, team: team)
+        TransactionListView(sport: sport, team: team, hideTeamLabel: true)
             .navigationTitle("Transactions")
             .navigationBarTitleDisplayMode(.inline)
     }

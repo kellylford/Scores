@@ -35,6 +35,14 @@ struct TeamHubNextGame {
     let isHome: Bool
 }
 
+// MARK: - Conference Group (used by TeamHubConferencePickerView)
+
+struct ConferenceGroup: Identifiable {
+    let id: String          // conference id from ESPN standings
+    let name: String
+    let teams: [TransactionTeam]
+}
+
 // MARK: - Roster Player (Roster tab display model)
 
 struct RosterPlayer: Identifiable {

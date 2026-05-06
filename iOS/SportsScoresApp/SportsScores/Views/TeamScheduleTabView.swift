@@ -10,7 +10,13 @@ import SwiftUI
 
 struct TeamScheduleTabView: View {
     @ObservedObject var viewModel: TeamHubViewModel
+    let team: TransactionTeam
     let sport: Sport
+
+    private var fullScheduleTeam: Game.Team {
+        Game.Team(id: team.id, name: team.name ?? team.displayName, abbreviation: team.abbreviation,
+                  displayName: team.displayName, score: nil, record: nil, logo: nil)
+    }
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -48,7 +54,9 @@ struct TeamScheduleTabView: View {
                         NavigationLink(destination: GameDetailView(game: game.toGame(), sport: sport)) {
                             gameRow(game: game)
                         }
+                        .accessibilityElement(children: .ignore)
                         .accessibilityLabel(gameAccessibilityLabel(game))
+                        .accessibilityHint("Opens game detail")
                     }
                 }
             }
@@ -57,6 +65,7 @@ struct TeamScheduleTabView: View {
                 Section("Upcoming") {
                     ForEach(upcoming) { game in
                         gameRow(game: game)
+                            .accessibilityElement(children: .ignore)
                             .accessibilityLabel(gameAccessibilityLabel(game))
                     }
                 }
@@ -66,6 +75,12 @@ struct TeamScheduleTabView: View {
                 Text("No recent or upcoming games")
                     .foregroundColor(.secondary)
                     .font(.subheadline)
+            }
+
+            Section {
+                NavigationLink(destination: TeamScheduleView(team: fullScheduleTeam, sport: sport)) {
+                    Label("View Full Schedule", systemImage: "calendar")
+                }
             }
         }
         .listStyle(.insetGrouped)

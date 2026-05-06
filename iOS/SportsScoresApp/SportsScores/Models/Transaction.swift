@@ -77,3 +77,39 @@ struct TeamsLeague: Codable {
 struct TeamsTeamWrapper: Codable {
     let team: TransactionTeam
 }
+
+// MARK: - Conferences (standings) API response — used by fetchConferencesWithTeams
+
+struct ConferencesAPIResponse: Codable {
+    let children: [APIConference]?
+
+    struct APIConference: Codable {
+        let id: String?
+        let name: String
+        let children: [APIConference]?
+        let standings: APIStandings
+
+        struct APIStandings: Codable {
+            let entries: [APIEntry]
+
+            struct APIEntry: Codable {
+                let team: APITeam
+
+                struct APITeam: Codable {
+                    let id: String
+                    let displayName: String
+                    let abbreviation: String
+                    let location: String?
+                    let name: String?
+                    let color: String?
+                    let logos: [APILogo]?
+
+                    struct APILogo: Codable {
+                        let href: String
+                        let rel: [String]?
+                    }
+                }
+            }
+        }
+    }
+}

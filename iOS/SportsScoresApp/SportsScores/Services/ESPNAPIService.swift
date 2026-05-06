@@ -652,6 +652,58 @@ class ESPNAPIService {
         return parsed.sports.first?.leagues.first?.teams.map(\.team) ?? []
     }
 
+    /// Fetches conferences with their member teams for college sports.
+    /// Uses the standings endpoint which groups teams by conference.
+    /// Returns an empty array if the sport has no conference structure (caller
+    /// should fall back to fetchTeamsForSport).
+    func fetchConferencesWithTeams(for sport: Sport) async throws -> [ConferenceGroup] {
+        let urlString = "\(standingsBaseURL)/\(sport.apiPath)/standings"
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+        let (data, response) = try await session.data(from: url)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw APIError.invalidResponse
+        }
+        let decoded = try JSONDecoder().decode(ConferencesAPIResponse.self, from: data)
+
+        // Build a helper to convert a raw entry's team into TransactionTeam
+        func toTeam(_ t: ConferencesAPIResponse.APIConference.APIStandings.APIEntry.APITeam) -> TransactionTeam {
+            let logos = t.logos?.map { logo in
+                TransactionTeamLogo(href: logo.href, width: nil, height: nil, rel: logo.rel)
+            }
+            return TransactionTeam(
+                id: t.id,
+                location: t.location,
+                name: t.name,
+                abbreviation: t.abbreviation,
+                displayName: t.displayName,
+                color: t.color,
+                logos: logos
+            )
+        }
+
+        // Extract teams from a conference node (flattening sub-divisions)
+        func teamsFrom(_ conf: ConferencesAPIResponse.APIConference) -> [TransactionTeam] {
+            var teams = conf.standings.entries.map { toTeam($0.team) }
+            for sub in conf.children ?? [] {
+                teams += sub.standings.entries.map { toTeam($0.team) }
+            }
+            return teams.sorted { $0.displayName < $1.displayName }
+        }
+
+        // Top-level conference children → one ConferenceGroup each
+        if let conferences = decoded.children, !conferences.isEmpty {
+            let groups = conferences.compactMap { conf -> ConferenceGroup? in
+                let teams = teamsFrom(conf)
+                guard !teams.isEmpty else { return nil }
+                return ConferenceGroup(id: conf.id ?? conf.name, name: conf.name, teams: teams)
+            }
+            if !groups.isEmpty { return groups }
+        }
+
+        // No conference children — sport may have a flat standings list (e.g. NCAAWH)
+        return []
+    }
+
     // MARK: - Team Hub: Team Info
 
     /// Fetches team detail (colors, record, venue, next game, standing summary).
