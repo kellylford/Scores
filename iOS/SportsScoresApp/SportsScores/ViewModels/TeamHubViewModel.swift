@@ -1,0 +1,122 @@
+//
+//  TeamHubViewModel.swift
+//  SportsScores
+//
+//  Manages data loading for all Team Hub tabs.
+//  Each tab lazily loads its data on first access.
+//
+
+import Foundation
+
+@MainActor
+class TeamHubViewModel: ObservableObject {
+    let teamId: String
+    let sport: Sport
+
+    // MARK: - Published state
+
+    @Published var teamInfo: TeamHubTeamInfo?
+    @Published var coachName: String?
+
+    @Published var roster: [RosterPlayer] = []
+    @Published var news: [NewsItem] = []
+    @Published var schedule: [ScheduleGame] = []
+
+    @Published var isLoadingInfo = false
+    @Published var isLoadingRoster = false
+    @Published var isLoadingNews = false
+    @Published var isLoadingSchedule = false
+
+    @Published var errorInfo: String?
+    @Published var errorRoster: String?
+    @Published var errorNews: String?
+    @Published var errorSchedule: String?
+
+    private let apiService = ESPNAPIService.shared
+
+    // MARK: - Init
+
+    init(teamId: String, sport: Sport) {
+        self.teamId = teamId
+        self.sport = sport
+    }
+
+    // MARK: - Load functions
+
+    /// Loads team info and concurrently starts loading the schedule
+    /// (needed for previous/next game in the Info tab).
+    func loadInfo() async {
+        guard teamInfo == nil, !isLoadingInfo else { return }
+        isLoadingInfo = true
+        errorInfo = nil
+        async let scheduleTask: Void = loadSchedule()
+        do {
+            teamInfo = try await apiService.fetchTeamHubInfo(teamId: teamId, sport: sport)
+        } catch {
+            errorInfo = "Could not load team info."
+        }
+        isLoadingInfo = false
+        await scheduleTask
+    }
+
+    func loadRoster() async {
+        guard roster.isEmpty, !isLoadingRoster else { return }
+        isLoadingRoster = true
+        errorRoster = nil
+        do {
+            let result = try await apiService.fetchTeamRoster(teamId: teamId, sport: sport)
+            roster = result.players
+            // Backfill coach name if not yet set
+            if coachName == nil { coachName = result.coachName }
+        } catch {
+            errorRoster = "Could not load roster."
+        }
+        isLoadingRoster = false
+    }
+
+    func loadNews() async {
+        guard news.isEmpty, !isLoadingNews else { return }
+        isLoadingNews = true
+        errorNews = nil
+        do {
+            news = try await apiService.fetchTeamNews(teamId: teamId, sport: sport, limit: 25)
+        } catch {
+            errorNews = "Could not load news."
+        }
+        isLoadingNews = false
+    }
+
+    func loadSchedule() async {
+        guard schedule.isEmpty, !isLoadingSchedule else { return }
+        isLoadingSchedule = true
+        errorSchedule = nil
+        do {
+            schedule = try await apiService.fetchTeamHubSchedule(teamId: teamId, sport: sport)
+        } catch {
+            errorSchedule = "Could not load schedule."
+        }
+        isLoadingSchedule = false
+    }
+
+    // MARK: - Derived schedule data
+
+    /// The most recently completed game.
+    var previousGame: ScheduleGame? {
+        schedule.filter { $0.isCompleted }.last
+    }
+
+    /// The next unplayed game.
+    var upcomingGame: ScheduleGame? {
+        schedule.first { !$0.isCompleted && !$0.isInProgress }
+    }
+
+    /// Last 5 completed games (for the Schedule tab "Recent" section).
+    var recentGames: [ScheduleGame] {
+        Array(schedule.filter { $0.isCompleted }.suffix(5))
+    }
+
+    /// Next 10 upcoming games (for the Schedule tab "Upcoming" section).
+    var upcomingGames: [ScheduleGame] {
+        Array(schedule.filter { !$0.isCompleted && !$0.isInProgress }.prefix(10))
+    }
+}

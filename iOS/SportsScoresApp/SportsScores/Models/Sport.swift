@@ -54,6 +54,9 @@ enum Sport: String, CaseIterable, Identifiable {
     /// All golf tour cases. Feed these to the Golf hub.
     static var golfTours: [Sport] { [.pga, .lpga] }
 
+    /// Sports available in Team Hub (main sports only — no soccer or golf).
+    static var teamHubSports: [Sport] { allCases }
+
     var displayName: String {
         switch self {
         case .mlb:              return "MLB Baseball"

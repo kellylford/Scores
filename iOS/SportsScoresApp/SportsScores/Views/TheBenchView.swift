@@ -13,6 +13,15 @@ struct TheBenchView: View {
         List {
             Section {
                 rowLink(
+                    title: "Team Hub",
+                    subtitle: "Explore any team — info, roster, news & more",
+                    icon: "person.3.fill",
+                    destination: TeamHubSportPickerView()
+                )
+            }
+
+            Section {
+                rowLink(
                     title: "NFL Draft",
                     subtitle: "Pick-by-pick results & history",
                     icon: "person.3.sequence.fill",

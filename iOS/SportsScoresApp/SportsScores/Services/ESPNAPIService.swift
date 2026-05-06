@@ -651,4 +651,188 @@ class ESPNAPIService {
         let parsed = try JSONDecoder().decode(TeamsAPIResponse.self, from: data)
         return parsed.sports.first?.leagues.first?.teams.map(\.team) ?? []
     }
+
+    // MARK: - Team Hub: Team Info
+
+    /// Fetches team detail (colors, record, venue, next game, standing summary).
+    func fetchTeamHubInfo(teamId: String, sport: Sport) async throws -> TeamHubTeamInfo {
+        let urlString = "\(baseURL)/\(sport.apiPath)/teams/\(teamId)"
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+        let (data, response) = try await session.data(from: url)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw APIError.invalidResponse
+        }
+        let api = try JSONDecoder().decode(TeamInfoAPIResponse.self, from: data)
+        let t = api.team
+
+        // Primary logo: prefer rel "default", fall back to first
+        let logoURL: URL? = t.logos?
+            .first(where: { $0.rel?.contains("default") == true })
+            .flatMap { URL(string: $0.href) }
+            ?? t.logos?.first.flatMap { URL(string: $0.href) }
+
+        // Record items
+        let items = t.record?.items ?? []
+        func recordSummary(matching description: String) -> String? {
+            items.first(where: { $0.description?.lowercased().contains(description) == true })?.summary
+        }
+        let overallRecord = recordSummary(matching: "overall")
+        let homeRecord = recordSummary(matching: "home")
+        let awayRecord = recordSummary(matching: "away") ?? recordSummary(matching: "road")
+
+        // Venue from franchise
+        let venue = t.franchise?.venue
+        let venueName = venue?.fullName
+        let venueCity = venue?.address?.city
+
+        // Next game from nextEvent[0]
+        var nextGame: TeamHubNextGame?
+        if let ev = t.nextEvent?.first,
+           let comp = ev.competitions?.first {
+            // Identify which competitor is the opponent (not our team)
+            let opponent = comp.competitors?.first(where: { $0.team?.id != teamId })
+            let isHome = comp.competitors?.first(where: { $0.team?.id == teamId })?.homeAway == "home"
+            if let opp = opponent?.team {
+                let parsedDate = parseESPNDate(ev.date)
+                if let parsedDate = parsedDate {
+                    nextGame = TeamHubNextGame(
+                        gameId: ev.id,
+                        date: parsedDate,
+                        opponentDisplayName: opp.displayName ?? opp.abbreviation ?? "Opponent",
+                        opponentAbbreviation: opp.abbreviation ?? "?",
+                        isHome: isHome
+                    )
+                }
+            }
+        }
+
+        return TeamHubTeamInfo(
+            teamId: t.id,
+            displayName: t.displayName,
+            abbreviation: t.abbreviation,
+            location: t.location ?? t.displayName,
+            color: t.color,
+            alternateColor: t.alternateColor,
+            primaryLogoURL: logoURL,
+            overallRecord: overallRecord,
+            homeRecord: homeRecord,
+            awayRecord: awayRecord,
+            standingSummary: t.standingSummary,
+            venueName: venueName,
+            venueCity: venueCity,
+            coachName: nil,  // populated by fetchTeamRoster
+            nextGame: nextGame
+        )
+    }
+
+    // MARK: - Team Hub: Roster
+
+    /// Fetches the current roster for a team, flattening position groups.
+    /// Also returns the head coach name (first coach in the response).
+    func fetchTeamRoster(teamId: String, sport: Sport) async throws -> (players: [RosterPlayer], coachName: String?) {
+        let urlString = "\(baseURL)/\(sport.apiPath)/teams/\(teamId)/roster"
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+        let (data, response) = try await session.data(from: url)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw APIError.invalidResponse
+        }
+        let api = try JSONDecoder().decode(RosterAPIResponse.self, from: data)
+
+        let players: [RosterPlayer] = (api.athletes ?? []).flatMap { group in
+            group.items.map { athlete in
+                RosterPlayer(
+                    id: athlete.id,
+                    jerseyNumber: athlete.jersey ?? "–",
+                    displayName: athlete.displayName ?? "Unknown",
+                    positionAbbreviation: athlete.position?.abbreviation ?? "–",
+                    age: athlete.age.map { String($0) } ?? "–"
+                )
+            }
+        }
+
+        let coachName: String? = api.coach?.first.flatMap { coach in
+            let parts = [coach.firstName, coach.lastName].compactMap { $0 }
+            let name = parts.joined(separator: " ")
+            return name.isEmpty ? nil : name
+        }
+
+        return (players, coachName)
+    }
+
+    // MARK: - Team Hub: News (team-filtered, falls back to league)
+
+    /// Fetches news filtered to a specific team; falls back to league news if none returned.
+    func fetchTeamNews(teamId: String, sport: Sport, limit: Int = 25) async throws -> [NewsItem] {
+        let urlString = "\(baseURL)/\(sport.apiPath)/news?team=\(teamId)&limit=\(limit)"
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+        let (data, response) = try await session.data(from: url)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw APIError.invalidResponse
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let apiResponse = try decoder.decode(NewsAPIResponse.self, from: data)
+        let articles = apiResponse.articles.map { NewsItem(from: $0) }
+        if !articles.isEmpty { return articles }
+        // Fall back to league-wide news
+        return try await fetchNews(for: sport, limit: limit)
+    }
+
+    // MARK: - Team Hub: Schedule (current season, for Info + Schedule tabs)
+
+    /// Fetches the current season schedule for a team. Returns games sorted by date.
+    func fetchTeamHubSchedule(teamId: String, sport: Sport) async throws -> [ScheduleGame] {
+        // Compute current season year (mirrors TeamScheduleViewModel.defaultSeasonYear)
+        let cal = Calendar.current
+        let now = Date()
+        let year = cal.component(.year, from: now)
+        let month = cal.component(.month, from: now)
+        let season: Int
+        if sport.usesNextYearFormat {
+            season = month >= 10 ? year + 1 : year
+        } else if sport.isFootball && month < 8 {
+            season = year - 1
+        } else {
+            season = year
+        }
+        let seasonTypes: [Int]
+        if sport == .mlb {
+            seasonTypes = [1, 2, 3]
+        } else if sport.isFootball {
+            seasonTypes = [1, 2, 3]
+        } else {
+            seasonTypes = [2, 3]
+        }
+        var allGames: [ScheduleGame] = []
+        await withTaskGroup(of: [ScheduleGame].self) { group in
+            for st in seasonTypes {
+                group.addTask { [self] in
+                    (try? await self.fetchTeamSchedule(
+                        teamId: teamId,
+                        sport: sport,
+                        season: season,
+                        seasonType: st
+                    )) ?? []
+                }
+            }
+            for await result in group {
+                allGames.append(contentsOf: result)
+            }
+        }
+        return allGames.sorted { $0.date < $1.date }
+    }
+
+    // MARK: - Multi-format date parser
+
+    private func parseESPNDate(_ string: String) -> Date? {
+        // Try full ISO8601 with seconds first, then without
+        let formatsToTry = ["yyyy-MM-dd'T'HH:mmZ", "yyyy-MM-dd'T'HH:mm:ssZ"]
+        let fmt = DateFormatter()
+        fmt.locale = Locale(identifier: "en_US_POSIX")
+        for format in formatsToTry {
+            fmt.dateFormat = format
+            if let d = fmt.date(from: string) { return d }
+        }
+        return ISO8601DateFormatter().date(from: string)
+    }
 }
