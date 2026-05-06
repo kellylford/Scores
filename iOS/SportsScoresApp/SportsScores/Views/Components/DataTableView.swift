@@ -44,6 +44,15 @@ struct DataTableView: View {
     
     // MARK: - Table View
     private var tableView: some View {
+        ZStack(alignment: .topLeading) {
+            tableGrid
+                .accessibilityHidden(true)
+            AccessibleDataTable(headers: headers, rows: rows)
+                .allowsHitTesting(false)
+        }
+    }
+
+    private var tableGrid: some View {
         VStack(spacing: 0) {
             // Header Row
             HStack(spacing: 0) {
@@ -56,8 +65,6 @@ struct DataTableView: View {
                         .background(Color.secondary.opacity(0.2))
                 }
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Table headers: \(headers.joined(separator: ", "))")
             
             Divider()
             
@@ -70,12 +77,8 @@ struct DataTableView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
                             .background(index % 2 == 0 ? Color.clear : Color.secondary.opacity(0.05))
-                            .accessibilityLabel("\(headers[colIndex]): \(value)")
                     }
                 }
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel(createAccessibilityLabel(for: row, at: index))
-                
                 if index < rows.count - 1 {
                     Divider()
                 }

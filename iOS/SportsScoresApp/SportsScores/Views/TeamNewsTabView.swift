@@ -28,8 +28,6 @@ struct TeamNewsTabView: View {
                 .listStyle(.plain)
             }
         }
-        .navigationTitle("News")
-        .navigationBarTitleDisplayMode(.inline)
         .task { await viewModel.loadNews() }
         .refreshable { await viewModel.loadNews() }
     }

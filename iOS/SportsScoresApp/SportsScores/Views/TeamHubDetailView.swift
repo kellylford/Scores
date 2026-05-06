@@ -40,41 +40,31 @@ struct TeamHubDetailView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            NavigationStack {
-                TeamInfoTabView(viewModel: viewModel, team: team, sport: sport)
-            }
+            TeamInfoTabView(viewModel: viewModel, team: team, sport: sport)
             .tabItem {
                 Label(TeamHubTab.info.rawValue, systemImage: TeamHubTab.info.systemImage)
             }
             .tag(TeamHubTab.info)
 
-            NavigationStack {
-                TeamRosterTabView(viewModel: viewModel)
-            }
+            TeamRosterTabView(viewModel: viewModel)
             .tabItem {
                 Label(TeamHubTab.roster.rawValue, systemImage: TeamHubTab.roster.systemImage)
             }
             .tag(TeamHubTab.roster)
 
-            NavigationStack {
-                TeamNewsTabView(viewModel: viewModel)
-            }
+            TeamNewsTabView(viewModel: viewModel)
             .tabItem {
                 Label(TeamHubTab.news.rawValue, systemImage: TeamHubTab.news.systemImage)
             }
             .tag(TeamHubTab.news)
 
-            NavigationStack {
-                TeamScheduleTabView(viewModel: viewModel, sport: sport)
-            }
+            TeamScheduleTabView(viewModel: viewModel, sport: sport)
             .tabItem {
                 Label(TeamHubTab.schedule.rawValue, systemImage: TeamHubTab.schedule.systemImage)
             }
             .tag(TeamHubTab.schedule)
 
-            NavigationStack {
-                TeamTransactionsTabView(team: team, sport: sport)
-            }
+            TeamTransactionsTabView(team: team, sport: sport)
             .tabItem {
                 Label(TeamHubTab.transactions.rawValue, systemImage: TeamHubTab.transactions.systemImage)
             }

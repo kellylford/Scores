@@ -32,8 +32,6 @@ struct TeamScheduleTabView: View {
                 scheduleList
             }
         }
-        .navigationTitle("Schedule")
-        .navigationBarTitleDisplayMode(.inline)
         .task { await viewModel.loadSchedule() }
     }
 

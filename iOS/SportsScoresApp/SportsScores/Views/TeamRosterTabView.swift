@@ -33,8 +33,6 @@ struct TeamRosterTabView: View {
                     .environmentObject(appSettings)
             }
         }
-        .navigationTitle("Roster")
-        .navigationBarTitleDisplayMode(.inline)
         .task { await viewModel.loadRoster() }
     }
 

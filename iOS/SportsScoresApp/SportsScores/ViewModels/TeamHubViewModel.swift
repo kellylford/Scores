@@ -105,9 +105,10 @@ class TeamHubViewModel: ObservableObject {
         schedule.filter { $0.isCompleted }.last
     }
 
-    /// The next unplayed game.
+    /// The next unplayed game (date must be in the future to skip postponed/old games).
     var upcomingGame: ScheduleGame? {
-        schedule.first { !$0.isCompleted && !$0.isInProgress }
+        let now = Date()
+        return schedule.first { !$0.isCompleted && !$0.isInProgress && $0.date > now }
     }
 
     /// Last 5 completed games (for the Schedule tab "Recent" section).
@@ -117,6 +118,7 @@ class TeamHubViewModel: ObservableObject {
 
     /// Next 10 upcoming games (for the Schedule tab "Upcoming" section).
     var upcomingGames: [ScheduleGame] {
-        Array(schedule.filter { !$0.isCompleted && !$0.isInProgress }.prefix(10))
+        let now = Date()
+        return Array(schedule.filter { !$0.isCompleted && !$0.isInProgress && $0.date > now }.prefix(10))
     }
 }

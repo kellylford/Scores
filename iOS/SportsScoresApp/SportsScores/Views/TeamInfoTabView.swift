@@ -30,8 +30,6 @@ struct TeamInfoTabView: View {
                 content
             }
         }
-        .navigationTitle("Info")
-        .navigationBarTitleDisplayMode(.inline)
     }
 
     // MARK: - Main content
@@ -114,9 +112,9 @@ struct TeamInfoTabView: View {
 
             HStack(spacing: 0) {
                 recordCell(label: "Overall", value: info.overallRecord ?? "–")
-                Divider().frame(height: 44)
+                Divider().frame(height: 44).accessibilityHidden(true)
                 recordCell(label: "Home", value: info.homeRecord ?? "–")
-                Divider().frame(height: 44)
+                Divider().frame(height: 44).accessibilityHidden(true)
                 recordCell(label: "Away", value: info.awayRecord ?? "–")
             }
             .background(Color.secondary.opacity(0.05))
@@ -310,6 +308,7 @@ struct TeamInfoTabView: View {
             .fontWeight(.semibold)
             .foregroundColor(.secondary)
             .padding(.top, 4)
+            .accessibilityAddTraits(.isHeader)
     }
 
     private func infoRow(icon: String, label: String, value: String) -> some View {

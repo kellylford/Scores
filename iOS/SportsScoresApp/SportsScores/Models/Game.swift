@@ -86,7 +86,7 @@ struct Game: Identifiable, Codable {
         let period: Int?
         let clock: String?
         /// ESPN status identifier, e.g. "STATUS_FINAL", "STATUS_POSTPONED", "STATUS_CANCELED".
-        let name: String?
+let    name: String?
         
         var displayText: String {
             if state == "in",
