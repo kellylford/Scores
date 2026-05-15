@@ -33,8 +33,10 @@ class TeamScheduleViewModel: ObservableObject {
     /// MLB spring training runs Feb–March; during that window request the
     /// current year (spring data) rather than last year's completed season.
     /// For sports where ESPN uses year+1 (NBA, WNBA) adjust accordingly.
-    /// Football seasons (NFL, NCAAF) start in Aug/Sep and end in Jan/Feb of
-    /// the following year — so Jan–Jul still belong to the prior season year.
+    /// Football seasons (NFL, NCAAF) run Aug/Sep through the Super Bowl/bowls
+    /// in Jan/Feb. Only Jan–Feb still belong to the prior season year;
+    /// from March onward we default to the upcoming season (schedule is
+    /// typically released in spring).
     static func defaultSeasonYear(for sport: Sport) -> Int {
         let cal = Calendar.current
         let now = Date()
@@ -46,9 +48,9 @@ class TeamScheduleViewModel: ObservableObject {
             return month >= 10 ? year + 1 : year
         }
 
-        // Football seasons start in Aug/Sep and run into Jan/Feb of the next
-        // calendar year. During Jan–Jul we're still in last year's season.
-        if sport.isFootball && month < 8 {
+        // Football seasons end with the Super Bowl/bowls in January–February.
+        // Only those two months still belong to the prior season year.
+        if sport.isFootball && month < 3 {
             return year - 1
         }
 

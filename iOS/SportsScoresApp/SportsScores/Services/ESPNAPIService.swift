@@ -867,7 +867,7 @@ class ESPNAPIService {
         let season: Int
         if sport.usesNextYearFormat {
             season = month >= 10 ? year + 1 : year
-        } else if sport.isFootball && month < 8 {
+        } else if sport.isFootball && month < 3 {
             season = year - 1
         } else {
             season = year
