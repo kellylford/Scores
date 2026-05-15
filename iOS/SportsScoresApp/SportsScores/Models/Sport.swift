@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum Sport: String, CaseIterable, Identifiable {
+enum Sport: String, CaseIterable, Identifiable, Codable {
     // ── Main sports (appear on the home page) ─────────────────────────────
     case mlb    = "MLB"
     case nfl    = "NFL"

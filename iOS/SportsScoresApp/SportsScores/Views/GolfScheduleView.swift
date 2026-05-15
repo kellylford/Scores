@@ -14,7 +14,7 @@ struct GolfScheduleView: View {
     let calendar: [GolfCalendarEntry]
     let selectedIndex: Int?
     let onSelect: (Int) -> Void
-    @State private var viewMode: ViewMode = .table
+    @State private var viewMode: ViewMode = .quickList
 
     private var groupedByMonth: [(String, [(Int, GolfCalendarEntry)])] {
         let fmt = DateFormatter()

@@ -12,7 +12,7 @@ import SwiftUI
 struct DataTableView: View {
     let headers: [String]
     let rows: [[String]]
-    @State private var viewMode: ViewMode = .table
+    @State private var viewMode: ViewMode = .quickList
     @State private var viewModeInitialized = false
     @EnvironmentObject private var appSettings: AppSettings
     
@@ -152,7 +152,7 @@ struct DataTableView: View {
 struct StandingsTableView: View {
     let standingsGroups: [StandingsGroup]
     let sport: Sport
-    @State private var viewMode: ViewMode = .table
+    @State private var viewMode: ViewMode = .quickList
     @State private var viewModeInitialized = false
     @State private var showExpanded = false
     @EnvironmentObject private var appSettings: AppSettings

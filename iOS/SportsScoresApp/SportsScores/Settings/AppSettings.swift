@@ -21,6 +21,7 @@ private enum StorageKeys {
     static let soccerHubEnabled = "soccerHubEnabled"
     static let golfHubEnabled = "golfHubEnabled"
     static let defaultTableViewMode = "defaultTableViewMode"
+    static let favoriteTeams = "favoriteTeams"
 }
 
 @MainActor
@@ -95,6 +96,38 @@ final class AppSettings: ObservableObject {
         }
     }
 
+    // MARK: - Favorite Teams
+
+    /// Teams the user has bookmarked in Team Hub.
+    @Published var favoriteTeams: [FavoriteTeam] {
+        didSet {
+            if let data = try? JSONEncoder().encode(favoriteTeams) {
+                UserDefaults.standard.set(data, forKey: StorageKeys.favoriteTeams)
+            }
+        }
+    }
+
+    func isFavorite(teamId: String, sport: Sport) -> Bool {
+        favoriteTeams.contains { $0.id == teamId && $0.sport == sport }
+    }
+
+    func addFavorite(_ team: TransactionTeam, sport: Sport) {
+        guard !isFavorite(teamId: team.id, sport: sport) else { return }
+        let fav = FavoriteTeam(
+            id: team.id,
+            sport: sport,
+            displayName: team.displayName,
+            abbreviation: team.abbreviation,
+            color: team.color,
+            logoURLString: team.primaryLogoURL?.absoluteString
+        )
+        favoriteTeams.append(fav)
+    }
+
+    func removeFavorite(teamId: String, sport: Sport) {
+        favoriteTeams.removeAll { $0.id == teamId && $0.sport == sport }
+    }
+
     // MARK: - Auto-Refresh Interval
 
     /// Shared refresh cadence used by both ScoresView and LiveScoresView.
@@ -156,6 +189,14 @@ final class AppSettings: ObservableObject {
             golfHubEnabled = true
         } else {
             golfHubEnabled = UserDefaults.standard.bool(forKey: StorageKeys.golfHubEnabled)
+        }
+
+        // Favorite teams
+        if let data = UserDefaults.standard.data(forKey: StorageKeys.favoriteTeams),
+           let decoded = try? JSONDecoder().decode([FavoriteTeam].self, from: data) {
+            favoriteTeams = decoded
+        } else {
+            favoriteTeams = []
         }
     }
 }

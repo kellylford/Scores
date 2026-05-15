@@ -40,7 +40,7 @@ struct BoxScoreView: View {
     let sport: Sport
     @State private var showingAllStats = false
     @State private var selectedPage: BoxScorePage?
-    @State private var viewMode: ViewMode = .table
+    @State private var viewMode: ViewMode = .quickList
 
     // MARK: - Page List
 

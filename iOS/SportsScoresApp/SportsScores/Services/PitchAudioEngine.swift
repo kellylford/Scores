@@ -16,6 +16,7 @@
 //
 
 import AVFoundation
+import AudioToolbox
 import Foundation
 
 @MainActor

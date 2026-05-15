@@ -10,7 +10,7 @@ import SwiftUI
 
 struct SoccerLiveView: View {
     @StateObject private var viewModel = SoccerLiveViewModel()
-    @State private var viewMode: ViewMode = .table
+    @State private var viewMode: ViewMode = .quickList
     @EnvironmentObject private var appSettings: AppSettings
 
     var body: some View {

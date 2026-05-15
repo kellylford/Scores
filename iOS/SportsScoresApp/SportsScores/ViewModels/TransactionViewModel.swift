@@ -138,7 +138,7 @@ class TransactionViewModel: ObservableObject {
         let df = DateFormatter()
         df.dateFormat = "MMMM yyyy"
         df.locale = Locale(identifier: "en_US_POSIX")
-        var comps = DateComponents(year: selectedYear, month: selectedMonth, day: 1)
+        let comps = DateComponents(year: selectedYear, month: selectedMonth, day: 1)
         if let date = Calendar.current.date(from: comps) {
             return df.string(from: date)
         }
@@ -156,7 +156,7 @@ class TransactionViewModel: ObservableObject {
         let comps = DateComponents(year: year, month: month, day: 1)
         let firstDay = cal.date(from: comps) ?? Date()
         let daysInMonth = cal.range(of: .day, in: .month, for: firstDay)?.count ?? 30
-        var lastComps = DateComponents(year: year, month: month, day: daysInMonth)
+        let lastComps = DateComponents(year: year, month: month, day: daysInMonth)
         let lastDay = cal.date(from: lastComps) ?? Date()
 
         let fmt = DateFormatter()

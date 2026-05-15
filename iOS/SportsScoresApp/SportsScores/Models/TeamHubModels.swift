@@ -35,6 +35,28 @@ struct TeamHubNextGame {
     let isHome: Bool
 }
 
+// MARK: - Favorite Team (persisted team bookmark)
+
+struct FavoriteTeam: Codable, Identifiable, Equatable {
+    let id: String            // team.id — canonical ESPN team identifier
+    let sport: Sport          // needed to call the correct API endpoints
+    let displayName: String
+    let abbreviation: String
+    let color: String?        // hex without "#", e.g. "132448"
+    let logoURLString: String?
+
+    var logoURL: URL? { logoURLString.flatMap { URL(string: $0) } }
+
+    /// Reconstructs a TransactionTeam so favorites can push into TeamHubDetailView.
+    var asTransactionTeam: TransactionTeam {
+        TransactionTeam(
+            id: id, location: nil, name: nil,
+            abbreviation: abbreviation, displayName: displayName,
+            color: color, logos: nil
+        )
+    }
+}
+
 // MARK: - Conference Group (used by TeamHubConferencePickerView)
 
 struct ConferenceGroup: Identifiable {

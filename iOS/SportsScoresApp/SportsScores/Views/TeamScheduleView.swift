@@ -11,7 +11,7 @@ struct TeamScheduleView: View {
     let team: Game.Team
     let sport: Sport
     @StateObject private var viewModel: TeamScheduleViewModel
-    @State private var viewMode: ViewMode = .table
+    @State private var viewMode: ViewMode = .quickList
 
     init(team: Game.Team, sport: Sport) {
         self.team = team

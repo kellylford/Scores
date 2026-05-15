@@ -36,7 +36,7 @@ private class GolfLiveViewModel: ObservableObject {
 struct LiveScoresView: View {
     @StateObject private var viewModel = LiveScoresViewModel()
     @StateObject private var golfVM   = GolfLiveViewModel()
-    @State private var viewMode: ViewMode = .table
+    @State private var viewMode: ViewMode = .quickList
     @EnvironmentObject private var appSettings: AppSettings
 
     var body: some View {

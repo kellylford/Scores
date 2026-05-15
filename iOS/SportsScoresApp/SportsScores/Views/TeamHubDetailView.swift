@@ -31,11 +31,16 @@ struct TeamHubDetailView: View {
 
     @StateObject private var viewModel: TeamHubViewModel
     @State private var selectedTab: TeamHubTab = .info
+    @EnvironmentObject private var appSettings: AppSettings
 
     init(team: TransactionTeam, sport: Sport) {
         self.team = team
         self.sport = sport
         _viewModel = StateObject(wrappedValue: TeamHubViewModel(teamId: team.id, sport: sport))
+    }
+
+    private var isFavorite: Bool {
+        appSettings.isFavorite(teamId: team.id, sport: sport)
     }
 
     var body: some View {
@@ -72,7 +77,22 @@ struct TeamHubDetailView: View {
         }
         .navigationTitle(team.displayName)
         .navigationBarTitleDisplayMode(.inline)
-        .onChange(of: selectedTab) { tab in
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    if isFavorite {
+                        appSettings.removeFavorite(teamId: team.id, sport: sport)
+                    } else {
+                        appSettings.addFavorite(team, sport: sport)
+                    }
+                } label: {
+                    Image(systemName: isFavorite ? "star.fill" : "star")
+                        .foregroundColor(.accentColor)
+                }
+                .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
+            }
+        }
+        .onChange(of: selectedTab) { _, tab in
             Task { await loadTabIfNeeded(tab) }
         }
         .task { await viewModel.loadInfo() }

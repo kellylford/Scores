@@ -11,7 +11,7 @@ import SwiftUI
 struct PollsView: View {
     let sport: Sport
     @StateObject private var viewModel = PollsViewModel()
-    @State private var viewMode: ViewMode = .table
+    @State private var viewMode: ViewMode = .quickList
 
     var body: some View {
         Group {

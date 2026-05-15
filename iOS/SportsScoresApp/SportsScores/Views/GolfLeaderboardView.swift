@@ -17,7 +17,7 @@ import SwiftUI
 struct GolfLeaderboardView: View {
 
     let tournament: GolfTournament
-    @State private var viewMode: ViewMode = .table
+    @State private var viewMode: ViewMode = .quickList
 
     // MARK: - Column definitions
 

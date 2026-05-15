@@ -14,6 +14,7 @@ struct TeamHubTeamPickerView: View {
     @State private var teams: [TransactionTeam] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @EnvironmentObject private var appSettings: AppSettings
 
     private let apiService = ESPNAPIService.shared
 
@@ -72,6 +73,13 @@ struct TeamHubTeamPickerView: View {
                         .padding(.vertical, 2)
                     }
                     .accessibilityLabel(team.displayName)
+                    .accessibilityAction(named: appSettings.isFavorite(teamId: team.id, sport: sport) ? "Remove from Favorites" : "Add to Favorites") {
+                        if appSettings.isFavorite(teamId: team.id, sport: sport) {
+                            appSettings.removeFavorite(teamId: team.id, sport: sport)
+                        } else {
+                            appSettings.addFavorite(team, sport: sport)
+                        }
+                    }
                 }
             }
         }
@@ -98,4 +106,5 @@ struct TeamHubTeamPickerView: View {
 
 #Preview {
     NavigationStack { TeamHubTeamPickerView(sport: .mlb) }
+        .environmentObject(AppSettings())
 }
