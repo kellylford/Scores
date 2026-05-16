@@ -14,6 +14,9 @@ final class FavoritesHubViewModel: ObservableObject {
     @Published var teamInfoMap: [String: TeamHubTeamInfo] = [:]  // keyed by teamId
     @Published var newsMap: [String: [NewsItem]] = [:]           // keyed by teamId, up to 2 items
     @Published var scheduleMap: [String: [ScheduleGame]] = [:]   // keyed by teamId
+    /// Live game details for any in-progress game — scores come from the ESPN summary
+    /// endpoint which always reflects the current state, unlike the schedule endpoint.
+    @Published var liveDetailsMap: [String: GameDetails] = [:]   // keyed by teamId
     @Published var isLoading = false
 
     private let apiService = ESPNAPIService.shared
@@ -23,6 +26,7 @@ final class FavoritesHubViewModel: ObservableObject {
             teamInfoMap = [:]
             newsMap = [:]
             scheduleMap = [:]
+            liveDetailsMap = [:]
             return
         }
         isLoading = true
@@ -41,7 +45,15 @@ final class FavoritesHubViewModel: ObservableObject {
         let (info, news, sched) = await (infoFetch, newsFetch, scheduleFetch)
         if let info { teamInfoMap[fav.id] = info }
         if let news { newsMap[fav.id] = news }
-        if let sched { scheduleMap[fav.id] = sched }
+        if let sched {
+            scheduleMap[fav.id] = sched
+            // If a game is currently in progress, fetch its summary so we have live scores.
+            // The schedule endpoint returns nil scores for live games.
+            if let liveGame = sched.first(where: { $0.isInProgress }),
+               let details = try? await apiService.fetchGameDetails(for: liveGame.id, sport: fav.sport) {
+                liveDetailsMap[fav.id] = details
+            }
+        }
     }
 
     private func fetchInfo(_ fav: FavoriteTeam) async -> TeamHubTeamInfo? {

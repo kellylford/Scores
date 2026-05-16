@@ -17,6 +17,9 @@ struct FavoriteTeamCardView: View {
     let favorite: FavoriteTeam
     let schedule: [ScheduleGame]
     let news: [NewsItem]          // up to 2 items
+    /// Header data from the ESPN summary endpoint for any live game.
+    /// Scores here are always current; schedule-based scores can be nil/stale.
+    let liveGameHeader: GameDetails.GameHeader?
 
     @State private var showArticle1 = false
     @State private var showArticle2 = false
@@ -48,17 +51,29 @@ struct FavoriteTeamCardView: View {
     private func gameLabel(for game: ScheduleGame, prefix: String) -> String {
         let isHome = game.homeTeam.id == favorite.id
         let opp = isHome ? game.awayTeam : game.homeTeam
-        let myScore = isHome ? game.homeTeam.score : game.awayTeam.score
-        let oppScore = isHome ? game.awayTeam.score : game.homeTeam.score
         let loc = isHome ? "vs" : "@"
         if game.isInProgress {
-            // Schedule data can have nil/stale scores for live games; only show
-            // the score if both sides are present so we never display a false 0-0.
+            // Prefer live scores from the summary header (always current).
+            // Fall back to schedule scores only if the header isn't loaded yet.
+            let myScore: Int?
+            let oppScore: Int?
+            if let header = liveGameHeader,
+               let comp = header.competitions.first {
+                let mySide = comp.competitors.first(where: { ($0.homeAway == "home") == isHome })
+                let oppSide = comp.competitors.first(where: { ($0.homeAway == "home") != isHome })
+                myScore = mySide?.score
+                oppScore = oppSide?.score
+            } else {
+                myScore = isHome ? game.homeTeam.score : game.awayTeam.score
+                oppScore = isHome ? game.awayTeam.score : game.homeTeam.score
+            }
             if let my = myScore, let op = oppScore {
                 return "\(prefix): \(loc) \(opp.abbreviation) \(my)-\(op)"
             }
             return "\(prefix): \(loc) \(opp.abbreviation)"
         }
+        let myScore = isHome ? game.homeTeam.score : game.awayTeam.score
+        let oppScore = isHome ? game.awayTeam.score : game.homeTeam.score
         if game.isCompleted {
             let my = myScore ?? 0
             let op = oppScore ?? 0

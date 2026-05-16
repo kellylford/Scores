@@ -26,7 +26,8 @@ struct TeamHubSportPickerView: View {
                         FavoriteTeamCardView(
                             favorite: fav,
                             schedule: favoritesVM.scheduleMap[fav.id] ?? [],
-                            news: favoritesVM.newsMap[fav.id] ?? []
+                            news: favoritesVM.newsMap[fav.id] ?? [],
+                            liveGameHeader: favoritesVM.liveDetailsMap[fav.id]?.header
                         )
                     }
                 }
