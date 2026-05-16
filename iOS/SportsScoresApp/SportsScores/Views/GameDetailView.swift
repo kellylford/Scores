@@ -205,10 +205,19 @@ struct GameDetailView: View {
     }
 
     private func teamColumn(_ team: Game.Team, isHome: Bool) -> some View {
-        NavigationLink(destination: TeamScheduleView(team: team, sport: sport)) {
+        // Prefer the live score from the summary header; fall back to the game object.
+        // The game object may have nil/stale scores when navigated from schedule data.
+        let displayScore: Int? = {
+            if let comp = viewModel.gameDetails?.header?.competitions.first,
+               let competitor = comp.competitors.first(where: { ($0.homeAway == "home") == isHome }) {
+                return competitor.score
+            }
+            return team.score
+        }()
+        return NavigationLink(destination: TeamScheduleView(team: team, sport: sport)) {
             VStack {
                 Text(team.abbreviation).font(.title2).fontWeight(.bold)
-                if let score = team.score {
+                if let score = displayScore {
                     Text("\(score)")
                         .font(.system(size: 48, weight: .bold, design: .rounded))
                         .monospacedDigit()
@@ -219,13 +228,13 @@ struct GameDetailView: View {
             }
             .foregroundColor(.primary)
         }
-        .accessibilityLabel(teamAccessibilityLabel(team, isHome: isHome))
+        .accessibilityLabel(teamAccessibilityLabel(team, isHome: isHome, score: displayScore))
         .accessibilityHint("Opens team schedule")
     }
 
-    private func teamAccessibilityLabel(_ team: Game.Team, isHome: Bool) -> String {
+    private func teamAccessibilityLabel(_ team: Game.Team, isHome: Bool, score: Int?) -> String {
         let preferredName = team.voiceOverName(for: appSettings.teamNamePreference)
-        if let score = team.score {
+        if let score = score {
             return "\(preferredName), \(score)"
         }
         return preferredName

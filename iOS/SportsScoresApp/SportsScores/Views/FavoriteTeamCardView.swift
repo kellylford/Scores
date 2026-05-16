@@ -52,7 +52,12 @@ struct FavoriteTeamCardView: View {
         let oppScore = isHome ? game.awayTeam.score : game.homeTeam.score
         let loc = isHome ? "vs" : "@"
         if game.isInProgress {
-            return "\(prefix): \(loc) \(opp.abbreviation) \(myScore ?? 0)-\(oppScore ?? 0)"
+            // Schedule data can have nil/stale scores for live games; only show
+            // the score if both sides are present so we never display a false 0-0.
+            if let my = myScore, let op = oppScore {
+                return "\(prefix): \(loc) \(opp.abbreviation) \(my)-\(op)"
+            }
+            return "\(prefix): \(loc) \(opp.abbreviation)"
         }
         if game.isCompleted {
             let my = myScore ?? 0

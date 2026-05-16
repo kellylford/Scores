@@ -24,6 +24,56 @@ struct GameDetails: Codable {
     let seasonseries: [SeasonSeriesEntry]?
     /// Game-specific news articles embedded in summary response.
     let news: GameNewsContainer?
+    /// Live header from the summary endpoint — contains current scores and status.
+    /// Used when the Game object was built from schedule data (which has stale/nil scores).
+    let header: GameHeader?
+
+    // MARK: - Live Header (scores & status)
+
+    struct GameHeader: Codable {
+        let competitions: [HeaderCompetition]
+
+        struct HeaderCompetition: Codable {
+            let competitors: [HeaderCompetitor]
+
+            struct HeaderCompetitor: Codable {
+                let homeAway: String
+                let team: HeaderTeam
+                let score: Int?
+
+                struct HeaderTeam: Codable {
+                    let id: String?
+                    let abbreviation: String?
+                }
+
+                // ESPN summary returns score as a plain integer; handle int/double/string.
+                enum CodingKeys: String, CodingKey { case homeAway, team, score }
+
+                init(from decoder: Decoder) throws {
+                    let c = try decoder.container(keyedBy: CodingKeys.self)
+                    homeAway = try c.decode(String.self, forKey: .homeAway)
+                    team = try c.decode(HeaderTeam.self, forKey: .team)
+                    if let i = try? c.decode(Int.self, forKey: .score) {
+                        score = i
+                    } else if let d = try? c.decode(Double.self, forKey: .score) {
+                        score = Int(d)
+                    } else if let s = try? c.decode(String.self, forKey: .score),
+                              let i = Int(s) {
+                        score = i
+                    } else {
+                        score = nil
+                    }
+                }
+
+                func encode(to encoder: Encoder) throws {
+                    var c = encoder.container(keyedBy: CodingKeys.self)
+                    try c.encode(homeAway, forKey: .homeAway)
+                    try c.encode(team, forKey: .team)
+                    try c.encodeIfPresent(score, forKey: .score)
+                }
+            }
+        }
+    }
 
     // MARK: - Win Probability
 
