@@ -1,16 +1,28 @@
 # Sports Scores — iOS User Guide
 
-This guide covers all features of the Sports Scores iOS app, including the audio and haptic features designed for blind and low-vision users.
+This guide covers all features of the Sports Scores iOS app, including the audio and accessibility features.
 
 ---
 
 ## Getting Around
 
-### Home Screen
+### Tab Bar
 
-The app opens on a list of sports. Tap any sport to open its scores and standings. The first row — **Live Scores** — shows current games across all sports at once.
+The app has three tabs at the bottom of the screen:
 
-Available sports:
+| Tab | What's there |
+|-----|--------------|
+| **Scores** | Sports list and scores — the home page |
+| **The Bench** | Team Hub, venue audio tours, NFL Draft, Transaction Hub |
+| **Settings** | Preferences and display options |
+
+### Scores Tab (Home Screen)
+
+The home page opens a list of sports. Select any sport to open its scores and standings. The first row — **Live Scores** — shows current games across all sports at once.
+
+A date navigation bar sits at the top of the home screen. Use the left and right arrows to move one day at a time, or select **Today** to jump back to the current date.
+
+Available sports (exact list depends on your Settings):
 
 - MLB Baseball
 - NFL Football
@@ -22,14 +34,24 @@ Available sports:
 - WNBA Basketball
 - NCAA Men's Hockey
 - NCAA Women's Hockey
+- Soccer (hub — EPL, MLS, Champions League, and more)
+- Golf (hub — PGA Tour and LPGA Tour)
 
-The gear icon in the top-right corner opens **Settings**.
+Soccer and Golf open a hub screen with their own league list. Both can be shown or hidden from the home page in Settings.
+
+#### Soccer Hub
+
+The Soccer hub mirrors the main home screen but scoped to soccer leagues. It has its own date bar, a **Live Soccer** row for all leagues combined, and individual rows for each league.
+
+#### Golf Hub
+
+The Golf hub shows PGA Tour and LPGA Tour. Each tour leads to a leaderboard view for the current or most recent tournament.
 
 ---
 
 ### Sport Screen
 
-Each sport screen has four tabs across the top:
+Each sport screen has five tabs along the bottom:
 
 | Tab | Contents |
 |-----|----------|
@@ -37,16 +59,15 @@ Each sport screen has four tabs across the top:
 | **Standings** | Division or conference standings |
 | **News** | Recent news and headlines |
 | **Stats** | League statistical leaders |
+| **Polls** | AP and Coaches polls — college sports only, when available |
 
-Some sports add a **Polls** tab when rankings are available.
-
-Tap any game row to open its detail view.
+Select any game row to open its detail view.
 
 #### Date Navigation (Scores tab)
 
-A date bar sits below the tab picker. Tap the left or right arrows to move one day at a time (or one week for football). Tap **Today** to jump back to the current date from wherever you are. Tap the date itself to open a calendar and jump to any specific day.
+A date bar sits below the navigation title. Select the left or right arrows to move one day at a time (or one week for football). Select **Today** to return to the current date. Select the date itself to open a calendar picker.
 
-For **NFL and NCAA Football**, the bar shows a week number instead of a calendar date. Navigation moves by week.
+For **NFL and NCAA Football**, the bar shows a week number instead of a calendar date.
 
 #### Game Sections
 
@@ -56,132 +77,223 @@ Games on the Scores tab are grouped into three sections:
 - **Upcoming** — games scheduled later today or this week
 - **Completed** — games that have finished
 
-Only sections with games are shown. If there are no games at all, a message tells you so.
+Only sections with games are shown.
 
 #### Auto-Refresh
 
-The clock icon in the top-right corner controls how often scores refresh automatically. Options: 1 minute, 2 minutes, 5 minutes, and manual. Pull down on the list to refresh immediately at any time.
+A clock icon in the toolbar controls how often scores refresh automatically. Options: 1 minute, 2 minutes, 5 minutes, and manual. Pull down on the list to refresh at any time.
+
+#### Table View Modes
+
+Many screens that show statistics, standings, rosters, or box scores have a view-mode button in the toolbar. Three modes are available:
+
+| Mode | Format |
+|------|--------|
+| **Table View** | Traditional grid with columns and rows; VoiceOver can navigate by row and column |
+| **Quick List** | Each row as a comma-separated line — compact and fast to scan |
+| **Full List** | Each field on its own line with its header label — most context per item |
+
+The default mode is set in Settings. You can change it per screen using the toolbar button without affecting the default.
 
 ---
 
 ### Game Detail Screen
 
-Game detail has four tabs, swiped left and right:
+The game header shows both teams, the score, and the current status. For MLB games, a small walking-figure button next to the venue name opens the **Field Tour** for that stadium. A share button appears in the toolbar for completed games.
+
+Game detail has up to four tabs:
 
 | Tab | Contents |
 |-----|----------|
 | **Box Score** | Team-level stats (football) or full line score (baseball) |
-| **Plays** or **Drives** | Play-by-play (basketball, hockey) or drive summaries (football) |
+| **Plays** or **Drives** | Play-by-play (basketball, hockey, baseball) or drive summaries (football) |
 | **Info** | Game leaders, injuries, officials, venue, news |
 | **More** | Win probability, season series — MLB only |
 
-The game header at the top shows teams, score, and current status. For games in progress it includes period and clock.
-
 #### Play-by-Play
 
-For timed sports (basketball, hockey, NFL), plays are grouped by period and ordered within each period. Each play shows:
+For timed sports (basketball, hockey, NFL), plays are grouped by period and ordered within each period. Each play shows what happened, the game clock, and the score at that moment.
 
-1. What happened (the play description)
-2. When it happened (game clock)
-3. Score at that moment
+For MLB, plays are pitch-level. When pitch coordinate data is available, an **Explore Zone** button appears at the top of the Plays tab. See the **Strike Zone Explorer** section below.
 
-For baseball, plays are pitch-level. See the **Baseball Audio Features** section below.
+---
+
+## Team Hub
+
+Team Hub lives in **The Bench** tab. It lets you explore any team across all sports, bookmark your favorites, and see live game updates at a glance.
+
+### Browsing Teams
+
+Select a sport from the list. College sports (NCAA Football, Basketball, Hockey) first show a conference picker; professional sports go straight to the team list. Select any team to open its detail screen.
+
+### Team Detail
+
+A team's detail screen has five tabs:
+
+| Tab | Contents |
+|-----|----------|
+| **Info** | Team overview: record, standing, upcoming game, venue, head coach |
+| **Roster** | Full roster in a table — Name, number, position, age |
+| **News** | Recent headlines |
+| **Schedule** | Full season schedule with results |
+| **Transactions** | Recent player moves, signings, and releases |
+
+A star button in the top-right corner adds or removes the team from your favorites.
+
+### Favorites
+
+When you have favorites, they appear as cards at the top of the Team Hub screen, above the sport browser. Each card shows:
+
+- The team name and sport
+- Live game score with inning/period/clock — for baseball this includes pitcher, batter, base runners, count, and outs
+- The most recent completed game result
+- The next scheduled game
+- Up to two recent news headlines (select a headline to open the full article)
+
+Select the team name on a card to open the full team detail screen.
+
+#### Reordering Favorites
+
+**Press and hold** any favorites card to bring up the context menu, which has:
+
+- Move Up
+- Move Down
+- Move to Top
+- Move to Bottom
+
+Options that don't apply — for example, Move Up when the team is already first — are not shown.
+
+**VoiceOver:** With VoiceOver on, swipe to a favorites card and open the Actions rotor. The same four move actions appear there, and only the ones that apply are present.
+
+#### Removing a Favorite
+
+Use the context menu on a card (press and hold), or with VoiceOver open the Actions rotor and activate **Remove from Favorites**.
+
+---
+
+## The Bench
+
+The Bench tab is the home for deeper exploration tools.
+
+### Venue Audio Tours
+
+Each tour displays a scale drawing of a real sports venue. Drag your finger across the canvas and the app plays continuous terrain-based audio. When you lift your finger, VoiceOver announces the zone name and distance or location. A haptic pulse fires when you cross a zone boundary.
+
+**VoiceOver usage:** The canvas is a direct-touch area. You can configure the activation method in Settings under Stadium Exploration. With Direct Touch on, double-tap the canvas to activate it, then drag freely — VoiceOver is silenced during the drag. With Direct Touch off, swipe to focus the canvas, then use the VoiceOver double-tap-and-hold passthrough gesture.
+
+Available tours:
+
+**MLB Stadiums** — All 30 MLB parks with real wall distances. A picker at the top lets you choose the stadium. Park details (location, year opened, roof type) and exact wall distances are listed below the canvas. The three terrain surfaces are:
+
+| Surface | Sound character |
+|---------|----------------|
+| Fair territory (grass) | Soft, smooth swish — high frequencies removed, like wind through grass |
+| Warning track (cinder/gravel) | Coarser, with a slight crunch |
+| Foul territory (hard surface) | Rough, full-spectrum scrape |
+
+Stereo panning follows your finger: left field sounds left, right field right, center field centered.
+
+You can also open the field tour for the specific stadium from a game's header — select the walking-figure button next to the venue name.
+
+**NFL Football Field** — 120-yard field with yard lines, hash marks, and goal posts.
+
+**NHL Hockey Rink** — 200-foot rink with zones, blue lines, and creases.
+
+**NBA Basketball Court** — 94-foot court with the paint, 3-point arc, and free throw line.
+
+**Soccer Pitch** — 105 m × 68 m pitch with center circle, penalty areas, and goals.
+
+### Strike Zone Explorer
+
+The Strike Zone Explorer has two modes:
+
+**Standalone (from The Bench):** An educational tool with the standard strike zone dimensions — 17 inches wide, approximately 24 inches tall for a 6-foot batter. Drag anywhere on the zone to hear a tone that encodes pitch height (higher position = higher note) and horizontal position (inside/outside = stereo pan). When you lift your finger, the app announces "Strike" or "Ball" and the location using body-part references (at the knees, belt high, at the letters). A batter-hand toggle flips the inside/outside labels.
+
+**Live pitch data (from a game's Plays tab):** When viewing an MLB game with pitch coordinate data, select **Explore Zone** in the Plays tab. This overlays real pitch locations from the game.
+
+**How the audio encodes pitch location:**
+
+- **Height** → musical note on an A-minor pentatonic scale. Higher in the zone = higher note.
+- **Horizontal position** → stereo pan. Inside = panned toward the batter's side. Outside = panned away.
+- **Pitch velocity** (when available) → note duration. Harder pitch = shorter, crisper note. Slower pitch = longer, more sustained.
+
+**Two ways to navigate (live pitch data mode):**
+
+1. **Drag to explore** — drag your finger around the zone. Audio plays for coordinates under your finger. When you lift, VoiceOver announces a full pitch summary: pitch number, type, velocity, location, result, and count.
+
+2. **Flick up/down** — with the canvas focused in VoiceOver, flick up or down to step through pitches one at a time. Audio plays for each pitch. The value field updates with the current pitch (e.g., "Pitch 3 of 7: Four-seam FB").
+
+An at-bat navigation bar below the canvas lets you move between at-bats or view all pitches from the full game overlaid at once.
+
+### NFL Draft
+
+Browse NFL draft picks by year and round. Select the year from a menu and the round using the segmented control. Each pick shows the selection number, team, player name, position, and college.
+
+### Transaction Hub
+
+Browse player moves, signings, and releases across all sports. Select a sport, then a team, to see that team's recent transactions.
 
 ---
 
 ## Settings
 
-Open Settings from the gear icon on the home screen.
+Settings is the third tab. Changes take effect immediately.
 
-### Team Name Display
+### VoiceOver Team Names
 
-Controls how team names appear in scores and VoiceOver labels. Four options:
+Controls how team names are read throughout the app. Four options:
 
-- **Abbreviation** — "BOS", "NYY" — shortest; good if you know team codes
+- **Abbreviation** — "BOS", "NYY"
 - **City** — "Boston", "New York"
 - **Nickname** — "Red Sox", "Yankees"
-- **Full Name** — "Boston Red Sox", "New York Yankees" — most verbose; best for VoiceOver if you want no ambiguity
+- **Full Name** — "Boston Red Sox", "New York Yankees"
 
-The setting applies everywhere in the app: game rows, play-by-play, accessibility labels.
+An example for the Milwaukee Brewers is shown below the picker so you can hear exactly what each option sounds like before committing.
+
+### Table Default
+
+Sets the default view mode for all tables (standings, roster, box score, stats). Choose from Table View, Quick List, or Full List. You can always override this per screen without changing the default.
+
+### Home Page Sports
+
+Shows the full list of sports that can appear on the home screen. For each sport you can:
+
+- **Toggle** to show or hide it on the home screen
+- **Drag** (or use the Move Up/Down/Top/Bottom VoiceOver actions) to reorder the list
+
+Soccer and Golf are hub sports — they can be toggled on or off but not reordered relative to the main list.
+
+### Stadium Exploration
+
+**Use Direct Touch** — controls how VoiceOver interacts with the venue tour canvas.
+
+- **On:** Double-tap the canvas to activate it. You can then drag freely. VoiceOver is silenced during the drag.
+- **Off:** Swipe to focus the canvas, then use the VoiceOver double-tap-and-hold passthrough gesture to drag.
 
 ---
 
 ## VoiceOver
 
-The app is designed for VoiceOver from the start. Some specific behaviors to know:
+The app is built for VoiceOver. Some behaviors to know:
 
-- Game rows combine all their sub-elements into a single VoiceOver item. Reading order is: away team, away score, home team, home score, game status.
-- Scores are grouped into labeled sections (In Progress, Upcoming, Completed) so you can jump between sections using the rotor's Headings or scroll by container.
-- Play-by-play rows read as a single label in the order: what happened, clock, score.
-- The date control in the toolbar supports swipe up/down to increment or decrement the date without opening the picker.
-
----
-
-## Baseball Audio Features
-
-MLB has two optional audio exploration tools, designed to give a spatial sense of the game through sound and touch. Both are fully usable with screen readers. Neither requires looking at the screen.
-
-### Stadium Field Tour
-
-**Where to find it:** Tap the **Stadium Tour** button (the walking figure icon) in the top-left corner of the MLB scores screen. You do not need to have a game open. You can also access it from a game's Info tab by tapping the venue name.
-
-**What it does:** Displays a scale drawing of a real MLB stadium. You drag your finger around the field and hear a sound that changes based on what type of ground you're touching.
-
-**The three terrain sounds:**
-
-| Surface | Sound character |
-|---------|----------------|
-| **Fair territory** (grass) | Soft, smooth swish — all high frequencies removed, like wind through grass |
-| **Warning track** (cinder/gravel) | Coarser, with a slight crunch — a 6-sample filtered noise with slow amplitude modulation |
-| **Foul territory** (hard surface) | Rough, full-spectrum scrape — barely filtered white noise |
-
-The sound is **continuous** while your finger is down — no gaps or stutters. Stereo panning moves with your finger: left field sounds left, right field sounds right, center field is centered.
-
-When you lift your finger, VoiceOver announces the zone name (e.g., "Left field warning track, 330 feet from home"). A haptic pulse also fires when you cross a zone boundary during a drag.
-
-**Navigating by stadium:**
-
-A picker at the top lets you choose from all 30 MLB parks. Each park uses real wall distances: left field line, left-center, center, right-center, right field line. Notable features (like the Green Monster or Tal's Hill) are listed in an expandable section at the bottom.
-
-**VoiceOver usage:** The canvas is a direct touch area — VoiceOver passes your touches directly to the app instead of intercepting them. To enter the canvas with VoiceOver on: swipe to focus the field element, then drag freely. Lift your finger to hear the location announced.
-
----
-
-### Pitch Zone Explorer
-
-**Where to find it:** Open a game detail for any MLB game that has play-by-play data. In the **Plays** tab, tap **Explore Zone** next to the Strike Zone Map button.
-
-**What it does:** Displays the pitch coordinate data for each at-bat as a sound map. Each dot on the canvas represents one pitch. Drag your finger across it and you hear tones that encode where each pitch was thrown.
-
-**How the audio encodes location:**
-
-- **Pitch height** → musical note on an A-minor pentatonic scale. High in the zone = higher note. Low in the zone = lower note. Notes are always harmonious with each other.
-- **Horizontal position** → stereo pan. Inside (toward batter) = panned toward that side. Outside = other side.
-- **Pitch velocity** (when available) → note duration. 105 mph fastball = short crisp note. 80 mph changeup = longer, more sustained note.
-
-The waveform is harmonic-rich (fundamental + 2nd and 3rd partials), giving it a vibraphone-like quality rather than a synthetic beep.
-
-**Two ways to navigate:**
-
-1. **Drag to explore** — drag your finger around the zone. Audio plays the coordinates under your finger as you move. When you lift, VoiceOver announces a full pitch summary: pitch number, type, velocity, location, result, and count.
-
-2. **Flick up/down to step pitch by pitch** — with the canvas focused in VoiceOver, flick up or down to move to the next or previous pitch. Audio plays for each pitch. The current value (e.g., "Pitch 3 of 7: Four-seam FB") updates in VoiceOver's value field.
-
-The adjustable action works the same whether you discovered a pitch by dragging or came to it fresh via flicking — both methods land on the same pitch and play the same audio.
-
-**At-bat navigation:**
-
-Below the zone canvas is an at-bat navigation bar. Use the arrows to move between at-bats, or use the **All at-bats** toggle to see all pitches from the whole game overlaid at once.
-
-A batter hand badge (Left-handed / Right-handed) is shown so you know which side of the plate the intended location (inside/outside) is relative to.
+- **Game rows** combine all sub-elements into one VoiceOver element. Reading order: away team, away score, home team, home score, game status.
+- **Section headers** (In Progress, Upcoming, Completed) have the heading trait, so you can jump between them with the Headings rotor.
+- **Play-by-play rows** read as: what happened, clock, score.
+- **Date controls** in toolbars support swipe up/down to increment or decrement the date without opening the picker.
+- **Tables** in Table View mode use the data-table accessibility protocol. VoiceOver announces row and column position, and you can navigate by row or column using the rotor.
+- **Quick List and Full List** modes present each row as a single element — no column navigation, just straight reading order.
+- **Favorites reordering** — open the Actions rotor on any favorites card. Move Up, Move Down, Move to Top, and Move to Bottom appear when they apply.
+- **Sports reordering in Settings** — open the Actions rotor on any sport row in Settings. The same four move actions are available.
+- **Team Hub** favorites cards show a full live game label for baseball: pitcher name, batter name, base runners, count, and outs.
 
 ---
 
 ## Data Notes
 
-All data comes from ESPN's public API and refreshes in real time. A few things to know:
+All data comes from ESPN's public API. A few things to know:
 
 - **MLB Spring Training** runs February–March. During that window, the app defaults to spring training games. Regular season starts in late March.
 - **NBA and WNBA** season years follow the second year of the season (2025–26 season shows as 2026).
 - **NCAA Hockey** data from ESPN is sometimes incomplete — box scores or play-by-play may be missing for some games.
 - Game times are shown in your device's local time zone.
+

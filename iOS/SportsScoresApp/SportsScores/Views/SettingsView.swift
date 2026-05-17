@@ -16,6 +16,7 @@ struct SettingsView: View {
             tableDisplaySection
             sportsSection
             stadiumExplorationSection
+            userGuideSection
             aboutSection
         }
         .navigationTitle("Settings")
@@ -175,6 +176,23 @@ struct SettingsView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .accessibilityHidden(true)
+        }
+    }
+
+    // MARK: - User Guide Section
+
+    private var userGuideSection: some View {
+        Section {
+            NavigationLink(destination: UserGuideView()) {
+                HStack {
+                    Image(systemName: "book.fill")
+                        .foregroundColor(.blue)
+                        .frame(width: 28)
+                    Text("User Guide")
+                }
+            }
+            .accessibilityLabel("User Guide")
+            .accessibilityHint("Learn how to use all app features")
         }
     }
 

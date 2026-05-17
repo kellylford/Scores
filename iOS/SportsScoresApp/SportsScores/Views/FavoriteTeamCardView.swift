@@ -225,6 +225,7 @@ struct FavoriteTeamCardView: View {
                 }
             }
         }
+    }
 
     // MARK: - Sub-views
 
