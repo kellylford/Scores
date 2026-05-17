@@ -104,7 +104,7 @@ struct FavoriteTeamCardView: View {
                 }
             }
             .accessibilityLabel("\(favorite.displayName), \(favorite.sport.displayName)")
-            .accessibilityAddTraits([.isHeader, .isButton])
+            .accessibilityAddTraits(.isButton)
             .accessibilityAction(named: "Remove from Favorites") { onRemove?() }
 
             // 2. Live or last game — navigates to GameDetailView
