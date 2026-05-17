@@ -17,11 +17,17 @@ struct FavoriteTeamCardView: View {
     let favorite: FavoriteTeam
     let schedule: [ScheduleGame]
     let news: [NewsItem]          // up to 2 items
-    /// Header data from the ESPN summary endpoint for any live game.
-    /// Scores here are always current; schedule-based scores can be nil/stale.
-    let liveGameHeader: GameDetails.GameHeader?
+    /// Full game details from the ESPN summary endpoint for any live game.
+    /// Used for accurate live scores (header), inning/status detail, and the
+    /// in-play situation (pitcher, batter, bases, count, outs via rosters lookup).
+    let liveGameDetails: GameDetails?
     /// Called when the user activates the "Remove from Favorites" VoiceOver action.
     var onRemove: (() -> Void)? = nil
+    /// Reorder callbacks — nil when the operation is not available (e.g., already at top).
+    var onMoveUp: (() -> Void)? = nil
+    var onMoveDown: (() -> Void)? = nil
+    var onMoveToTop: (() -> Void)? = nil
+    var onMoveToBottom: (() -> Void)? = nil
 
     @State private var showArticle1 = false
     @State private var showArticle2 = false
@@ -55,9 +61,10 @@ struct FavoriteTeamCardView: View {
         let opp = isHome ? game.awayTeam : game.homeTeam
         let loc = isHome ? "vs" : "@"
         if game.isInProgress {
-            // Build a scoreboard-style label: "Away name score @ Home name score, Status detail"
-            // Uses live header data (summary endpoint) for accurate scores + status.
-            if let comp = liveGameHeader?.competitions.first {
+            // Build a scoreboard-style label: "Away name score @ Home name score, Status detail, Situation"
+            // Uses live details from the summary endpoint for accurate scores, status, and
+            // in-play situation (pitcher, batter, bases, count, outs).
+            if let comp = liveGameDetails?.header?.competitions.first {
                 let awayComp = comp.competitors.first(where: { $0.homeAway == "away" })
                 let homeComp = comp.competitors.first(where: { $0.homeAway == "home" })
                 let awayName = game.awayTeam.displayName
@@ -67,6 +74,12 @@ struct FavoriteTeamCardView: View {
                 var label = "\(prefix): \(awayName)\(awaySc) @ \(homeName)\(homeSc)"
                 if let detail = comp.status?.type?.detail, !detail.isEmpty {
                     label += ", \(detail)"
+                }
+                if let sit = liveGameDetails?.situation,
+                   let lookup = liveGameDetails.map({ $0.playerLookup }),
+                   let situationText = sit.situationText(playerLookup: lookup),
+                   !situationText.isEmpty {
+                    label += ", \(situationText)"
                 }
                 return label
             }
@@ -110,6 +123,10 @@ struct FavoriteTeamCardView: View {
             .accessibilityLabel("\(favorite.displayName), \(favorite.sport.displayName)")
             .accessibilityAddTraits(.isButton)
             .accessibilityAction(named: "Remove from Favorites") { onRemove?() }
+            .accessibilityActionIfPresent(named: "Move Up",         action: onMoveUp)
+            .accessibilityActionIfPresent(named: "Move Down",       action: onMoveDown)
+            .accessibilityActionIfPresent(named: "Move to Top",     action: onMoveToTop)
+            .accessibilityActionIfPresent(named: "Move to Bottom",  action: onMoveToBottom)
 
             // 2. Live or last game — navigates to GameDetailView
             if let live = liveGame {
@@ -186,7 +203,28 @@ struct FavoriteTeamCardView: View {
             }
         }
         .padding(.vertical, 4)
-    }
+        .contextMenu {
+            if let action = onMoveUp {
+                Button { action() } label: {
+                    Label("Move Up", systemImage: "arrow.up")
+                }
+            }
+            if let action = onMoveDown {
+                Button { action() } label: {
+                    Label("Move Down", systemImage: "arrow.down")
+                }
+            }
+            if let action = onMoveToTop {
+                Button { action() } label: {
+                    Label("Move to Top", systemImage: "arrow.up.to.line")
+                }
+            }
+            if let action = onMoveToBottom {
+                Button { action() } label: {
+                    Label("Move to Bottom", systemImage: "arrow.down.to.line")
+                }
+            }
+        }
 
     // MARK: - Sub-views
 

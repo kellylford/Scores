@@ -128,6 +128,17 @@ final class AppSettings: ObservableObject {
         favoriteTeams.removeAll { $0.id == teamId && $0.sport == sport }
     }
 
+    /// Moves a favorite to a new position. `to` is the desired final index in the
+    /// original array (before the item is removed). The move is clamped to valid bounds.
+    func moveFavorite(teamId: String, sport: Sport, to newIndex: Int) {
+        guard let current = favoriteTeams.firstIndex(where: { $0.id == teamId && $0.sport == sport }) else { return }
+        var updated = favoriteTeams
+        let item = updated.remove(at: current)
+        let clamped = max(0, min(newIndex, updated.count))
+        updated.insert(item, at: clamped)
+        favoriteTeams = updated
+    }
+
     // MARK: - Auto-Refresh Interval
 
     /// Shared refresh cadence used by both ScoresView and LiveScoresView.

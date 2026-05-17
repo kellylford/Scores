@@ -27,6 +27,87 @@ struct GameDetails: Codable {
     /// Live header from the summary endpoint — contains current scores and status.
     /// Used when the Game object was built from schedule data (which has stale/nil scores).
     let header: GameHeader?
+    /// Live situation from the root of the summary endpoint — balls, strikes, outs,
+    /// base occupancy, and pitcher/batter player IDs. Combine with `playerLookup`
+    /// to resolve player IDs to short names.
+    let situation: SummarySituation?
+    /// Full rosters from the summary endpoint, used to resolve player IDs to names.
+    let rosters: [GameRoster]?
+
+    // MARK: - Player lookup (situation → names)
+
+    /// Maps player ID → short name across both team rosters.
+    var playerLookup: [Int: String] {
+        var dict: [Int: String] = [:]
+        for teamRoster in rosters ?? [] {
+            for entry in teamRoster.roster ?? [] {
+                if let idStr = entry.athlete?.id, let id = Int(idStr) {
+                    dict[id] = entry.athlete?.shortName ?? entry.athlete?.displayName
+                }
+            }
+        }
+        return dict
+    }
+
+    // MARK: - Live Situation (from summary root)
+
+    struct SummarySituation: Codable {
+        let balls: Int?
+        let strikes: Int?
+        let outs: Int?
+        /// Non-nil when a runner occupies this base; the object carries the player ID.
+        struct SituationPlayer: Codable { let playerId: Int? }
+        let onFirst: SituationPlayer?
+        let onSecond: SituationPlayer?
+        let onThird: SituationPlayer?
+        let pitcher: SituationPlayer?
+        let batter: SituationPlayer?
+
+        /// Human-readable baseball situation line for VoiceOver.
+        /// Pass `playerLookup` from `GameDetails.playerLookup` to resolve pitcher/batter names.
+        func situationText(playerLookup: [Int: String]) -> String? {
+            guard balls != nil || outs != nil else { return nil }
+            var parts: [String] = []
+            if let pid = pitcher?.playerId, let name = playerLookup[pid] {
+                parts.append("P: \(name)")
+            }
+            if let pid = batter?.playerId, let name = playerLookup[pid] {
+                parts.append("AB: \(name)")
+            }
+            let hasFirst  = onFirst  != nil
+            let hasSecond = onSecond != nil
+            let hasThird  = onThird  != nil
+            if hasFirst || hasSecond || hasThird {
+                var bases: [String] = []
+                if hasFirst  { bases.append("1st") }
+                if hasSecond { bases.append("2nd") }
+                if hasThird  { bases.append("3rd") }
+                parts.append(bases.joined(separator: " & "))
+            } else {
+                parts.append("Bases empty")
+            }
+            if let b = balls, let s = strikes { parts.append("\(b)-\(s)") }
+            if let o = outs { parts.append("\(o) \(o == 1 ? "out" : "outs")") }
+            return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        }
+    }
+
+    // MARK: - Rosters (for player name lookup)
+
+    struct GameRoster: Codable {
+        let homeAway: String?
+        let roster: [RosterEntry]?
+
+        struct RosterEntry: Codable {
+            let athlete: RosterAthlete?
+
+            struct RosterAthlete: Codable {
+                let id: String?
+                let shortName: String?
+                let displayName: String?
+            }
+        }
+    }
 
     // MARK: - Live Header (scores & status)
 

@@ -23,14 +23,18 @@ struct TeamHubSportPickerView: View {
                         .accessibilityLabel("No favorites yet. Browse a sport below and use Add to Favorites on a team page to add it here.")
                 } else {
                     ForEach(appSettings.favoriteTeams) { fav in
+                        let idx   = appSettings.favoriteTeams.firstIndex(where: { $0.id == fav.id && $0.sport == fav.sport }) ?? 0
+                        let count = appSettings.favoriteTeams.count
                         FavoriteTeamCardView(
                             favorite: fav,
                             schedule: favoritesVM.scheduleMap[fav.id] ?? [],
                             news: favoritesVM.newsMap[fav.id] ?? [],
-                            liveGameHeader: favoritesVM.liveDetailsMap[fav.id]?.header,
-                            onRemove: {
-                                appSettings.removeFavorite(teamId: fav.id, sport: fav.sport)
-                            }
+                            liveGameDetails: favoritesVM.liveDetailsMap[fav.id],
+                            onRemove:       { appSettings.removeFavorite(teamId: fav.id, sport: fav.sport) },
+                            onMoveUp:       idx > 0           ? { appSettings.moveFavorite(teamId: fav.id, sport: fav.sport, to: idx - 1) } : nil,
+                            onMoveDown:     idx < count - 1   ? { appSettings.moveFavorite(teamId: fav.id, sport: fav.sport, to: idx + 1) } : nil,
+                            onMoveToTop:    idx > 0           ? { appSettings.moveFavorite(teamId: fav.id, sport: fav.sport, to: 0) }       : nil,
+                            onMoveToBottom: idx < count - 1   ? { appSettings.moveFavorite(teamId: fav.id, sport: fav.sport, to: count - 1) } : nil
                         )
                     }
                 }

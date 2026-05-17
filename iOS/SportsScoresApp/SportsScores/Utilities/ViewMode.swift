@@ -91,4 +91,16 @@ extension View {
             self
         }
     }
+
+    /// Adds a named VoiceOver custom action only when `action` is non-nil.
+    /// Use this to suppress unavailable actions (e.g. "Move Up" for the first item)
+    /// so VoiceOver does not announce actions that have no effect.
+    @ViewBuilder
+    func accessibilityActionIfPresent(named name: String, action: (() -> Void)?) -> some View {
+        if let action = action {
+            self.accessibilityAction(named: name) { action() }
+        } else {
+            self
+        }
+    }
 }
