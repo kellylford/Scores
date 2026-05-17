@@ -35,6 +35,19 @@ struct GameDetails: Codable {
 
         struct HeaderCompetition: Codable {
             let competitors: [HeaderCompetitor]
+            /// Status of the competition — carries the current period/inning/clock.
+            let status: HeaderStatus?
+
+            struct HeaderStatus: Codable {
+                let type: HeaderStatusType?
+
+                struct HeaderStatusType: Codable {
+                    /// Human-readable detail, e.g. "Top 9th", "Q3 5:42", "End of 2nd".
+                    let detail: String?
+                    /// Low-level state: "pre", "in", "post".
+                    let state: String?
+                }
+            }
 
             struct HeaderCompetitor: Codable {
                 let homeAway: String
