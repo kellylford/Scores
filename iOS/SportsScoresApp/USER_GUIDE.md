@@ -20,7 +20,7 @@ The app has three tabs at the bottom of the screen:
 
 The home page opens a list of sports. Select any sport to open its scores and standings. The first row — **Live Scores** — shows current games across all sports at once.
 
-A date navigation bar sits at the top of the home screen. Use the left and right arrows to move one day at a time, or select **Today** to jump back to the current date.
+A date navigation bar sits at the top of the home screen. Use the left and right arrows (**Previous Day** and **Next Day** in VoiceOver) to move one day at a time, or select **Today** to jump back to the current date.
 
 Available sports (exact list depends on your Settings):
 
@@ -65,7 +65,7 @@ Select any game row to open its detail view.
 
 #### Date Navigation (Scores tab)
 
-A date bar sits below the navigation title. Select the left or right arrows to move one day at a time (or one week for football). Select **Today** to return to the current date. Select the date itself to open a calendar picker.
+A date bar sits below the navigation title. Select the left or right arrows (**Previous Day** / **Next Day**, or **Previous Week** / **Next Week** for football in VoiceOver) to move one day at a time (or one week for football). Select **Today** to return to the current date. Select the date itself to open a calendar picker.
 
 For **NFL and NCAA Football**, the bar shows a week number instead of a calendar date.
 

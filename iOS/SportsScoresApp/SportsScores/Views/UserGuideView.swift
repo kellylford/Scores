@@ -28,7 +28,7 @@ struct UserGuideView: View {
                     Text("Sports Scores")
                         .font(.largeTitle)
                         .fontWeight(.bold)
-                    Text("Live scores, audio venue tours, and deep team stats — fully accessible.")
+                    Text("Live scores, audio venue tours, and deep team stats.")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
@@ -47,7 +47,7 @@ struct UserGuideView: View {
                     Text("The Scores tab opens a list of sports. A date navigation bar at the top lets you browse any day. The first item — Live Scores — shows all sports at once.")
                     BulletPoint("Select any sport row to open its scores, standings, news, and stats")
                     BulletPoint("Soccer and Golf open their own hub screens with per-league rows")
-                    BulletPoint("The left and right arrows move one day at a time; **Today** returns to the current date")
+                    BulletPoint("The left and right arrows (**Previous Day** and **Next Day** in VoiceOver) move one day at a time; **Today** returns to the current date")
 
                     Text("**Sport Screen**")
                         .fontWeight(.semibold)
