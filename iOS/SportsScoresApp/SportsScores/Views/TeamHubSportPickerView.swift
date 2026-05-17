@@ -27,7 +27,10 @@ struct TeamHubSportPickerView: View {
                             favorite: fav,
                             schedule: favoritesVM.scheduleMap[fav.id] ?? [],
                             news: favoritesVM.newsMap[fav.id] ?? [],
-                            liveGameHeader: favoritesVM.liveDetailsMap[fav.id]?.header
+                            liveGameHeader: favoritesVM.liveDetailsMap[fav.id]?.header,
+                            onRemove: {
+                                appSettings.removeFavorite(teamId: fav.id, sport: fav.sport)
+                            }
                         )
                     }
                 }
@@ -49,6 +52,9 @@ struct TeamHubSportPickerView: View {
                         .accessibilityLabel("\(sport.displayName). Browse teams.")
                     }
                 }
+            } header: {
+                Text("Choose a sport and team")
+                    .accessibilityAddTraits(.isHeader)
             }
         }
         .navigationTitle("Team Hub")

@@ -20,6 +20,8 @@ struct FavoriteTeamCardView: View {
     /// Header data from the ESPN summary endpoint for any live game.
     /// Scores here are always current; schedule-based scores can be nil/stale.
     let liveGameHeader: GameDetails.GameHeader?
+    /// Called when the user activates the "Remove from Favorites" VoiceOver action.
+    var onRemove: (() -> Void)? = nil
 
     @State private var showArticle1 = false
     @State private var showArticle2 = false
@@ -103,6 +105,7 @@ struct FavoriteTeamCardView: View {
             }
             .accessibilityLabel("\(favorite.displayName), \(favorite.sport.displayName)")
             .accessibilityAddTraits([.isHeader, .isButton])
+            .accessibilityAction(named: "Remove from Favorites") { onRemove?() }
 
             // 2. Live or last game — navigates to GameDetailView
             if let live = liveGame {
