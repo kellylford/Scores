@@ -102,7 +102,7 @@ struct FavoriteTeamCardView: View {
                 }
             }
             .accessibilityLabel("\(favorite.displayName), \(favorite.sport.displayName)")
-            .accessibilityAddTraits(.isHeader)
+            .accessibilityAddTraits([.isHeader, .isButton])
 
             // 2. Live or last game — navigates to GameDetailView
             if let live = liveGame {
