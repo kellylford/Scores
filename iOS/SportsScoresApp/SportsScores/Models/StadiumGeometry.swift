@@ -237,6 +237,7 @@ extension StadiumGeometry {
 
     // Looks up by venue name fragment (case-insensitive search).
     static func stadium(venueContaining fragment: String) -> StadiumGeometry? {
+        guard !fragment.isEmpty else { return nil }
         let lower = fragment.lowercased()
         return all.first { $0.parkName.lowercased().contains(lower) }
     }

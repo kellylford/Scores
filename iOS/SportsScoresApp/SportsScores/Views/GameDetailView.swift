@@ -99,7 +99,7 @@ struct GameDetailView: View {
             NavigationStack {
                 BaseballFieldTourView(
                     preselectedStadium: StadiumGeometry.stadium(
-                        venueContaining: game.venue?.fullName ?? ""
+                        venueContaining: game.venue?.name ?? ""
                     )
                 )
                 .navigationTitle("Field Tour")
