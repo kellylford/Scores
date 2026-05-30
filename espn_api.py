@@ -4237,6 +4237,58 @@ def get_team_news(league_key, team_id, limit=15):
         return []
 
 
+def get_transactions(league_key, team_id=None, limit=50, page=1):
+    """Get league-wide (or team-filtered) transactions with pagination.
+
+    Returns (list_of_dicts, has_more).
+    """
+    league_path = LEAGUES.get(league_key)
+    if not league_path:
+        return [], False
+    try:
+        params = {"limit": limit, "page": page}
+        if team_id:
+            params["team"] = team_id
+        resp = requests.get(f"{BASE_URL}/{league_path}/transactions", params=params)
+        if resp.status_code != 200:
+            return [], False
+        data = resp.json()
+        raw_items = data.get("items", data.get("transactions", []))
+        # Determine if more pages exist
+        page_info = data.get("pageIndex", data.get("pagination", {}))
+        total_pages = page_info.get("pageCount", page_info.get("totalPages", 1))
+        has_more = int(page) < int(total_pages) if total_pages else len(raw_items) == limit
+        result = []
+        for item in raw_items:
+            date_str = item.get("date", item.get("timestamp", ""))
+            date_display = ""
+            if date_str:
+                try:
+                    from datetime import datetime
+                    dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                    date_display = dt.strftime("%Y-%m-%d")
+                except Exception:
+                    date_display = date_str[:10]
+            trans_type = item.get("type", {})
+            if isinstance(trans_type, dict):
+                trans_type = trans_type.get("text", trans_type.get("name", ""))
+            athlete = item.get("athlete", {})
+            player_name = athlete.get("displayName", athlete.get("fullName", "")) if athlete else ""
+            pos = athlete.get("position", {}) if athlete else {}
+            position = pos.get("abbreviation", pos.get("name", "")) if isinstance(pos, dict) else ""
+            result.append({
+                "date":        date_display,
+                "type":        str(trans_type),
+                "player":      player_name,
+                "position":    position,
+                "description": item.get("description", ""),
+            })
+        return result, has_more
+    except Exception as e:
+        print(f"[get_transactions] {league_key}: {e}")
+        return [], False
+
+
 def get_team_transactions(league_key, team_id, limit=25):
     """Get recent transactions for a team. Returns [] if the league has no transaction feed."""
     league_path = LEAGUES.get(league_key)

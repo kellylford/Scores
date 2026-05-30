@@ -80,6 +80,11 @@ class ApiService:
         return ApiService._call(espn_api.get_rankings, league)
 
     @staticmethod
+    def get_transactions(league: str, team_id: str = None, limit: int = 50, page: int = 1):
+        """Returns (list, has_more)."""
+        return ApiService._call(espn_api.get_transactions, league, team_id, limit, page)
+
+    @staticmethod
     def get_team_info(league: str, team_id: str) -> Dict:
         return ApiService._call(espn_api.get_team_info, league, team_id)
 

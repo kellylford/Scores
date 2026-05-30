@@ -1205,6 +1205,8 @@ class LeagueView(BaseView):
             self._show_statistics_dialog(); return
         if data == "__teams__":
             self._show_teams_dialog(); return
+        if data == "__transactions__":
+            self._show_transactions_dialog(); return
         if data == "__venues__":
             self._show_venues_dialog(); return
         if data == "__bowls__":
@@ -1279,6 +1281,9 @@ class LeagueView(BaseView):
             self.scores_list.addItem("--- Teams ---")
             teams_item = self.scores_list.item(self.scores_list.count()-1)
             teams_item.setData(Qt.ItemDataRole.UserRole, "__teams__")
+            self.scores_list.addItem("--- Transactions ---")
+            transactions_item = self.scores_list.item(self.scores_list.count()-1)
+            transactions_item.setData(Qt.ItemDataRole.UserRole, "__transactions__")
             self.scores_list.addItem("--- Venues ---")
             venues_item = self.scores_list.item(self.scores_list.count()-1)
             venues_item.setData(Qt.ItemDataRole.UserRole, "__venues__")
@@ -1474,6 +1479,19 @@ class LeagueView(BaseView):
             if self.parent_app:
                 self.parent_app.update_window_title([self.league])
     
+    def _show_transactions_dialog(self):
+        try:
+            if self.parent_app:
+                self.parent_app.update_window_title(["Transactions", self.league])
+            dialog = TransactionsDialog(self.league, self)
+            dialog.exec()
+            if self.parent_app:
+                self.parent_app.update_window_title([self.league])
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to show transactions: {e}")
+            if self.parent_app:
+                self.parent_app.update_window_title([self.league])
+
     def _show_venues_dialog(self):
         """Show venues dialog for the current league"""
         try:
@@ -7512,6 +7530,25 @@ class TeamScheduleLoader(QThread):
             self.error_occurred.emit(f"Failed to load schedule: {str(e)}")
 
 
+class LeagueTransactionsLoader(QThread):
+    data_loaded = pyqtSignal(list, bool)  # transactions, has_more
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, league: str, team_id=None, page: int = 1):
+        super().__init__()
+        self.league = league
+        self.team_id = team_id
+        self.page = page
+
+    def run(self):
+        try:
+            transactions, has_more = ApiService.get_transactions(
+                self.league, self.team_id, page=self.page)
+            self.data_loaded.emit(transactions, has_more)
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+
+
 class TeamInfoLoader(QThread):
     data_loaded = pyqtSignal(dict)
     error_occurred = pyqtSignal(str)
@@ -7960,6 +7997,132 @@ class PollsDialog(QDialog):
                     event.accept()
                     return
         
+        super().keyPressEvent(event)
+
+
+class TransactionsDialog(QDialog):
+    """League-wide transactions browser with team filter and pagination."""
+
+    def __init__(self, league: str, parent=None):
+        super().__init__(parent)
+        self.league = league
+        self.current_page = 1
+        self.current_team_id = None
+        self._loaders = []
+
+        self.setWindowTitle(f"Transactions — {league} — Sports Scores")
+        self.setMinimumSize(700, 500)
+        self.resize(850, 620)
+
+        self._setup_ui()
+        self._load_teams()
+        self._load_transactions(reset=True)
+
+    def _setup_ui(self):
+        layout = QVBoxLayout()
+
+        filter_row = QHBoxLayout()
+        filter_row.addWidget(QLabel("Filter by team:"))
+        self.team_combo = QComboBox()
+        self.team_combo.setAccessibleName("Team Filter")
+        self.team_combo.setAccessibleDescription(
+            "Select a team to filter transactions, or All Teams for league-wide results")
+        self.team_combo.addItem("All Teams", None)
+        self.team_combo.currentIndexChanged.connect(self._on_team_changed)
+        filter_row.addWidget(self.team_combo)
+        filter_row.addStretch()
+        layout.addLayout(filter_row)
+
+        self.trans_list = QListWidget()
+        self.trans_list.setAccessibleName(f"{self.league} Transactions")
+        self.trans_list.setAccessibleDescription(
+            "Transaction list. Each item shows date, type, player name, and position.")
+        layout.addWidget(self.trans_list)
+
+        btn_row = QHBoxLayout()
+        self.load_more_btn = QPushButton("Load &More")
+        self.load_more_btn.setEnabled(False)
+        self.load_more_btn.clicked.connect(self._load_more)
+        btn_row.addWidget(self.load_more_btn)
+        btn_row.addStretch()
+        close_btn = QPushButton("&Close")
+        close_btn.clicked.connect(self.accept)
+        btn_row.addWidget(close_btn)
+        layout.addLayout(btn_row)
+
+        self.setLayout(layout)
+
+    def _load_teams(self):
+        loader = StandingsLoader(self.league)
+        loader.data_loaded.connect(self._on_teams_loaded)
+        loader.error_occurred.connect(lambda _: None)
+        self._loaders.append(loader)
+        loader.start()
+
+    def _on_teams_loaded(self, standings_data):
+        teams = sorted(
+            {(t.get('team_name', ''), t.get('team_id', ''))
+             for t in standings_data if t.get('team_name') and t.get('team_id')},
+            key=lambda x: x[0],
+        )
+        self.team_combo.blockSignals(True)
+        for name, tid in teams:
+            self.team_combo.addItem(name, tid)
+        self.team_combo.blockSignals(False)
+
+    def _on_team_changed(self, _index):
+        self.current_team_id = self.team_combo.currentData()
+        self._load_transactions(reset=True)
+
+    def _load_transactions(self, reset=False):
+        if reset:
+            self.current_page = 1
+            self.trans_list.clear()
+            self.load_more_btn.setEnabled(False)
+        loading_item = QListWidgetItem("Loading transactions...")
+        self.trans_list.addItem(loading_item)
+        loader = LeagueTransactionsLoader(self.league, self.current_team_id, self.current_page)
+        loader.data_loaded.connect(lambda data, more: self._on_loaded(data, more, loading_item))
+        loader.error_occurred.connect(lambda e: self._on_error(e, loading_item))
+        self._loaders.append(loader)
+        loader.start()
+
+    def _load_more(self):
+        self.current_page += 1
+        self._load_transactions(reset=False)
+
+    def _on_loaded(self, transactions, has_more, loading_item):
+        row = self.trans_list.row(loading_item)
+        if row >= 0:
+            self.trans_list.takeItem(row)
+        if not transactions and self.trans_list.count() == 0:
+            team_label = self.team_combo.currentText()
+            self.trans_list.addItem(f"No transactions available for {team_label}.")
+            return
+        for t in transactions:
+            parts = [p for p in [
+                t.get('date'),
+                t.get('type'),
+                t.get('player') or t.get('description'),
+                f"({t['position']})" if t.get('position') else None,
+            ] if p]
+            self.trans_list.addItem(" — ".join(parts))
+        self.load_more_btn.setEnabled(has_more)
+        if self.current_page == 1 and self.trans_list.count() > 0:
+            self.trans_list.setCurrentRow(0)
+            self.trans_list.setFocus()
+
+    def _on_error(self, _error, loading_item):
+        row = self.trans_list.row(loading_item)
+        if row >= 0:
+            self.trans_list.takeItem(row)
+        if self.trans_list.count() == 0:
+            self.trans_list.addItem(f"No transactions available for {self.league}.")
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.accept()
+            return
         super().keyPressEvent(event)
 
 
