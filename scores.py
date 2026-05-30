@@ -494,6 +494,17 @@ class HomeView(BaseView):
                 self.parent_app.open_live_scores()
             return
 
+        # Golf tours open a dedicated tournament dialog instead of a standard league view
+        if league in ("PGA", "LPGA"):
+            tour_name = "PGA Tour" if league == "PGA" else "LPGA Tour"
+            if self.parent_app:
+                self.parent_app.update_window_title([tour_name])
+            dialog = GolfTournamentDialog(league, self)
+            dialog.exec()
+            if self.parent_app:
+                self.parent_app.update_window_title()
+            return
+
         # For NFL/NCAAF, determine current week and show those games
         if league in ("NFL", "NCAAF"):
             try:
@@ -7809,6 +7820,36 @@ class NFLDraftRoundLoader(QThread):
             self.error_occurred.emit(str(e))
 
 
+class GolfLeaderboardLoader(QThread):
+    data_loaded = pyqtSignal(dict)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, tour: str):
+        super().__init__()
+        self.tour = tour
+
+    def run(self):
+        try:
+            self.data_loaded.emit(ApiService.get_golf_leaderboard(self.tour) or {})
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+
+
+class GolfScheduleLoader(QThread):
+    data_loaded = pyqtSignal(list)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, tour: str):
+        super().__init__()
+        self.tour = tour
+
+    def run(self):
+        try:
+            self.data_loaded.emit(ApiService.get_golf_schedule(self.tour))
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+
+
 class TeamInfoLoader(QThread):
     data_loaded = pyqtSignal(dict)
     error_occurred = pyqtSignal(str)
@@ -8534,6 +8575,175 @@ class NFLDraftDialog(QDialog):
         if widget:
             widget.clear()
             widget.addItem(f"Failed to load picks: {error}")
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.accept()
+        else:
+            super().keyPressEvent(event)
+
+
+class GolfTournamentDialog(QDialog):
+    """Golf tournament viewer: current leaderboard + full season schedule."""
+
+    _TOUR_NAMES = {"PGA": "PGA Tour", "LPGA": "LPGA Tour"}
+
+    def __init__(self, tour: str, parent=None):
+        super().__init__(parent)
+        self.tour = tour
+        tour_name = self._TOUR_NAMES.get(tour, tour)
+        self.setWindowTitle(f"{tour_name} — Sports Scores")
+        self.setMinimumSize(700, 500)
+        self.resize(950, 680)
+        self._loaders = []
+        self._setup_ui()
+        self._load_leaderboard()
+        self._load_schedule()
+
+    def _setup_ui(self):
+        layout = QVBoxLayout()
+
+        tour_name = self._TOUR_NAMES.get(self.tour, self.tour)
+        header = QLabel(tour_name)
+        header.setStyleSheet("font-weight: bold; font-size: 13px;")
+        layout.addWidget(header)
+
+        self.tournament_label = QLabel("Loading current tournament…")
+        self.tournament_label.setAccessibleName("Current tournament")
+        layout.addWidget(self.tournament_label)
+
+        self.tab_widget = QTabWidget()
+        self.tab_widget.setAccessibleName(f"{tour_name} sections")
+
+        self.leaderboard_list = QListWidget()
+        self.leaderboard_list.setAccessibleName(f"{tour_name} Leaderboard")
+        self.leaderboard_list.setAccessibleDescription(
+            "Current tournament leaderboard. Each entry shows position, player name, total score, and round scores.")
+        self.leaderboard_list.addItem("Loading leaderboard…")
+        self.tab_widget.addTab(self.leaderboard_list, "Leaderboard")
+
+        self.schedule_list = QListWidget()
+        self.schedule_list.setAccessibleName(f"{tour_name} Schedule")
+        self.schedule_list.setAccessibleDescription(
+            "Season schedule. Completed events show winner and score. Upcoming events show dates.")
+        self.schedule_list.addItem("Loading schedule…")
+        self.tab_widget.addTab(self.schedule_list, "Schedule")
+
+        layout.addWidget(self.tab_widget)
+
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+        close_btn = QPushButton("&Close")
+        close_btn.clicked.connect(self.accept)
+        btn_row.addWidget(close_btn)
+        layout.addLayout(btn_row)
+
+        self.setLayout(layout)
+
+    def _load_leaderboard(self):
+        loader = GolfLeaderboardLoader(self.tour)
+        loader.data_loaded.connect(self._on_leaderboard_loaded)
+        loader.error_occurred.connect(lambda e: self._list_error(self.leaderboard_list, e))
+        self._loaders.append(loader)
+        loader.start()
+
+    def _load_schedule(self):
+        loader = GolfScheduleLoader(self.tour)
+        loader.data_loaded.connect(self._on_schedule_loaded)
+        loader.error_occurred.connect(lambda e: self._list_error(self.schedule_list, e))
+        self._loaders.append(loader)
+        loader.start()
+
+    @staticmethod
+    def _fmt_date_range(start, end):
+        try:
+            from datetime import datetime as dt
+            s = dt.strptime(start, "%Y-%m-%d")
+            e = dt.strptime(end, "%Y-%m-%d")
+            if s.month == e.month:
+                return f"{s.strftime('%b')} {s.day}–{e.day}"
+            return f"{s.strftime('%b %d')} – {e.strftime('%b %d')}"
+        except Exception:
+            return f"{start}–{end}" if end else start
+
+    def _on_leaderboard_loaded(self, data: dict):
+        self.leaderboard_list.clear()
+        if not data:
+            self.leaderboard_list.addItem("No current tournament data available.")
+            return
+
+        name = data.get('name', '')
+        start = data.get('date', '')
+        end = data.get('end_date', '')
+        status_detail = data.get('status_detail', '')
+        date_range = self._fmt_date_range(start, end) if start else ''
+        header_parts = [p for p in [name, status_detail, date_range] if p]
+        self.tournament_label.setText("  |  ".join(header_parts))
+
+        players = data.get('players', [])
+        if not players:
+            self.leaderboard_list.addItem("No leaderboard data available.")
+            return
+
+        # Detect ties: group players by total_score, record first position for each score
+        from collections import Counter
+        score_count = Counter(p['total_score'] for p in players)
+        score_first_pos: dict = {}
+        for p in players:
+            s = p['total_score']
+            if s not in score_first_pos:
+                score_first_pos[s] = p['position']
+
+        for player in players:
+            pos = player['position']
+            score = player['total_score']
+            first_pos = score_first_pos[score]
+            tied = score_count[score] > 1
+            pos_str = f"T{first_pos}" if tied else str(pos)
+
+            name = player['name']
+            country = player.get('country', '')
+            rounds = player.get('rounds', [])
+
+            parts = [f"{pos_str:>4}", name]
+            if country:
+                parts.append(f"({country})")
+            parts.append(f"{score:>5}")
+            if rounds:
+                parts.append("  " + "  ".join(rounds))
+
+            self.leaderboard_list.addItem("  ".join(parts))
+
+        if self.leaderboard_list.count() > 0 and self.tab_widget.currentIndex() == 0:
+            self.leaderboard_list.setCurrentRow(0)
+            self.leaderboard_list.setFocus()
+
+    def _on_schedule_loaded(self, events: list):
+        self.schedule_list.clear()
+        if not events:
+            self.schedule_list.addItem("No schedule available.")
+            return
+
+        for event in events:
+            name = event.get('name', '')
+            start = event.get('start_date', '')
+            end = event.get('end_date', '')
+            state = event.get('state', 'pre')
+            winner = event.get('winner', '')
+            date_str = self._fmt_date_range(start, end) if start else ''
+
+            if state == 'post' and winner:
+                line = f"[Final]  {name}  —  {date_str}  —  {winner}"
+            elif state == 'in':
+                line = f"[Live]   {name}  —  {date_str}"
+            else:
+                line = f"         {name}  —  {date_str}"
+
+            self.schedule_list.addItem(line)
+
+    def _list_error(self, lw: QListWidget, error: str):
+        lw.clear()
+        lw.addItem(f"Error loading data: {error}")
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:

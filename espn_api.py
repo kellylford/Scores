@@ -26,6 +26,8 @@ LEAGUES = {
     "UEL":        "soccer/uefa.europa",
     "Liga MX":    "soccer/mex.1",
     "CONCACAF":   "soccer/concacaf.champions",
+    "PGA":        "golf/pga",
+    "LPGA":       "golf/lpga",
 }
 
 def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season=None):
@@ -4501,4 +4503,108 @@ def get_team_transactions(league_key, team_id, limit=25):
         return result
     except Exception as e:
         print(f"[get_team_transactions] team {team_id}: {e}")
+        return []
+
+
+def get_golf_leaderboard(tour_key):
+    """Return current tournament info and leaderboard for PGA or LPGA.
+
+    Returns dict: {name, short_name, date, end_date, round_num, status_detail,
+                   players: [{position, name, country, total_score, rounds: [str]}]}
+    or None if no event is available.
+    """
+    from datetime import datetime
+    league_path = LEAGUES.get(tour_key)
+    if not league_path:
+        return None
+    try:
+        resp = requests.get(f"{BASE_URL}/{league_path}/scoreboard")
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+        events = data.get("events", [])
+        if not events:
+            return None
+        event = events[0]
+        comps = event.get("competitions", [])
+        if not comps:
+            return None
+        comp = comps[0]
+        comp_status = comp.get("status", {})
+
+        players = []
+        for competitor in comp.get("competitors", []):
+            athlete = competitor.get("athlete", {})
+            rounds = [
+                ls["displayValue"]
+                for ls in sorted(competitor.get("linescores", []), key=lambda x: x.get("period", 0))
+                if "value" in ls and "displayValue" in ls
+            ]
+            players.append({
+                "position": competitor.get("order", 0),
+                "name": athlete.get("displayName") or athlete.get("fullName", ""),
+                "country": athlete.get("flag", {}).get("alt", ""),
+                "total_score": competitor.get("score", "E"),
+                "rounds": rounds,
+            })
+        players.sort(key=lambda p: p["position"])
+
+        return {
+            "name": event.get("name", ""),
+            "short_name": event.get("shortName", ""),
+            "date": event.get("date", "")[:10],
+            "end_date": event.get("endDate", "")[:10],
+            "round_num": comp_status.get("period", 0),
+            "status_detail": comp_status.get("type", {}).get("detail", ""),
+            "players": players,
+        }
+    except Exception as e:
+        print(f"[get_golf_leaderboard] {tour_key}: {e}")
+        return None
+
+
+def get_golf_schedule(tour_key):
+    """Return this season's tournament schedule for PGA or LPGA.
+
+    Returns list of {name, start_date, end_date, status, state, winner}.
+    """
+    from datetime import datetime
+    league_path = LEAGUES.get(tour_key)
+    if not league_path:
+        return []
+    try:
+        year = datetime.now().year
+        resp = requests.get(
+            f"{BASE_URL}/{league_path}/scoreboard",
+            params={"dates": f"{year}0101-{year}1231"},
+        )
+        if resp.status_code != 200:
+            return []
+        result = []
+        for event in resp.json().get("events", []):
+            status_type = event.get("status", {}).get("type", {})
+            state = status_type.get("state", "pre")
+
+            winner = ""
+            if state == "post":
+                comps = event.get("competitions", [])
+                if comps:
+                    top = sorted(comps[0].get("competitors", []), key=lambda x: x.get("order", 999))
+                    if top:
+                        w = top[0]
+                        wname = w.get("athlete", {}).get("displayName", "")
+                        wscore = w.get("score", "")
+                        winner = f"{wname} ({wscore})" if wname else ""
+
+            result.append({
+                "name": event.get("name", ""),
+                "start_date": event.get("date", "")[:10],
+                "end_date": event.get("endDate", "")[:10],
+                "status": status_type.get("description", "Scheduled"),
+                "state": state,
+                "winner": winner,
+            })
+        return result
+    except Exception as e:
+        print(f"[get_golf_schedule] {tour_key}: {e}")
         return []

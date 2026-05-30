@@ -107,3 +107,11 @@ class ApiService:
     @staticmethod
     def get_draft_round(year: int, round_num: int) -> List[Dict]:
         return ApiService._call(espn_api.get_draft_round, year, round_num)
+
+    @staticmethod
+    def get_golf_leaderboard(tour: str) -> Dict:
+        return ApiService._call(espn_api.get_golf_leaderboard, tour)
+
+    @staticmethod
+    def get_golf_schedule(tour: str) -> List[Dict]:
+        return ApiService._call(espn_api.get_golf_schedule, tour)
