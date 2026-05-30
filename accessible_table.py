@@ -4,11 +4,12 @@ Provides consistent keyboard navigation and screen reader support.
 """
 
 from PyQt6.QtWidgets import (
-    QTableWidget, QTableWidgetItem, QHeaderView, QStackedWidget, 
+    QTableWidget, QTableWidgetItem, QHeaderView, QStackedWidget,
     QListWidget, QListWidgetItem, QWidget, QVBoxLayout
 )
 from PyQt6.QtCore import Qt, QEvent
 from typing import List, Dict, Any, Optional
+import settings
 
 
 class AccessibleTable(QWidget):
@@ -38,7 +39,7 @@ class AccessibleTable(QWidget):
         # Data storage
         self._headers = []
         self._data = []
-        self._current_view = self.VIEW_TABLE
+        self._current_view = settings.get('default_view_mode', self.VIEW_TABLE)
         self._needs_data_sync = False
         
         # Setup the view container and individual views
@@ -127,8 +128,8 @@ class AccessibleTable(QWidget):
         
     def _setup_behavior(self):
         """Configure table behavior and keyboard navigation"""
-        # Set the initial view to table
-        self.stacked_widget.setCurrentIndex(self.VIEW_TABLE)
+        # Set the initial view to the user's saved preference
+        self.stacked_widget.setCurrentIndex(self._current_view)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         
         # Install event filter to handle keyboard shortcuts
@@ -190,6 +191,7 @@ class AccessibleTable(QWidget):
         old_view = self._current_view
         self._current_view = view_mode
         self.stacked_widget.setCurrentIndex(view_mode)
+        settings.set('default_view_mode', view_mode)
         
         # Set focus to the new view and restore position
         self._set_focus_to_current_view()

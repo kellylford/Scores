@@ -19,6 +19,8 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
+import settings
+
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QListWidget, QPushButton, QLabel,
     QHBoxLayout, QCheckBox, QDialog, QMessageBox, QTextEdit, QScrollArea,
@@ -467,8 +469,9 @@ class LiveScoresView(BaseView):
             "2 minutes": 120000,
             "Manual (F5 only)": 0
         }
-        self.current_refresh_interval = 60000  # Default to 1 minute
-        
+        _saved_text = settings.get('auto_refresh_interval', '1 minute')
+        self.current_refresh_interval = self.refresh_intervals.get(_saved_text, 60000)
+
         self.setup_ui()
         
         # Setup auto-refresh timer for live updates
@@ -489,7 +492,7 @@ class LiveScoresView(BaseView):
         
         self.refresh_combo = QComboBox()
         self.refresh_combo.addItems(list(self.refresh_intervals.keys()))
-        self.refresh_combo.setCurrentText("1 minute")  # Default selection
+        self.refresh_combo.setCurrentText(settings.get('auto_refresh_interval', '1 minute'))
         self.refresh_combo.currentTextChanged.connect(self._on_refresh_frequency_changed)
         self.refresh_combo.setAccessibleName("Refresh Frequency")
         self.refresh_combo.setAccessibleDescription("Select how often live scores should update automatically")
@@ -576,6 +579,7 @@ class LiveScoresView(BaseView):
     def _on_refresh_frequency_changed(self, frequency_text):
         """Handle refresh frequency change"""
         self.current_refresh_interval = self.refresh_intervals[frequency_text]
+        settings.set('auto_refresh_interval', frequency_text)
         self._update_refresh_timer()
         
         # Announce the change for accessibility
