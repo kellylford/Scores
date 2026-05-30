@@ -14,6 +14,7 @@ _DEFAULTS = {
     'auto_refresh_interval': '1 minute',
     'sport_order': [],               # [] = use API default order
     'sport_visibility': {},          # {} = all visible
+    'favorites': [],                 # [{team_id, team_name, league, abbreviation}]
 }
 
 _cache: dict | None = None
@@ -38,6 +39,33 @@ def get(key: str, default=None):
     if default is None:
         default = _DEFAULTS.get(key)
     return _load().get(key, default)
+
+
+def get_favorites() -> list:
+    return get('favorites', [])
+
+
+def save_favorites(favs: list) -> None:
+    set('favorites', favs)
+
+
+def is_favorite(team_id: str, league: str) -> bool:
+    return any(f.get('team_id') == str(team_id) and f.get('league') == league
+               for f in get_favorites())
+
+
+def toggle_favorite(team_id: str, team_name: str, league: str, abbreviation: str = '') -> bool:
+    """Add if not present, remove if present. Returns True if now a favorite."""
+    favs = get_favorites()
+    for i, f in enumerate(favs):
+        if f.get('team_id') == str(team_id) and f.get('league') == league:
+            del favs[i]
+            save_favorites(favs)
+            return False
+    favs.append({'team_id': str(team_id), 'team_name': team_name,
+                 'league': league, 'abbreviation': abbreviation})
+    save_favorites(favs)
+    return True
 
 
 def set(key: str, value) -> None:

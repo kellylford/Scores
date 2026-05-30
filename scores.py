@@ -449,8 +449,12 @@ class HomeView(BaseView):
             super(BaseView, self).keyPressEvent(event)  # Skip BaseView's Escape handling
     
     def setup_ui(self):
+        self._fav_loaders = []
+        self._build_favorites_container()
+        self._rebuild_favorites()
+
         self.layout.addWidget(QLabel("Select a League:"))
-        
+
         self.league_list = QListWidget()
         self.league_list.setAccessibleName("League Selection List")
         self.league_list.setAccessibleDescription("List of available sports leagues and live scores")
@@ -534,19 +538,19 @@ class HomeView(BaseView):
             self.parent_app.update_window_title()
     
     def refresh(self):
-        """Refresh the league list"""
+        """Refresh the league list and favorites section."""
+        self._rebuild_favorites()
+
         self.league_list.clear()
-        
-        # Add Live Scores as the first item
+
         live_scores_item = QListWidgetItem("Live Scores - All Sports")
         live_scores_item.setData(Qt.ItemDataRole.UserRole, "__live_scores__")
         self.league_list.addItem(live_scores_item)
-        
-        # Add separator
+
         separator_item = QListWidgetItem("─" * 30)
-        separator_item.setFlags(Qt.ItemFlag.NoItemFlags)  # Make it non-selectable
+        separator_item.setFlags(Qt.ItemFlag.NoItemFlags)
         self.league_list.addItem(separator_item)
-        
+
         leagues = ApiService.get_leagues()
         if not leagues:
             self._show_api_error("Failed to load leagues")
@@ -556,6 +560,125 @@ class HomeView(BaseView):
             self.league_list.addItem(league)
 
         self.set_focus_and_select_first(self.league_list)
+
+    # ---------------------------------------------------------------- favorites
+
+    def _build_favorites_container(self):
+        """Create the persistent favorites section (shown/hidden based on data)."""
+        self.favorites_container = QWidget()
+        fav_layout = QVBoxLayout(self.favorites_container)
+        fav_layout.setContentsMargins(0, 0, 0, 4)
+
+        fav_layout.addWidget(QLabel("Favorite Teams:"))
+
+        self.favorites_list = QListWidget()
+        self.favorites_list.setMaximumHeight(200)
+        self.favorites_list.setAccessibleName("Favorite Teams")
+        self.favorites_list.setAccessibleDescription(
+            "Your favorite teams. Press Enter to view team details.")
+        self.favorites_list.itemActivated.connect(self._on_favorite_activated)
+        fav_layout.addWidget(self.favorites_list)
+
+        btn_row = QHBoxLayout()
+        up_btn = QPushButton("Move Up")
+        up_btn.setAccessibleName("Move selected favorite team up")
+        up_btn.clicked.connect(self._move_fav_up)
+        down_btn = QPushButton("Move Down")
+        down_btn.setAccessibleName("Move selected favorite team down")
+        down_btn.clicked.connect(self._move_fav_down)
+        remove_btn = QPushButton("Remove from Favorites")
+        remove_btn.clicked.connect(self._remove_favorite)
+        btn_row.addWidget(up_btn)
+        btn_row.addWidget(down_btn)
+        btn_row.addWidget(remove_btn)
+        btn_row.addStretch()
+        fav_layout.addLayout(btn_row)
+
+        self.layout.addWidget(self.favorites_container)
+        self.favorites_container.hide()
+
+    def _rebuild_favorites(self):
+        """Populate or hide the favorites section."""
+        favorites = settings.get_favorites()
+        if not favorites:
+            self.favorites_container.hide()
+            return
+
+        self.favorites_container.show()
+        self.favorites_list.clear()
+        self._fav_loaders = []
+
+        for fav in favorites:
+            item = QListWidgetItem(f"★ {fav['team_name']}  [{fav['league']}]")
+            item.setData(Qt.ItemDataRole.UserRole, fav)
+            self.favorites_list.addItem(item)
+            loader = FavoriteCardLoader(
+                fav['team_id'], fav['team_name'],
+                fav['league'], fav.get('abbreviation', ''))
+            loader.card_ready.connect(self._on_card_ready)
+            self._fav_loaders.append(loader)
+            loader.start()
+
+    def _on_card_ready(self, team_id, league, summary, news_lines):
+        for i in range(self.favorites_list.count()):
+            item = self.favorites_list.item(i)
+            fav = item.data(Qt.ItemDataRole.UserRole)
+            if fav and fav.get('team_id') == team_id and fav.get('league') == league:
+                lines = [f"★ {fav['team_name']}  [{league}]"]
+                if summary:
+                    lines.append(f"  {summary}")
+                for h in news_lines:
+                    lines.append(f"  {h}")
+                item.setText("\n".join(lines))
+                break
+
+    def _on_favorite_activated(self, item):
+        fav = item.data(Qt.ItemDataRole.UserRole)
+        if not fav:
+            return
+        try:
+            team_data = {
+                'team_id': fav['team_id'],
+                'team_name': fav['team_name'],
+                'abbreviation': fav.get('abbreviation', ''),
+                'wins': '', 'losses': '',
+            }
+            dialog = TeamHubDialog(team_data, fav['league'], self)
+            dialog.exec()
+            self._rebuild_favorites()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to open team: {e}")
+
+    def _move_fav_up(self):
+        row = self.favorites_list.currentRow()
+        if row <= 0:
+            return
+        favs = settings.get_favorites()
+        favs[row - 1], favs[row] = favs[row], favs[row - 1]
+        settings.save_favorites(favs)
+        self._rebuild_favorites()
+        self.favorites_list.setCurrentRow(row - 1)
+
+    def _move_fav_down(self):
+        row = self.favorites_list.currentRow()
+        favs = settings.get_favorites()
+        if row < 0 or row >= len(favs) - 1:
+            return
+        favs[row], favs[row + 1] = favs[row + 1], favs[row]
+        settings.save_favorites(favs)
+        self._rebuild_favorites()
+        self.favorites_list.setCurrentRow(row + 1)
+
+    def _remove_favorite(self):
+        row = self.favorites_list.currentRow()
+        if row < 0:
+            return
+        favs = settings.get_favorites()
+        if row < len(favs):
+            del favs[row]
+            settings.save_favorites(favs)
+            self._rebuild_favorites()
+
 
 class LiveScoresView(BaseView):
     """View showing live games from all sports"""
@@ -7212,6 +7335,12 @@ class TeamHubDialog(QDialog):
             rec_lbl.setFont(font)
             header_layout.addWidget(rec_lbl)
         header_layout.addStretch()
+
+        self.fav_btn = QPushButton()
+        self._refresh_fav_button()
+        self.fav_btn.clicked.connect(self._toggle_favorite)
+        header_layout.addWidget(self.fav_btn)
+
         layout.addLayout(header_layout)
 
         self.tab_widget = QTabWidget()
@@ -7496,6 +7625,27 @@ class TeamHubDialog(QDialog):
         list_widget.clear()
         list_widget.addItem(f"Error loading data: {error_msg}")
 
+    def _refresh_fav_button(self):
+        if settings.is_favorite(self.team_id, self.league):
+            self.fav_btn.setText("★ Favorited")
+            self.fav_btn.setAccessibleName("Remove from Favorites")
+            self.fav_btn.setAccessibleDescription(
+                f"Remove {self.team_name} from your favorite teams")
+        else:
+            self.fav_btn.setText("☆ Add to Favorites")
+            self.fav_btn.setAccessibleName("Add to Favorites")
+            self.fav_btn.setAccessibleDescription(
+                f"Add {self.team_name} to your favorite teams")
+
+    def _toggle_favorite(self):
+        added = settings.toggle_favorite(
+            self.team_id, self.team_name, self.league,
+            self.team_data.get('abbreviation', ''))
+        self._refresh_fav_button()
+        msg = f"{self.team_name} added to favorites." if added \
+              else f"{self.team_name} removed from favorites."
+        QMessageBox.information(self, "Favorites", msg)
+
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
             self.accept()
@@ -7528,6 +7678,66 @@ class TeamScheduleLoader(QThread):
             self.data_loaded.emit(schedule_data, self.team_name, self.league)
         except Exception as e:
             self.error_occurred.emit(f"Failed to load schedule: {str(e)}")
+
+
+class FavoriteCardLoader(QThread):
+    """Fetches today's game, next game, and news for one favorite team."""
+    card_ready = pyqtSignal(str, str, str, list)  # team_id, league, summary, news_headlines
+
+    def __init__(self, team_id: str, team_name: str, league: str, abbreviation: str = ''):
+        super().__init__()
+        self.team_id = team_id
+        self.team_name = team_name
+        self.league = league
+        self.abbreviation = abbreviation
+
+    def run(self):
+        import espn_api
+        summary = ''
+        try:
+            today = datetime.now().date()
+            scores = espn_api.get_scores(self.league, today)
+            for game in scores:
+                teams = game.get('teams', [])
+                abbrevs = {t.get('abbreviation', '') for t in teams}
+                names = {t.get('name', '') for t in teams}
+                if (self.abbreviation and self.abbreviation in abbrevs) or self.team_name in names:
+                    status = game.get('status', '')
+                    t0, t1 = (teams + [{}, {}])[:2]
+                    s0, s1 = t0.get('score', ''), t1.get('score', '')
+                    n0, n1 = t0.get('name', ''), t1.get('name', '')
+                    if s0 and s1:
+                        summary = f"{n0} {s0} — {n1} {s1}  ({status})"
+                    else:
+                        summary = f"vs {n1 if n0 == self.team_name else n0}  ({status})"
+                    break
+        except Exception:
+            pass
+
+        if not summary:
+            try:
+                info = espn_api.get_team_info(self.league, self.team_id)
+                rec = info.get('record_overall', '')
+                opp = info.get('next_game_opponent', '')
+                ha = info.get('next_game_home_away', '')
+                date = info.get('next_game_date', '')
+                parts = []
+                if rec:
+                    parts.append(f"({rec})")
+                if opp and date:
+                    parts.append(f"Next: {ha} {opp} — {date}")
+                summary = '  '.join(parts)
+            except Exception:
+                pass
+
+        news_lines = []
+        try:
+            articles = espn_api.get_team_news(self.league, self.team_id, limit=2)
+            news_lines = [a.get('headline', '') for a in articles[:2] if a.get('headline')]
+        except Exception:
+            pass
+
+        self.card_ready.emit(self.team_id, self.league, summary, news_lines)
 
 
 class LeagueTransactionsLoader(QThread):
