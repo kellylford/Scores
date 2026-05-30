@@ -4093,7 +4093,7 @@ def _get_sample_statistics_data(league_key):
         ],
         "team_stats": [
             {
-                "category": "Team Stats", 
+                "category": "Team Stats",
                 "stats": [
                     {"team_name": "Sample Team 1", "stats": {"Sample Stat": 100}},
                     {"team_name": "Sample Team 2", "stats": {"Sample Stat": 90}},
@@ -4102,3 +4102,181 @@ def _get_sample_statistics_data(league_key):
             }
         ]
     }
+
+
+def get_team_info(league_key, team_id):
+    """Get full team details: record splits, venue, head coach, next game."""
+    league_path = LEAGUES.get(league_key)
+    if not league_path or not team_id:
+        return {}
+    try:
+        resp = requests.get(f"{BASE_URL}/{league_path}/teams/{team_id}")
+        if resp.status_code != 200:
+            return {}
+        team = resp.json().get("team", {})
+        result = {
+            "name":         team.get("displayName", ""),
+            "abbreviation": team.get("abbreviation", ""),
+            "nickname":     team.get("name", ""),
+            "location":     team.get("location", ""),
+        }
+        # Venue
+        venue = team.get("venue", {})
+        result["venue_name"] = venue.get("displayName", "")
+        addr = venue.get("address", {})
+        city, state = addr.get("city", ""), addr.get("state", "")
+        result["venue_location"] = f"{city}, {state}" if city and state else city or state
+        # Record splits
+        for item in team.get("record", {}).get("items", []):
+            rtype = item.get("type", "")
+            summary = item.get("summary", "")
+            if rtype == "total":
+                result["record_overall"] = summary
+            elif rtype == "home":
+                result["record_home"] = summary
+            elif rtype == "road":
+                result["record_road"] = summary
+        # Division / Conference
+        groups = team.get("groups", {})
+        result["division"] = groups.get("name", "")
+        result["conference"] = groups.get("parent", {}).get("name", "")
+        # Head coach
+        coaches = team.get("coaches", [])
+        if coaches:
+            c = coaches[0]
+            result["head_coach"] = f"{c.get('firstName','')} {c.get('lastName','')}".strip()
+        # Next event
+        events = team.get("nextEvent", [])
+        if events:
+            comps = events[0].get("competitions", [])
+            if comps:
+                competitors = comps[0].get("competitors", [])
+                home = next((c for c in competitors if c.get("homeAway") == "home"), None)
+                away = next((c for c in competitors if c.get("homeAway") == "away"), None)
+                if home and away:
+                    is_home = str(home.get("team", {}).get("id", "")) == str(team_id)
+                    opp = away if is_home else home
+                    result["next_game_opponent"] = opp.get("team", {}).get("displayName", "")
+                    result["next_game_home_away"] = "vs" if is_home else "@"
+            date_str = events[0].get("date", "")
+            if date_str:
+                try:
+                    from datetime import datetime, timezone
+                    dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                    dt_local = dt.astimezone()
+                    result["next_game_date"] = dt_local.strftime("%a, %b %d").replace(" 0", " ")
+                except Exception:
+                    result["next_game_date"] = date_str[:10]
+        return result
+    except Exception as e:
+        print(f"[get_team_info] team {team_id}: {e}")
+        return {}
+
+
+def get_team_roster(league_key, team_id):
+    """Get a team's current roster as a list of player dicts."""
+    league_path = LEAGUES.get(league_key)
+    if not league_path or not team_id:
+        return []
+    try:
+        resp = requests.get(f"{BASE_URL}/{league_path}/teams/{team_id}/roster")
+        if resp.status_code != 200:
+            return []
+        data = resp.json()
+        players = []
+        # ESPN returns athletes grouped by position group
+        for group in data.get("athletes", []):
+            items = group.get("items", [group] if "displayName" in group else [])
+            for p in items:
+                jersey = str(p.get("jersey", ""))
+                name = p.get("displayName", p.get("fullName", ""))
+                pos = p.get("position", {})
+                pos_abbr = pos.get("abbreviation", pos.get("name", "")) if isinstance(pos, dict) else str(pos)
+                age = str(p.get("age", ""))
+                h = p.get("height")
+                height_str = f"{h // 12}'{h % 12}\"" if h else ""
+                w = p.get("weight")
+                weight_str = f"{w} lbs" if w else ""
+                players.append({
+                    "jersey": jersey, "name": name, "position": pos_abbr,
+                    "age": age, "height": height_str, "weight": weight_str,
+                })
+        return players
+    except Exception as e:
+        print(f"[get_team_roster] team {team_id}: {e}")
+        return []
+
+
+def get_team_news(league_key, team_id, limit=15):
+    """Get news articles for a specific team."""
+    league_path = LEAGUES.get(league_key)
+    if not league_path or not team_id:
+        return []
+    try:
+        resp = requests.get(f"{BASE_URL}/{league_path}/teams/{team_id}/news", params={"limit": limit})
+        if resp.status_code != 200:
+            return []
+        try:
+            from text_utils import text_processor
+        except ImportError:
+            text_processor = None
+        articles = []
+        for a in resp.json().get("articles", []):
+            raw_desc = a.get("description", "")
+            desc = text_processor.clean_description(raw_desc, a) if text_processor else raw_desc
+            articles.append({
+                "headline":  a.get("headline", ""),
+                "description": desc,
+                "web_url":   a.get("links", {}).get("web", {}).get("href", ""),
+                "published": a.get("published", ""),
+                "byline":    a.get("byline", ""),
+            })
+        return articles
+    except Exception as e:
+        print(f"[get_team_news] team {team_id}: {e}")
+        return []
+
+
+def get_team_transactions(league_key, team_id, limit=25):
+    """Get recent transactions for a team. Returns [] if the league has no transaction feed."""
+    league_path = LEAGUES.get(league_key)
+    if not league_path or not team_id:
+        return []
+    try:
+        resp = requests.get(
+            f"{BASE_URL}/{league_path}/transactions",
+            params={"team": team_id, "limit": limit},
+        )
+        if resp.status_code != 200:
+            return []
+        data = resp.json()
+        items = data.get("items", data.get("transactions", []))
+        result = []
+        for item in items:
+            date_str = item.get("date", item.get("timestamp", ""))
+            date_display = ""
+            if date_str:
+                try:
+                    from datetime import datetime
+                    dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                    date_display = dt.strftime("%Y-%m-%d")
+                except Exception:
+                    date_display = date_str[:10]
+            trans_type = item.get("type", {})
+            if isinstance(trans_type, dict):
+                trans_type = trans_type.get("text", trans_type.get("name", ""))
+            athlete = item.get("athlete", {})
+            player_name = athlete.get("displayName", athlete.get("fullName", "")) if athlete else ""
+            pos = athlete.get("position", {}) if athlete else {}
+            position = pos.get("abbreviation", pos.get("name", "")) if isinstance(pos, dict) else ""
+            result.append({
+                "date":        date_display,
+                "type":        str(trans_type),
+                "player":      player_name,
+                "position":    position,
+                "description": item.get("description", ""),
+            })
+        return result
+    except Exception as e:
+        print(f"[get_team_transactions] team {team_id}: {e}")
+        return []

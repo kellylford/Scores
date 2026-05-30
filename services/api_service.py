@@ -78,3 +78,19 @@ class ApiService:
     def get_rankings(league: str) -> Dict:
         """Get poll/ranking data for a league"""
         return ApiService._call(espn_api.get_rankings, league)
+
+    @staticmethod
+    def get_team_info(league: str, team_id: str) -> Dict:
+        return ApiService._call(espn_api.get_team_info, league, team_id)
+
+    @staticmethod
+    def get_team_roster(league: str, team_id: str) -> List[Dict]:
+        return ApiService._call(espn_api.get_team_roster, league, team_id)
+
+    @staticmethod
+    def get_team_news(league: str, team_id: str, limit: int = 15) -> List[Dict]:
+        return ApiService._call(espn_api.get_team_news, league, team_id, limit)
+
+    @staticmethod
+    def get_team_transactions(league: str, team_id: str, limit: int = 25) -> List[Dict]:
+        return ApiService._call(espn_api.get_team_transactions, league, team_id, limit)

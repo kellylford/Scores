@@ -7150,234 +7150,334 @@ class GameDetailsDialog(QDialog):
         super().keyPressEvent(event)
 
 
-class TeamScheduleDialog(QDialog):
-    """Dialog showing a team's schedule with focus on today's game"""
-    
+class TeamHubDialog(QDialog):
+    """Five-tab team hub: Info, Roster, Schedule, News, Transactions."""
+
     def __init__(self, team_data: Dict, league: str, parent=None):
         super().__init__(parent)
         self.team_data = team_data
         self.league = league
         self.team_name = team_data.get('team_name', 'Unknown Team')
         self.team_id = team_data.get('team_id', '')
-        
-        self.setWindowTitle(f"{self.team_name} - Schedule")
-        self.setMinimumSize(800, 600)
-        self.resize(900, 700)
-        
-        self.setup_ui()
-        self.load_schedule()
-    
-    def setup_ui(self):
+        self._tabs_loaded: set = set()
+        self._loaders = []  # keep loader references alive
+
+        self.setWindowTitle(f"{self.team_name} - {league} - Sports Scores")
+        self.setMinimumSize(900, 650)
+        self.resize(1000, 750)
+
+        self._setup_ui()
+        self._on_tab_changed(0)  # load Info tab immediately
+
+    # ------------------------------------------------------------------ setup
+
+    def _setup_ui(self):
         layout = QVBoxLayout()
-        
-        # Header with team info
+
+        # Header
         header_layout = QHBoxLayout()
-        
-        team_info = QLabel(f"{self.team_name}")
-        font = QFont()
-        font.setPointSize(14)
-        font.setBold(True)
-        team_info.setFont(font)
-        header_layout.addWidget(team_info)
-        
-        # Add team record if available
+        name_lbl = QLabel(self.team_name)
+        font = QFont(); font.setPointSize(14); font.setBold(True)
+        name_lbl.setFont(font)
+        name_lbl.setAccessibleName(f"Team: {self.team_name}")
+        header_layout.addWidget(name_lbl)
+
         wins = self.team_data.get('wins', '')
         losses = self.team_data.get('losses', '')
         ties = self.team_data.get('ties', 0)
         if wins and losses:
-            # Include ties for NFL
             if self.league == "NFL" and ties and int(ties) > 0:
-                record_label = QLabel(f"({wins}-{losses}-{ties})")
+                rec_text = f"({wins}-{losses}-{ties})"
             else:
-                record_label = QLabel(f"({wins}-{losses})")
-            record_label.setFont(font)
-            header_layout.addWidget(record_label)
-        
+                rec_text = f"({wins}-{losses})"
+            rec_lbl = QLabel(rec_text)
+            rec_lbl.setFont(font)
+            header_layout.addWidget(rec_lbl)
         header_layout.addStretch()
         layout.addLayout(header_layout)
-        
-        # Season selector
-        season_layout = QHBoxLayout()
-        season_label = QLabel("Season:")
-        season_layout.addWidget(season_label)
-        
+
+        self.tab_widget = QTabWidget()
+        self.tab_widget.currentChanged.connect(self._on_tab_changed)
+
+        # Tab 0 — Info
+        info_w = QWidget()
+        info_layout = QVBoxLayout(info_w)
+        self.info_list = QListWidget()
+        self.info_list.setAccessibleName(f"{self.team_name} Team Info")
+        self.info_list.setAccessibleDescription("Team details including record, venue, coach, and next game")
+        info_layout.addWidget(self.info_list)
+        self.tab_widget.addTab(info_w, "&Info")
+
+        # Tab 1 — Roster
+        roster_w = QWidget()
+        roster_layout = QVBoxLayout(roster_w)
+        self.roster_table = AccessibleTable(accessible_name=f"{self.team_name} Roster",
+                                            accessible_description="Team roster. Alt+V to cycle view modes.")
+        self.roster_table.setup_columns(["#", "Name", "Position", "Age", "Height", "Weight"])
+        roster_layout.addWidget(self.roster_table)
+        self.tab_widget.addTab(roster_w, "R&oster")
+
+        # Tab 2 — Schedule
+        sched_w = QWidget()
+        sched_layout = QVBoxLayout(sched_w)
+        season_row = QHBoxLayout()
+        season_row.addWidget(QLabel("Season:"))
         self.season_combo = QComboBox()
         self.season_combo.setAccessibleName("Season Selection")
-        self.season_combo.setAccessibleDescription("Select a season to view the team's schedule")
-        
-        # Populate seasons
+        self.season_combo.setAccessibleDescription("Select a season to view the team schedule")
         try:
-            available_seasons = ApiService.get_available_seasons(self.league)
-            for season_value, season_display in available_seasons:
-                self.season_combo.addItem(season_display, season_value)
-        except Exception as e:
-            # Fallback if API call fails
-            from datetime import datetime
-            current_year = datetime.now().year
-            for year in range(current_year, current_year - 3, -1):
-                self.season_combo.addItem(f"{year} Season", year)
-        
-        self.season_combo.currentIndexChanged.connect(self.on_season_changed)
-        season_layout.addWidget(self.season_combo)
-        season_layout.addStretch()
-        layout.addLayout(season_layout)
-        
-        # Schedule list
+            for val, display in ApiService.get_available_seasons(self.league):
+                self.season_combo.addItem(display, val)
+        except Exception:
+            year = datetime.now().year
+            for y in range(year, year - 3, -1):
+                self.season_combo.addItem(f"{y} Season", y)
+        self.season_combo.currentIndexChanged.connect(self._on_season_changed)
+        season_row.addWidget(self.season_combo)
+        season_row.addStretch()
+        sched_layout.addLayout(season_row)
         self.schedule_list = QListWidget()
         self.schedule_list.setAccessibleName(f"{self.team_name} Schedule")
-        self.schedule_list.itemActivated.connect(self.on_game_selected)
-        layout.addWidget(self.schedule_list)
-        
-        # Buttons
-        button_layout = QHBoxLayout()
-        
-        refresh_btn = QPushButton("&Refresh")
-        refresh_btn.clicked.connect(self.load_schedule)
-        button_layout.addWidget(refresh_btn)
-        
-        button_layout.addStretch()
-        
+        self.schedule_list.itemActivated.connect(self._on_game_selected)
+        sched_layout.addWidget(self.schedule_list)
+        self.tab_widget.addTab(sched_w, "&Schedule")
+
+        # Tab 3 — News
+        news_w = QWidget()
+        news_layout = QVBoxLayout(news_w)
+        self.news_list = QListWidget()
+        self.news_list.setAccessibleName(f"{self.team_name} News")
+        self.news_list.setAccessibleDescription("Team news articles. Press Enter to open in browser.")
+        self.news_list.itemActivated.connect(self._on_news_activated)
+        news_layout.addWidget(self.news_list)
+        open_btn = QPushButton("&Open Story in Browser")
+        open_btn.clicked.connect(self._open_selected_news)
+        news_layout.addWidget(open_btn)
+        self.tab_widget.addTab(news_w, "&News")
+
+        # Tab 4 — Transactions
+        trans_w = QWidget()
+        trans_layout = QVBoxLayout(trans_w)
+        self.trans_list = QListWidget()
+        self.trans_list.setAccessibleName(f"{self.team_name} Transactions")
+        self.trans_list.setAccessibleDescription("Recent player transactions for this team")
+        trans_layout.addWidget(self.trans_list)
+        self.tab_widget.addTab(trans_w, "&Transactions")
+
+        layout.addWidget(self.tab_widget)
+
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
         close_btn = QPushButton("&Close")
         close_btn.clicked.connect(self.accept)
-        button_layout.addWidget(close_btn)
-        
-        layout.addLayout(button_layout)
+        btn_row.addWidget(close_btn)
+        layout.addLayout(btn_row)
         self.setLayout(layout)
-    
-    def on_season_changed(self):
-        """Handle season selection change"""
-        self.load_schedule()
-    
-    def load_schedule(self):
-        """Load team schedule data"""
-        self.schedule_list.clear()
-        
-        # Show loading message
-        self.loading_item = QListWidgetItem("Loading schedule...")
-        self.schedule_list.addItem(self.loading_item)
-        
-        # Get selected season
-        selected_season = None
-        if hasattr(self, 'season_combo') and self.season_combo.currentData():
-            selected_season = self.season_combo.currentData()
-        
-        # Start background loading
-        self.schedule_loader = TeamScheduleLoader(self.team_id, self.team_name, self.league, selected_season)
-        self.schedule_loader.data_loaded.connect(self.on_schedule_loaded)
-        self.schedule_loader.error_occurred.connect(self.on_schedule_error)
-        self.schedule_loader.loading_progress.connect(self.on_loading_progress)
-        self.schedule_loader.start()
 
-    def on_loading_progress(self, message: str):
-        """Update loading progress message"""
-        if hasattr(self, 'loading_item') and self.loading_item:
-            self.loading_item.setText(message)
+    # --------------------------------------------------------- lazy tab loading
 
-    def on_schedule_loaded(self, schedule_data: List[Dict], team_name: str, league: str):
-        """Handle successful schedule loading"""
-        self.schedule_list.clear()
-        
-        if not schedule_data:
-            no_games_item = QListWidgetItem("No games found in schedule")
-            self.schedule_list.addItem(no_games_item)
+    def _on_tab_changed(self, index):
+        if index in self._tabs_loaded:
             return
+        self._tabs_loaded.add(index)
+        {0: self._load_info, 1: self._load_roster,
+         2: self._load_schedule, 3: self._load_news,
+         4: self._load_transactions}.get(index, lambda: None)()
 
-        today_item_index = -1
-        
-        for i, game in enumerate(schedule_data):
-            # Format game display
-            date_str = game.get('date_display', '')
-            opponent = game.get('opponent', 'Unknown')
-            home_away = game.get('home_away', '')
-            time_str = game.get('time', '')
-            status = game.get('status', '')
-            venue = game.get('venue', '')
-            
-            # Build game text
-            if status in ['Final', 'Cancelled', 'Postponed']:
-                home_score = game.get('home_score', '')
-                away_score = game.get('away_score', '')
-                if home_score and away_score:
-                    home_score_int = int(home_score)
-                    away_score_int = int(away_score)
-                    
-                    # Check for tie
-                    if home_score_int == away_score_int:
-                        if home_away == 'vs':  # Home game
-                            game_text = f"{date_str}: {home_away} {opponent} - T {home_score}-{away_score}"
-                        else:  # Away game
-                            game_text = f"{date_str}: {home_away} {opponent} - T {away_score}-{home_score}"
-                    elif home_away == 'vs':  # Home game
-                        if home_score_int > away_score_int:
-                            game_text = f"{date_str}: {home_away} {opponent} - W {home_score}-{away_score}"
-                        else:
-                            game_text = f"{date_str}: {home_away} {opponent} - L {home_score}-{away_score}"
-                    else:  # Away game
-                        if away_score_int > home_score_int:
-                            game_text = f"{date_str}: {home_away} {opponent} - W {away_score}-{home_score}"
-                        else:
-                            game_text = f"{date_str}: {home_away} {opponent} - L {away_score}-{home_score}"
-                else:
-                    game_text = f"{date_str}: {home_away} {opponent} - {status}"
-            else:
-                game_text = f"{date_str}: {home_away} {opponent} - {time_str}"
-                if venue and venue != "TBD":
-                    game_text += f" ({venue})"
-            
-            item = QListWidgetItem(game_text)
-            item.setData(Qt.ItemDataRole.UserRole, game)
-            
-            # Highlight today's game
-            if game.get('is_today', False):
-                font = QFont()
-                font.setBold(True)
-                item.setFont(font)
-                item.setBackground(QColor(255, 255, 200))  # Light yellow background
-                today_item_index = i
-            
-            self.schedule_list.addItem(item)
-        
-        # Focus on today's game if found, otherwise focus on first upcoming game
-        if today_item_index >= 0:
-            self.schedule_list.setCurrentRow(today_item_index)
-        else:
-            # Find first future game
-            future_game_index = -1
-            for i, game in enumerate(schedule_data):
-                if game.get('status', '') not in ['Final', 'Cancelled', 'Postponed']:
-                    future_game_index = i
-                    break
-            
-            if future_game_index >= 0:
-                self.schedule_list.setCurrentRow(future_game_index)
-            else:
-                # No future games, focus on first item
-                self.schedule_list.setCurrentRow(0)
-        
-        # Set focus to the list
-        self.schedule_list.setFocus()
-    
-    def on_schedule_error(self, error_msg: str):
-        """Handle schedule loading error"""
+    def _on_season_changed(self):
+        self._tabs_loaded.discard(2)
+        self._on_tab_changed(2)
+
+    # --------------------------------------------------------------- info tab
+
+    def _load_info(self):
+        self.info_list.clear()
+        self.info_list.addItem("Loading team info...")
+        loader = TeamInfoLoader(self.team_id, self.league)
+        loader.data_loaded.connect(self._on_info_loaded)
+        loader.error_occurred.connect(lambda e: self._show_list_error(self.info_list, e))
+        self._loaders.append(loader)
+        loader.start()
+
+    def _on_info_loaded(self, info):
+        self.info_list.clear()
+        if not info:
+            self.info_list.addItem("No team info available.")
+            return
+        def add(label, value):
+            if value:
+                self.info_list.addItem(f"{label}: {value}")
+        add("Team", info.get('name'))
+        add("Division", info.get('division'))
+        add("Conference", info.get('conference'))
+        add("Record (Overall)", info.get('record_overall'))
+        add("Record (Home)", info.get('record_home'))
+        add("Record (Road)", info.get('record_road'))
+        add("Head Coach", info.get('head_coach'))
+        add("Venue", info.get('venue_name'))
+        add("Location", info.get('venue_location'))
+        opp = info.get('next_game_opponent')
+        ha = info.get('next_game_home_away')
+        date = info.get('next_game_date')
+        if opp and date:
+            add("Next Game", f"{ha} {opp}  —  {date}")
+
+    # -------------------------------------------------------------- roster tab
+
+    def _load_roster(self):
+        self.roster_table.populate_data([["Loading roster...", "", "", "", "", ""]])
+        loader = TeamRosterLoader(self.team_id, self.league)
+        loader.data_loaded.connect(self._on_roster_loaded)
+        loader.error_occurred.connect(
+            lambda e: self.roster_table.populate_data([[f"Error: {e}", "", "", "", "", ""]]))
+        self._loaders.append(loader)
+        loader.start()
+
+    def _on_roster_loaded(self, players):
+        if not players:
+            self.roster_table.populate_data([["No roster data available.", "", "", "", "", ""]])
+            return
+        rows = [[p['jersey'], p['name'], p['position'], p['age'], p['height'], p['weight']]
+                for p in players]
+        self.roster_table.populate_data(rows, set_focus=True)
+
+    # ------------------------------------------------------------ schedule tab
+
+    def _load_schedule(self):
         self.schedule_list.clear()
-        error_item = QListWidgetItem(f"Error loading schedule: {error_msg}")
-        self.schedule_list.addItem(error_item)
-    
-    def on_game_selected(self, item):
-        """Handle game selection"""
+        loading_item = QListWidgetItem("Loading schedule...")
+        self.schedule_list.addItem(loading_item)
+        season = self.season_combo.currentData() if self.season_combo.count() else None
+        loader = TeamScheduleLoader(self.team_id, self.team_name, self.league, season)
+        loader.data_loaded.connect(self._on_schedule_loaded)
+        loader.error_occurred.connect(lambda e: self._show_list_error(self.schedule_list, e))
+        loader.loading_progress.connect(lambda msg: loading_item.setText(msg))
+        self._loaders.append(loader)
+        loader.start()
+
+    def _on_schedule_loaded(self, schedule_data: List[Dict], team_name: str, league: str):
+        self.schedule_list.clear()
+        if not schedule_data:
+            self.schedule_list.addItem("No games found in schedule.")
+            return
+        today_idx = -1
+        for i, game in enumerate(schedule_data):
+            date_str   = game.get('date_display', '')
+            opponent   = game.get('opponent', 'Unknown')
+            home_away  = game.get('home_away', '')
+            time_str   = game.get('time', '')
+            status     = game.get('status', '')
+            venue      = game.get('venue', '')
+            if status in ('Final', 'Cancelled', 'Postponed'):
+                hs = game.get('home_score', '')
+                as_ = game.get('away_score', '')
+                if hs and as_:
+                    hi, ai = int(hs), int(as_)
+                    if hi == ai:
+                        txt = f"{date_str}: {home_away} {opponent} - T {hs}-{as_}"
+                    elif home_away == 'vs':
+                        txt = f"{date_str}: {home_away} {opponent} - {'W' if hi>ai else 'L'} {hs}-{as_}"
+                    else:
+                        txt = f"{date_str}: {home_away} {opponent} - {'W' if ai>hi else 'L'} {as_}-{hs}"
+                else:
+                    txt = f"{date_str}: {home_away} {opponent} - {status}"
+            else:
+                txt = f"{date_str}: {home_away} {opponent} - {time_str}"
+                if venue and venue != "TBD":
+                    txt += f" ({venue})"
+            item = QListWidgetItem(txt)
+            item.setData(Qt.ItemDataRole.UserRole, game)
+            if game.get('is_today', False):
+                f = QFont(); f.setBold(True)
+                item.setFont(f)
+                item.setBackground(QColor(255, 255, 200))
+                today_idx = i
+            self.schedule_list.addItem(item)
+        if today_idx >= 0:
+            self.schedule_list.setCurrentRow(today_idx)
+        else:
+            future = next((i for i, g in enumerate(schedule_data)
+                           if g.get('status', '') not in ('Final', 'Cancelled', 'Postponed')), 0)
+            self.schedule_list.setCurrentRow(future)
+        self.schedule_list.setFocus()
+
+    def _on_game_selected(self, item):
         game_data = item.data(Qt.ItemDataRole.UserRole)
         if not game_data:
             return
-        
         game_id = game_data.get('game_id')
         if game_id:
-            # Open game details in a new dialog
             try:
-                detail_dialog = GameDetailsDialog(game_id, self.league, self, game_data)
-                detail_dialog.exec()
+                GameDetailsDialog(game_id, self.league, self, game_data).exec()
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to open game details: {str(e)}")
-    
+                QMessageBox.critical(self, "Error", f"Failed to open game details: {e}")
+
+    # --------------------------------------------------------------- news tab
+
+    def _load_news(self):
+        self.news_list.clear()
+        self.news_list.addItem("Loading news...")
+        loader = TeamNewsLoader(self.team_id, self.league)
+        loader.data_loaded.connect(self._on_news_loaded)
+        loader.error_occurred.connect(lambda e: self._show_list_error(self.news_list, e))
+        self._loaders.append(loader)
+        loader.start()
+
+    def _on_news_loaded(self, articles):
+        self.news_list.clear()
+        if not articles:
+            self.news_list.addItem("No news available for this team.")
+            return
+        for a in articles:
+            headline = a.get('headline', '')
+            desc = a.get('description', '')
+            text = f"{headline}\n{desc}" if desc else headline
+            item = QListWidgetItem(text)
+            item.setData(Qt.ItemDataRole.UserRole, a)
+            self.news_list.addItem(item)
+
+    def _on_news_activated(self, item):
+        article = item.data(Qt.ItemDataRole.UserRole)
+        if isinstance(article, dict):
+            url = article.get('web_url', '')
+            if url and url.startswith(('http://', 'https://')):
+                webbrowser.open(url)
+
+    def _open_selected_news(self):
+        item = self.news_list.currentItem()
+        if item:
+            self._on_news_activated(item)
+        else:
+            QMessageBox.information(self, "No Selection", "Select a news story first.")
+
+    # --------------------------------------------------------- transactions tab
+
+    def _load_transactions(self):
+        self.trans_list.clear()
+        self.trans_list.addItem("Loading transactions...")
+        loader = TeamTransactionsLoader(self.team_id, self.league)
+        loader.data_loaded.connect(self._on_transactions_loaded)
+        loader.error_occurred.connect(lambda e: self._show_list_error(self.trans_list, e))
+        self._loaders.append(loader)
+        loader.start()
+
+    def _on_transactions_loaded(self, transactions):
+        self.trans_list.clear()
+        if not transactions:
+            self.trans_list.addItem("No transactions available for this team.")
+            return
+        for t in transactions:
+            parts = [p for p in [t.get('date'), t.get('type'),
+                                  t.get('player') or t.get('description'),
+                                  f"({t['position']})" if t.get('position') else ''] if p]
+            self.trans_list.addItem(" — ".join(parts))
+
+    # ---------------------------------------------------------------- helpers
+
+    def _show_list_error(self, list_widget, error_msg):
+        list_widget.clear()
+        list_widget.addItem(f"Error loading data: {error_msg}")
+
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
             self.accept()
@@ -7385,30 +7485,95 @@ class TeamScheduleDialog(QDialog):
         super().keyPressEvent(event)
 
 
+# Backward-compatibility alias — existing call sites use TeamScheduleDialog
+TeamScheduleDialog = TeamHubDialog
+
+
 class TeamScheduleLoader(QThread):
     """Background thread for loading team schedule data"""
     data_loaded = pyqtSignal(list, str, str)  # schedule_data, team_name, league
     error_occurred = pyqtSignal(str)
     loading_progress = pyqtSignal(str)  # progress message
-    
+
     def __init__(self, team_id: str, team_name: str, league: str, season=None):
         super().__init__()
         self.team_id = team_id
         self.team_name = team_name
         self.league = league
         self.season = season
-    
+
     def run(self):
         try:
             self.loading_progress.emit("Loading schedule...")
-            
-            # Load team schedule using the optimized API
             schedule_data = ApiService.get_team_schedule(self.league, self.team_id, season=self.season)
-            
             self.loading_progress.emit(f"Loaded {len(schedule_data)} games")
             self.data_loaded.emit(schedule_data, self.team_name, self.league)
         except Exception as e:
             self.error_occurred.emit(f"Failed to load schedule: {str(e)}")
+
+
+class TeamInfoLoader(QThread):
+    data_loaded = pyqtSignal(dict)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, team_id: str, league: str):
+        super().__init__()
+        self.team_id = team_id
+        self.league = league
+
+    def run(self):
+        try:
+            self.data_loaded.emit(ApiService.get_team_info(self.league, self.team_id))
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+
+
+class TeamRosterLoader(QThread):
+    data_loaded = pyqtSignal(list)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, team_id: str, league: str):
+        super().__init__()
+        self.team_id = team_id
+        self.league = league
+
+    def run(self):
+        try:
+            self.data_loaded.emit(ApiService.get_team_roster(self.league, self.team_id))
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+
+
+class TeamNewsLoader(QThread):
+    data_loaded = pyqtSignal(list)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, team_id: str, league: str):
+        super().__init__()
+        self.team_id = team_id
+        self.league = league
+
+    def run(self):
+        try:
+            self.data_loaded.emit(ApiService.get_team_news(self.league, self.team_id))
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+
+
+class TeamTransactionsLoader(QThread):
+    data_loaded = pyqtSignal(list)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, team_id: str, league: str):
+        super().__init__()
+        self.team_id = team_id
+        self.league = league
+
+    def run(self):
+        try:
+            self.data_loaded.emit(ApiService.get_team_transactions(self.league, self.team_id))
+        except Exception as e:
+            self.error_occurred.emit(str(e))
 
 
 # Caching system for improved performance
