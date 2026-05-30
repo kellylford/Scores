@@ -2363,12 +2363,11 @@ class GameDetailsView(BaseView):
                 venue_info += ")"
             self.details_list.addItem(f"Venue: {venue_info}")
         
-        # Weather is handled in the configurable details section (gameInfo) for better formatting
-        # if 'weather' in details:
-        #     weather_display = details['weather']
-        #     if 'temperature' in details:
-        #         weather_display += f", {details['temperature']}"
-        #     self.details_list.addItem(f"Weather: {weather_display}")
+        if 'weather' in details:
+            weather_display = details['weather']
+            if 'temperature' in details and details['temperature'] not in weather_display:
+                weather_display += f", {details['temperature']}"
+            self.details_list.addItem(f"Weather: {weather_display}")
         
         # Officials - make interactive if available
         if raw_details and 'gameInfo' in raw_details:
