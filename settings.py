@@ -12,6 +12,8 @@ _SETTINGS_FILE = _SETTINGS_DIR / 'settings.json'
 _DEFAULTS = {
     'default_view_mode': 0,          # 0=Table, 1=Quick List, 2=Full List
     'auto_refresh_interval': '1 minute',
+    'sport_order': [],               # [] = use API default order
+    'sport_visibility': {},          # {} = all visible
 }
 
 _cache: dict | None = None

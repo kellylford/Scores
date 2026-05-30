@@ -15,8 +15,17 @@ LEAGUES = {
     "NCAAWB": "basketball/womens-college-basketball",
     "NCAAH": "hockey/mens-college-hockey",
     "NCAAWH": "hockey/womens-college-hockey",
-    "Soccer": "soccer/eng.1",  # English Premier League
-    # Add more as needed
+    "EPL":        "soccer/eng.1",
+    "MLS":        "soccer/usa.1",
+    "NWSL":       "soccer/usa.nwsl",
+    "La Liga":    "soccer/esp.1",
+    "Bundesliga": "soccer/ger.1",
+    "Serie A":    "soccer/ita.1",
+    "Ligue 1":    "soccer/fra.1",
+    "UCL":        "soccer/uefa.champions",
+    "UEL":        "soccer/uefa.europa",
+    "Liga MX":    "soccer/mex.1",
+    "CONCACAF":   "soccer/concacaf.champions",
 }
 
 def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season=None):

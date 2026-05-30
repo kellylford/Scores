@@ -77,6 +77,15 @@ TEAM_SUMMARY_HEADERS = ["Team", "Statistic", "Value"]
 INJURY_HEADERS = ["Player", "Position", "Team", "Status", "Type", "Details", "Return Date"]
 LEADERS_HEADERS = ["Category/Player", "Team", "Statistic", "Value"]
 FOCUS_DELAY_MS = 50
+
+
+def _get_home_leagues(available_leagues):
+    """Return available leagues in the user's saved order, filtered by visibility."""
+    saved_order = settings.get('sport_order', [])
+    visibility = settings.get('sport_visibility', {})
+    ordered = [l for l in saved_order if l in available_leagues]
+    ordered += [l for l in available_leagues if l not in ordered]
+    return [l for l in ordered if visibility.get(l, True)]
 WINDOW_WIDTH = 800  # Increased from 600 for better default size
 WINDOW_HEIGHT = 600  # Increased from 400 for better default size
 DIALOG_WIDTH = 800
@@ -194,6 +203,93 @@ class ConfigDialog(QDialog):
         self.setLayout(layout)
     def get_selected(self):
         return [d for d, cb in self.checkboxes.items() if cb.isChecked()]
+
+class HomeSettingsDialog(QDialog):
+    """Configure home page sport order and visibility."""
+
+    def __init__(self, available_leagues, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Home Page Settings - Sports Scores")
+        self.available_leagues = available_leagues
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("Check sports to show on the home page. Select an item and use Up/Down to reorder."))
+
+        saved_order = settings.get('sport_order', [])
+        visibility = settings.get('sport_visibility', {})
+        ordered = [l for l in saved_order if l in available_leagues]
+        ordered += [l for l in available_leagues if l not in ordered]
+
+        self.list_widget = QListWidget()
+        self.list_widget.setAccessibleName("Sport List")
+        self.list_widget.setAccessibleDescription("List of sports. Check or uncheck to show or hide. Select and use Up or Down buttons to reorder.")
+        for league in ordered:
+            item = QListWidgetItem(league)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            checked = Qt.CheckState.Checked if visibility.get(league, True) else Qt.CheckState.Unchecked
+            item.setCheckState(checked)
+            self.list_widget.addItem(item)
+        layout.addWidget(self.list_widget)
+
+        move_layout = QHBoxLayout()
+        up_btn = QPushButton("Move Up")
+        up_btn.setAccessibleName("Move selected sport up")
+        up_btn.clicked.connect(self._move_up)
+        down_btn = QPushButton("Move Down")
+        down_btn.setAccessibleName("Move selected sport down")
+        down_btn.clicked.connect(self._move_down)
+        reset_btn = QPushButton("Reset to Default")
+        reset_btn.clicked.connect(self._reset)
+        move_layout.addWidget(up_btn)
+        move_layout.addWidget(down_btn)
+        move_layout.addStretch()
+        move_layout.addWidget(reset_btn)
+        layout.addLayout(move_layout)
+
+        ok_layout = QHBoxLayout()
+        ok_btn = QPushButton("OK")
+        ok_btn.clicked.connect(self._save_and_accept)
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.reject)
+        ok_layout.addStretch()
+        ok_layout.addWidget(ok_btn)
+        ok_layout.addWidget(cancel_btn)
+        layout.addLayout(ok_layout)
+
+        self.setLayout(layout)
+
+    def _move_up(self):
+        row = self.list_widget.currentRow()
+        if row > 0:
+            item = self.list_widget.takeItem(row)
+            self.list_widget.insertItem(row - 1, item)
+            self.list_widget.setCurrentRow(row - 1)
+
+    def _move_down(self):
+        row = self.list_widget.currentRow()
+        if row < self.list_widget.count() - 1:
+            item = self.list_widget.takeItem(row)
+            self.list_widget.insertItem(row + 1, item)
+            self.list_widget.setCurrentRow(row + 1)
+
+    def _reset(self):
+        self.list_widget.clear()
+        for league in self.available_leagues:
+            item = QListWidgetItem(league)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Checked)
+            self.list_widget.addItem(item)
+
+    def _save_and_accept(self):
+        order = []
+        visibility = {}
+        for i in range(self.list_widget.count()):
+            item = self.list_widget.item(i)
+            order.append(item.text())
+            visibility[item.text()] = (item.checkState() == Qt.CheckState.Checked)
+        settings.set('sport_order', order)
+        settings.set('sport_visibility', visibility)
+        self.accept()
+
 
 class DatePickerDialog(QDialog):
     """Dialog for selecting a specific date to view scores"""
@@ -374,13 +470,13 @@ class HomeView(BaseView):
         if not leagues:
             self._show_api_error("Failed to load leagues")
             return
-        
-        for league in leagues:
+
+        for league in _get_home_leagues(leagues):
             self.league_list.addItem(league)
-        
+
         self.league_list.itemActivated.connect(self._on_league_selected)
         self.layout.addWidget(self.league_list)
-        
+
         # Navigation buttons
         self._add_nav_buttons()
     
@@ -411,8 +507,19 @@ class HomeView(BaseView):
     
     def _add_nav_buttons(self):
         btn_layout = QHBoxLayout()
-        # Home view typically doesn't have navigation buttons
+        settings_btn = QPushButton("Settings")
+        settings_btn.setAccessibleName("Home Page Settings")
+        settings_btn.setAccessibleDescription("Configure which sports appear on the home page and their order")
+        settings_btn.clicked.connect(self._open_settings)
+        btn_layout.addWidget(settings_btn)
+        btn_layout.addStretch()
         self.layout.addLayout(btn_layout)
+
+    def _open_settings(self):
+        available = ApiService.get_leagues()
+        dialog = HomeSettingsDialog(available, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.refresh()
     
     def _show_api_error(self, message: str):
         """Show API error message to user"""
@@ -444,10 +551,10 @@ class HomeView(BaseView):
         if not leagues:
             self._show_api_error("Failed to load leagues")
             return
-        
-        for league in leagues:
+
+        for league in _get_home_leagues(leagues):
             self.league_list.addItem(league)
-        
+
         self.set_focus_and_select_first(self.league_list)
 
 class LiveScoresView(BaseView):
@@ -863,9 +970,8 @@ class LiveScoresView(BaseView):
         all_games = []
         today = datetime.now().date()
 
-        # List of supported leagues
-        leagues = ["NFL", "NBA", "MLB", "NHL", "NCAAF", "NCAAM", "WNBA", "NCAAWB"]
-        
+        leagues = ApiService.get_leagues()
+
         for league in leagues:
             try:
                 # Get scores for current date for this league
