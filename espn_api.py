@@ -4289,6 +4289,176 @@ def get_transactions(league_key, team_id=None, limit=50, page=1):
         return [], False
 
 
+_DRAFT_TEAM_CACHE: dict = {}
+
+
+def _get_nfl_team_cache() -> dict:
+    """Build {team_id: {abbrev, name}} from the NFL teams API. Cached for the process lifetime."""
+    global _DRAFT_TEAM_CACHE
+    if _DRAFT_TEAM_CACHE:
+        return _DRAFT_TEAM_CACHE
+    try:
+        resp = requests.get(f"{BASE_URL}/football/nfl/teams", params={"limit": 50})
+        if resp.status_code == 200:
+            for sport in resp.json().get("sports", []):
+                for league in sport.get("leagues", []):
+                    for team in league.get("teams", []):
+                        t = team.get("team", {})
+                        _DRAFT_TEAM_CACHE[str(t.get("id", ""))] = {
+                            "abbrev": t.get("abbreviation", ""),
+                            "name": t.get("displayName", t.get("shortDisplayName", "")),
+                        }
+    except Exception:
+        pass
+    return _DRAFT_TEAM_CACHE
+
+
+def get_draft(year):
+    """Return draft metadata for the given NFL season year.
+
+    Returns dict: {year, num_rounds, status ('pre'/'in'/'post'), rounds: [{number, display_name, short_name}]}
+    or None if unavailable.
+    """
+    import re
+    base = "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl"
+    try:
+        resp = requests.get(f"{base}/seasons/{year}/draft")
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+        num_rounds = data.get("numberOfRounds", 7)
+
+        rounds_resp = requests.get(f"{base}/seasons/{year}/draft/rounds")
+        rounds = []
+        if rounds_resp.status_code == 200:
+            for item in rounds_resp.json().get("items", []):
+                rounds.append({
+                    "number": item.get("number"),
+                    "display_name": item.get("displayName", f"Round {item.get('number')}"),
+                    "short_name": item.get("shortDisplayName", str(item.get("number"))),
+                })
+        else:
+            rounds = [{"number": i, "display_name": f"Round {i}", "short_name": str(i)}
+                      for i in range(1, num_rounds + 1)]
+
+        status = "post"
+        status_info = data.get("status", {})
+        if isinstance(status_info, dict) and "$ref" in status_info:
+            try:
+                sr = requests.get(status_info["$ref"])
+                if sr.status_code == 200:
+                    state = sr.json().get("type", {}).get("state", "post")
+                    status = str(state).lower()
+            except Exception:
+                pass
+
+        return {"year": int(year), "num_rounds": num_rounds, "status": status, "rounds": rounds}
+    except Exception as e:
+        print(f"[get_draft] {year}: {e}")
+        return None
+
+
+def get_draft_round(year, round_num):
+    """Return a list of pick dicts for one round of the NFL Draft.
+
+    Each dict: {overall, pick, round, traded, trade_note, team_abbrev, team_name,
+                player_name, position, college, status_name}
+    """
+    import re
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    base = "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl"
+    try:
+        rounds_resp = requests.get(f"{base}/seasons/{year}/draft/rounds")
+        if rounds_resp.status_code != 200:
+            return []
+        target = next((rd for rd in rounds_resp.json().get("items", [])
+                       if rd.get("number") == round_num), None)
+        if not target:
+            return []
+        picks_raw = target.get("picks", [])
+    except Exception as e:
+        print(f"[get_draft_round] fetch rounds {year}/r{round_num}: {e}")
+        return []
+
+    teams = _get_nfl_team_cache()
+    college_cache: dict = {}
+
+    def _extract_id(pattern, url):
+        m = re.search(pattern, url or "")
+        return m.group(1) if m else ""
+
+    def fetch_pick_data(pick):
+        athlete_ref = pick.get("athlete", {}).get("$ref", "")
+        team_id = _extract_id(r"/teams/(\d+)", pick.get("team", {}).get("$ref", ""))
+        team_info = teams.get(team_id, {"abbrev": "?", "name": "Unknown"})
+
+        player_name = position = college_ref_url = ""
+        if athlete_ref:
+            try:
+                ar = requests.get(athlete_ref)
+                if ar.status_code == 200:
+                    ad = ar.json()
+                    player_name = ad.get("displayName") or ad.get("fullName", "")
+                    pos = ad.get("position", {})
+                    position = pos.get("abbreviation", pos.get("name", "")) if isinstance(pos, dict) else ""
+                    col = ad.get("college", {})
+                    college_ref_url = col.get("$ref", "") if isinstance(col, dict) else ""
+            except Exception:
+                pass
+
+        return {
+            "overall": pick.get("overall", 0),
+            "pick": pick.get("pick", 0),
+            "round": pick.get("round", round_num),
+            "traded": pick.get("traded", False),
+            "trade_note": pick.get("tradeNote", ""),
+            "team_abbrev": team_info["abbrev"],
+            "team_name": team_info["name"],
+            "player_name": player_name,
+            "position": position,
+            "status_name": pick.get("status", {}).get("name", ""),
+            "_college_ref": college_ref_url,
+        }
+
+    results = []
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        for future in as_completed({executor.submit(fetch_pick_data, p): p for p in picks_raw}):
+            try:
+                results.append(future.result())
+            except Exception:
+                pass
+
+    # Resolve unique colleges concurrently
+    unique_refs = {r["_college_ref"] for r in results if r.get("_college_ref")}
+
+    def fetch_college(ref_url):
+        cid = _extract_id(r"/colleges/(\d+)", ref_url)
+        if not cid:
+            return "", ""
+        try:
+            cr = requests.get(ref_url)
+            if cr.status_code == 200:
+                cd = cr.json()
+                return cid, cd.get("name") or cd.get("shortName", "")
+        except Exception:
+            pass
+        return cid, ""
+
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        for future in as_completed({executor.submit(fetch_college, ref): ref for ref in unique_refs}):
+            cid, name = future.result()
+            if cid:
+                college_cache[cid] = name
+
+    for pick in results:
+        cid = _extract_id(r"/colleges/(\d+)", pick.pop("_college_ref", ""))
+        pick["college"] = college_cache.get(cid, "")
+
+    results.sort(key=lambda p: p.get("overall", 0))
+    return results
+
+
 def get_team_transactions(league_key, team_id, limit=25):
     """Get recent transactions for a team. Returns [] if the league has no transaction feed."""
     league_path = LEAGUES.get(league_key)

@@ -99,3 +99,11 @@ class ApiService:
     @staticmethod
     def get_team_transactions(league: str, team_id: str, limit: int = 25) -> List[Dict]:
         return ApiService._call(espn_api.get_team_transactions, league, team_id, limit)
+
+    @staticmethod
+    def get_draft(year: int) -> Dict:
+        return ApiService._call(espn_api.get_draft, year)
+
+    @staticmethod
+    def get_draft_round(year: int, round_num: int) -> List[Dict]:
+        return ApiService._call(espn_api.get_draft_round, year, round_num)

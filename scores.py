@@ -1330,6 +1330,8 @@ class LeagueView(BaseView):
             self._show_teams_dialog(); return
         if data == "__transactions__":
             self._show_transactions_dialog(); return
+        if data == "__draft__":
+            self._show_draft_dialog(); return
         if data == "__venues__":
             self._show_venues_dialog(); return
         if data == "__bowls__":
@@ -1410,7 +1412,12 @@ class LeagueView(BaseView):
             self.scores_list.addItem("--- Venues ---")
             venues_item = self.scores_list.item(self.scores_list.count()-1)
             venues_item.setData(Qt.ItemDataRole.UserRole, "__venues__")
-            
+
+            if self.league == "NFL":
+                self.scores_list.addItem("--- NFL Draft ---")
+                draft_item = self.scores_list.item(self.scores_list.count()-1)
+                draft_item.setData(Qt.ItemDataRole.UserRole, "__draft__")
+
             # Add Bowls & Playoffs for NCAAF
             if self.league == "NCAAF":
                 self.scores_list.addItem("--- Bowls & Playoffs ---")
@@ -1614,6 +1621,16 @@ class LeagueView(BaseView):
             QMessageBox.critical(self, "Error", f"Failed to show transactions: {e}")
             if self.parent_app:
                 self.parent_app.update_window_title([self.league])
+
+    def _show_draft_dialog(self):
+        try:
+            if self.parent_app:
+                self.parent_app.update_window_title(["NFL Draft", "NFL"])
+            dialog = NFLDraftDialog(self)
+            dialog.exec()
+        finally:
+            if self.parent_app:
+                self.parent_app.update_window_title(["NFL"])
 
     def _show_venues_dialog(self):
         """Show venues dialog for the current league"""
@@ -7759,6 +7776,39 @@ class LeagueTransactionsLoader(QThread):
             self.error_occurred.emit(str(e))
 
 
+class NFLDraftMetaLoader(QThread):
+    data_loaded = pyqtSignal(dict)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, year: int):
+        super().__init__()
+        self.year = year
+
+    def run(self):
+        try:
+            meta = ApiService.get_draft(self.year)
+            self.data_loaded.emit(meta or {})
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+
+
+class NFLDraftRoundLoader(QThread):
+    data_loaded = pyqtSignal(list)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, year: int, round_num: int):
+        super().__init__()
+        self.year = year
+        self.round_num = round_num
+
+    def run(self):
+        try:
+            picks = ApiService.get_draft_round(self.year, self.round_num)
+            self.data_loaded.emit(picks)
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+
+
 class TeamInfoLoader(QThread):
     data_loaded = pyqtSignal(dict)
     error_occurred = pyqtSignal(str)
@@ -8334,6 +8384,162 @@ class TransactionsDialog(QDialog):
             self.accept()
             return
         super().keyPressEvent(event)
+
+
+class NFLDraftDialog(QDialog):
+    """NFL Draft viewer: year selector, per-round pick list with player/position/college/trade info."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("NFL Draft — Sports Scores")
+        self.setMinimumSize(750, 550)
+        self.resize(950, 680)
+        self._loaders = []
+        self._tabs_loaded: set = set()
+        self._current_year: int = datetime.now().year
+        self._setup_ui()
+        self._load_year(self._current_year)
+
+    def _setup_ui(self):
+        layout = QVBoxLayout()
+
+        header = QHBoxLayout()
+        header.addWidget(QLabel("Year:"))
+        self.year_combo = QComboBox()
+        self.year_combo.setAccessibleName("Draft Year")
+        current_year = datetime.now().year
+        for y in range(current_year, 2000, -1):
+            self.year_combo.addItem(str(y), y)
+        self.year_combo.currentIndexChanged.connect(self._on_year_changed)
+        header.addWidget(self.year_combo)
+        self.status_label = QLabel("")
+        self.status_label.setAccessibleName("Draft status")
+        header.addWidget(self.status_label)
+        header.addStretch()
+        layout.addLayout(header)
+
+        self.tab_widget = QTabWidget()
+        self.tab_widget.setAccessibleName("Draft rounds")
+        self.tab_widget.currentChanged.connect(self._on_tab_changed)
+        layout.addWidget(self.tab_widget)
+
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+        close_btn = QPushButton("&Close")
+        close_btn.clicked.connect(self.accept)
+        btn_row.addWidget(close_btn)
+        layout.addLayout(btn_row)
+
+        self.setLayout(layout)
+
+    def _on_year_changed(self, _idx):
+        year = self.year_combo.currentData()
+        if year and year != self._current_year:
+            self._load_year(year)
+
+    def _load_year(self, year: int):
+        self._current_year = year
+        self._tabs_loaded.clear()
+        self.tab_widget.blockSignals(True)
+        self.tab_widget.clear()
+        self.tab_widget.blockSignals(False)
+        self.status_label.setText("Loading…")
+
+        loader = NFLDraftMetaLoader(year)
+        loader.data_loaded.connect(self._on_meta_loaded)
+        loader.error_occurred.connect(lambda e: self.status_label.setText(f"Error: {e}"))
+        self._loaders.append(loader)
+        loader.start()
+
+    def _on_meta_loaded(self, meta: dict):
+        if not meta:
+            self.status_label.setText("Draft data not available for this year.")
+            return
+
+        status_map = {'pre': 'Draft not yet started', 'in': 'Draft in progress', 'post': 'Draft complete'}
+        self.status_label.setText(status_map.get(meta.get('status', 'post'), ''))
+
+        self.tab_widget.blockSignals(True)
+        for rd in meta.get('rounds', []):
+            lw = QListWidget()
+            lw.setAccessibleName(f"Round {rd['number']} picks")
+            lw.setAccessibleDescription(
+                f"Draft picks for round {rd['number']}. Each item shows pick number, team, player, position, and college.")
+            lw.addItem(f"Loading Round {rd['number']}…")
+            lw.setProperty('round_num', rd['number'])
+            self.tab_widget.addTab(lw, rd.get('short_name', str(rd['number'])))
+        self.tab_widget.blockSignals(False)
+
+        if self.tab_widget.count() > 0:
+            self.tab_widget.setCurrentIndex(0)
+            self._load_round(0)
+
+    def _on_tab_changed(self, index: int):
+        if index not in self._tabs_loaded:
+            self._load_round(index)
+
+    def _load_round(self, tab_index: int):
+        if tab_index in self._tabs_loaded:
+            return
+        widget = self.tab_widget.widget(tab_index)
+        if not widget:
+            return
+        round_num = widget.property('round_num')
+        if not round_num:
+            return
+
+        loader = NFLDraftRoundLoader(self._current_year, round_num)
+        loader.data_loaded.connect(lambda picks, idx=tab_index: self._on_round_loaded(picks, idx))
+        loader.error_occurred.connect(lambda e, idx=tab_index: self._on_round_error(e, idx))
+        self._loaders.append(loader)
+        loader.start()
+
+    def _on_round_loaded(self, picks: list, tab_index: int):
+        self._tabs_loaded.add(tab_index)
+        widget = self.tab_widget.widget(tab_index)
+        if not widget:
+            return
+        widget.clear()
+        if not picks:
+            widget.addItem("No pick data available for this round.")
+            return
+
+        for pick in picks:
+            overall = pick.get('overall') or pick.get('pick', '?')
+            team = pick.get('team_abbrev', '')
+            player = pick.get('player_name', '')
+            position = pick.get('position', '')
+            college = pick.get('college', '')
+            trade_note = pick.get('trade_note', '')
+            status_name = pick.get('status_name', '')
+
+            if status_name and status_name != 'SELECTION_MADE':
+                parts = [f"#{overall}", team or "TBD", "Selection pending"]
+            else:
+                parts = [p for p in [f"#{overall}", team, player, position, college] if p]
+
+            line = " — ".join(parts)
+            if trade_note:
+                line += f" (via trade {trade_note})"
+
+            widget.addItem(line)
+
+        if tab_index == self.tab_widget.currentIndex() and widget.count() > 0:
+            widget.setCurrentRow(0)
+            widget.setFocus()
+
+    def _on_round_error(self, error: str, tab_index: int):
+        self._tabs_loaded.add(tab_index)
+        widget = self.tab_widget.widget(tab_index)
+        if widget:
+            widget.clear()
+            widget.addItem(f"Failed to load picks: {error}")
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.accept()
+        else:
+            super().keyPressEvent(event)
 
 
 class StatisticsChoiceDialog(QDialog):
