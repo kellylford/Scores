@@ -910,26 +910,44 @@ def get_available_seasons(league_key):
         # For other leagues, return last 10 years as a reasonable default
         return [(year, f"{year} Season") for year in range(current_year, current_year - 10, -1)]
 
-def get_scores(league_key, date=None, week=None, seasontype=None):
+def get_scores(league_key, date=None, week=None, seasontype=None, season=None):
     league_path = LEAGUES.get(league_key)
     if not league_path:
         return []
 
     url = f"{BASE_URL}/{league_path}/scoreboard"
     params = []
+
+    if date:
+        # Non-football date navigation
+        params.append(f"dates={date.strftime('%Y%m%d')}")
+    elif week is not None and league_key in ("NFL", "NCAAF"):
+        if season is not None:
+            # ESPN ignores season= when week= is also passed (known API quirk).
+            # Use the Core API to get authoritative week date bounds, then fetch
+            # via dates= — same approach as the iOS app.
+            try:
+                from services.football_calendar import get_week_dates
+                start_str, end_str = get_week_dates(league_key, week, season)
+                if start_str and end_str:
+                    params.append(f"dates={start_str}-{end_str}")
+                else:
+                    # Core API lookup failed; fall back to week= without season
+                    params.append(f"week={week}")
+            except Exception:
+                params.append(f"week={week}")
+        else:
+            params.append(f"week={week}")
+    elif season is not None and league_key in ("NFL", "NCAAF"):
+        # Season-only: used for off-season default view (returns current/week-1)
+        params.append(f"season={season}")
+
     # Add seasontype parameter (2=regular season, 3=postseason)
     if seasontype is not None:
         params.append(f"seasontype={seasontype}")
-    # Add week parameter for football leagues
-    if week is not None and league_key in ("NFL", "NCAAF"):
-        params.append(f"week={week}")
     # Add groups=80 for NCAAF to get complete Division 1 coverage
     if league_key == "NCAAF":
         params.append("groups=80")
-    # Add date parameter if provided
-    if date:
-        date_str = date.strftime("%Y%m%d")
-        params.append(f"dates={date_str}")
     if params:
         url += "?" + "&".join(params)
 

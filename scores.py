@@ -1292,17 +1292,22 @@ class LeagueView(BaseView):
         
         # For football leagues, ensure we have a week
         if self.is_football_league():
+            try:
+                from services.football_calendar import get_current_football_week, get_football_season_year
+                self.current_season = get_football_season_year(league)
+            except Exception:
+                self.current_season = datetime.now().year
             if week is not None:
                 self.current_week = week
             else:
-                # Auto-determine current week for football
                 try:
                     from services.football_calendar import get_current_football_week
-                    self.current_week = get_current_football_week(league)
+                    self.current_week = get_current_football_week(league, season=self.current_season)
                 except Exception:
-                    self.current_week = 1  # Default to week 1
+                    self.current_week = 1
             self.current_date = None
         else:
+            self.current_season = None
             self.current_week = None
             self.current_date = datetime.now().date()
         
@@ -1356,7 +1361,7 @@ class LeagueView(BaseView):
         if self.is_football_league() and self.current_week is not None:
             self.date_label.setText(f"Week: {self.current_week}")
             try:
-                scores_data = ApiService.get_scores(self.league, week=self.current_week)
+                scores_data = ApiService.get_scores(self.league, week=self.current_week, season=self.current_season)
                 self.news_headlines = ApiService.get_news(self.league)
                 if not scores_data:
                     self.scores_list.addItem("No games found for this week.")
@@ -1714,6 +1719,8 @@ class LeagueView(BaseView):
     
     def go_to_date(self):
         """Show date picker dialog and navigate to selected date"""
+        if self.current_date is None:
+            return  # Week-based leagues (NFL/NCAAF) don't use date navigation
         try:
             dialog = DatePickerDialog(self.current_date, self)
             if dialog.exec() == QDialog.DialogCode.Accepted:
@@ -1792,7 +1799,8 @@ class LeagueView(BaseView):
     def keyPressEvent(self, event):
         """Handle key press events for league view"""
         if event.key() == Qt.Key.Key_G and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
-            self.go_to_date()
+            if not self.is_football_league():
+                self.go_to_date()
         else:
             # Call parent to handle F5, Escape, etc.
             super().keyPressEvent(event)

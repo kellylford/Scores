@@ -19,8 +19,8 @@ class ApiService:
         return ApiService._call(espn_api.get_leagues)
 
     @staticmethod
-    def get_scores(league: str, date=None, week=None, seasontype=None) -> List[Dict]:
-        return ApiService._call(espn_api.get_scores, league, date, week, seasontype)
+    def get_scores(league: str, date=None, week=None, seasontype=None, season=None) -> List[Dict]:
+        return ApiService._call(espn_api.get_scores, league, date, week, seasontype, season)
 
     @staticmethod
     def get_news(league: str, limit: int = 20) -> List[Dict]:
