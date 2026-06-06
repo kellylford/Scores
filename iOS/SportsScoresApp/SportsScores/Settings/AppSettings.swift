@@ -20,6 +20,8 @@ private enum StorageKeys {
     static let hiddenSports = "hiddenSports"
     static let soccerHubEnabled = "soccerHubEnabled"
     static let golfHubEnabled = "golfHubEnabled"
+    static let worldCupHubEnabled = "worldCupHubEnabled"
+    static let worldCupWomensHubEnabled = "worldCupWomensHubEnabled"
     static let defaultTableViewMode = "defaultTableViewMode"
     static let favoriteTeams = "favoriteTeams"
 }
@@ -66,6 +68,16 @@ final class AppSettings: ObservableObject {
     /// Whether the Golf hub row is shown on the home page.
     @Published var golfHubEnabled: Bool {
         didSet { UserDefaults.standard.set(golfHubEnabled, forKey: StorageKeys.golfHubEnabled) }
+    }
+
+    /// Whether the 2026 FIFA World Cup hub row is shown on the home page.
+    @Published var worldCupHubEnabled: Bool {
+        didSet { UserDefaults.standard.set(worldCupHubEnabled, forKey: StorageKeys.worldCupHubEnabled) }
+    }
+
+    /// Whether the 2027 FIFA Women's World Cup hub row is shown on the home page.
+    @Published var worldCupWomensHubEnabled: Bool {
+        didSet { UserDefaults.standard.set(worldCupWomensHubEnabled, forKey: StorageKeys.worldCupWomensHubEnabled) }
     }
 
     /// Sports in user-defined order, filtering out hidden ones — ready for the home page ForEach.
@@ -200,6 +212,19 @@ final class AppSettings: ObservableObject {
             golfHubEnabled = true
         } else {
             golfHubEnabled = UserDefaults.standard.bool(forKey: StorageKeys.golfHubEnabled)
+        }
+
+        // World Cup hubs — default to true (always on until the user explicitly turns them off)
+        if UserDefaults.standard.object(forKey: StorageKeys.worldCupHubEnabled) == nil {
+            worldCupHubEnabled = true
+        } else {
+            worldCupHubEnabled = UserDefaults.standard.bool(forKey: StorageKeys.worldCupHubEnabled)
+        }
+
+        if UserDefaults.standard.object(forKey: StorageKeys.worldCupWomensHubEnabled) == nil {
+            worldCupWomensHubEnabled = true
+        } else {
+            worldCupWomensHubEnabled = UserDefaults.standard.bool(forKey: StorageKeys.worldCupWomensHubEnabled)
         }
 
         // Favorite teams

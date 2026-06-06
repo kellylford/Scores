@@ -235,6 +235,43 @@ class ESPNAPIService {
         return nil
     }
 
+    // MARK: - World Cup Group Standings
+
+    func fetchWorldCupStandings(for sport: Sport) async throws -> [WorldCupGroup] {
+        let urlString = "\(standingsBaseURL)/\(sport.apiPath)/standings"
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+
+        let (data, response) = try await session.data(from: url)
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else { throw APIError.invalidResponse }
+
+        let apiResponse = try JSONDecoder().decode(WorldCupStandingsResponse.self, from: data)
+        return apiResponse.children.map { WorldCupGroup(from: $0) }
+    }
+
+    // MARK: - World Cup Date-range Schedule
+
+    /// Fetches all games within a date range — used by the bracket tab to load
+    /// all matches for a tournament phase in one call.
+    func fetchGamesRange(for sport: Sport, startDate: Date, endDate: Date) async throws -> [Game] {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyyMMdd"
+        let startStr = fmt.string(from: startDate)
+        let endStr   = fmt.string(from: endDate)
+        let urlString = "\(baseURL)/\(sport.apiPath)/scoreboard?dates=\(startStr)-\(endStr)&limit=100"
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+
+        let (data, response) = try await session.data(from: url)
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else { throw APIError.invalidResponse }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let apiResponse = try decoder.decode(ScoreboardResponse.self, from: data)
+        let seasonType = apiResponse.season?.type ?? 1
+        return try apiResponse.events.map { try Game(from: $0, seasonType: seasonType) }
+    }
+
     // MARK: - Fetch News
 
     func fetchNews(for sport: Sport, limit: Int = 25) async throws -> [NewsItem] {

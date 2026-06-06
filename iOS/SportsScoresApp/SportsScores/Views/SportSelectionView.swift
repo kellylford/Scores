@@ -95,6 +95,50 @@ struct SportSelectionView: View {
                             }
                             .accessibilityLabel("Golf — PGA Tour and LPGA Tour")
                         }
+
+                        // 2026 FIFA World Cup hub
+                        if appSettings.worldCupHubEnabled {
+                            NavigationLink(destination: WorldCupHubView(sport: .worldCup)) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: Sport.worldCup.systemImage)
+                                        .font(.title2)
+                                        .foregroundColor(.accentColor)
+                                        .frame(width: 36)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("2026 FIFA World Cup")
+                                            .font(.headline)
+                                        Text("Jun 11 – Jul 19 · USA, Canada, Mexico")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
+                                }
+                                .padding(.vertical, 4)
+                            }
+                            .accessibilityLabel("2026 FIFA World Cup hub — Scores, Groups, Bracket, and News")
+                        }
+
+                        // 2027 FIFA Women's World Cup hub
+                        if appSettings.worldCupWomensHubEnabled {
+                            NavigationLink(destination: WorldCupHubView(sport: .worldCupWomens)) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: Sport.worldCupWomens.systemImage)
+                                        .font(.title2)
+                                        .foregroundColor(.accentColor)
+                                        .frame(width: 36)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("2027 FIFA Women's World Cup")
+                                            .font(.headline)
+                                        Text("2027 · Brazil")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
+                                }
+                                .padding(.vertical, 4)
+                            }
+                            .accessibilityLabel("2027 FIFA Women's World Cup hub — Scores, Groups, Bracket, and News")
+                        }
                     } header: {
                         Text("Browse by Sport")
                     }

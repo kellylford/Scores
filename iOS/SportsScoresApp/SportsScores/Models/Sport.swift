@@ -24,6 +24,10 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
     case pga  = "PGA"
     case lpga = "LPGA"
 
+    // ── World Cup hubs (separate from the Soccer hub; appear on the home page when enabled) ──
+    case worldCup        = "WorldCup"
+    case worldCupWomens  = "WorldCupWomens"
+
     // ── Soccer leagues (appear in Soccer hub + Live Scores, not the main home page list) ──
     case soccerEPL        = "EPL"
     case soccerMLS        = "MLS"
@@ -69,6 +73,8 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
         case .wnba:             return "WNBA Basketball"
         case .ncaah:            return "NCAA Men's Hockey"
         case .ncaawh:           return "NCAA Women's Hockey"
+        case .worldCup:        return "2026 FIFA World Cup"
+        case .worldCupWomens:  return "2027 FIFA Women's World Cup"
         case .soccerEPL:        return "Premier League"
         case .soccerMLS:        return "MLS"
         case .soccerNWSL:       return "NWSL"
@@ -97,6 +103,8 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
         case .wnba:             return "basketball/wnba"
         case .ncaah:            return "hockey/mens-college-hockey"
         case .ncaawh:           return "hockey/womens-college-hockey"
+        case .worldCup:        return "soccer/fifa.world"
+        case .worldCupWomens:  return "soccer/fifa.wwc"
         case .soccerEPL:        return "soccer/eng.1"
         case .soccerMLS:        return "soccer/usa.1"
         case .soccerNWSL:       return "soccer/usa.nwsl"
@@ -113,12 +121,17 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
         }
     }
 
+    /// True for World Cup hub cases.
+    var isWorldCup: Bool {
+        self == .worldCup || self == .worldCupWomens
+    }
+
     /// True for sports that navigate by week instead of calendar date.
     var isFootball: Bool {
         self == .nfl || self == .ncaaf
     }
 
-    /// True for soccer league cases.
+    /// True for soccer league cases (not World Cup — those are hub-only).
     var isSoccer: Bool {
         Sport.soccerLeagues.contains(self)
     }
@@ -229,6 +242,8 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
         case .ncaawh: return "NCAAWH"
         case .pga:    return "PGA"
         case .lpga:   return "LPGA"
+        case .worldCup:       return "WC"
+        case .worldCupWomens: return "WWC"
         default:      return "SOC"
         }
     }
@@ -241,6 +256,7 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
         case .nba, .ncaam, .ncaawb, .wnba:     return "figure.basketball"
         case .nhl, .ncaah, .ncaawh:            return "figure.hockey"
         case .pga, .lpga:                       return "figure.golf"
+        case .worldCup, .worldCupWomens:        return "globe.americas.fill"
         default:                                return "figure.soccer"
         }
     }

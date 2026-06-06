@@ -142,10 +142,44 @@ struct SettingsView: View {
             }
             .accessibilityLabel("Golf hub")
             .accessibilityHint(appSettings.golfHubEnabled ? "On. Tap to hide Golf from the home page." : "Off. Tap to show Golf on the home page.")
+
+            Toggle(isOn: $appSettings.worldCupHubEnabled) {
+                HStack(spacing: 12) {
+                    Image(systemName: "globe.americas.fill")
+                        .font(.title3)
+                        .frame(width: 28)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("2026 FIFA World Cup")
+                            .font(.headline)
+                        Text("Jun 11 – Jul 19, 2026")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .accessibilityLabel("2026 FIFA World Cup hub")
+            .accessibilityHint(appSettings.worldCupHubEnabled ? "On. Tap to hide from the home page." : "Off. Tap to show on the home page.")
+
+            Toggle(isOn: $appSettings.worldCupWomensHubEnabled) {
+                HStack(spacing: 12) {
+                    Image(systemName: "globe.americas.fill")
+                        .font(.title3)
+                        .frame(width: 28)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("2027 FIFA Women's World Cup")
+                            .font(.headline)
+                        Text("2027 · Brazil")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .accessibilityLabel("2027 FIFA Women's World Cup hub")
+            .accessibilityHint(appSettings.worldCupWomensHubEnabled ? "On. Tap to hide from the home page." : "Off. Tap to show on the home page.")
         } header: {
             Text("Home Page Sports")
         } footer: {
-            Text("Drag to reorder. Toggle to show or hide a sport. Soccer and Golf are hub sports — toggle only.")
+            Text("Drag to reorder. Toggle to show or hide a sport. Soccer, Golf, and World Cup are hub sports — toggle only.")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
