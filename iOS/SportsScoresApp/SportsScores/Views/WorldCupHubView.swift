@@ -96,6 +96,8 @@ struct WorldCupHubView: View {
         case .groups:
             WorldCupGroupsView(
                 groups: viewModel.groups,
+                sport: sport,
+                phases: viewModel.phases,
                 isLoading: viewModel.isLoadingGroups,
                 error: viewModel.groupsError,
                 onRetry: { Task { await viewModel.loadGroups() } }

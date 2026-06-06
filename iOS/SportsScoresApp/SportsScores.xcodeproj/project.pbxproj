@@ -100,6 +100,8 @@
 		AF6F648CFFCF4F14BC6393F8 /* WorldCupGroupsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F2556302AF94EF88BA01289 /* WorldCupGroupsView.swift */; };
 		EB08F06C15954F5F8CB2D381 /* WorldCupBracketView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62CBF61D59EA4531A5C963F0 /* WorldCupBracketView.swift */; };
 		826C65D615734CA3A881EABF /* WorldCupHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59680338C9C444269DDD7575 /* WorldCupHubView.swift */; };
+		D48FC48CDA6C4BF88B10DCA4 /* WorldCupTeamViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D71EEFAF9CC45A9A35698D9 /* WorldCupTeamViewModel.swift */; };
+		8D3C03C9A68440E19DFE5D6D /* WorldCupTeamView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56EDFF6260734057A3FFB9F7 /* WorldCupTeamView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -116,6 +118,8 @@
 		8F2556302AF94EF88BA01289 /* WorldCupGroupsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCupGroupsView.swift; sourceTree = "<group>"; };
 		62CBF61D59EA4531A5C963F0 /* WorldCupBracketView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCupBracketView.swift; sourceTree = "<group>"; };
 		59680338C9C444269DDD7575 /* WorldCupHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCupHubView.swift; sourceTree = "<group>"; };
+		8D71EEFAF9CC45A9A35698D9 /* WorldCupTeamViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCupTeamViewModel.swift; sourceTree = "<group>"; };
+		56EDFF6260734057A3FFB9F7 /* WorldCupTeamView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCupTeamView.swift; sourceTree = "<group>"; };
 		21AFFA6521B030C9D6A32C28 /* ESPNAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ESPNAPIService.swift; sourceTree = "<group>"; };
 		2751799FACCF58BECA17426F /* TeamHubSportPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamHubSportPickerView.swift; sourceTree = "<group>"; };
 		2C6754243E2E05857C78D223 /* LiveScoresViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveScoresViewModel.swift; sourceTree = "<group>"; };
@@ -282,6 +286,7 @@
 				915340F68BA4D0A9C2068191 /* TeamScheduleViewModel.swift */,
 				82A66944C86F3ADCC7364DEA /* TransactionViewModel.swift */,
 				89C69D2737D84D4588295B7B /* WorldCupViewModel.swift */,
+				8D71EEFAF9CC45A9A35698D9 /* WorldCupTeamViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -336,6 +341,7 @@
 				59680338C9C444269DDD7575 /* WorldCupHubView.swift */,
 				8F2556302AF94EF88BA01289 /* WorldCupGroupsView.swift */,
 				62CBF61D59EA4531A5C963F0 /* WorldCupBracketView.swift */,
+				56EDFF6260734057A3FFB9F7 /* WorldCupTeamView.swift */,
 				19CD8D9F1CDE9B2008BF5830 /* Components */,
 			);
 			path = Views;
@@ -535,6 +541,8 @@
 				AF6F648CFFCF4F14BC6393F8 /* WorldCupGroupsView.swift in Sources */,
 				EB08F06C15954F5F8CB2D381 /* WorldCupBracketView.swift in Sources */,
 				826C65D615734CA3A881EABF /* WorldCupHubView.swift in Sources */,
+				D48FC48CDA6C4BF88B10DCA4 /* WorldCupTeamViewModel.swift in Sources */,
+				8D3C03C9A68440E19DFE5D6D /* WorldCupTeamView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

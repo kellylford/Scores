@@ -15,6 +15,8 @@ import SwiftUI
 struct WorldCupGroupsView: View {
 
     let groups: [WorldCupGroup]
+    let sport: Sport
+    let phases: [WorldCupPhase]
     let isLoading: Bool
     let error: String?
     let onRetry: () -> Void
@@ -66,6 +68,7 @@ struct WorldCupGroupsView: View {
                         case .fullList:
                             fullListSection(for: group)
                         }
+
                     } header: {
                         Text(group.name)
                             .font(.headline)
@@ -149,13 +152,17 @@ struct WorldCupGroupsView: View {
     private func quickListSection(for group: WorldCupGroup) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             ForEach(group.entries) { entry in
-                Text(entry.quickListText)
-                    .font(.subheadline)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 6)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(entry.accessibilityLabel())
+                NavigationLink(destination: WorldCupTeamView(
+                    entry: entry, group: group, sport: sport, phases: phases)) {
+                    Text(entry.quickListText)
+                        .font(.subheadline)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(entry.accessibilityLabel())
+                .accessibilityHint("Opens \(entry.teamDisplayName) tournament path")
             }
         }
         .padding(.bottom, 16)
@@ -166,28 +173,33 @@ struct WorldCupGroupsView: View {
     private func fullListSection(for group: WorldCupGroup) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(group.entries) { entry in
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        if entry.advancementNote != nil {
-                            Circle()
-                                .fill(Color.green)
-                                .frame(width: 8, height: 8)
-                                .accessibilityHidden(true)
+                NavigationLink(destination: WorldCupTeamView(
+                    entry: entry, group: group, sport: sport, phases: phases)) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 6) {
+                            if entry.advancementNote != nil {
+                                Circle()
+                                    .fill(Color.green)
+                                    .frame(width: 8, height: 8)
+                                    .accessibilityHidden(true)
+                            }
+                            Text(entry.teamDisplayName)
+                                .font(.headline)
                         }
-                        Text(entry.teamDisplayName)
-                            .font(.headline)
+                        Text(entry.fullListText)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
-                    Text(entry.fullListText)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.secondary.opacity(0.05))
+                    .cornerRadius(8)
+                    .padding(.horizontal, 12)
                 }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.secondary.opacity(0.05))
-                .cornerRadius(8)
-                .padding(.horizontal, 12)
+                .buttonStyle(.plain)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(entry.accessibilityLabel())
+                .accessibilityHint("Opens \(entry.teamDisplayName) tournament path")
             }
         }
         .padding(.bottom, 16)
@@ -214,6 +226,7 @@ struct WorldCupGroupsView: View {
         WorldCupGroupsView(
             groups: [
                 WorldCupGroup(id: "1", name: "Group A", entries: [
+
                     WorldCupGroupEntry(id: "203", teamAbbreviation: "MEX", teamDisplayName: "Mexico",
                                        rank: 1, gamesPlayed: 2, wins: 1, draws: 1, losses: 0,
                                        goalsFor: 3, goalsAgainst: 1, goalDifference: 2, points: 4,
@@ -232,6 +245,8 @@ struct WorldCupGroupsView: View {
                                        advancementNote: nil),
                 ])
             ],
+            sport: .worldCup,
+            phases: WorldCupPhase.wc2026,
             isLoading: false,
             error: nil,
             onRetry: {}
