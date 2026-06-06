@@ -371,7 +371,10 @@ struct ScoresView: View {
         Group {
             if viewModel.isLoading {
                 ProgressView("Loading games...")
-            } else if let error = viewModel.errorMessage {
+            } else if let error = viewModel.errorMessage, viewModel.games.isEmpty {
+                // Only surface the error when there's no cached data to fall back on.
+                // A failed background refresh while games are already displayed is silently
+                // ignored — the existing data stays visible.
                 ErrorStateView(message: error) {
                     Task { await viewModel.fetchGames(for: sport) }
                 }

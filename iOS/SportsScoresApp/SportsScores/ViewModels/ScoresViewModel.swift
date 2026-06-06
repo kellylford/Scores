@@ -184,6 +184,7 @@ class ScoresViewModel: ObservableObject {
             } else {
                 games = try await apiService.fetchGames(for: sport, date: currentDate)
             }
+            errorMessage = nil  // clear any stale error from a concurrent failing fetch
         } catch {
             errorMessage = "Failed to load games: \(error.localizedDescription)"
         }
