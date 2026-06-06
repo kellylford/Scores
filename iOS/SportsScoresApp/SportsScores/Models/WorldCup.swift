@@ -187,9 +187,9 @@ extension WorldCupGroup {
     init(from apiGroup: WorldCupStandingsResponse.APIGroup) {
         id   = apiGroup.id
         name = apiGroup.name
-        entries = apiGroup.standings.entries.enumerated().map { idx, entry in
-            WorldCupGroupEntry(from: entry, rank: idx + 1)
-        }
+        entries = apiGroup.standings.entries.enumerated()
+            .map { idx, entry in WorldCupGroupEntry(from: entry, rank: idx + 1) }
+            .sorted { $0.rank < $1.rank }
     }
 }
 
