@@ -87,15 +87,16 @@ struct StandingsEntry: Identifiable {
     
     // For quick list display
     var quickListText: String {
-        "\(team.abbreviation), \(stats.wins)-\(stats.losses), \(stats.displayWinPercent), GB: \(stats.gamesBack)"
+        var text = "\(team.abbreviation), \(stats.wins)-\(stats.losses), \(stats.displayWinPercent), GB: \(stats.gamesBack)"
+        if let l10 = stats.lastTenRecord { text += ", L10: \(l10)" }
+        return text
     }
-    
+
     // For full list display
     var fullListText: String {
-        """
-        Rank: \(rank); Team: \(team.displayName); Wins: \(stats.wins); Losses: \(stats.losses); \
-        Win%: \(stats.displayWinPercent); Games Back: \(stats.gamesBack); Streak: \(stats.streak); Record: \(stats.record)
-        """
+        var text = "Rank: \(rank); Team: \(team.displayName); Wins: \(stats.wins); Losses: \(stats.losses); Win%: \(stats.displayWinPercent); Games Back: \(stats.gamesBack); Streak: \(stats.streak); Record: \(stats.record)"
+        if let l10 = stats.lastTenRecord { text += "; Last 10: \(l10)" }
+        return text
     }
 }
 

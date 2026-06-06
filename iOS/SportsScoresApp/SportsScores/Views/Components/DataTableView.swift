@@ -153,7 +153,6 @@ struct StandingsTableView: View {
     let standingsGroups: [StandingsGroup]
     let sport: Sport
     @State private var viewMode: ViewMode = .quickList
-    @State private var viewModeInitialized = false
     @State private var showExpanded = false
     @EnvironmentObject private var appSettings: AppSettings
 
@@ -228,14 +227,18 @@ struct StandingsTableView: View {
     private func quickListAccessibilityLabel(for entry: StandingsEntry) -> String {
         let teamName = entry.team.voiceOverName(for: appSettings.teamNamePreference)
         let s = entry.stats
-        return "\(teamName), \(s.wins)-\(s.losses), \(s.displayWinPercent), GB: \(s.gamesBack)"
+        var label = "\(teamName), \(s.wins)-\(s.losses), \(s.displayWinPercent), GB: \(s.gamesBack)"
+        if let l10 = s.lastTenRecord { label += ", last 10: \(l10)" }
+        return label
     }
 
     /// Accessibility label for full list mode: field names prefix each value, preference-aware team name.
     private func fullListAccessibilityLabel(for entry: StandingsEntry) -> String {
         let teamName = entry.team.voiceOverName(for: appSettings.teamNamePreference)
         let s = entry.stats
-        return "Rank: \(entry.rank); Team: \(teamName); Wins: \(s.wins); Losses: \(s.losses); Win%: \(s.displayWinPercent); Games Back: \(s.gamesBack); Streak: \(s.streak); Record: \(s.record)"
+        var label = "Rank: \(entry.rank); Team: \(teamName); Wins: \(s.wins); Losses: \(s.losses); Win%: \(s.displayWinPercent); Games Back: \(s.gamesBack); Streak: \(s.streak); Record: \(s.record)"
+        if let l10 = s.lastTenRecord { label += "; Last 10: \(l10)" }
+        return label
     }
 
     /// Convert a standings TeamInfo into the Game.Team type that TeamScheduleView expects.
@@ -293,11 +296,6 @@ struct StandingsTableView: View {
                 }
                 ViewModeMenuButton(currentMode: $viewMode)
             }
-        }
-        .onAppear {
-            guard !viewModeInitialized else { return }
-            viewMode = appSettings.defaultTableViewMode
-            viewModeInitialized = true
         }
     }
 
