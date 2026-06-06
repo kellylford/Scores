@@ -386,6 +386,7 @@ struct WorldCupHubView: View {
             Image(systemName: "calendar.badge.exclamationmark")
                 .font(.system(size: 48))
                 .foregroundColor(.secondary)
+                .accessibilityHidden(true)
             Text("No matches scheduled")
                 .font(.headline)
                 .foregroundColor(.secondary)

@@ -200,6 +200,7 @@ struct WorldCupGroupsView: View {
             Image(systemName: "list.bullet.clipboard")
                 .font(.system(size: 48))
                 .foregroundColor(.secondary)
+                .accessibilityHidden(true)
             Text("Group standings not available yet.")
                 .font(.headline)
                 .foregroundColor(.secondary)

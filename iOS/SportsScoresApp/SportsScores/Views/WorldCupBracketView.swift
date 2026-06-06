@@ -305,6 +305,7 @@ struct WorldCupBracketView: View {
             Image(systemName: "bracket")
                 .font(.system(size: 48))
                 .foregroundColor(.secondary)
+                .accessibilityHidden(true)
             Text("Matches will appear here as the tournament progresses.")
                 .font(.headline)
                 .foregroundColor(.secondary)
