@@ -117,6 +117,9 @@ struct ScoresView: View {
                 Task { await viewModel.goToDate(pickedDate, for: sport) }
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .appReturnedToNewDay)) { _ in
+            Task { await viewModel.goToToday(for: sport) }
+        }
     }
 
     // MARK: - Auto-refresh menu

@@ -37,7 +37,8 @@ final class WorldCupViewModel: ObservableObject {
     // MARK: - Private
 
     private let api = ESPNAPIService.shared
-    private let navRange = 7   // days either side of today for date nav
+    private let navRange = 7
+    private var newDayObserver: Task<Void, Never>?
 
     // MARK: - Init
 
@@ -51,7 +52,15 @@ final class WorldCupViewModel: ObservableObject {
         let active = phases.first(where: { now >= $0.startDate && now <= $0.endDate })
                   ?? phases.last
         self.selectedPhaseId = active?.id ?? phases.first?.id ?? "1"
+
+        newDayObserver = Task { [weak self] in
+            for await _ in NotificationCenter.default.notifications(named: .appReturnedToNewDay) {
+                await self?.goToToday()
+            }
+        }
     }
+
+    deinit { newDayObserver?.cancel() }
 
     // MARK: - Load all
 

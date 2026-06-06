@@ -35,6 +35,7 @@
 		4EBA8B3274D13D19014A34C4 /* BoxScoreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DB8AE94C204A50146E9F867 /* BoxScoreView.swift */; };
 		513083EA6C93ED8413B1C342 /* DivisionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CEE4CE2353099109FF62D72 /* DivisionMapper.swift */; };
 		537EDE5289F5FA56EDBB33E6 /* ViewMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F02454A9066804EF35F956A /* ViewMode.swift */; };
+		08D0F446F9E94144AAB6980A /* AppLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18A6753D36264F6294E1330B /* AppLifecycle.swift */; };
 		545F71151CBFD1675AA29CCD /* SoccerHubViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E83EC93DC3EF01BEBDB5C228 /* SoccerHubViewModel.swift */; };
 		5818155580D3069662CD0A80 /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44133B2A0893E530B94863FE /* HomeViewModel.swift */; };
 		5916DA34D59594D7B25A72C0 /* SeasonCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99DDA742744EA727C60BAE7E /* SeasonCalendar.swift */; };
@@ -113,6 +114,7 @@
 		1C3E87CD273A22E278284964 /* SportsScores.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = SportsScores.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1CEE4CE2353099109FF62D72 /* DivisionMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DivisionMapper.swift; sourceTree = "<group>"; };
 		1F02454A9066804EF35F956A /* ViewMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewMode.swift; sourceTree = "<group>"; };
+		18A6753D36264F6294E1330B /* AppLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLifecycle.swift; sourceTree = "<group>"; };
 		40FC13DFB6F74C4B925739E4 /* WorldCup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCup.swift; sourceTree = "<group>"; };
 		89C69D2737D84D4588295B7B /* WorldCupViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCupViewModel.swift; sourceTree = "<group>"; };
 		8F2556302AF94EF88BA01289 /* WorldCupGroupsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCupGroupsView.swift; sourceTree = "<group>"; };
@@ -226,6 +228,7 @@
 		54867646532A3C9485982939 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
+				18A6753D36264F6294E1330B /* AppLifecycle.swift */,
 				1F02454A9066804EF35F956A /* ViewMode.swift */,
 			);
 			path = Utilities;
@@ -535,6 +538,7 @@
 				658536EAD5B7590C0B17AE04 /* TransactionTeamPickerView.swift in Sources */,
 				25A1383A1CEA78F0A22E7647 /* TransactionViewModel.swift in Sources */,
 				64472E5262DAF76B2D31956D /* VenueToursView.swift in Sources */,
+				08D0F446F9E94144AAB6980A /* AppLifecycle.swift in Sources */,
 				537EDE5289F5FA56EDBB33E6 /* ViewMode.swift in Sources */,
 				9DEFA31274524945AC659213 /* WorldCup.swift in Sources */,
 				7434F570486F4D2EB8E31E02 /* WorldCupViewModel.swift in Sources */,

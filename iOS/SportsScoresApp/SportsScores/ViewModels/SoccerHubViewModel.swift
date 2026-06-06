@@ -12,10 +12,18 @@ final class SoccerHubViewModel: ObservableObject {
     @Published var selectedDate: Date
 
     private let api = ESPNAPIService.shared
+    private var newDayObserver: Task<Void, Never>?
 
     init(initialDate: Date? = nil) {
         self.selectedDate = Calendar.current.startOfDay(for: initialDate ?? Date())
+        newDayObserver = Task { [weak self] in
+            for await _ in NotificationCenter.default.notifications(named: .appReturnedToNewDay) {
+                await self?.goToToday()
+            }
+        }
     }
+
+    deinit { newDayObserver?.cancel() }
 
     func load() async {
         isLoading = true
