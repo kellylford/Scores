@@ -13,6 +13,7 @@
 		135C3FF984080B8C1137AF85 /* TransactionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E9DF43ABE1EF51B3B8B7384 /* TransactionListView.swift */; };
 		13A69BFC319671031E87986D /* StadiumGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C54D54E4F45E8D6A098DFF0B /* StadiumGeometry.swift */; };
 		148D279BE802BAA35FF18C92 /* News.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C2563CBCB32601D5263CEEF /* News.swift */; };
+		14912B654B5479336E3A6EDB /* WorldCupGroupsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 498810E1244FB01F11F76C63 /* WorldCupGroupsView.swift */; };
 		17DD6D3CA0A61007F2DF8FC2 /* SportsScoresApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CF458B8B4585D69E60DA8FF /* SportsScoresApp.swift */; };
 		19E3A581324D154BA8CAB60C /* Schedule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CEB663233BEB6B8AC40C34A /* Schedule.swift */; };
 		1A468450657E6A4E5C798D40 /* PollsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAB026ED5A307D8628CB7D79 /* PollsViewModel.swift */; };
@@ -20,9 +21,11 @@
 		21C8CC3FA2C4044DEC1D77BB /* SoccerPitchTourView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57680AE9E26542D361BDBA55 /* SoccerPitchTourView.swift */; };
 		25A1383A1CEA78F0A22E7647 /* TransactionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82A66944C86F3ADCC7364DEA /* TransactionViewModel.swift */; };
 		29FAF8656BCC9C688CBF9721 /* ESPNAPIResponseModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE2796BCB4469DAC7E4FFE0E /* ESPNAPIResponseModels.swift */; };
+		2DAFEF250D3D2D76BAAB1082 /* WorldCupBracketView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 910C00B534C6836FDF2D4AB9 /* WorldCupBracketView.swift */; };
 		31603CE4AE41B5ABE907C348 /* TeamNamePreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AAC57811BB4C42BC2619656 /* TeamNamePreference.swift */; };
 		32A6FF663F55FDB3009D64C7 /* TeamScheduleViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 915340F68BA4D0A9C2068191 /* TeamScheduleViewModel.swift */; };
 		377E7AD8114C29BE0DCC76E4 /* SoccerLiveViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D376006BDCBD19E67A67198F /* SoccerLiveViewModel.swift */; };
+		3892ABB3CD58FD8AB9B5119E /* WorldCupTeamViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5DAB5AB7C96D7FEF4A3AD54 /* WorldCupTeamViewModel.swift */; };
 		39FB1132256178B6106EA884 /* FootballFieldTourView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62F4C1D901EF7B90EED9E637 /* FootballFieldTourView.swift */; };
 		3A293ADD2EB7355ADCAAAAF9 /* ErrorStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3C96FBD3BA920855AB05605 /* ErrorStateView.swift */; };
 		3B583CE5901CF86D24E84764 /* TeamScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B7A3E63F22E1898869FDC94 /* TeamScheduleView.swift */; };
@@ -30,12 +33,12 @@
 		3CF5D8B7E440EC82D67DAC1F /* ScoresView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 609CEBC16C71EE0B9BC17BD7 /* ScoresView.swift */; };
 		3D763611A00B01CF66A2DB5C /* GameDetails.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9E24CEFF6C7E1D434DB90C5 /* GameDetails.swift */; };
 		43515A69C1AC52DA8773923D /* TeamNewsTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BA63414CE0A8CC7087E5892 /* TeamNewsTabView.swift */; };
+		437405AD156F24694A662BEB /* WorldCupTeamView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC0CEB0D3A5E7470A9CA7DB9 /* WorldCupTeamView.swift */; };
 		4B2393188AA82F3FEFA7D8FC /* TheBenchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89BE97DE902E6DA78B864E54 /* TheBenchView.swift */; };
 		4C29DBE2E2D7001F23D97407 /* TransactionHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 929F276A5AC1D12C6ED0233B /* TransactionHubView.swift */; };
 		4EBA8B3274D13D19014A34C4 /* BoxScoreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DB8AE94C204A50146E9F867 /* BoxScoreView.swift */; };
 		513083EA6C93ED8413B1C342 /* DivisionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CEE4CE2353099109FF62D72 /* DivisionMapper.swift */; };
 		537EDE5289F5FA56EDBB33E6 /* ViewMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F02454A9066804EF35F956A /* ViewMode.swift */; };
-		08D0F446F9E94144AAB6980A /* AppLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18A6753D36264F6294E1330B /* AppLifecycle.swift */; };
 		545F71151CBFD1675AA29CCD /* SoccerHubViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E83EC93DC3EF01BEBDB5C228 /* SoccerHubViewModel.swift */; };
 		5818155580D3069662CD0A80 /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44133B2A0893E530B94863FE /* HomeViewModel.swift */; };
 		5916DA34D59594D7B25A72C0 /* SeasonCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99DDA742744EA727C60BAE7E /* SeasonCalendar.swift */; };
@@ -47,15 +50,16 @@
 		653CCA7C4DB692421571D3B5 /* GolfAPIModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE9AB71F6059AED1535F97A5 /* GolfAPIModels.swift */; };
 		658536EAD5B7590C0B17AE04 /* TransactionTeamPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E79BB9E6383BF4BCD75D2452 /* TransactionTeamPickerView.swift */; };
 		663C5ADF6B280AACF1980C39 /* TeamHubViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA427D15FEA344F45E304B6A /* TeamHubViewModel.swift */; };
-		AB1122334455AA01BB02CC03 /* FavoritesHubViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB1122334455AA04BB05CC06 /* FavoritesHubViewModel.swift */; };
-		AB1122334455AA07BB08CC09 /* FavoriteTeamCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB1122334455AA0ABB0BCC0C /* FavoriteTeamCardView.swift */; };
 		66941444CDF6D80C2263573F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C7235DC0E2395602DD8FA74 /* ContentView.swift */; };
 		67AE8DCB8DE650FF5D655562 /* Game.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08AB11969A6D49301493C976 /* Game.swift */; };
 		6C341E3F349F9C34917C0BA1 /* PitchMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD66FC8613BE001BF933296A /* PitchMapView.swift */; };
+		6E7FE1E48B37B17EB195284D /* AppLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E882578A16436F5C152578 /* AppLifecycle.swift */; };
 		71558223E4B1963628A115D5 /* AccessibleTableBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA03F672A5EA237BD26D7267 /* AccessibleTableBridge.swift */; };
 		742E7893A7F2DB90E8FCA57F /* Golf.swift in Sources */ = {isa = PBXBuildFile; fileRef = DACD1DD000CD9B7A9D3FBA99 /* Golf.swift */; };
 		7654DC022A81EFC4FAD5B406 /* Transaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F7BC9D746343F8C08C38ADE /* Transaction.swift */; };
 		7707BAC38C069F7267EC7E14 /* TeamInfoTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76DFF8CC361EFFC3BC72D8A0 /* TeamInfoTabView.swift */; };
+		784A00FB63D088FA0BEC2021 /* WorldCupViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C11307240F1FBAB30B5A2E8 /* WorldCupViewModel.swift */; };
+		788B0B37E6585E5009AC5B34 /* WorldCup.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20197AC616142E4CCBB6D0A /* WorldCup.swift */; };
 		7D0281DAD5661B027D351459 /* SportSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA74734FB552A44C1F62E3C7 /* SportSelectionView.swift */; };
 		7F3D586CADB1DD18B41DBF6E /* GolfViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A91300CAC401DF3DFD111FD /* GolfViewModel.swift */; };
 		7FE49CE6841F2741FB6D9993 /* BasketballCourtTourView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B9633ED3A95DF8C72813B8D /* BasketballCourtTourView.swift */; };
@@ -64,12 +68,14 @@
 		8A2691FFB0CCF34A4FCF39AE /* ESPNAPIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21AFFA6521B030C9D6A32C28 /* ESPNAPIService.swift */; };
 		8E21C05AAE5FF8A9BDC2D28D /* TeamHubSportPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2751799FACCF58BECA17426F /* TeamHubSportPickerView.swift */; };
 		976CAEAE9184F2A78CC4262E /* GolfLeaderboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB0F1FC019A93C679C5BE1B0 /* GolfLeaderboardView.swift */; };
+		98B229A70D3A2325E2F1C4F9 /* FavoritesHubViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3D586C7F66434AAA1A123DD /* FavoritesHubViewModel.swift */; };
 		9D93010B54E6E1BDF2438669 /* Standings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F730ED25EF184C36C9EEC13 /* Standings.swift */; };
 		A1F816EAE924F8B5EF769FEE /* Draft.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF309DE2E51E7352C8748699 /* Draft.swift */; };
+		A221F73D4E746FEADF29971B /* FavoriteTeamCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA292638C3237DA00CF63E2C /* FavoriteTeamCardView.swift */; };
+		A36114AE09C2ACD5B6CC1EDA /* WorldCupHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F50D5B47D984181FA4F50D2 /* WorldCupHubView.swift */; };
 		A40265BD5D3531D5A2DBC7CE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 636254F8AA33A59EC7DE9718 /* Assets.xcassets */; };
 		AA53FCD9577528CAAD72E565 /* NewsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5A708A7622868D80A976423 /* NewsViewModel.swift */; };
 		AD2514C8D08879F4B4B46D8F /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B5D54CA4176A888905B0A8B /* SettingsView.swift */; };
-		2ADE18E3EECB4A21B48E2AE4 /* UserGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 216F1C3D49E1402A8F1F4FD3 /* UserGuideView.swift */; };
 		B0A1FBA873B32E84234F9AE7 /* GolfLeagueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85D2E94CC351E76325953CA5 /* GolfLeagueView.swift */; };
 		B4010B138E30A62510C01960 /* ScoresViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDEC309880AB2ADBB9696E41 /* ScoresViewModel.swift */; };
 		B49424A188C213E59DF44F28 /* NewsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE41AFE532E985B250D0D3BE /* NewsView.swift */; };
@@ -82,6 +88,7 @@
 		BAC55B44D2DD6AFAC014F6B5 /* StatisticsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 170934144144BFF79BD8E765 /* StatisticsViewModel.swift */; };
 		BC4CAE67D1B91E0DD0EF8F48 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA9D3C2F2CF69EA0F2C44FC /* AppSettings.swift */; };
 		BE2C0E300624C50840FFC407 /* GolfScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86BB430071A120C3BDDD7C3A /* GolfScheduleView.swift */; };
+		C32F5CC0E58BF2711BCF4EB7 /* UserGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2211E4610908171638A8635E /* UserGuideView.swift */; };
 		C64061F39E9C72D852DCECC2 /* NFLDraftView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ED382A04A08304321DF379A /* NFLDraftView.swift */; };
 		C95B57CC27DD8C19A2979B32 /* StandingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95F96BD2C7E1B5D0F0EC4DE8 /* StandingsView.swift */; };
 		CA0C3549396F6310A922238A /* SoccerHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A5FA8D25FA311C971D8333B /* SoccerHubView.swift */; };
@@ -96,13 +103,6 @@
 		EDF2DE37CADCCD46B40AB0AB /* DataTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB9F89C51E04B48DBF663845 /* DataTableView.swift */; };
 		F0325420BCF8E453528C1728 /* BaseballFieldTourView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93169AB8FB73DA57C45D0C7A /* BaseballFieldTourView.swift */; };
 		F8BF3E6E1722253CFF729BD8 /* PollsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDDD36E16EA39ADB21259034 /* PollsView.swift */; };
-		9DEFA31274524945AC659213 /* WorldCup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40FC13DFB6F74C4B925739E4 /* WorldCup.swift */; };
-		7434F570486F4D2EB8E31E02 /* WorldCupViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89C69D2737D84D4588295B7B /* WorldCupViewModel.swift */; };
-		AF6F648CFFCF4F14BC6393F8 /* WorldCupGroupsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F2556302AF94EF88BA01289 /* WorldCupGroupsView.swift */; };
-		EB08F06C15954F5F8CB2D381 /* WorldCupBracketView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62CBF61D59EA4531A5C963F0 /* WorldCupBracketView.swift */; };
-		826C65D615734CA3A881EABF /* WorldCupHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59680338C9C444269DDD7575 /* WorldCupHubView.swift */; };
-		D48FC48CDA6C4BF88B10DCA4 /* WorldCupTeamViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D71EEFAF9CC45A9A35698D9 /* WorldCupTeamViewModel.swift */; };
-		8D3C03C9A68440E19DFE5D6D /* WorldCupTeamView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56EDFF6260734057A3FFB9F7 /* WorldCupTeamView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -114,15 +114,9 @@
 		1C3E87CD273A22E278284964 /* SportsScores.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = SportsScores.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1CEE4CE2353099109FF62D72 /* DivisionMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DivisionMapper.swift; sourceTree = "<group>"; };
 		1F02454A9066804EF35F956A /* ViewMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewMode.swift; sourceTree = "<group>"; };
-		18A6753D36264F6294E1330B /* AppLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLifecycle.swift; sourceTree = "<group>"; };
-		40FC13DFB6F74C4B925739E4 /* WorldCup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCup.swift; sourceTree = "<group>"; };
-		89C69D2737D84D4588295B7B /* WorldCupViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCupViewModel.swift; sourceTree = "<group>"; };
-		8F2556302AF94EF88BA01289 /* WorldCupGroupsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCupGroupsView.swift; sourceTree = "<group>"; };
-		62CBF61D59EA4531A5C963F0 /* WorldCupBracketView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCupBracketView.swift; sourceTree = "<group>"; };
-		59680338C9C444269DDD7575 /* WorldCupHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCupHubView.swift; sourceTree = "<group>"; };
-		8D71EEFAF9CC45A9A35698D9 /* WorldCupTeamViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCupTeamViewModel.swift; sourceTree = "<group>"; };
-		56EDFF6260734057A3FFB9F7 /* WorldCupTeamView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCupTeamView.swift; sourceTree = "<group>"; };
+		1F50D5B47D984181FA4F50D2 /* WorldCupHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCupHubView.swift; sourceTree = "<group>"; };
 		21AFFA6521B030C9D6A32C28 /* ESPNAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ESPNAPIService.swift; sourceTree = "<group>"; };
+		2211E4610908171638A8635E /* UserGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserGuideView.swift; sourceTree = "<group>"; };
 		2751799FACCF58BECA17426F /* TeamHubSportPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamHubSportPickerView.swift; sourceTree = "<group>"; };
 		2C6754243E2E05857C78D223 /* LiveScoresViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveScoresViewModel.swift; sourceTree = "<group>"; };
 		2F730ED25EF184C36C9EEC13 /* Standings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Standings.swift; sourceTree = "<group>"; };
@@ -133,6 +127,7 @@
 		4307499007DD0DE92B94347D /* TouchTourAnnouncementService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchTourAnnouncementService.swift; sourceTree = "<group>"; };
 		44133B2A0893E530B94863FE /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
 		45E2F040B783E6BBEE950FD5 /* HockeyRinkTourView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HockeyRinkTourView.swift; sourceTree = "<group>"; };
+		498810E1244FB01F11F76C63 /* WorldCupGroupsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCupGroupsView.swift; sourceTree = "<group>"; };
 		4BE990D5FE2CBBB090B28EA4 /* StrikeZoneBenchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrikeZoneBenchView.swift; sourceTree = "<group>"; };
 		4E353F6FCA74B2B593E0BCF0 /* TeamHubDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamHubDetailView.swift; sourceTree = "<group>"; };
 		4EA35C821420E24CE5DF8EE7 /* TeamHubConferencePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamHubConferencePickerView.swift; sourceTree = "<group>"; };
@@ -148,6 +143,7 @@
 		67992CF671BB379D522254C7 /* StatisticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsView.swift; sourceTree = "<group>"; };
 		6963D1A97994CF4846D3B0D5 /* GolfHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GolfHubView.swift; sourceTree = "<group>"; };
 		6A5FA8D25FA311C971D8333B /* SoccerHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoccerHubView.swift; sourceTree = "<group>"; };
+		6C11307240F1FBAB30B5A2E8 /* WorldCupViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCupViewModel.swift; sourceTree = "<group>"; };
 		6E9DF43ABE1EF51B3B8B7384 /* TransactionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionListView.swift; sourceTree = "<group>"; };
 		730BF6E5A4FF66C7DF52BCC2 /* PlaysView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaysView.swift; sourceTree = "<group>"; };
 		76DFF8CC361EFFC3BC72D8A0 /* TeamInfoTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamInfoTabView.swift; sourceTree = "<group>"; };
@@ -161,9 +157,9 @@
 		89BE97DE902E6DA78B864E54 /* TheBenchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheBenchView.swift; sourceTree = "<group>"; };
 		8AA9D3C2F2CF69EA0F2C44FC /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		8B5D54CA4176A888905B0A8B /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		216F1C3D49E1402A8F1F4FD3 /* UserGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserGuideView.swift; sourceTree = "<group>"; };
 		8CEB663233BEB6B8AC40C34A /* Schedule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Schedule.swift; sourceTree = "<group>"; };
 		8F59D84E150550B121E8B7BF /* NFLDraftViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NFLDraftViewModel.swift; sourceTree = "<group>"; };
+		910C00B534C6836FDF2D4AB9 /* WorldCupBracketView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCupBracketView.swift; sourceTree = "<group>"; };
 		915340F68BA4D0A9C2068191 /* TeamScheduleViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamScheduleViewModel.swift; sourceTree = "<group>"; };
 		929F276A5AC1D12C6ED0233B /* TransactionHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionHubView.swift; sourceTree = "<group>"; };
 		93169AB8FB73DA57C45D0C7A /* BaseballFieldTourView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseballFieldTourView.swift; sourceTree = "<group>"; };
@@ -174,18 +170,23 @@
 		9CF458B8B4585D69E60DA8FF /* SportsScoresApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsScoresApp.swift; sourceTree = "<group>"; };
 		9EA14C003BB1FFEC63E9B189 /* TeamScheduleTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamScheduleTabView.swift; sourceTree = "<group>"; };
 		A3C96FBD3BA920855AB05605 /* ErrorStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorStateView.swift; sourceTree = "<group>"; };
+		A3D586C7F66434AAA1A123DD /* FavoritesHubViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesHubViewModel.swift; sourceTree = "<group>"; };
 		A8BB65FBC95D5C0925F74FD8 /* GameDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameDetailViewModel.swift; sourceTree = "<group>"; };
 		AA74734FB552A44C1F62E3C7 /* SportSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportSelectionView.swift; sourceTree = "<group>"; };
 		AD66FC8613BE001BF933296A /* PitchMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PitchMapView.swift; sourceTree = "<group>"; };
 		AE2796BCB4469DAC7E4FFE0E /* ESPNAPIResponseModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ESPNAPIResponseModels.swift; sourceTree = "<group>"; };
 		B24C7FC69C8CFAB2F651990B /* TeamHubModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamHubModels.swift; sourceTree = "<group>"; };
 		BAB026ED5A307D8628CB7D79 /* PollsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PollsViewModel.swift; sourceTree = "<group>"; };
+		BC0CEB0D3A5E7470A9CA7DB9 /* WorldCupTeamView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCupTeamView.swift; sourceTree = "<group>"; };
 		BDDD36E16EA39ADB21259034 /* PollsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PollsView.swift; sourceTree = "<group>"; };
 		BDEC309880AB2ADBB9696E41 /* ScoresViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoresViewModel.swift; sourceTree = "<group>"; };
 		C1A0EB06232A63C5FBC5E725 /* TeamHubTeamPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamHubTeamPickerView.swift; sourceTree = "<group>"; };
 		C54D54E4F45E8D6A098DFF0B /* StadiumGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StadiumGeometry.swift; sourceTree = "<group>"; };
+		C5DAB5AB7C96D7FEF4A3AD54 /* WorldCupTeamViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCupTeamViewModel.swift; sourceTree = "<group>"; };
 		CA03F672A5EA237BD26D7267 /* AccessibleTableBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibleTableBridge.swift; sourceTree = "<group>"; };
+		CA292638C3237DA00CF63E2C /* FavoriteTeamCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoriteTeamCardView.swift; sourceTree = "<group>"; };
 		CF309DE2E51E7352C8748699 /* Draft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Draft.swift; sourceTree = "<group>"; };
+		D0E882578A16436F5C152578 /* AppLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLifecycle.swift; sourceTree = "<group>"; };
 		D140CFB6388D35A8A6DAA98A /* VenueToursView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VenueToursView.swift; sourceTree = "<group>"; };
 		D376006BDCBD19E67A67198F /* SoccerLiveViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoccerLiveViewModel.swift; sourceTree = "<group>"; };
 		D3E43F7CCDE27769D46915D8 /* StandingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StandingsViewModel.swift; sourceTree = "<group>"; };
@@ -193,12 +194,11 @@
 		DACD1DD000CD9B7A9D3FBA99 /* Golf.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Golf.swift; sourceTree = "<group>"; };
 		DB9F89C51E04B48DBF663845 /* DataTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataTableView.swift; sourceTree = "<group>"; };
 		DD62F7905FFCDC5D2AA616FB /* GameDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameDetailView.swift; sourceTree = "<group>"; };
+		E20197AC616142E4CCBB6D0A /* WorldCup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCup.swift; sourceTree = "<group>"; };
 		E5A708A7622868D80A976423 /* NewsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewsViewModel.swift; sourceTree = "<group>"; };
 		E79BB9E6383BF4BCD75D2452 /* TransactionTeamPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionTeamPickerView.swift; sourceTree = "<group>"; };
 		E83EC93DC3EF01BEBDB5C228 /* SoccerHubViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoccerHubViewModel.swift; sourceTree = "<group>"; };
 		EA427D15FEA344F45E304B6A /* TeamHubViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamHubViewModel.swift; sourceTree = "<group>"; };
-		AB1122334455AA04BB05CC06 /* FavoritesHubViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesHubViewModel.swift; sourceTree = "<group>"; };
-		AB1122334455AA0ABB0BCC0C /* FavoriteTeamCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoriteTeamCardView.swift; sourceTree = "<group>"; };
 		EB0F1FC019A93C679C5BE1B0 /* GolfLeaderboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GolfLeaderboardView.swift; sourceTree = "<group>"; };
 		EE41AFE532E985B250D0D3BE /* NewsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewsView.swift; sourceTree = "<group>"; };
 		EE9AB71F6059AED1535F97A5 /* GolfAPIModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GolfAPIModels.swift; sourceTree = "<group>"; };
@@ -228,7 +228,7 @@
 		54867646532A3C9485982939 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
-				18A6753D36264F6294E1330B /* AppLifecycle.swift */,
+				D0E882578A16436F5C152578 /* AppLifecycle.swift */,
 				1F02454A9066804EF35F956A /* ViewMode.swift */,
 			);
 			path = Utilities;
@@ -272,6 +272,7 @@
 		9F98C5D1BD0977A262C48E87 /* ViewModels */ = {
 			isa = PBXGroup;
 			children = (
+				A3D586C7F66434AAA1A123DD /* FavoritesHubViewModel.swift */,
 				A8BB65FBC95D5C0925F74FD8 /* GameDetailViewModel.swift */,
 				9A91300CAC401DF3DFD111FD /* GolfViewModel.swift */,
 				44133B2A0893E530B94863FE /* HomeViewModel.swift */,
@@ -285,11 +286,10 @@
 				D3E43F7CCDE27769D46915D8 /* StandingsViewModel.swift */,
 				170934144144BFF79BD8E765 /* StatisticsViewModel.swift */,
 				EA427D15FEA344F45E304B6A /* TeamHubViewModel.swift */,
-				AB1122334455AA04BB05CC06 /* FavoritesHubViewModel.swift */,
 				915340F68BA4D0A9C2068191 /* TeamScheduleViewModel.swift */,
 				82A66944C86F3ADCC7364DEA /* TransactionViewModel.swift */,
-				89C69D2737D84D4588295B7B /* WorldCupViewModel.swift */,
-				8D71EEFAF9CC45A9A35698D9 /* WorldCupTeamViewModel.swift */,
+				C5DAB5AB7C96D7FEF4A3AD54 /* WorldCupTeamViewModel.swift */,
+				6C11307240F1FBAB30B5A2E8 /* WorldCupViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -301,6 +301,7 @@
 				5B9633ED3A95DF8C72813B8D /* BasketballCourtTourView.swift */,
 				5DB8AE94C204A50146E9F867 /* BoxScoreView.swift */,
 				797D09AB2E8244D9B87B18DD /* DatePickerView.swift */,
+				CA292638C3237DA00CF63E2C /* FavoriteTeamCardView.swift */,
 				62F4C1D901EF7B90EED9E637 /* FootballFieldTourView.swift */,
 				DD62F7905FFCDC5D2AA616FB /* GameDetailView.swift */,
 				6963D1A97994CF4846D3B0D5 /* GolfHubView.swift */,
@@ -317,7 +318,6 @@
 				BDDD36E16EA39ADB21259034 /* PollsView.swift */,
 				609CEBC16C71EE0B9BC17BD7 /* ScoresView.swift */,
 				8B5D54CA4176A888905B0A8B /* SettingsView.swift */,
-				216F1C3D49E1402A8F1F4FD3 /* UserGuideView.swift */,
 				6A5FA8D25FA311C971D8333B /* SoccerHubView.swift */,
 				16ED99CDD716191F0D4DBA6A /* SoccerLiveView.swift */,
 				57680AE9E26542D361BDBA55 /* SoccerPitchTourView.swift */,
@@ -327,7 +327,6 @@
 				4BE990D5FE2CBBB090B28EA4 /* StrikeZoneBenchView.swift */,
 				4EA35C821420E24CE5DF8EE7 /* TeamHubConferencePickerView.swift */,
 				4E353F6FCA74B2B593E0BCF0 /* TeamHubDetailView.swift */,
-				AB1122334455AA0ABB0BCC0C /* FavoriteTeamCardView.swift */,
 				2751799FACCF58BECA17426F /* TeamHubSportPickerView.swift */,
 				C1A0EB06232A63C5FBC5E725 /* TeamHubTeamPickerView.swift */,
 				76DFF8CC361EFFC3BC72D8A0 /* TeamInfoTabView.swift */,
@@ -340,11 +339,12 @@
 				929F276A5AC1D12C6ED0233B /* TransactionHubView.swift */,
 				6E9DF43ABE1EF51B3B8B7384 /* TransactionListView.swift */,
 				E79BB9E6383BF4BCD75D2452 /* TransactionTeamPickerView.swift */,
+				2211E4610908171638A8635E /* UserGuideView.swift */,
 				D140CFB6388D35A8A6DAA98A /* VenueToursView.swift */,
-				59680338C9C444269DDD7575 /* WorldCupHubView.swift */,
-				8F2556302AF94EF88BA01289 /* WorldCupGroupsView.swift */,
-				62CBF61D59EA4531A5C963F0 /* WorldCupBracketView.swift */,
-				56EDFF6260734057A3FFB9F7 /* WorldCupTeamView.swift */,
+				910C00B534C6836FDF2D4AB9 /* WorldCupBracketView.swift */,
+				498810E1244FB01F11F76C63 /* WorldCupGroupsView.swift */,
+				1F50D5B47D984181FA4F50D2 /* WorldCupHubView.swift */,
+				BC0CEB0D3A5E7470A9CA7DB9 /* WorldCupTeamView.swift */,
 				19CD8D9F1CDE9B2008BF5830 /* Components */,
 			);
 			path = Views;
@@ -376,7 +376,7 @@
 				2F730ED25EF184C36C9EEC13 /* Standings.swift */,
 				B24C7FC69C8CFAB2F651990B /* TeamHubModels.swift */,
 				5F7BC9D746343F8C08C38ADE /* Transaction.swift */,
-				40FC13DFB6F74C4B925739E4 /* WorldCup.swift */,
+				E20197AC616142E4CCBB6D0A /* WorldCup.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -453,6 +453,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				71558223E4B1963628A115D5 /* AccessibleTableBridge.swift in Sources */,
+				6E7FE1E48B37B17EB195284D /* AppLifecycle.swift in Sources */,
 				BC4CAE67D1B91E0DD0EF8F48 /* AppSettings.swift in Sources */,
 				F0325420BCF8E453528C1728 /* BaseballFieldTourView.swift in Sources */,
 				7FE49CE6841F2741FB6D9993 /* BasketballCourtTourView.swift in Sources */,
@@ -465,6 +466,8 @@
 				29FAF8656BCC9C688CBF9721 /* ESPNAPIResponseModels.swift in Sources */,
 				8A2691FFB0CCF34A4FCF39AE /* ESPNAPIService.swift in Sources */,
 				3A293ADD2EB7355ADCAAAAF9 /* ErrorStateView.swift in Sources */,
+				A221F73D4E746FEADF29971B /* FavoriteTeamCardView.swift in Sources */,
+				98B229A70D3A2325E2F1C4F9 /* FavoritesHubViewModel.swift in Sources */,
 				B7F18A6B46B91155BE6DE856 /* FieldAudioEngine.swift in Sources */,
 				39FB1132256178B6106EA884 /* FootballFieldTourView.swift in Sources */,
 				67AE8DCB8DE650FF5D655562 /* Game.swift in Sources */,
@@ -498,7 +501,6 @@
 				B4010B138E30A62510C01960 /* ScoresViewModel.swift in Sources */,
 				5916DA34D59594D7B25A72C0 /* SeasonCalendar.swift in Sources */,
 				AD2514C8D08879F4B4B46D8F /* SettingsView.swift in Sources */,
-				2ADE18E3EECB4A21B48E2AE4 /* UserGuideView.swift in Sources */,
 				CA0C3549396F6310A922238A /* SoccerHubView.swift in Sources */,
 				545F71151CBFD1675AA29CCD /* SoccerHubViewModel.swift in Sources */,
 				DF0DBB7CA6CF2D81436AF0AD /* SoccerLiveView.swift in Sources */,
@@ -520,8 +522,6 @@
 				8E21C05AAE5FF8A9BDC2D28D /* TeamHubSportPickerView.swift in Sources */,
 				D40B019CCC9D990B7430DE61 /* TeamHubTeamPickerView.swift in Sources */,
 				663C5ADF6B280AACF1980C39 /* TeamHubViewModel.swift in Sources */,
-				AB1122334455AA01BB02CC03 /* FavoritesHubViewModel.swift in Sources */,
-				AB1122334455AA07BB08CC09 /* FavoriteTeamCardView.swift in Sources */,
 				7707BAC38C069F7267EC7E14 /* TeamInfoTabView.swift in Sources */,
 				31603CE4AE41B5ABE907C348 /* TeamNamePreference.swift in Sources */,
 				43515A69C1AC52DA8773923D /* TeamNewsTabView.swift in Sources */,
@@ -537,16 +537,16 @@
 				135C3FF984080B8C1137AF85 /* TransactionListView.swift in Sources */,
 				658536EAD5B7590C0B17AE04 /* TransactionTeamPickerView.swift in Sources */,
 				25A1383A1CEA78F0A22E7647 /* TransactionViewModel.swift in Sources */,
+				C32F5CC0E58BF2711BCF4EB7 /* UserGuideView.swift in Sources */,
 				64472E5262DAF76B2D31956D /* VenueToursView.swift in Sources */,
-				08D0F446F9E94144AAB6980A /* AppLifecycle.swift in Sources */,
 				537EDE5289F5FA56EDBB33E6 /* ViewMode.swift in Sources */,
-				9DEFA31274524945AC659213 /* WorldCup.swift in Sources */,
-				7434F570486F4D2EB8E31E02 /* WorldCupViewModel.swift in Sources */,
-				AF6F648CFFCF4F14BC6393F8 /* WorldCupGroupsView.swift in Sources */,
-				EB08F06C15954F5F8CB2D381 /* WorldCupBracketView.swift in Sources */,
-				826C65D615734CA3A881EABF /* WorldCupHubView.swift in Sources */,
-				D48FC48CDA6C4BF88B10DCA4 /* WorldCupTeamViewModel.swift in Sources */,
-				8D3C03C9A68440E19DFE5D6D /* WorldCupTeamView.swift in Sources */,
+				788B0B37E6585E5009AC5B34 /* WorldCup.swift in Sources */,
+				2DAFEF250D3D2D76BAAB1082 /* WorldCupBracketView.swift in Sources */,
+				14912B654B5479336E3A6EDB /* WorldCupGroupsView.swift in Sources */,
+				A36114AE09C2ACD5B6CC1EDA /* WorldCupHubView.swift in Sources */,
+				437405AD156F24694A662BEB /* WorldCupTeamView.swift in Sources */,
+				3892ABB3CD58FD8AB9B5119E /* WorldCupTeamViewModel.swift in Sources */,
+				784A00FB63D088FA0BEC2021 /* WorldCupViewModel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -560,10 +560,10 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 22;
 				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = YES;
 				DEVELOPMENT_TEAM = P887QF74N8;
-				ENABLE_PREVIEWS = NO;
+				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Sports Scores Fast";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -591,7 +591,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 22;
 				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = YES;
 				DEVELOPMENT_TEAM = P887QF74N8;
 				ENABLE_PREVIEWS = YES;
