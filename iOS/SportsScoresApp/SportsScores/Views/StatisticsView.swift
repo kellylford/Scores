@@ -170,6 +170,7 @@ struct StatisticsView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 5)
                 .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.04))
+                .accessibilityElement(children: .ignore)
                 .accessibilityLabel("#\(entry.rank) \(entry.athleteName)\(hasTeams ? " \(entry.teamAbbreviation)" : "") — \(entry.displayValue)")
             }
         }

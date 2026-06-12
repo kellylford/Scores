@@ -394,6 +394,7 @@ struct GameDetailView: View {
                                     .font(.subheadline.bold())
                             }
                             .padding(.vertical, 2)
+                            .accessibilityElement(children: .ignore)
                             .accessibilityLabel("\(catName): \(playerName), \(value)")
                         }
                     }
@@ -431,6 +432,7 @@ struct GameDetailView: View {
                                 .cornerRadius(6)
                         }
                         .padding(.vertical, 3)
+                        .accessibilityElement(children: .ignore)
                         .accessibilityLabel(
                             "\(injury.athlete?.displayName ?? ""), \(injury.athlete?.position?.abbreviation ?? ""), status: \(injury.status ?? "")"
                         )
@@ -464,6 +466,7 @@ struct GameDetailView: View {
                         .foregroundColor(.secondary)
                 }
                 .padding(.vertical, 3)
+                .accessibilityElement(children: .ignore)
                 .accessibilityLabel("\(official.fullName ?? ""), \(official.position?.displayName ?? "")")
             }
         }
@@ -506,6 +509,7 @@ struct GameDetailView: View {
                                 }
                             }
                             .padding(.vertical, 3)
+                            .accessibilityElement(children: .ignore)
                             .accessibilityLabel("\(s.title ?? "Series"): \(s.summary ?? "")")
                         }
                     }

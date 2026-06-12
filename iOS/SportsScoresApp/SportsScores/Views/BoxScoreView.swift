@@ -581,6 +581,7 @@ struct BoxScoreView: View {
                         .padding(.vertical, 6)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.04))
+                        .accessibilityElement(children: .ignore)
                         .accessibilityLabel("\(name) (\(pos)), \(statsText)")
                     }
                 }
