@@ -1,0 +1,47 @@
+name: Scores
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest tests/unit/ -v
+
+      - name: Build executable
+        run: python -m PyInstaller --onefile --windowed --name=Scores --add-data "user_guide.html;." main.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Scores-win-x64
+          path: dist/Scores.exe
+          if-no-files-found: error
+
+      # Create a GitHub Release when a version tag is pushed (e.g. v0.8.0)
+      # Release notes are read from docs/release-notes-<tag>.md if present,
+      # otherwise GitHub auto-generates notes from commits.
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Scores ${{ github.ref_name }}
+          files: dist/Scores.exe
+          body_path: docs/release-notes-${{ github.ref_name }}.md
