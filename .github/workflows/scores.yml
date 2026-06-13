@@ -23,7 +23,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run tests
-        run: pytest tests/unit/ -v
+        run: python -m pytest tests/unit/ -v
 
       - name: Build executable
         run: python -m PyInstaller --onefile --windowed --name=Scores --add-data "user_guide.html;." main.py
