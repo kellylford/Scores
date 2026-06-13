@@ -1,5 +1,8 @@
 ## What's New in Version 0.8.0
 
+### Feature Parity with iOS
+The Windows app is now at feature parity with the iOS version of Scores. The navigation and user experience differ between platforms, but the same information is available in both apps. The one exception is stadium touch tours, which remain iOS-only for now.
+
 ### World Cup Hub
 The 2026 FIFA World Cup and 2027 FIFA Women's World Cup each have a dedicated hub with four tabs — Scores, Group Standings, Bracket, and News. Use Alt+P and Alt+N to move between match days on the Scores tab. Group standings support all three table view formats (Table, Quick List, Full List).
 
