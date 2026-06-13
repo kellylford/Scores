@@ -102,6 +102,12 @@ The **Settings** button on the home screen lets you control which sports appear 
 
 ---
 
+## Known Issues
+
+When closing the app, Windows may show a dialog warning that a temporary directory could not be removed. This is a known issue with the way the application is packaged and will be addressed in a future release. Clicking **OK** to dismiss the dialog is safe — no data is lost and the app has already closed normally.
+
+---
+
 ## All Keyboard Shortcuts
 
 | Key | Action |
