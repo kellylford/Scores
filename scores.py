@@ -19,6 +19,12 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
+def _resource_path(filename):
+    """Resolve path to a bundled resource, works both in dev and PyInstaller onefile."""
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, filename)
+    return os.path.join(ROOT_DIR, filename)
+
 import settings
 
 from PyQt6.QtWidgets import (
@@ -478,6 +484,14 @@ class HomeView(BaseView):
         for league in _get_home_leagues(leagues):
             self.league_list.addItem(league)
 
+        # User Guide at the bottom
+        guide_sep = QListWidgetItem("─" * 30)
+        guide_sep.setFlags(Qt.ItemFlag.NoItemFlags)
+        self.league_list.addItem(guide_sep)
+        guide_item = QListWidgetItem("User Guide")
+        guide_item.setData(Qt.ItemDataRole.UserRole, "__user_guide__")
+        self.league_list.addItem(guide_item)
+
         self.league_list.itemActivated.connect(self._on_league_selected)
         self.layout.addWidget(self.league_list)
 
@@ -492,6 +506,11 @@ class HomeView(BaseView):
             # Open Live Scores view
             if self.parent_app:
                 self.parent_app.open_live_scores()
+            return
+
+        if user_data == "__user_guide__":
+            guide_path = _resource_path("user_guide.html")
+            webbrowser.open(f"file:///{guide_path.replace(os.sep, '/')}")
             return
 
         # Golf tours open a dedicated tournament dialog instead of a standard league view
@@ -580,6 +599,14 @@ class HomeView(BaseView):
 
         for league in _get_home_leagues(leagues):
             self.league_list.addItem(league)
+
+        # User Guide at the bottom
+        guide_sep = QListWidgetItem("─" * 30)
+        guide_sep.setFlags(Qt.ItemFlag.NoItemFlags)
+        self.league_list.addItem(guide_sep)
+        guide_item = QListWidgetItem("User Guide")
+        guide_item.setData(Qt.ItemDataRole.UserRole, "__user_guide__")
+        self.league_list.addItem(guide_item)
 
         self.set_focus_and_select_first(self.league_list)
 
