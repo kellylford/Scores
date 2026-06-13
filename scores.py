@@ -505,6 +505,17 @@ class HomeView(BaseView):
                 self.parent_app.update_window_title()
             return
 
+        # World Cup hubs open their dedicated dialog
+        if league in ("WC2026", "WWC2027"):
+            display = _WC_DISPLAY_NAMES.get(league, league)
+            if self.parent_app:
+                self.parent_app.update_window_title([display])
+            dialog = WorldCupDialog(league, self)
+            dialog.exec()
+            if self.parent_app:
+                self.parent_app.update_window_title()
+            return
+
         # For NFL/NCAAF, determine current week and show those games
         if league in ("NFL", "NCAAF"):
             try:
@@ -8410,9 +8421,8 @@ class TransactionsDialog(QDialog):
         for t in transactions:
             parts = [p for p in [
                 t.get('date'),
-                t.get('type'),
-                t.get('player') or t.get('description'),
-                f"({t['position']})" if t.get('position') else None,
+                t.get('team'),
+                t.get('description') or t.get('player'),
             ] if p]
             self.trans_list.addItem(" — ".join(parts))
         self.load_more_btn.setEnabled(has_more)
@@ -8751,6 +8761,536 @@ class GolfTournamentDialog(QDialog):
     def _list_error(self, lw: QListWidget, error: str):
         lw.clear()
         lw.addItem(f"Error loading data: {error}")
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.accept()
+        else:
+            super().keyPressEvent(event)
+
+
+# ─────────────────────────── World Cup ───────────────────────────────────────
+
+# Tournament phase definitions: (id, label, start_date, end_date)
+_WC2026_PHASES = [
+    ("1", "Group Stage",     datetime(2026, 6, 11).date(), datetime(2026, 6, 27).date()),
+    ("2", "Round of 32",     datetime(2026, 6, 28).date(), datetime(2026, 7,  3).date()),
+    ("3", "Round of 16",     datetime(2026, 7,  4).date(), datetime(2026, 7,  7).date()),
+    ("4", "Quarterfinals",   datetime(2026, 7,  9).date(), datetime(2026, 7, 11).date()),
+    ("5", "Semifinals",      datetime(2026, 7, 14).date(), datetime(2026, 7, 15).date()),
+    ("6", "3rd-Place Match", datetime(2026, 7, 18).date(), datetime(2026, 7, 18).date()),
+    ("7", "Final",           datetime(2026, 7, 19).date(), datetime(2026, 7, 19).date()),
+]
+
+_WWC2027_PHASES = [
+    ("1", "Group Stage",     datetime(2027, 7,  1).date(), datetime(2027, 7, 20).date()),
+    ("2", "Round of 16",     datetime(2027, 7, 21).date(), datetime(2027, 7, 24).date()),
+    ("3", "Quarterfinals",   datetime(2027, 7, 26).date(), datetime(2027, 7, 29).date()),
+    ("4", "Semifinals",      datetime(2027, 8,  1).date(), datetime(2027, 8,  2).date()),
+    ("5", "3rd-Place Match", datetime(2027, 8,  5).date(), datetime(2027, 8,  5).date()),
+    ("6", "Final",           datetime(2027, 8,  6).date(), datetime(2027, 8,  6).date()),
+]
+
+_WC_DISPLAY_NAMES = {
+    "WC2026":  "2026 FIFA World Cup",
+    "WWC2027": "2027 FIFA Women's World Cup",
+}
+
+
+class WorldCupStandingsLoader(QThread):
+    """Background loader for World Cup group standings."""
+    data_loaded = pyqtSignal(list)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, league_key: str):
+        super().__init__()
+        self.league_key = league_key
+
+    def run(self):
+        try:
+            groups = ApiService.get_world_cup_standings(self.league_key)
+            self.data_loaded.emit(groups or [])
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+
+
+class WorldCupScoresLoader(QThread):
+    """Background loader for World Cup scores on a single date."""
+    data_loaded = pyqtSignal(list)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, league_key: str, date):
+        super().__init__()
+        self.league_key = league_key
+        self.date = date
+
+    def run(self):
+        try:
+            games = ApiService.get_scores(self.league_key, self.date)
+            self.data_loaded.emit(games or [])
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+
+
+class WorldCupBracketLoader(QThread):
+    """Background loader for World Cup games in a date range (knockout phases)."""
+    data_loaded = pyqtSignal(list)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, league_key: str, start_date, end_date):
+        super().__init__()
+        self.league_key = league_key
+        self.start_date = start_date
+        self.end_date = end_date
+
+    def run(self):
+        try:
+            games = ApiService.get_world_cup_scores_range(
+                self.league_key, self.start_date, self.end_date)
+            self.data_loaded.emit(games or [])
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+
+
+class WorldCupNewsLoader(QThread):
+    """Background loader for World Cup news."""
+    data_loaded = pyqtSignal(list)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, league_key: str):
+        super().__init__()
+        self.league_key = league_key
+
+    def run(self):
+        try:
+            news = ApiService.get_news(self.league_key, limit=25)
+            self.data_loaded.emit(news or [])
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+
+
+class WorldCupDialog(QDialog):
+    """World Cup hub dialog: Scores · Groups · Bracket · News.
+
+    Covers both men's (WC2026, soccer/fifa.world) and
+    women's (WWC2027, soccer/fifa.wwc) tournaments.
+    """
+
+    _GROUP_HEADERS = ["Team", "GP", "W", "D", "L", "GD", "Pts"]
+
+    def __init__(self, league_key: str, parent=None):
+        super().__init__(parent)
+        self.league_key = league_key
+        self.display_name = _WC_DISPLAY_NAMES.get(league_key, league_key)
+        self.phases = _WC2026_PHASES if league_key == "WC2026" else _WWC2027_PHASES
+        self.current_date = datetime.now().date()
+        self.current_groups: list = []
+        self._loaders: list = []
+        self._group_tables: list = []  # AccessibleTable widgets (one per group)
+
+        self.setWindowTitle(f"{self.display_name} — Sports Scores")
+        self.setMinimumSize(750, 550)
+        self.resize(1000, 700)
+
+        self._setup_ui()
+        self._load_all()
+
+    # ─────────────── UI setup ───────────────
+
+    def _setup_ui(self):
+        layout = QVBoxLayout()
+
+        header = QLabel(self.display_name)
+        font = header.font()
+        font.setBold(True)
+        font.setPointSize(font.pointSize() + 1)
+        header.setFont(font)
+        layout.addWidget(header)
+
+        self.phase_label = QLabel(self._current_phase_label())
+        self.phase_label.setAccessibleName("Current tournament phase")
+        layout.addWidget(self.phase_label)
+
+        self.tab_widget = QTabWidget()
+        self.tab_widget.setAccessibleName(f"{self.display_name} sections")
+
+        self.tab_widget.addTab(self._build_scores_tab(),  "Scores")
+        self.tab_widget.addTab(self._build_groups_tab(),  "Groups")
+        self.tab_widget.addTab(self._build_bracket_tab(), "Bracket")
+        self.tab_widget.addTab(self._build_news_tab(),    "News")
+
+        layout.addWidget(self.tab_widget)
+
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+        refresh_btn = QPushButton("&Refresh")
+        refresh_btn.clicked.connect(self._load_all)
+        btn_row.addWidget(refresh_btn)
+        close_btn = QPushButton("&Close")
+        close_btn.clicked.connect(self.accept)
+        btn_row.addWidget(close_btn)
+        layout.addLayout(btn_row)
+
+        self.setLayout(layout)
+
+    # ── Scores tab ──
+
+    def _build_scores_tab(self) -> QWidget:
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+
+        # Date navigation bar
+        nav = QHBoxLayout()
+        self.scores_prev_btn = QPushButton("◀ Previous Day")
+        self.scores_prev_btn.setAccessibleName("Previous Day")
+        self.scores_prev_btn.clicked.connect(self._scores_prev_day)
+        nav.addWidget(self.scores_prev_btn)
+
+        self.scores_date_label = QLabel()
+        self.scores_date_label.setAccessibleName("Selected date")
+        self.scores_date_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        nav.addWidget(self.scores_date_label, 1)
+
+        self.scores_next_btn = QPushButton("Next Day ▶")
+        self.scores_next_btn.setAccessibleName("Next Day")
+        self.scores_next_btn.clicked.connect(self._scores_next_day)
+        nav.addWidget(self.scores_next_btn)
+
+        self.scores_today_btn = QPushButton("Today")
+        self.scores_today_btn.setAccessibleName("Go to Today")
+        self.scores_today_btn.clicked.connect(self._scores_go_today)
+        nav.addWidget(self.scores_today_btn)
+        layout.addLayout(nav)
+
+        self.scores_list = QListWidget()
+        self.scores_list.setAccessibleName("World Cup Scores")
+        self.scores_list.setAccessibleDescription(
+            "World Cup matches for the selected date. Press Enter to view match details.")
+        self.scores_list.addItem("Loading matches…")
+        self.scores_list.itemActivated.connect(self._on_game_activated)
+        layout.addWidget(self.scores_list)
+
+        self._update_scores_date_label()
+        return widget
+
+    # ── Groups tab ──
+
+    def _build_groups_tab(self) -> QWidget:
+        self.groups_scroll = QScrollArea()
+        self.groups_scroll.setWidgetResizable(True)
+        self.groups_scroll.setAccessibleName("World Cup Group Standings")
+
+        self.groups_content = QWidget()
+        self.groups_layout = QVBoxLayout(self.groups_content)
+        self.groups_layout.setSpacing(12)
+
+        loading_label = QLabel("Loading group standings…")
+        self.groups_layout.addWidget(loading_label)
+        self.groups_layout.addStretch()
+
+        self.groups_scroll.setWidget(self.groups_content)
+        return self.groups_scroll
+
+    # ── Bracket tab ──
+
+    def _build_bracket_tab(self) -> QWidget:
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+
+        phase_bar = QHBoxLayout()
+        phase_bar.addWidget(QLabel("Phase:"))
+        self.phase_combo = QComboBox()
+        self.phase_combo.setAccessibleName("Tournament phase selector")
+        self.phase_combo.setAccessibleDescription(
+            "Select a tournament phase to view its matches")
+        for pid, label, start, end in self.phases:
+            self.phase_combo.addItem(label, userData=(pid, start, end))
+        self.phase_combo.currentIndexChanged.connect(self._on_phase_selected)
+        phase_bar.addWidget(self.phase_combo, 1)
+        layout.addLayout(phase_bar)
+
+        # Pre-select the currently active (or most recent) phase
+        self._presort_phase_combo()
+
+        self.bracket_stack = QStackedWidget()
+
+        # Page 0: groups view (shown when Group Stage is selected)
+        self.bracket_groups_scroll = QScrollArea()
+        self.bracket_groups_scroll.setWidgetResizable(True)
+        self.bracket_groups_content = QWidget()
+        self.bracket_groups_layout = QVBoxLayout(self.bracket_groups_content)
+        self.bracket_groups_layout.addWidget(QLabel("Loading…"))
+        self.bracket_groups_scroll.setWidget(self.bracket_groups_content)
+        self.bracket_stack.addWidget(self.bracket_groups_scroll)
+
+        # Page 1: knockout match list
+        self.bracket_list = QListWidget()
+        self.bracket_list.setAccessibleName("Bracket matches")
+        self.bracket_list.setAccessibleDescription(
+            "Matches for the selected tournament phase. Press Enter to view match details.")
+        self.bracket_list.addItem("Select a phase above to load matches.")
+        self.bracket_list.itemActivated.connect(self._on_game_activated)
+        self.bracket_stack.addWidget(self.bracket_list)
+
+        layout.addWidget(self.bracket_stack)
+        return widget
+
+    # ── News tab ──
+
+    def _build_news_tab(self) -> QWidget:
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+
+        self.news_list = QListWidget()
+        self.news_list.setAccessibleName("World Cup News")
+        self.news_list.setAccessibleDescription(
+            "News headlines. Press Enter or double-click to open in browser.")
+        self.news_list.addItem("Loading news…")
+        self.news_list.itemActivated.connect(self._on_news_activated)
+        layout.addWidget(self.news_list)
+
+        open_btn = QPushButton("Open Selected Story")
+        open_btn.clicked.connect(lambda: self._on_news_activated(self.news_list.currentItem()))
+        layout.addWidget(open_btn)
+        return widget
+
+    # ─────────────── Data loading ───────────────
+
+    def _load_all(self):
+        self._load_scores()
+        self._load_standings()
+        self._load_news()
+        # Trigger bracket load for the initially selected phase
+        self._on_phase_selected(self.phase_combo.currentIndex())
+
+    def _load_standings(self):
+        loader = WorldCupStandingsLoader(self.league_key)
+        loader.data_loaded.connect(self._on_standings_loaded)
+        loader.error_occurred.connect(lambda e: self._set_group_error(e))
+        self._loaders.append(loader)
+        loader.start()
+
+    def _load_scores(self):
+        self.scores_list.clear()
+        self.scores_list.addItem("Loading matches…")
+        loader = WorldCupScoresLoader(self.league_key, self.current_date)
+        loader.data_loaded.connect(self._on_scores_loaded)
+        loader.error_occurred.connect(lambda e: self._list_error(self.scores_list, e))
+        self._loaders.append(loader)
+        loader.start()
+
+    def _load_news(self):
+        loader = WorldCupNewsLoader(self.league_key)
+        loader.data_loaded.connect(self._on_news_loaded)
+        loader.error_occurred.connect(lambda e: self._list_error(self.news_list, e))
+        self._loaders.append(loader)
+        loader.start()
+
+    # ─────────────── Data handlers ───────────────
+
+    def _on_standings_loaded(self, groups: list):
+        self.current_groups = groups
+        self._rebuild_groups_widget(self.groups_layout, self.groups_content)
+        # Also refresh bracket groups page if Group Stage is selected
+        if self.phase_combo.currentData() and self.phase_combo.currentData()[0] == "1":
+            self._rebuild_groups_widget(self.bracket_groups_layout, self.bracket_groups_content)
+
+    def _on_scores_loaded(self, games: list):
+        self._populate_game_list(self.scores_list, games)
+
+    def _on_news_loaded(self, news: list):
+        self.news_list.clear()
+        if not news:
+            self.news_list.addItem("No news available.")
+            return
+        for item in news:
+            headline = item.get("headline", "No headline")
+            li = QListWidgetItem(headline)
+            li.setData(Qt.ItemDataRole.UserRole, item)
+            self.news_list.addItem(li)
+        if self.news_list.count() > 0:
+            self.news_list.setCurrentRow(0)
+
+    # ─────────────── Groups widget builder ───────────────
+
+    def _rebuild_groups_widget(self, layout: QVBoxLayout, container: QWidget):
+        """Clear and repopulate a groups scroll-area layout with current_groups data."""
+        # Remove all existing children
+        while layout.count():
+            item = layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        if not self.current_groups:
+            layout.addWidget(QLabel("Group standings not available yet."))
+            layout.addStretch()
+            return
+
+        for group in self.current_groups:
+            group_label = QLabel(group["name"])
+            lf = group_label.font()
+            lf.setBold(True)
+            group_label.setFont(lf)
+            group_label.setAccessibleName(group["name"])
+            layout.addWidget(group_label)
+
+            table = AccessibleTable(
+                parent=container,
+                accessible_name=f"{group['name']} Standings",
+                accessible_description=(
+                    f"Standings for {group['name']}. "
+                    "Columns: Team, Games Played, Wins, Draws, Losses, Goal Difference, Points."
+                ),
+            )
+            table.setup_columns(self._GROUP_HEADERS, stretch_column=0)
+
+            rows = []
+            for t in group["teams"]:
+                abbr = t["abbreviation"]
+                if t.get("advancement_note"):
+                    abbr += " ✓"
+                gd = t["goal_difference"]
+                gd_str = f"+{gd}" if gd > 0 else str(gd)
+                rows.append([
+                    abbr,
+                    str(t["games_played"]),
+                    str(t["wins"]),
+                    str(t["draws"]),
+                    str(t["losses"]),
+                    gd_str,
+                    str(t["points"]),
+                ])
+            table.populate_data(rows, set_focus=False)
+            table.setMaximumHeight(140)
+            layout.addWidget(table)
+
+        layout.addStretch()
+
+    def _set_group_error(self, msg: str):
+        while self.groups_layout.count():
+            item = self.groups_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        self.groups_layout.addWidget(QLabel(f"Could not load standings: {msg}"))
+        self.groups_layout.addStretch()
+
+    # ─────────────── Game list helpers ───────────────
+
+    def _populate_game_list(self, lw: QListWidget, games: list):
+        lw.clear()
+        if not games:
+            lw.addItem("No matches scheduled for this date.")
+            return
+        for raw in games:
+            game = GameData(raw, self.league_key)
+            li = QListWidgetItem(game.get_display_text())
+            li.setData(Qt.ItemDataRole.UserRole, raw.get("id", ""))
+            lw.addItem(li)
+        if lw.count() > 0:
+            lw.setCurrentRow(0)
+
+    @staticmethod
+    def _list_error(lw: QListWidget, msg: str):
+        lw.clear()
+        lw.addItem(f"Error loading data: {msg}")
+
+    # ─────────────── Date navigation ───────────────
+
+    def _update_scores_date_label(self):
+        today = datetime.now().date()
+        if self.current_date == today:
+            label = f"Today — {self.current_date.strftime('%A, %B %d, %Y')}"
+        else:
+            label = self.current_date.strftime("%A, %B %d, %Y")
+        self.scores_date_label.setText(label)
+        self.scores_today_btn.setVisible(self.current_date != today)
+
+    def _scores_prev_day(self):
+        self.current_date -= timedelta(days=1)
+        self._update_scores_date_label()
+        self._load_scores()
+
+    def _scores_next_day(self):
+        self.current_date += timedelta(days=1)
+        self._update_scores_date_label()
+        self._load_scores()
+
+    def _scores_go_today(self):
+        self.current_date = datetime.now().date()
+        self._update_scores_date_label()
+        self._load_scores()
+
+    # ─────────────── Phase / bracket ───────────────
+
+    def _presort_phase_combo(self):
+        """Pre-select the currently active phase, or the last past phase."""
+        today = datetime.now().date()
+        best = 0
+        for i, (pid, label, start, end) in enumerate(self.phases):
+            if start <= today <= end:
+                best = i
+                break
+            if end < today:
+                best = i
+        self.phase_combo.setCurrentIndex(best)
+
+    def _current_phase_label(self) -> str:
+        today = datetime.now().date()
+        for pid, label, start, end in self.phases:
+            if start <= today <= end:
+                return f"Current phase: {label}"
+        for pid, label, start, end in reversed(self.phases):
+            if end < today:
+                return f"Concluded: {label}"
+        start_date = self.phases[0][2]
+        days_until = (start_date - today).days
+        return f"Tournament begins in {days_until} days" if days_until > 0 else "Tournament concluded"
+
+    def _on_phase_selected(self, index: int):
+        if index < 0:
+            return
+        data = self.phase_combo.itemData(index)
+        if not data:
+            return
+        pid, start, end = data
+        if pid == "1":
+            # Group Stage — show group standings widget
+            self.bracket_stack.setCurrentIndex(0)
+            if self.current_groups:
+                self._rebuild_groups_widget(
+                    self.bracket_groups_layout, self.bracket_groups_content)
+        else:
+            self.bracket_stack.setCurrentIndex(1)
+            self.bracket_list.clear()
+            self.bracket_list.addItem(f"Loading {self.phase_combo.itemText(index)} matches…")
+            loader = WorldCupBracketLoader(self.league_key, start, end)
+            loader.data_loaded.connect(
+                lambda games: self._populate_game_list(self.bracket_list, games))
+            loader.error_occurred.connect(
+                lambda e: self._list_error(self.bracket_list, e))
+            self._loaders.append(loader)
+            loader.start()
+
+    # ─────────────── Item activation ───────────────
+
+    def _on_game_activated(self, item: QListWidgetItem):
+        if not item:
+            return
+        game_id = item.data(Qt.ItemDataRole.UserRole)
+        if game_id and isinstance(game_id, str):
+            dialog = GameDetailsDialog(game_id, self.league_key, self)
+            dialog.exec()
+
+    def _on_news_activated(self, item):
+        if not item:
+            return
+        news_data = item.data(Qt.ItemDataRole.UserRole)
+        if isinstance(news_data, dict):
+            url = news_data.get("web_url", "")
+            if url and url.startswith(("http://", "https://")):
+                webbrowser.open(url)
+            else:
+                QMessageBox.information(self, "No Link", "No web link available for this story.")
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:

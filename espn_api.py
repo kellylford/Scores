@@ -28,6 +28,8 @@ LEAGUES = {
     "CONCACAF":   "soccer/concacaf.champions",
     "PGA":        "golf/pga",
     "LPGA":       "golf/lpga",
+    "WC2026":     "soccer/fifa.world",
+    "WWC2027":    "soccer/fifa.wwc",
 }
 
 def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season=None):
@@ -4261,6 +4263,7 @@ def get_transactions(league_key, team_id=None, limit=50, page=1):
     """Get league-wide (or team-filtered) transactions with pagination.
 
     Returns (list_of_dicts, has_more).
+    Each dict: {date, team, description}.
     """
     league_path = LEAGUES.get(league_key)
     if not league_path:
@@ -4273,35 +4276,30 @@ def get_transactions(league_key, team_id=None, limit=50, page=1):
         if resp.status_code != 200:
             return [], False
         data = resp.json()
-        raw_items = data.get("items", data.get("transactions", []))
-        # Determine if more pages exist
-        page_info = data.get("pageIndex", data.get("pagination", {}))
-        total_pages = page_info.get("pageCount", page_info.get("totalPages", 1))
-        has_more = int(page) < int(total_pages) if total_pages else len(raw_items) == limit
+        raw_items = data.get("transactions", data.get("items", []))
+        # ESPN returns pageIndex / pageCount as top-level integers.
+        page_count = int(data.get("pageCount", 1))
+        has_more = int(page) < page_count
         result = []
         for item in raw_items:
             date_str = item.get("date", item.get("timestamp", ""))
             date_display = ""
             if date_str:
                 try:
-                    from datetime import datetime
                     dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
                     date_display = dt.strftime("%Y-%m-%d")
                 except Exception:
                     date_display = date_str[:10]
-            trans_type = item.get("type", {})
-            if isinstance(trans_type, dict):
-                trans_type = trans_type.get("text", trans_type.get("name", ""))
-            athlete = item.get("athlete", {})
-            player_name = athlete.get("displayName", athlete.get("fullName", "")) if athlete else ""
-            pos = athlete.get("position", {}) if athlete else {}
-            position = pos.get("abbreviation", pos.get("name", "")) if isinstance(pos, dict) else ""
+            team = item.get("team") or {}
+            team_abbr = team.get("abbreviation", "") if isinstance(team, dict) else ""
             result.append({
                 "date":        date_display,
-                "type":        str(trans_type),
-                "player":      player_name,
-                "position":    position,
+                "team":        team_abbr,
                 "description": item.get("description", ""),
+                # Keep legacy keys so callers using player/type/position still work.
+                "type":        "",
+                "player":      "",
+                "position":    "",
             })
         return result, has_more
     except Exception as e:
@@ -4492,31 +4490,24 @@ def get_team_transactions(league_key, team_id, limit=25):
         if resp.status_code != 200:
             return []
         data = resp.json()
-        items = data.get("items", data.get("transactions", []))
+        items = data.get("transactions", data.get("items", []))
         result = []
         for item in items:
             date_str = item.get("date", item.get("timestamp", ""))
             date_display = ""
             if date_str:
                 try:
-                    from datetime import datetime
                     dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
                     date_display = dt.strftime("%Y-%m-%d")
                 except Exception:
                     date_display = date_str[:10]
-            trans_type = item.get("type", {})
-            if isinstance(trans_type, dict):
-                trans_type = trans_type.get("text", trans_type.get("name", ""))
-            athlete = item.get("athlete", {})
-            player_name = athlete.get("displayName", athlete.get("fullName", "")) if athlete else ""
-            pos = athlete.get("position", {}) if athlete else {}
-            position = pos.get("abbreviation", pos.get("name", "")) if isinstance(pos, dict) else ""
             result.append({
                 "date":        date_display,
-                "type":        str(trans_type),
-                "player":      player_name,
-                "position":    position,
                 "description": item.get("description", ""),
+                # Keep legacy keys so callers using player/type/position still work.
+                "type":        "",
+                "player":      "",
+                "position":    "",
             })
         return result
     except Exception as e:
@@ -4626,3 +4617,78 @@ def get_golf_schedule(tour_key):
     except Exception as e:
         print(f"[get_golf_schedule] {tour_key}: {e}")
         return []
+
+
+# ─────────────────────────── World Cup ───────────────────────────────────────
+
+def get_world_cup_standings(league_key):
+    """Fetch World Cup group standings (men's WC2026 or women's WWC2027).
+
+    Returns a list of group dicts, each containing:
+      { 'id', 'name', 'teams': [ { team fields … } ] }
+    """
+    league_path = LEAGUES.get(league_key)
+    if not league_path:
+        return []
+    try:
+        url = f"https://site.api.espn.com/apis/v2/sports/{league_path}/standings"
+        resp = requests.get(url, timeout=15)
+        if resp.status_code != 200:
+            return []
+        data = resp.json()
+        groups = []
+        for child in data.get("children", []):
+            group_id   = str(child.get("id", ""))
+            group_name = child.get("name", "Group")
+            entries    = child.get("standings", {}).get("entries", [])
+            teams = []
+            for idx, entry in enumerate(entries):
+                team  = entry.get("team", {})
+                stats = {s["name"]: s.get("value", 0) for s in entry.get("stats", [])}
+                note  = entry.get("note") or {}
+                rank  = int(stats.get("rank", idx + 1))
+                gd    = int(stats.get("pointDifferential", 0))
+                teams.append({
+                    "team_id":          str(team.get("id", "")),
+                    "team_name":        team.get("displayName", ""),
+                    "abbreviation":     team.get("abbreviation", ""),
+                    "rank":             rank,
+                    "games_played":     int(stats.get("gamesPlayed", 0)),
+                    "wins":             int(stats.get("wins", 0)),
+                    "draws":            int(stats.get("ties", 0)),
+                    "losses":           int(stats.get("losses", 0)),
+                    "goals_for":        int(stats.get("pointsFor", 0)),
+                    "goals_against":    int(stats.get("pointsAgainst", 0)),
+                    "goal_difference":  gd,
+                    "points":           int(stats.get("points", 0)),
+                    "advancement_note": note.get("description", ""),
+                })
+            teams.sort(key=lambda t: t["rank"])
+            groups.append({"id": group_id, "name": group_name, "teams": teams})
+        return groups
+    except Exception as e:
+        print(f"[get_world_cup_standings] {league_key}: {e}")
+        return []
+
+
+def get_world_cup_scores_range(league_key, start_date, end_date):
+    """Fetch all World Cup games between start_date and end_date (inclusive).
+
+    Returns the same list-of-dicts format as get_scores().
+    """
+    from datetime import timedelta
+    all_games = []
+    seen_ids: set = set()
+    current = start_date
+    while current <= end_date:
+        try:
+            day_games = get_scores(league_key, date=current)
+            for g in day_games:
+                gid = g.get("id", "")
+                if gid not in seen_ids:
+                    seen_ids.add(gid)
+                    all_games.append(g)
+        except Exception:
+            pass
+        current += timedelta(days=1)
+    return all_games
