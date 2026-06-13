@@ -1,6 +1,6 @@
 # Scores — User Guide
 
-**Version:** 0.65.0  
+**Version:** 0.8.0  
 **Last Updated:** June 2026  
 **Platform:** Windows Desktop
 
