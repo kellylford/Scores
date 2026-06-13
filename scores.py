@@ -1137,30 +1137,38 @@ class LiveScoresView(BaseView):
                         'game_data': game  # Keep reference to GameData object
                     }
 
-                    # Determine game state for categorization
-                    status_lower = game.status.lower() if game.status else ''
-                    if status_lower in ['in progress', 'live']:
+                    # Determine game state using ESPN's authoritative state field
+                    # from the raw competition data (in/post/pre), then fall back to
+                    # string matching on the status description.
+                    competitions_raw = game_raw.get('competitions', [])
+                    comp_state = ''
+                    if competitions_raw:
+                        comp_state = (
+                            competitions_raw[0]
+                            .get('status', {})
+                            .get('type', {})
+                            .get('state', '')
+                            .lower()
+                        )
+
+                    if comp_state == 'in':
                         game_dict['state'] = 'live'
-                    elif status_lower in ['final', 'completed']:
+                    elif comp_state == 'post':
                         game_dict['state'] = 'completed'
-                    elif status_lower in ['scheduled', 'upcoming']:
+                    elif comp_state == 'pre':
                         game_dict['state'] = 'upcoming'
                     else:
-                        # Try to determine from raw data
-                        raw_status = game_raw.get('status', {})
-                        if isinstance(raw_status, dict):
-                            type_info = raw_status.get('type', {})
-                            state = type_info.get('state', '').lower()
-                            if state == 'in':
-                                game_dict['state'] = 'live'
-                            elif state == 'post':
-                                game_dict['state'] = 'completed'
-                            elif state == 'pre':
-                                game_dict['state'] = 'upcoming'
-                            else:
-                                game_dict['state'] = 'unknown'
+                        # Fallback: match on the human-readable description string
+                        status_lower = game.status.lower() if game.status else ''
+                        if 'progress' in status_lower or status_lower in ('live', 'halftime'):
+                            game_dict['state'] = 'live'
+                        elif status_lower.startswith('final') or status_lower == 'completed':
+                            game_dict['state'] = 'completed'
+                        elif status_lower in ('scheduled', 'upcoming'):
+                            game_dict['state'] = 'upcoming'
                         else:
-                            game_dict['state'] = 'unknown'
+                            # Unknown — default to upcoming so it still appears
+                            game_dict['state'] = 'upcoming'
                     
                     all_games.append(game_dict)
             except Exception as e:
@@ -8894,6 +8902,7 @@ class WorldCupDialog(QDialog):
 
         self._setup_ui()
         self._load_all()
+        QTimer.singleShot(0, self.scores_list.setFocus)
 
     # ─────────────── UI setup ───────────────
 
@@ -8941,8 +8950,9 @@ class WorldCupDialog(QDialog):
 
         # Date navigation bar
         nav = QHBoxLayout()
-        self.scores_prev_btn = QPushButton("◀ Previous Day")
+        self.scores_prev_btn = QPushButton("◀ Previous Day (Alt+P)")
         self.scores_prev_btn.setAccessibleName("Previous Day")
+        self.scores_prev_btn.setShortcut("Alt+P")
         self.scores_prev_btn.clicked.connect(self._scores_prev_day)
         nav.addWidget(self.scores_prev_btn)
 
@@ -8951,8 +8961,9 @@ class WorldCupDialog(QDialog):
         self.scores_date_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         nav.addWidget(self.scores_date_label, 1)
 
-        self.scores_next_btn = QPushButton("Next Day ▶")
+        self.scores_next_btn = QPushButton("Next Day ▶ (Alt+N)")
         self.scores_next_btn.setAccessibleName("Next Day")
+        self.scores_next_btn.setShortcut("Alt+N")
         self.scores_next_btn.clicked.connect(self._scores_next_day)
         nav.addWidget(self.scores_next_btn)
 
