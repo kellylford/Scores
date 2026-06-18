@@ -75,6 +75,14 @@ targets:
         SWIFT_EMIT_LOC_STRINGS: YES
         SUPPORTS_MACCATALYST: YES
         DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER: YES
+      configs:
+        # ENABLE_PREVIEWS=YES in Release bundles SportsScores.debug.dylib into
+        # archives, which causes an XPC init crash at launch on iOS 27 (black
+        # screen). Keep previews in Debug for development; disable in Release.
+        # This MUST live in project.yml — a pbxproj-only fix is wiped by
+        # `xcodegen generate`. See commit b0534f7.
+        Release:
+          ENABLE_PREVIEWS: NO
 
 schemes:
   SportsScores:
