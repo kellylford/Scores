@@ -96,6 +96,29 @@ struct SportSelectionView: View {
                             .accessibilityLabel("Golf — PGA Tour and LPGA Tour")
                         }
 
+                        // Canadian Football League (separate data source)
+                        if appSettings.cflEnabled {
+                            NavigationLink(destination: ScoresView(sport: .cfl, initialDate: homeVM.selectedDate)) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: Sport.cfl.systemImage)
+                                        .font(.title2)
+                                        .foregroundColor(.accentColor)
+                                        .frame(width: 36)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("CFL")
+                                            .font(.headline)
+                                        Text("Canadian Football League")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
+                                    cflBadge
+                                }
+                                .padding(.vertical, 4)
+                            }
+                            .accessibilityLabel(cflAccessibilityLabel)
+                        }
+
                         // 2026 FIFA World Cup hub
                         if appSettings.worldCupHubEnabled {
                             NavigationLink(destination: WorldCupHubView(sport: .worldCup)) {
@@ -259,6 +282,35 @@ struct SportSelectionView: View {
         let n = homeVM.soccerGameCount
         if n == 0 { return "Soccer, no games today" }
         return "Soccer, \(n) \(n == 1 ? "game" : "games") today across all leagues"
+    }
+
+    @ViewBuilder
+    private var cflBadge: some View {
+        if homeVM.isLoading {
+            ProgressView()
+                .scaleEffect(0.75)
+                .frame(width: 36, height: 20)
+        } else if homeVM.cflGameCount > 0 {
+            Text("\(homeVM.cflGameCount)")
+                .font(.system(.caption, design: .rounded).bold())
+                .foregroundColor(.white)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Color.blue, in: Capsule())
+                .accessibilityHidden(true)
+        } else {
+            Text("—")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .accessibilityHidden(true)
+        }
+    }
+
+    private var cflAccessibilityLabel: String {
+        guard !homeVM.isLoading else { return "CFL, Canadian Football League" }
+        let n = homeVM.cflGameCount
+        if n == 0 { return "CFL, Canadian Football League, no games today" }
+        return "CFL, Canadian Football League, \(n) \(n == 1 ? "game" : "games") today"
     }
 }
 

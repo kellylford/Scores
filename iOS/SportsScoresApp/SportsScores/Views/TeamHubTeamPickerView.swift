@@ -95,7 +95,9 @@ struct TeamHubTeamPickerView: View {
         isLoading = true
         errorMessage = nil
         do {
-            let fetched = try await apiService.fetchTeamsForSport(sport: sport)
+            let fetched = sport.usesCFLSource
+                ? try await CFLAPIService.shared.fetchTeams()
+                : try await apiService.fetchTeamsForSport(sport: sport)
             teams = fetched.sorted { $0.displayName < $1.displayName }
         } catch {
             errorMessage = "Could not load teams for \(sport.displayName)."

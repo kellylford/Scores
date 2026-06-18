@@ -51,7 +51,11 @@ class TeamHubViewModel: ObservableObject {
         errorInfo = nil
         async let scheduleTask: Void = loadSchedule()
         do {
-            teamInfo = try await apiService.fetchTeamHubInfo(teamId: teamId, sport: sport)
+            if sport.usesCFLSource {
+                teamInfo = try await CFLAPIService.shared.fetchTeamInfo(teamId: teamId)
+            } else {
+                teamInfo = try await apiService.fetchTeamHubInfo(teamId: teamId, sport: sport)
+            }
         } catch {
             errorInfo = "Could not load team info."
         }
@@ -60,6 +64,8 @@ class TeamHubViewModel: ObservableObject {
     }
 
     func loadRoster() async {
+        // No roster feed for CFL — leave empty so the tab shows "No roster available".
+        guard !sport.usesCFLSource else { return }
         guard roster.isEmpty, !isLoadingRoster else { return }
         isLoadingRoster = true
         errorRoster = nil
@@ -75,6 +81,8 @@ class TeamHubViewModel: ObservableObject {
     }
 
     func loadNews() async {
+        // No team news feed for CFL — leave empty so the tab shows "No news available".
+        guard !sport.usesCFLSource else { return }
         guard news.isEmpty, !isLoadingNews else { return }
         isLoadingNews = true
         errorNews = nil
@@ -91,7 +99,11 @@ class TeamHubViewModel: ObservableObject {
         isLoadingSchedule = true
         errorSchedule = nil
         do {
-            schedule = try await apiService.fetchTeamHubSchedule(teamId: teamId, sport: sport)
+            if sport.usesCFLSource {
+                schedule = try await CFLAPIService.shared.fetchSchedule(teamId: teamId)
+            } else {
+                schedule = try await apiService.fetchTeamHubSchedule(teamId: teamId, sport: sport)
+            }
         } catch {
             errorSchedule = "Could not load schedule."
         }

@@ -20,6 +20,7 @@ private enum StorageKeys {
     static let hiddenSports = "hiddenSports"
     static let soccerHubEnabled = "soccerHubEnabled"
     static let golfHubEnabled = "golfHubEnabled"
+    static let cflEnabled = "cflEnabled"
     static let worldCupHubEnabled = "worldCupHubEnabled"
     static let worldCupWomensHubEnabled = "worldCupWomensHubEnabled"
     static let defaultTableViewMode = "defaultTableViewMode"
@@ -68,6 +69,11 @@ final class AppSettings: ObservableObject {
     /// Whether the Golf hub row is shown on the home page.
     @Published var golfHubEnabled: Bool {
         didSet { UserDefaults.standard.set(golfHubEnabled, forKey: StorageKeys.golfHubEnabled) }
+    }
+
+    /// Whether the CFL row is shown on the home page.
+    @Published var cflEnabled: Bool {
+        didSet { UserDefaults.standard.set(cflEnabled, forKey: StorageKeys.cflEnabled) }
     }
 
     /// Whether the 2026 FIFA World Cup hub row is shown on the home page.
@@ -212,6 +218,13 @@ final class AppSettings: ObservableObject {
             golfHubEnabled = true
         } else {
             golfHubEnabled = UserDefaults.standard.bool(forKey: StorageKeys.golfHubEnabled)
+        }
+
+        // CFL — default on until the user explicitly turns it off.
+        if UserDefaults.standard.object(forKey: StorageKeys.cflEnabled) == nil {
+            cflEnabled = true
+        } else {
+            cflEnabled = UserDefaults.standard.bool(forKey: StorageKeys.cflEnabled)
         }
 
         // World Cup hubs — default to true (always on until the user explicitly turns them off)

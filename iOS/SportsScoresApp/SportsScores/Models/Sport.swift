@@ -24,6 +24,12 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
     case pga  = "PGA"
     case lpga = "LPGA"
 
+    // ── Canadian Football League (separate data source; toggled like a hub) ──
+    // Not in `allCases` — it's sourced from CFLAPIService, not ESPN, so it must
+    // stay out of the ESPN-driven home/standings/news loops. It has its own
+    // home-page row (see SportSelectionView) and appears in Team Hub.
+    case cfl = "CFL"
+
     // ── World Cup hubs (separate from the Soccer hub; appear on the home page when enabled) ──
     case worldCup        = "WorldCup"
     case worldCupWomens  = "WorldCupWomens"
@@ -58,8 +64,8 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
     /// All golf tour cases. Feed these to the Golf hub.
     static var golfTours: [Sport] { [.pga, .lpga] }
 
-    /// Sports available in Team Hub (main sports only — no soccer or golf).
-    static var teamHubSports: [Sport] { allCases }
+    /// Sports available in Team Hub (main sports plus CFL — no soccer or golf).
+    static var teamHubSports: [Sport] { allCases + [.cfl] }
 
     var displayName: String {
         switch self {
@@ -88,6 +94,7 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
         case .soccerCONCACAF:   return "CONCACAF Champions Cup"
         case .pga:              return "PGA Tour"
         case .lpga:             return "LPGA Tour"
+        case .cfl:              return "CFL Football"
         }
     }
 
@@ -118,8 +125,16 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
         case .soccerCONCACAF:   return "soccer/concacaf.champions"
         case .pga:              return "golf/pga"
         case .lpga:             return "golf/lpga"
+        // CFL is not served by ESPN; CFLAPIService ignores this path. Kept for completeness.
+        case .cfl:              return "football/cfl"
         }
     }
+
+    /// True for the Canadian Football League, which is sourced from
+    /// `CFLAPIService` (the cfl.ca scoreboard feed) rather than ESPN.
+    /// Callers branch on this to route fetches and to hide ESPN-only tabs
+    /// (News, Stats) and the historical-season picker.
+    var usesCFLSource: Bool { self == .cfl }
 
     /// True for World Cup hub cases.
     var isWorldCup: Bool {
@@ -242,6 +257,7 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
         case .ncaawh: return "NCAAWH"
         case .pga:    return "PGA"
         case .lpga:   return "LPGA"
+        case .cfl:    return "CFL"
         case .worldCup:       return "WC"
         case .worldCupWomens: return "WWC"
         default:      return "SOC"
@@ -252,7 +268,7 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
     var systemImage: String {
         switch self {
         case .mlb:                              return "figure.baseball"
-        case .nfl, .ncaaf:                      return "figure.american.football"
+        case .nfl, .ncaaf, .cfl:                return "figure.american.football"
         case .nba, .ncaam, .ncaawb, .wnba:     return "figure.basketball"
         case .nhl, .ncaah, .ncaawh:            return "figure.hockey"
         case .pga, .lpga:                       return "figure.golf"

@@ -152,7 +152,10 @@ class ScoresViewModel: ObservableObject {
         errorMessage = nil
 
         do {
-            if sport.isFootball {
+            if sport.usesCFLSource {
+                // CFL is sourced from the cfl.ca feed and navigates by day.
+                games = try await CFLAPIService.shared.fetchGames(on: currentDate)
+            } else if sport.isFootball {
                 if let season = currentSeason {
                     // Historical season: fetch via Core API date ranges.
                     let week = currentWeek ?? 1

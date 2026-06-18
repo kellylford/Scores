@@ -20,7 +20,11 @@ class StandingsViewModel: ObservableObject {
         errorMessage = nil
         
         do {
-            standingsGroups = try await apiService.fetchStandings(for: sport)
+            if sport.usesCFLSource {
+                standingsGroups = try await CFLAPIService.shared.fetchStandings()
+            } else {
+                standingsGroups = try await apiService.fetchStandings(for: sport)
+            }
         } catch {
             errorMessage = "Failed to load standings: \(error.localizedDescription)"
         }

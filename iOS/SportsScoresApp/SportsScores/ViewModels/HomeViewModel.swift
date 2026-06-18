@@ -9,6 +9,7 @@ import Foundation
 final class HomeViewModel: ObservableObject {
     @Published var gameCounts: [Sport: Int] = [:]
     @Published var soccerGameCount: Int = 0
+    @Published var cflGameCount: Int = 0
     @Published var isLoading = true
     @Published var selectedDate: Date = Calendar.current.startOfDay(for: Date())
 
@@ -54,6 +55,9 @@ final class HomeViewModel: ObservableObject {
             for await count in group { soccerTotal += count }
         }
         soccerGameCount = soccerTotal
+
+        // CFL count (separate data source).
+        cflGameCount = await CFLAPIService.shared.gameCount(on: selectedDate)
 
         isLoading = false
     }

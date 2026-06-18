@@ -2,21 +2,98 @@
 //  FootballFieldTourView.swift
 //  SportsScores
 //
-//  Audio tour of an NFL football field.
+//  Audio tour of a gridiron football field. The same view renders either the
+//  NFL or the CFL field via a `FootballFieldVariant` — the two leagues use
+//  notably different geometry.
 //
 //  Field coordinate system (yards, origin = near end zone back line, left sideline)
-//    fieldX : 0 → 53.333   (left sideline → right sideline)
-//    fieldY : 0 → 120      (near end zone back → far end zone back)
+//    fieldX : 0 → width   (left sideline → right sideline)
+//    fieldY : 0 → length  (near end zone back → far end zone back)
 //
-//  Key constants
-//    End zones    : fieldY 0–10 (near) and 110–120 (far)
-//    Goal lines   : fieldY 10 and 110
-//    Hash marks   : fieldX 23.583 (left) and 29.750 (right) — 70 ft 9 in from sideline
-//    Goal posts   : same X as hash marks (NFL uprights align with hashes), fieldY 0 / 120
+//  NFL: 120 × 53⅓ yds · 10-yard end zones · hashes 70 ft 9 in from sideline ·
+//       goal posts at the back of the end zone, aligned with the hashes.
+//  CFL: 150 × 65 yds · 20-yard end zones · hashes 24 yds from sideline ·
+//       goal posts on the goal line, centred · centre is the 55-yard line.
 //
 
 import SwiftUI
 import UIKit
+
+// MARK: - League variant
+
+struct FootballFieldVariant {
+    let league: String              // "NFL" / "CFL"
+    let width: Double               // yards, sideline to sideline
+    let length: Double              // yards, back line to back line (incl. end zones)
+    let endZoneDepth: Double        // yards
+    let hashLeft: Double            // X of left hash (yards from left sideline)
+    let hashRight: Double           // X of right hash
+    let goalPostsOnGoalLine: Bool   // CFL: on the goal line; NFL: on the back line
+    let goalPostLeftX: Double       // X of left upright marker
+    let goalPostRightX: Double      // X of right upright marker
+    let widthLabel: String          // "53⅓ yds" / "65 yds"
+
+    // Info-page copy
+    let lengthLabel: String
+    let endZoneLabel: String
+    let hashLabel: String
+    let goalPostLabel: String
+    let canvasAccessibility: String
+    let statusSecondLine: String
+
+    /// Distance between goal lines (the playing field), e.g. 100 (NFL) / 110 (CFL).
+    var playLength: Double { length - 2 * endZoneDepth }
+    /// The centre-line yard number: 50 (NFL) / 55 (CFL).
+    var centerYard: Int { Int(playLength / 2) }
+    /// fieldY of the centre line.
+    var centerFY: Double { endZoneDepth + playLength / 2 }
+    var nearGoalLine: Double { endZoneDepth }
+    var farGoalLine: Double { length - endZoneDepth }
+    var nearGoalPostY: Double { goalPostsOnGoalLine ? nearGoalLine : 0 }
+    var farGoalPostY: Double { goalPostsOnGoalLine ? farGoalLine : length }
+
+    static let nfl = FootballFieldVariant(
+        league: "NFL",
+        width: 53.333,
+        length: 120.0,
+        endZoneDepth: 10.0,
+        hashLeft: 23.583,
+        hashRight: 29.750,
+        goalPostsOnGoalLine: false,
+        goalPostLeftX: 23.583,      // NFL uprights align with the hashes
+        goalPostRightX: 29.750,
+        widthLabel: "53⅓ yds",
+        lengthLabel: "120 yards (including end zones)",
+        endZoneLabel: "10 yards deep at each end",
+        hashLabel: "70 ft 9 in from each sideline",
+        goalPostLabel: "Back of the end zone, aligned with the hash marks",
+        canvasAccessibility: "NFL football field. 120 yards long including 10-yard end zones. 53 yards wide. Drag to explore. Chime at every 5-yard line; louder at 10-yard lines. Hash marks 70 feet 9 inches from sideline — same width as goal posts.",
+        statusSecondLine: "NFL · 120 yds × 53⅓ yds · Hash marks align with goal posts"
+    )
+
+    static let cfl: FootballFieldVariant = {
+        let width = 65.0
+        let halfUpright = (18.5 / 3.0) / 2.0   // goal posts are 18 ft 6 in wide
+        return FootballFieldVariant(
+            league: "CFL",
+            width: width,
+            length: 150.0,
+            endZoneDepth: 20.0,
+            hashLeft: 24.0,
+            hashRight: width - 24.0,            // 41.0
+            goalPostsOnGoalLine: true,
+            goalPostLeftX: width / 2 - halfUpright,
+            goalPostRightX: width / 2 + halfUpright,
+            widthLabel: "65 yds",
+            lengthLabel: "150 yards (including end zones)",
+            endZoneLabel: "20 yards deep at each end",
+            hashLabel: "24 yards from each sideline",
+            goalPostLabel: "On the goal line, centred (not on the hashes)",
+            canvasAccessibility: "CFL football field. 150 yards long including 20-yard end zones. 65 yards wide. Drag to explore. Chime at every 5-yard line; louder at 10-yard lines. Hash marks 24 yards from each sideline. Goal posts stand on the goal line. Centre is the 55-yard line.",
+            statusSecondLine: "CFL · 150 yds × 65 yds · 20-yd end zones · Goal posts on the goal line"
+        )
+    }()
+}
 
 // MARK: - Layout helper
 
@@ -48,13 +125,18 @@ struct FootballFieldTourView: View {
 
     @EnvironmentObject private var appSettings: AppSettings
 
-    // Field dimensions
-    private let fW = 53.333     // yards wide
-    private let fL = 120.0      // yards long
-    private let ezD = 10.0      // end zone depth (yards)
-    private let hashL = 23.583  // left hash X (yards from left sideline)
-    private let hashR = 29.750  // right hash X
-    // Goal posts: same X as hashes (NFL aligned), at y=0 and y=120
+    private let variant: FootballFieldVariant
+
+    init(variant: FootballFieldVariant = .nfl) {
+        self.variant = variant
+    }
+
+    // Field dimensions (from variant)
+    private var fW: Double { variant.width }
+    private var fL: Double { variant.length }
+    private var ezD: Double { variant.endZoneDepth }
+    private var hashL: Double { variant.hashLeft }
+    private var hashR: Double { variant.hashRight }
 
     @StateObject private var fieldAudio = FieldAudioEngine()
 
@@ -69,7 +151,7 @@ struct FootballFieldTourView: View {
         }
         .background(Color.black)
         .foregroundColor(.white)
-        .navigationTitle("Football Field")
+        .navigationTitle("\(variant.league) Field")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear  { fieldAudio.start() }
         .onDisappear { fieldAudio.stop() }
@@ -89,7 +171,7 @@ struct FootballFieldTourView: View {
                         .onEnded { _ in handleDragEnd() }
                 )
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("NFL football field. 120 yards long including 10-yard end zones. 53 yards wide. Drag to explore. Chime at every 5-yard line; louder at 10-yard lines. Hash marks 70 feet 9 inches from sideline — same width as goal posts.")
+                .accessibilityLabel(variant.canvasAccessibility)
                 .accessibilityHint("Double-tap to activate direct touch, then drag freely to explore. Chimes at every 5-yard line. Use the rotor to turn Direct Touch off.")
                 .conditionalDirectTouch(appSettings.useDirectTouchForTours)
         }
@@ -141,8 +223,9 @@ struct FootballFieldTourView: View {
             width: fW * sc, height: (fL - 2 * ezD) * sc)),
             with: .color(Color(red: 0.10, green: 0.36, blue: 0.12)))
 
-        // ── Alternating 5-yard stripes (subtle) ───────────────────────
-        for band in 0..<10 {
+        // ── Alternating 10-yard stripes (subtle) ──────────────────────
+        let bandCount = Int(variant.playLength / 10)
+        for band in 0..<bandCount {
             if band % 2 == 0 { continue }
             let y0 = ezD + Double(band) * 10.0
             ctx.fill(Path(CGRect(
@@ -152,10 +235,11 @@ struct FootballFieldTourView: View {
         }
 
         // ── Yard lines ────────────────────────────────────────────────
-        for yd in stride(from: 5, through: 115, by: 5) {
+        for yd in stride(from: 5, through: Int(fL) - 5, by: 5) {
             let y = Double(yd)
             guard y > 0 && y < fL else { continue }
-            let is10 = yd % 10 == 0
+            // A "10-yard line" is a whole multiple of 10 yards from the goal line.
+            let is10 = (yd - Int(ezD)) % 10 == 0
             let lineAlpha: Double = is10 ? 0.80 : 0.45
             let lineW: Double = is10 ? 1.5 : 0.8
             let p1 = l.sp(0, y); let p2 = l.sp(fW, y)
@@ -164,14 +248,14 @@ struct FootballFieldTourView: View {
         }
 
         // ── Goal lines ────────────────────────────────────────────────
-        for gy in [10.0, 110.0] {
+        for gy in [variant.nearGoalLine, variant.farGoalLine] {
             ctx.stroke(Path { p in p.move(to: l.sp(0, gy)); p.addLine(to: l.sp(fW, gy)) },
                        with: .color(.white), lineWidth: 2)
         }
 
-        // ── Hash marks — every yard ───────────────────────────────────
+        // ── Hash marks — every yard between the goal lines ────────────
         let hashLen = max(4.0, sc * 0.6)   // physical: ~2 ft each side
-        for yd in 11...109 {
+        for yd in (Int(ezD) + 1)...(Int(fL - ezD) - 1) {
             let y = Double(yd)
             let lx = l.sp(hashL, y)
             let rx = l.sp(hashR, y)
@@ -183,29 +267,27 @@ struct FootballFieldTourView: View {
             }
         }
 
-        // ── Yard numbers ──────────────────────────────────────────────
-        for yd in [20, 30, 40, 50, 60, 70, 80, 90] {
-            let y = Double(yd)
-            guard y > ezD && y < fL - ezD else { continue }
-            // Label is distance from nearest goal line (10..50..10)
-            let dist = yd <= 60 ? yd - 10 : 110 - yd
-            let label = "\(dist)"
-            let pt = l.sp(fW / 2, y)
+        // ── Yard numbers (every 10 yards from each goal line) ─────────
+        for yd in stride(from: ezD + 10, through: fL - ezD - 10, by: 10) {
+            // Label is distance from the nearer goal line.
+            let dist = yd <= variant.centerFY ? yd - ezD : fL - ezD - yd
+            let label = "\(Int(dist.rounded()))"
+            let pt = l.sp(fW / 2, yd)
             ctx.draw(Text(label).font(.system(size: 10, weight: .bold)).foregroundColor(.white.opacity(0.6)),
                      at: pt)
         }
 
-        // ── Goal post indicators (at back of each end zone) ───────────
-        for (gpY, label) in [(0.0, "G"), (fL, "G")] {
-            for gpX in [hashL, hashR] {
+        // ── Goal post indicators ──────────────────────────────────────
+        for gpY in [variant.nearGoalPostY, variant.farGoalPostY] {
+            for gpX in [variant.goalPostLeftX, variant.goalPostRightX] {
                 let pt = l.sp(gpX, gpY)
                 let r = max(4.0, sc * 0.4)
                 ctx.fill(Path(ellipseIn: CGRect(x: pt.x - r, y: pt.y - r, width: r*2, height: r*2)),
                          with: .color(.yellow))
-                ctx.draw(Text(label).font(.system(size: 7, weight: .black)).foregroundColor(.black), at: pt)
+                ctx.draw(Text("G").font(.system(size: 7, weight: .black)).foregroundColor(.black), at: pt)
             }
-            // Crossbar
-            let gl = l.sp(hashL, gpY); let gr = l.sp(hashR, gpY)
+            // Crossbar between the uprights
+            let gl = l.sp(variant.goalPostLeftX, gpY); let gr = l.sp(variant.goalPostRightX, gpY)
             ctx.stroke(Path { p in p.move(to: gl); p.addLine(to: gr) },
                        with: .color(.yellow.opacity(0.7)), lineWidth: 1.5)
         }
@@ -218,9 +300,9 @@ struct FootballFieldTourView: View {
                      at: pt)
         }
 
-        // ── Sideline labels ───────────────────────────────────────────
+        // ── Sideline label ────────────────────────────────────────────
         let midY = l.sp(fW / 2, fL / 2)
-        ctx.draw(Text("← 53⅓ yds →").font(.system(size: 8)).foregroundColor(.white.opacity(0.35)),
+        ctx.draw(Text("← \(variant.widthLabel) →").font(.system(size: 8)).foregroundColor(.white.opacity(0.35)),
                  at: CGPoint(x: midY.x, y: l.sp(0, fL).y - 8))
 
         // ── Finger crosshair ──────────────────────────────────────────
@@ -247,11 +329,11 @@ struct FootballFieldTourView: View {
             return FFZone(name: "Out of bounds", terrain: .foul)
         }
 
-        // Goal post zones at back of end zones
-        for (gpY, side) in [(0.0, "Near"), (fL, "Far")] {
+        // Goal post zones
+        for (gpY, side) in [(variant.nearGoalPostY, "Near"), (variant.farGoalPostY, "Far")] {
             if abs(fy - gpY) < 2 {
-                if abs(fx - hashL) < 2 { return FFZone(name: "\(side) goal post, left upright", terrain: .foul, isGoalLine: true) }
-                if abs(fx - hashR) < 2 { return FFZone(name: "\(side) goal post, right upright", terrain: .foul, isGoalLine: true) }
+                if abs(fx - variant.goalPostLeftX) < 2 { return FFZone(name: "\(side) goal post, left upright", terrain: .foul, isGoalLine: true) }
+                if abs(fx - variant.goalPostRightX) < 2 { return FFZone(name: "\(side) goal post, right upright", terrain: .foul, isGoalLine: true) }
             }
         }
 
@@ -269,11 +351,11 @@ struct FootballFieldTourView: View {
         }
 
         // Playing field — yard line
-        let yd = fy - ezD      // 0..100 from near goal line
+        let yd = fy - ezD      // 0..playLength from near goal line
         let fromNear = Int(yd.rounded())
-        let yardLine = min(fromNear, 100 - fromNear)
-        let side = fromNear <= 50 ? "near" : "far"
-        let yardLabel = yardLine == 50 ? "50 yard line" : "\(side.capitalized) \(yardLine) yard line"
+        let yardLine = min(fromNear, Int(variant.playLength) - fromNear)
+        let side = Double(fromNear) <= variant.playLength / 2 ? "near" : "far"
+        let yardLabel = yardLine == variant.centerYard ? "\(variant.centerYard) yard line" : "\(side.capitalized) \(yardLine) yard line"
 
         // Hash/side position
         let posLabel: String
@@ -313,16 +395,17 @@ struct FootballFieldTourView: View {
             let band = Int(fy / 5)
             if band != lastYardBand {
                 lastYardBand = band
-                let is10 = Int(fy / 10) * 10 == Int(fy.rounded() / 5) * 5
+                let bandFY = Double(band) * 5.0
+                // Louder landmark at every whole 10-yard line from the goal line.
+                let is10 = (Int(bandFY) - Int(ezD)) % 10 == 0
                 if is10 {
                     fieldAudio.playLandmark()
                 } else {
                     UIImpactFeedbackGenerator(style: .soft).impactOccurred()
                 }
-                // Announce yard number (playing field only: fieldY 10–110)
-                let bandFY = Double(band) * 5.0
-                if bandFY >= 10 && bandFY <= 110 {
-                    let yardNum = min(Int(bandFY) - 10, 110 - Int(bandFY))
+                // Announce yard number (playing field only)
+                if bandFY >= ezD && bandFY <= fL - ezD {
+                    let yardNum = min(Int(bandFY) - Int(ezD), Int(fL - ezD) - Int(bandFY))
                     TouchTourAnnouncementService.shared.announce("\(yardNum)")
                 }
             }
@@ -355,7 +438,7 @@ struct FootballFieldTourView: View {
                 Text("Touch field to explore")
                     .font(.caption).foregroundColor(.gray)
             }
-            Text("NFL · 120 yds × 53⅓ yds · Hash marks align with goal posts")
+            Text(variant.statusSecondLine)
                 .font(.caption2).foregroundColor(.gray)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -373,19 +456,25 @@ struct FootballFieldTourView: View {
 // MARK: - Info / Landing Page
 
 struct FootballTourInfoView: View {
+    private let variant: FootballFieldVariant
     @State private var showCanvas = false
+
+    init(variant: FootballFieldVariant = .nfl) {
+        self.variant = variant
+    }
 
     var body: some View {
         List {
             Section("Dimensions") {
-                LabeledContent("Length", value: "120 yards (including end zones)")
-                LabeledContent("Width", value: "53⅓ yards")
-                LabeledContent("End zones", value: "10 yards deep at each end")
+                LabeledContent("Length", value: variant.lengthLabel)
+                LabeledContent("Width", value: "\(variant.widthLabel.replacingOccurrences(of: " yds", with: " yards"))")
+                LabeledContent("End zones", value: variant.endZoneLabel)
             }
             Section("Key Lines") {
-                LabeledContent("Goal lines", value: "10 yards from each end")
-                LabeledContent("Hash marks", value: "70 ft 9 in from each sideline")
-                LabeledContent("Goal posts", value: "Aligned with hash marks")
+                LabeledContent("Goal lines", value: "\(Int(variant.endZoneDepth)) yards from each end")
+                LabeledContent("Hash marks", value: variant.hashLabel)
+                LabeledContent("Goal posts", value: variant.goalPostLabel)
+                LabeledContent("Centre line", value: "\(variant.centerYard) yard line")
                 LabeledContent("Yard lines", value: "Every 5 yards; numbered every 10")
             }
             Section("About the Audio Tour") {
@@ -394,9 +483,9 @@ struct FootballTourInfoView: View {
                     .foregroundColor(.secondary)
             }
         }
-        .navigationTitle("Football Field")
+        .navigationTitle("\(variant.league) Field")
         .navigationDestination(isPresented: $showCanvas) {
-            FootballFieldTourView()
+            FootballFieldTourView(variant: variant)
         }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -412,5 +501,5 @@ struct FootballTourInfoView: View {
 }
 
 #Preview {
-    NavigationStack { FootballFieldTourView() }
+    NavigationStack { FootballFieldTourView(variant: .cfl) }
 }

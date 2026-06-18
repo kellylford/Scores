@@ -50,8 +50,11 @@ struct ScoresView: View {
             Picker("View", selection: $selectedTab) {
                 Text("Scores").tag(ScoresTab.scores)
                 Text("Standings").tag(ScoresTab.standings)
-                Text("News").tag(ScoresTab.news)
-                Text("Stats").tag(ScoresTab.stats)
+                // CFL has no ESPN-backed News or Stats feeds.
+                if !sport.usesCFLSource {
+                    Text("News").tag(ScoresTab.news)
+                    Text("Stats").tag(ScoresTab.stats)
+                }
                 if sport.hasPolls {
                     Text("Polls").tag(ScoresTab.polls)
                 }
@@ -270,8 +273,9 @@ struct ScoresView: View {
                         }
                     }
 
-                    // Season picker for non-football, non-soccer sports
-                    if !sport.isSoccer {
+                    // Season picker for non-football, non-soccer sports.
+                    // CFL is excluded — the feed only carries the current season.
+                    if !sport.isSoccer && !sport.usesCFLSource {
                         let displayYear = viewModel.displaySeasonYear(for: sport)
                         let seasonName  = sport.seasonDisplayName(year: displayYear)
                         Menu {

@@ -143,6 +143,23 @@ struct SettingsView: View {
             .accessibilityLabel("Golf hub")
             .accessibilityHint(appSettings.golfHubEnabled ? "On. Tap to hide Golf from the home page." : "Off. Tap to show Golf on the home page.")
 
+            Toggle(isOn: $appSettings.cflEnabled) {
+                HStack(spacing: 12) {
+                    Image(systemName: "figure.american.football")
+                        .font(.title3)
+                        .frame(width: 28)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("CFL")
+                            .font(.headline)
+                        Text("Canadian Football League · scores & standings")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .accessibilityLabel("CFL")
+            .accessibilityHint(appSettings.cflEnabled ? "On. Tap to hide CFL from the home page." : "Off. Tap to show CFL on the home page.")
+
             Toggle(isOn: $appSettings.worldCupHubEnabled) {
                 HStack(spacing: 12) {
                     Image(systemName: "globe.americas.fill")
@@ -179,7 +196,7 @@ struct SettingsView: View {
         } header: {
             Text("Home Page Sports")
         } footer: {
-            Text("Drag to reorder. Toggle to show or hide a sport. Soccer, Golf, and World Cup are hub sports — toggle only.")
+            Text("Drag to reorder. Toggle to show or hide a sport. Soccer, Golf, CFL, and World Cup are toggle-only and appear below the main list.")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }

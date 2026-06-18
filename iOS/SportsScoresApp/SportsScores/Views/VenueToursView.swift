@@ -27,7 +27,13 @@ struct VenueToursView: View {
                     title: "NFL Football Field",
                     subtitle: "120 yds · yard lines · hash marks · goal posts",
                     icon: "figure.american.football",
-                    destination: FootballTourInfoView()
+                    destination: FootballTourInfoView(variant: .nfl)
+                )
+                rowLink(
+                    title: "CFL Football Field",
+                    subtitle: "150 yds × 65 yds · 20-yd end zones · goal posts on goal line",
+                    icon: "figure.american.football",
+                    destination: FootballTourInfoView(variant: .cfl)
                 )
             } header: {
                 Text("Football")

@@ -20,6 +20,12 @@ final class GameDetailViewModel: ObservableObject {
     }
 
     func loadDetails() async {
+        // CFL has no box score / play-by-play feed. Leave details nil so the
+        // view shows the game header alone rather than an error.
+        guard !sport.usesCFLSource else {
+            isLoading = false
+            return
+        }
         isLoading = true
         errorMessage = nil
         do {
