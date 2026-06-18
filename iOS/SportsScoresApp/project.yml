@@ -64,7 +64,14 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
-        ENABLE_PREVIEWS: YES
+        # iOS 27 launch-crash guard (instant black screen). Two Xcode 26 features
+        # bundle a debug/preview dylib (SportsScores.debug.dylib, __preview.dylib)
+        # into the app; loading it crashes at launch on iOS 27. ENABLE_PREVIEWS
+        # covers Release archives; ENABLE_DEBUG_DYLIB (default YES in Debug) covers
+        # device Run/Debug builds. Both must be OFF for all configs.
+        # Cost: Xcode SwiftUI preview canvas is disabled. See commits b0534f7 / 94baf49.
+        ENABLE_PREVIEWS: NO
+        ENABLE_DEBUG_DYLIB: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         CODE_SIGN_STYLE: Automatic
@@ -75,14 +82,6 @@ targets:
         SWIFT_EMIT_LOC_STRINGS: YES
         SUPPORTS_MACCATALYST: YES
         DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER: YES
-      configs:
-        # ENABLE_PREVIEWS=YES in Release bundles SportsScores.debug.dylib into
-        # archives, which causes an XPC init crash at launch on iOS 27 (black
-        # screen). Keep previews in Debug for development; disable in Release.
-        # This MUST live in project.yml — a pbxproj-only fix is wiped by
-        # `xcodegen generate`. See commit b0534f7.
-        Release:
-          ENABLE_PREVIEWS: NO
 
 schemes:
   SportsScores:
