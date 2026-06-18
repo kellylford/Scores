@@ -74,6 +74,61 @@ final class CFLAPIService {
         (try? await fetchGames(on: date))?.count ?? 0
     }
 
+    /// Result of loading one round (week) of the CFL season.
+    struct CFLRoundResult {
+        let games: [Game]
+        let roundIndex: Int      // 0-based index into the season's rounds
+        let label: String        // e.g. "Week 2", "Preseason Week 1", "113th Grey Cup"
+        let roundCount: Int
+        let isCurrentRound: Bool
+    }
+
+    /// Games for a single round. CFL navigates by round/week rather than by day,
+    /// because games are spread Thursday–Sunday and most calendar days are empty.
+    ///
+    /// - Parameter index: the round to load, or `nil` to resolve the current round
+    ///   (the one in progress, or the next upcoming one if between weeks).
+    func fetchRound(index: Int?) async throws -> CFLRoundResult {
+        let feed = try await loadFeed()
+        let rounds = feed.rounds
+        guard !rounds.isEmpty else {
+            return CFLRoundResult(games: [], roundIndex: 0, label: "", roundCount: 0, isCurrentRound: true)
+        }
+
+        let currentIdx = currentRoundIndex(rounds)
+        let idx = min(max(index ?? currentIdx, 0), rounds.count - 1)
+        let round = rounds[idx]
+        let seasonType: Int
+        switch round.type {
+        case "PRE":  seasonType = 1
+        case "POST": seasonType = 3
+        default:     seasonType = 2
+        }
+        let games = round.tournaments
+            .filter { !($0.isHidden ?? false) }
+            .map { makeGame(from: $0, seasonType: seasonType, records: feed.recordMap) }
+            .sorted { $0.date < $1.date }
+
+        return CFLRoundResult(
+            games: games,
+            roundIndex: idx,
+            label: round.name,
+            roundCount: rounds.count,
+            isCurrentRound: idx == currentIdx
+        )
+    }
+
+    /// Index of the round considered "current": the first round that hasn't
+    /// finished yet (in progress or upcoming), or the final round if the season
+    /// is over.
+    private func currentRoundIndex(_ rounds: [CFLRound]) -> Int {
+        let now = Date()
+        if let i = rounds.firstIndex(where: { ($0.endDateParsed ?? .distantFuture) >= now }) {
+            return i
+        }
+        return rounds.count - 1
+    }
+
     /// East / West standings built from each team's win-loss-draw record.
     func fetchStandings() async throws -> [StandingsGroup] {
         let feed = try await loadFeed()
@@ -376,7 +431,12 @@ private struct CFLRound: Decodable {
     let name: String
     let type: String        // "PRE" | "REG" | "POST"
     let number: Int?
+    let startDate: String?
+    let endDate: String?
     let tournaments: [CFLTournament]
+
+    /// End of the round's date window, used to resolve the current round.
+    var endDateParsed: Date? { endDate.flatMap(parseCFLFeedDate) }
 }
 
 private struct CFLTournament: Decodable {
@@ -392,20 +452,24 @@ private struct CFLTournament: Decodable {
 
     /// Parsed kickoff time. The feed uses ISO-8601 with an explicit offset,
     /// e.g. "2026-06-12T00:30:00+00:00".
-    var parsedDate: Date {
-        let fmt = DateFormatter()
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        let formats = [
-            "yyyy-MM-dd'T'HH:mm:ssZZZZZ",
-            "yyyy-MM-dd'T'HH:mmZZZZZ",
-            "yyyy-MM-dd'T'HH:mm:ss'Z'"
-        ]
-        for f in formats {
-            fmt.dateFormat = f
-            if let d = fmt.date(from: date) { return d }
-        }
-        return ISO8601DateFormatter().date(from: date) ?? Date()
+    var parsedDate: Date { parseCFLFeedDate(date) ?? Date() }
+}
+
+/// Parse a CFL feed timestamp. The feed uses ISO-8601 with an explicit offset
+/// ("2026-06-12T00:30:00+00:00"); a couple of fallbacks cover minor variants.
+private func parseCFLFeedDate(_ s: String) -> Date? {
+    let fmt = DateFormatter()
+    fmt.locale = Locale(identifier: "en_US_POSIX")
+    let formats = [
+        "yyyy-MM-dd'T'HH:mm:ssZZZZZ",
+        "yyyy-MM-dd'T'HH:mmZZZZZ",
+        "yyyy-MM-dd'T'HH:mm:ss'Z'"
+    ]
+    for f in formats {
+        fmt.dateFormat = f
+        if let d = fmt.date(from: s) { return d }
     }
+    return ISO8601DateFormatter().date(from: s)
 }
 
 private struct CFLSquadScore: Decodable {

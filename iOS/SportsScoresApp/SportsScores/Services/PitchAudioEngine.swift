@@ -17,6 +17,7 @@
 
 import AVFoundation
 import AudioToolbox
+import CoreAudio   // UnsafeMutableAudioBufferListPointer (transitive on iOS, explicit for Mac Catalyst)
 import Foundation
 
 @MainActor

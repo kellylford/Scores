@@ -146,6 +146,14 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
         self == .nfl || self == .ncaaf
     }
 
+    /// True for sports whose Scores screen navigates by week/round rather than
+    /// by calendar day. NFL/NCAAF use ESPN week navigation; CFL uses round-based
+    /// navigation from the cfl.ca feed. (CFL has games spread Thu–Sun, so day
+    /// navigation would surface mostly empty days.)
+    var usesWeekNavigation: Bool {
+        isFootball || usesCFLSource
+    }
+
     /// True for soccer league cases (not World Cup — those are hub-only).
     var isSoccer: Bool {
         Sport.soccerLeagues.contains(self)

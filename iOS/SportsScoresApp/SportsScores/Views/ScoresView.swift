@@ -69,7 +69,7 @@ struct ScoresView: View {
             // Only show auto-refresh on the Scores tab and only when viewing current data.
             // Historical dates/weeks can't meaningfully auto-refresh, and other tabs
             // (Standings, News, Stats, Polls) are not wired to this refresh loop.
-            let isViewingCurrent = sport.isFootball ? viewModel.isOnCurrentWeek : viewModel.isOnToday
+            let isViewingCurrent = sport.usesWeekNavigation ? viewModel.isOnCurrentWeek : viewModel.isOnToday
             if selectedTab == .scores && isViewingCurrent {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     autoRefreshMenu
@@ -98,7 +98,7 @@ struct ScoresView: View {
                 if secs > 0 {
                     try? await Task.sleep(for: .seconds(secs))
                     guard !Task.isCancelled else { break }
-                    let isViewingCurrent = sport.isFootball ? viewModel.isOnCurrentWeek : viewModel.isOnToday
+                    let isViewingCurrent = sport.usesWeekNavigation ? viewModel.isOnCurrentWeek : viewModel.isOnToday
                     if selectedTab == .scores && isViewingCurrent {
                         await viewModel.refresh(for: sport)
                     }
@@ -166,13 +166,13 @@ struct ScoresView: View {
                     .frame(width: 44, height: 36)
                     .contentShape(Rectangle())
             }
-            .disabled(viewModel.isLoading || (sport.isFootball && viewModel.isAtWeekStart))
-            .accessibilityLabel(sport.isFootball ? "Previous Week" : "Previous Day")
+            .disabled(viewModel.isLoading || (sport.usesWeekNavigation && viewModel.isAtWeekStart))
+            .accessibilityLabel(sport.usesWeekNavigation ? "Previous Week" : "Previous Day")
 
             Spacer()
 
             // ── Centre label ─────────────────────────────────────────────
-            if sport.isFootball {
+            if sport.usesWeekNavigation {
                 let weekText = viewModel.weekLabel.isEmpty
                     ? (viewModel.currentWeek.map { "Week \($0)" } ?? "Current Week")
                     : viewModel.weekLabel
@@ -184,6 +184,9 @@ struct ScoresView: View {
                         // Static text — VoiceOver reads it as part of the row; no interactive trait.
                         .accessibilityLabel(weekText)
 
+                    // ESPN season / season-type pickers — real football only.
+                    // CFL has a single live season, so it shows just the week label.
+                    if sport.isFootball {
                     HStack(spacing: 6) {
                         // Season year picker
                         Menu {
@@ -230,6 +233,7 @@ struct ScoresView: View {
                             .accessibilityLabel("\(currentTypeName)")
                             .accessibilityHint("Select to change between preseason, regular, and postseason")
                         }
+                    }
                     }
                 }
                 .accessibilityElement(children: .contain)
@@ -311,11 +315,11 @@ struct ScoresView: View {
                     .frame(width: 44, height: 36)
                     .contentShape(Rectangle())
             }
-            .disabled(viewModel.isLoading || (sport.isFootball && viewModel.isAtWeekEnd))
-            .accessibilityLabel(sport.isFootball ? "Next Week" : "Next Day")
+            .disabled(viewModel.isLoading || (sport.usesWeekNavigation && viewModel.isAtWeekEnd))
+            .accessibilityLabel(sport.usesWeekNavigation ? "Next Week" : "Next Day")
 
             // ── Today button (only when not on today / current week) ──────
-            let showToday = sport.isFootball ? !viewModel.isOnCurrentWeek : !viewModel.isOnToday
+            let showToday = sport.usesWeekNavigation ? !viewModel.isOnCurrentWeek : !viewModel.isOnToday
             if showToday {
                 Button("Today") {
                     Task { await viewModel.goToToday(for: sport); announceNavigation() }
@@ -330,10 +334,10 @@ struct ScoresView: View {
         .animation(.easeInOut(duration: 0.15), value: viewModel.isOnCurrentWeek)
         .animation(.none, value: viewModel.weekLabel)
         // Belt-and-suspenders named actions for VoiceOver custom actions rotor
-        .accessibilityAction(named: sport.isFootball ? "Previous Week" : "Previous Day") {
+        .accessibilityAction(named: sport.usesWeekNavigation ? "Previous Week" : "Previous Day") {
             Task { await viewModel.goBack(for: sport); announceNavigation() }
         }
-        .accessibilityAction(named: sport.isFootball ? "Next Week" : "Next Day") {
+        .accessibilityAction(named: sport.usesWeekNavigation ? "Next Week" : "Next Day") {
             Task { await viewModel.goForward(for: sport); announceNavigation() }
         }
     }
@@ -342,7 +346,7 @@ struct ScoresView: View {
     private func announceNavigation() {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         let description: String
-        if sport.isFootball {
+        if sport.usesWeekNavigation {
             let weekText = viewModel.weekLabel.isEmpty
                 ? (viewModel.currentWeek.map { "Week \($0)" } ?? "Current Week")
                 : viewModel.weekLabel
@@ -390,7 +394,7 @@ struct ScoresView: View {
                     Text("No games scheduled")
                         .font(.headline)
                         .foregroundColor(.secondary)
-                    if !sport.isFootball {
+                    if !sport.usesWeekNavigation {
                         Button("Go to Today") {
                             Task { await viewModel.goToToday(for: sport) }
                         }

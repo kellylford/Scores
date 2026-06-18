@@ -60,6 +60,13 @@ class ScoresViewModel: ObservableObject {
     /// Calendar loaded from the ESPN Core API for the current historical season.
     private var footballCalendar: SeasonCalendar?
 
+    // MARK: - Private CFL round state
+
+    /// Current round index into the CFL season, or nil to resolve the live round.
+    private var cflRoundIndex: Int?
+    /// Total number of rounds in the CFL season (for navigation bounds).
+    private var cflRoundCount: Int = 0
+
     // MARK: - Computed helpers
 
     /// Week number bounds for the current season type, derived from the fetched calendar.
@@ -71,16 +78,16 @@ class ScoresViewModel: ObservableObject {
         return (min: 1, max: count)
     }
 
-    /// True when the current week is the first week of the active season type
-    /// and a calendar is loaded (i.e. the back arrow should be disabled).
+    /// True when the back arrow should be disabled (first week/round).
     var isAtWeekStart: Bool {
+        if cflRoundCount > 0 { return (cflRoundIndex ?? 0) <= 0 }
         guard let bounds = currentWeekBounds else { return false }
         return (currentWeek ?? 1) <= bounds.min
     }
 
-    /// True when the current week is the last week of the active season type
-    /// and a calendar is loaded (i.e. the forward arrow should be disabled).
+    /// True when the forward arrow should be disabled (last week/round).
     var isAtWeekEnd: Bool {
+        if cflRoundCount > 0 { return (cflRoundIndex ?? 0) >= cflRoundCount - 1 }
         guard let bounds = currentWeekBounds else { return false }
         return (currentWeek ?? 1) >= bounds.max
     }
@@ -153,8 +160,13 @@ class ScoresViewModel: ObservableObject {
 
         do {
             if sport.usesCFLSource {
-                // CFL is sourced from the cfl.ca feed and navigates by day.
-                games = try await CFLAPIService.shared.fetchGames(on: currentDate)
+                // CFL is sourced from the cfl.ca feed and navigates by round/week.
+                let result = try await CFLAPIService.shared.fetchRound(index: cflRoundIndex)
+                games          = result.games
+                cflRoundIndex  = result.roundIndex
+                cflRoundCount  = result.roundCount
+                weekLabel      = result.label
+                isOnCurrentWeek = result.isCurrentRound
             } else if sport.isFootball {
                 if let season = currentSeason {
                     // Historical season: fetch via Core API date ranges.
@@ -198,7 +210,12 @@ class ScoresViewModel: ObservableObject {
     // MARK: - Navigation
 
     func goForward(for sport: Sport) async {
-        if sport.isFootball {
+        if sport.usesCFLSource {
+            let next = (cflRoundIndex ?? 0) + 1
+            if cflRoundCount > 0 && next > cflRoundCount - 1 { return }
+            cflRoundIndex = next
+            isOnCurrentWeek = false
+        } else if sport.isFootball {
             let nextWeek = (currentWeek ?? 1) + 1
             // Respect bounds when we have a loaded calendar.
             if let bounds = currentWeekBounds, nextWeek > bounds.max { return }
@@ -211,7 +228,12 @@ class ScoresViewModel: ObservableObject {
     }
 
     func goBack(for sport: Sport) async {
-        if sport.isFootball {
+        if sport.usesCFLSource {
+            let prev = (cflRoundIndex ?? 0) - 1
+            if prev < 0 { return }
+            cflRoundIndex = prev
+            isOnCurrentWeek = false
+        } else if sport.isFootball {
             let prevWeek = (currentWeek ?? 2) - 1
             if prevWeek < 1 { return }
             // Respect bounds when we have a loaded calendar.
@@ -225,6 +247,11 @@ class ScoresViewModel: ObservableObject {
     }
 
     func goToDate(_ date: Date, for sport: Sport) async {
+        // CFL navigates by round, not by date — resolve to the current round.
+        if sport.usesCFLSource {
+            await goToToday(for: sport)
+            return
+        }
         currentDate = Calendar.current.startOfDay(for: date)
         await fetchGames(for: sport)
     }
@@ -291,6 +318,7 @@ class ScoresViewModel: ObservableObject {
         isOnCurrentWeek      = true
         footballCalendar     = nil
         availableSeasonTypes = []
+        cflRoundIndex        = nil   // re-resolve the live CFL round
         await fetchGames(for: sport)
     }
 
