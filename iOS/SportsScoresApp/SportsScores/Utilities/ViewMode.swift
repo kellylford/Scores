@@ -26,22 +26,22 @@ enum ViewMode: String, CaseIterable {
     var description: String {
         switch self {
         case .table:
-            return "Traditional grid format with columns and rows"
+            return "Grid with column headers — best for visual scanning"
         case .quickList:
-            return "Comma-separated values for rapid scanning"
+            return "Compact rows, terse VoiceOver labels"
         case .fullList:
-            return "Header-value pairs for complete context"
+            return "Compact rows, VoiceOver labels include field names"
         }
     }
-    
+
     var accessibilityLabel: String {
         switch self {
         case .table:
-            return "Table View: Grid format with arrow key navigation"
+            return "Table View: grid with column headers"
         case .quickList:
-            return "Quick List: Comma-separated values"
+            return "Quick List: compact rows, terse labels"
         case .fullList:
-            return "Full List: Complete header-value pairs"
+            return "Full List: compact rows, labeled for VoiceOver"
         }
     }
     

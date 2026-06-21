@@ -4,6 +4,34 @@ This is the living design reference for the Sports Scores iOS app. It captures t
 
 ---
 
+## Three View Modes
+
+Every list or table screen in the app offers three presentation modes, selectable via `ViewModeMenuButton` (a toolbar `Menu` wrapping an inline `Picker`). The default is **Quick List**.
+
+| Mode | Visual layout | VoiceOver label style |
+|---|---|---|
+| **Quick List** | Compact rows — rank / name / value on one line | Terse: `"#1 Aaron Judge NYY — .350"` — no label words |
+| **Full List** | **Same visual rows as Quick List** | Verbose: `"Rank 1, Player: Aaron Judge, Team: NYY, Value: .350"` — includes field names |
+| **Table** | Grid with visible column headers (Rank / Player / Team / Value) | `AccessibleDataTable` overlay handles VoiceOver |
+
+**Critical rule:** Quick List and Full List must be visually identical. The only difference is in the `.accessibilityLabel` string attached to each row. Full List adds label words so VoiceOver users who need that context ("Rank 1, Player: …") get it; Quick List omits them for faster scanning. Table is the only mode with a different visual layout.
+
+### Implementation pattern
+
+- `ViewMode` enum and `ViewModeMenuButton` live in `Utilities/ViewMode.swift`.
+- The shared player-leaders renderer is `LeaderCategorySection` (defined at the bottom of `Views/StatisticsView.swift`). It is reused by `StatisticsView`, `StatLeaderDetailView`, and the player sub-tab of `TeamStatsTabView`.
+- Team ranking rows (in `TeamStatsTabView`) have their own three-mode rendering functions: `teamQuickList`, `teamTable`, `teamFullList`.
+- Default `@State` is always `.quickList`. Views do **not** persist viewMode across sessions via `@AppStorage` — each navigation push resets to Quick List.
+
+### Accessibility label formats
+
+Player/leader rows (Quick List): `"#\(rank) \(athleteName)\(team) — \(value)"`  
+Player/leader rows (Full List): `"Rank \(rank), \(entityHeader): \(athleteName)\(, Team: \(team)), Value: \(value)"`  
+Team stat rows (Quick List): `"\(categoryName): \(value), \(rankDisplay)"`  
+Team stat rows (Full List): `"Category: \(categoryName), Value: \(value), Rank: \(rankDisplay)"`
+
+---
+
 ## Three-Screen Model
 
 The app has exactly three canonical screen types:

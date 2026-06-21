@@ -211,32 +211,43 @@ struct TeamStatsTabView: View {
         }
     }
 
+    // Full List is visually identical to Quick List — same compact rows.
+    // The only difference is the VoiceOver label includes label words.
     @ViewBuilder
     private func teamFullList(section: String, rankings: [TeamStatRanking]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let rows = rankings.map { r in [r.categoryDisplayName, r.teamValue, r.rankDisplay] }
+
+        VStack(alignment: .leading, spacing: 0) {
             Text(section)
-                .font(.headline).padding(.bottom, 2)
+                .font(.headline).padding(.bottom, 6)
                 .accessibilityAddTraits(.isHeader)
 
-            ForEach(rankings) { r in
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(r.categoryDisplayName)
+            VStack(spacing: 0) {
+                ForEach(Array(rankings.enumerated()), id: \.element.id) { idx, r in
+                    HStack(spacing: 8) {
+                        Text(r.rankDisplay)
                             .font(.subheadline.bold())
+                            .foregroundColor(rankColor(r.leagueRank))
+                            .frame(width: 52, alignment: .leading)
+                        Text(r.categoryDisplayName)
+                            .font(.subheadline)
+                        Spacer()
                         Text(r.teamValue)
-                            .font(.title3.bold()).monospacedDigit()
+                            .font(.subheadline.bold()).monospacedDigit()
                     }
-                    Spacer()
-                    Text(r.rankDisplay)
-                        .font(.title3.bold())
-                        .foregroundColor(rankColor(r.leagueRank))
+                    .padding(.horizontal, 12).padding(.vertical, 5)
+                    .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.05))
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Category: \(r.categoryDisplayName), Value: \(r.teamValue), Rank: \(r.rankDisplay)")
                 }
-                .padding(14)
-                .background(Color.secondary.opacity(0.07))
-                .cornerRadius(10)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(r.categoryDisplayName): \(r.teamValue), \(r.rankDisplay)")
             }
+            .background(Color.secondary.opacity(0.04))
+            .cornerRadius(8)
+            .accessibilityHidden(true)
+            .overlay(
+                AccessibleDataTable(headers: ["Category", "Value", "Rank"], rows: rows)
+                    .allowsHitTesting(false)
+            )
         }
     }
 

@@ -89,8 +89,9 @@ MVVM with SwiftUI. `AppSettings` is an `ObservableObject` injected via `.environ
 
 ### Design Principles
 
-**`DESIGN_PRINCIPLES.md` is the canonical design reference** for the iOS app. Read it before implementing or changing any display or accessibility behavior. Key rules summarized:
+**`DESIGN_PRINCIPLES.md`** (repo root) **is the canonical design reference** for the iOS app. Read it before implementing or changing any display or accessibility behavior. Key rules summarized:
 
+- **Three view modes** — every list/table screen provides Quick List, Full List, and Table via `ViewModeMenuButton` (default: Quick List). Quick List and Full List are **visually identical**; the only difference is VoiceOver labels: Quick List is terse (`"#1 Aaron Judge NYY — .350"`), Full List adds field names (`"Rank 1, Player: Aaron Judge, Team: NYY, Value: .350"`). Table adds column headers and a grid layout. This is a cornerstone of both apps. See `Utilities/ViewMode.swift` and the `LeaderCategorySection` in `Views/StatisticsView.swift`.
 - **Sport Screen Scores tab** must have exactly three sections in order: In Progress → Upcoming → Completed. Empty sections are omitted entirely (no placeholder text). This is currently unimplemented in `ScoresView` — it's the highest-priority gap.
 - **Time period navigation**: non-football sports navigate by day; NFL/NCAAF navigate by week using ESPN-resolved week labels.
 - **Team names on screen**: always use `abbreviation`. In VoiceOver labels: use `Game.Team.voiceOverName(for:)` which reads the user's `TeamNamePreference` setting. Never hard-code abbreviations into VoiceOver labels.

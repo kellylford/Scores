@@ -266,46 +266,37 @@ struct LeaderCategorySection: View {
     }
 
     // MARK: Full list
+    // Visually identical to Quick List. The only difference is the VoiceOver
+    // accessibility label includes label words ("Rank N, Player: Name, Value: .350")
+    // so users who need that context get it without a different visual layout.
 
     private var fullListSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ForEach(category.leaders) { entry in
-                VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 2) {
+            ForEach(Array(category.leaders.enumerated()), id: \.element.id) { idx, entry in
+                HStack {
+                    Text("#\(entry.rank)")
+                        .font(.caption.bold()).foregroundColor(.secondary)
+                        .monospacedDigit().frame(width: 36, alignment: .trailing)
                     Text(entry.athleteName)
-                        .font(.headline)
-                    HStack(alignment: .top) {
-                        Text("Rank:")
-                            .font(.caption.bold()).foregroundColor(.secondary)
-                            .frame(width: 80, alignment: .leading)
-                        Text("#\(entry.rank)")
-                            .font(.caption).frame(maxWidth: .infinity, alignment: .leading)
-                    }
+                        .font(.subheadline)
                     if hasTeams {
-                        HStack(alignment: .top) {
-                            Text("Team:")
-                                .font(.caption.bold()).foregroundColor(.secondary)
-                                .frame(width: 80, alignment: .leading)
-                            Text(entry.teamAbbreviation)
-                                .font(.caption).frame(maxWidth: .infinity, alignment: .leading)
-                        }
+                        Text(entry.teamAbbreviation)
+                            .font(.caption).foregroundColor(.secondary)
                     }
-                    HStack(alignment: .top) {
-                        Text("Value:")
-                            .font(.caption.bold()).foregroundColor(.secondary)
-                            .frame(width: 80, alignment: .leading)
-                        Text(entry.displayValue)
-                            .font(.caption).frame(maxWidth: .infinity, alignment: .leading)
-                    }
+                    Spacer()
+                    Text(entry.displayValue)
+                        .font(.subheadline.bold()).monospacedDigit()
                 }
-                .padding(12)
-                .background(Color.secondary.opacity(0.05))
-                .cornerRadius(8)
-                .accessibilityElement(children: .combine)
+                .padding(.horizontal, 12).padding(.vertical, 5)
+                .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.04))
+                .accessibilityElement(children: .ignore)
                 .accessibilityLabel(
-                    "#\(entry.rank) \(entry.athleteName)\(hasTeams ? ", \(entry.teamAbbreviation)" : ""), \(entry.displayValue)"
+                    "Rank \(entry.rank), \(entityHeader): \(entry.athleteName)\(hasTeams ? ", Team: \(entry.teamAbbreviation)" : ""), Value: \(entry.displayValue)"
                 )
             }
         }
+        .background(Color.secondary.opacity(0.04))
+        .cornerRadius(8)
     }
 
     // MARK: Helpers
