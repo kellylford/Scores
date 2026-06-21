@@ -456,6 +456,56 @@ class ESPNAPIService {
         return [2, 3, 1]
     }
     
+    /// Fetch stat leaders for players on a specific team.
+    /// Uses the site API /teams/{id}/leaders which embeds athlete info inline
+    /// — no separate $ref resolution needed, so this is much faster than the
+    /// Core API league-leaders path.
+    func fetchTeamPlayerLeaders(teamId: String, sport: Sport) async throws -> [LeagueLeaderCategory] {
+        let urlString = "\(baseURL)/\(sport.apiPath)/teams/\(teamId)/leaders"
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+        let (data, response) = try await session.data(from: url)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw APIError.invalidResponse
+        }
+        let apiResponse = try JSONDecoder().decode(SiteTeamLeadersResponse.self, from: data)
+        return apiResponse.resolvedLeaders.compactMap { cat in
+            let leaders = (cat.leaders ?? []).enumerated().map { idx, entry -> LeagueLeaderCategory.LeagueLeaderEntry in
+                let statDisplay: String
+                if let v = entry.value {
+                    statDisplay = formatLeaderStatValue(v)
+                } else {
+                    statDisplay = entry.displayValue ?? "-"
+                }
+                return LeagueLeaderCategory.LeagueLeaderEntry(
+                    rank: idx + 1,
+                    displayValue: statDisplay,
+                    athleteName: entry.athlete?.displayName ?? "—",
+                    teamAbbreviation: ""
+                )
+            }
+            guard !leaders.isEmpty else { return nil }
+            return LeagueLeaderCategory(name: cat.name ?? "", displayName: cat.displayName ?? "", leaders: leaders)
+        }
+    }
+
+    /// Returns this team's rank in each league-wide team stat category.
+    /// Fetches all team leaders (limit=35 to cover all ~30+ teams) and finds
+    /// entries matching the given team abbreviation.
+    func fetchTeamStatRankings(teamAbbreviation: String, sport: Sport) async throws -> [TeamStatRanking] {
+        let allTeamCategories = try await fetchTeamLeaders(for: sport, limit: 35)
+        return allTeamCategories.compactMap { category in
+            guard let entry = category.leaders.first(where: { $0.athleteName == teamAbbreviation }) else {
+                return nil
+            }
+            return TeamStatRanking(
+                categoryDisplayName: category.displayName,
+                teamValue: entry.displayValue,
+                leagueRank: entry.rank,
+                totalTeams: category.leaders.count
+            )
+        }
+    }
+
     func fetchTeamLeaders(for sport: Sport, limit: Int = 10) async throws -> [LeagueLeaderCategory] {
         let league = sport.apiPath.components(separatedBy: "/").last ?? sport.rawValue.lowercased()
         let sportType = sport.apiPath.components(separatedBy: "/").first ?? "unknown"

@@ -8,6 +8,48 @@
 
 import Foundation
 
+// MARK: - Team Stats Ranking
+
+/// One row in the Team Stats tab: where this team ranks in a given stat category.
+struct TeamStatRanking: Identifiable {
+    let id = UUID()
+    let categoryDisplayName: String
+    let teamValue: String
+    let leagueRank: Int
+    let totalTeams: Int
+}
+
+// MARK: - Site API Team Leaders Response
+// Used by ESPNAPIService.fetchTeamPlayerLeaders (site/v2 /teams/{id}/leaders).
+// ESPN embeds athlete info directly here, so no $ref resolution is needed.
+
+struct SiteTeamLeadersResponse: Codable {
+    let team: TeamWrapper?
+    let leaders: [SiteLeaderCategory]?
+
+    var resolvedLeaders: [SiteLeaderCategory] { team?.leaders ?? leaders ?? [] }
+
+    struct TeamWrapper: Codable {
+        let leaders: [SiteLeaderCategory]?
+    }
+
+    struct SiteLeaderCategory: Codable {
+        let name: String?
+        let displayName: String?
+        let leaders: [SiteLeaderEntry]?
+
+        struct SiteLeaderEntry: Codable {
+            let value: Double?
+            let displayValue: String?
+            let athlete: SiteAthlete?
+
+            struct SiteAthlete: Codable {
+                let displayName: String?
+            }
+        }
+    }
+}
+
 // MARK: - League Leaders Models
 
 struct LeagueLeaderCategory: Identifiable {

@@ -93,11 +93,13 @@
 		C32F5CC0E58BF2711BCF4EB7 /* UserGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2211E4610908171638A8635E /* UserGuideView.swift */; };
 		C64061F39E9C72D852DCECC2 /* NFLDraftView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ED382A04A08304321DF379A /* NFLDraftView.swift */; };
 		C95B57CC27DD8C19A2979B32 /* StandingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95F96BD2C7E1B5D0F0EC4DE8 /* StandingsView.swift */; };
+		C995418E06A9086A5F63BAD7 /* TeamStatsTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BA4CAC4C7EDA97691300940 /* TeamStatsTabView.swift */; };
 		CA0C3549396F6310A922238A /* SoccerHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A5FA8D25FA311C971D8333B /* SoccerHubView.swift */; };
 		CC4CC995A5F7BE0BF99E0A0C /* TeamTransactionsTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B8554FE9C77A1F32389D68F /* TeamTransactionsTabView.swift */; };
 		D0297E190F614EB1BB6ADA63 /* StatisticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67992CF671BB379D522254C7 /* StatisticsView.swift */; };
 		D40B019CCC9D990B7430DE61 /* TeamHubTeamPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A0EB06232A63C5FBC5E725 /* TeamHubTeamPickerView.swift */; };
 		D5BBCFE2C7CC02F9EB4AFED3 /* GameDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8BB65FBC95D5C0925F74FD8 /* GameDetailViewModel.swift */; };
+		D6D4DE994975F6640BCD8CF6 /* TeamStatsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4CA034FD639D5E5AD03DC4A /* TeamStatsViewModel.swift */; };
 		DF0DBB7CA6CF2D81436AF0AD /* SoccerLiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16ED99CDD716191F0D4DBA6A /* SoccerLiveView.swift */; };
 		E12FF86C82FDE425DE041439 /* LiveScoresView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A041149D09737E052D28AFD /* LiveScoresView.swift */; };
 		E7F872A849B24BEFC94A4B28 /* HockeyRinkTourView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45E2F040B783E6BBEE950FD5 /* HockeyRinkTourView.swift */; };
@@ -130,6 +132,7 @@
 		44133B2A0893E530B94863FE /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
 		45E2F040B783E6BBEE950FD5 /* HockeyRinkTourView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HockeyRinkTourView.swift; sourceTree = "<group>"; };
 		498810E1244FB01F11F76C63 /* WorldCupGroupsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCupGroupsView.swift; sourceTree = "<group>"; };
+		4BA4CAC4C7EDA97691300940 /* TeamStatsTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamStatsTabView.swift; sourceTree = "<group>"; };
 		4BE990D5FE2CBBB090B28EA4 /* StrikeZoneBenchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrikeZoneBenchView.swift; sourceTree = "<group>"; };
 		4E353F6FCA74B2B593E0BCF0 /* TeamHubDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamHubDetailView.swift; sourceTree = "<group>"; };
 		4EA35C821420E24CE5DF8EE7 /* TeamHubConferencePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamHubConferencePickerView.swift; sourceTree = "<group>"; };
@@ -194,6 +197,7 @@
 		D140CFB6388D35A8A6DAA98A /* VenueToursView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VenueToursView.swift; sourceTree = "<group>"; };
 		D376006BDCBD19E67A67198F /* SoccerLiveViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoccerLiveViewModel.swift; sourceTree = "<group>"; };
 		D3E43F7CCDE27769D46915D8 /* StandingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StandingsViewModel.swift; sourceTree = "<group>"; };
+		D4CA034FD639D5E5AD03DC4A /* TeamStatsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamStatsViewModel.swift; sourceTree = "<group>"; };
 		D9E24CEFF6C7E1D434DB90C5 /* GameDetails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameDetails.swift; sourceTree = "<group>"; };
 		DACD1DD000CD9B7A9D3FBA99 /* Golf.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Golf.swift; sourceTree = "<group>"; };
 		DB9F89C51E04B48DBF663845 /* DataTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataTableView.swift; sourceTree = "<group>"; };
@@ -292,6 +296,7 @@
 				170934144144BFF79BD8E765 /* StatisticsViewModel.swift */,
 				EA427D15FEA344F45E304B6A /* TeamHubViewModel.swift */,
 				915340F68BA4D0A9C2068191 /* TeamScheduleViewModel.swift */,
+				D4CA034FD639D5E5AD03DC4A /* TeamStatsViewModel.swift */,
 				82A66944C86F3ADCC7364DEA /* TransactionViewModel.swift */,
 				C5DAB5AB7C96D7FEF4A3AD54 /* WorldCupTeamViewModel.swift */,
 				6C11307240F1FBAB30B5A2E8 /* WorldCupViewModel.swift */,
@@ -340,6 +345,7 @@
 				7FE78616C1AF25271D897613 /* TeamRosterTabView.swift */,
 				9EA14C003BB1FFEC63E9B189 /* TeamScheduleTabView.swift */,
 				5B7A3E63F22E1898869FDC94 /* TeamScheduleView.swift */,
+				4BA4CAC4C7EDA97691300940 /* TeamStatsTabView.swift */,
 				1B8554FE9C77A1F32389D68F /* TeamTransactionsTabView.swift */,
 				89BE97DE902E6DA78B864E54 /* TheBenchView.swift */,
 				929F276A5AC1D12C6ED0233B /* TransactionHubView.swift */,
@@ -537,6 +543,8 @@
 				620C4CFF1983222CC72994D2 /* TeamScheduleTabView.swift in Sources */,
 				3B583CE5901CF86D24E84764 /* TeamScheduleView.swift in Sources */,
 				32A6FF663F55FDB3009D64C7 /* TeamScheduleViewModel.swift in Sources */,
+				C995418E06A9086A5F63BAD7 /* TeamStatsTabView.swift in Sources */,
+				D6D4DE994975F6640BCD8CF6 /* TeamStatsViewModel.swift in Sources */,
 				CC4CC995A5F7BE0BF99E0A0C /* TeamTransactionsTabView.swift in Sources */,
 				4B2393188AA82F3FEFA7D8FC /* TheBenchView.swift in Sources */,
 				8426328B31FF1D8507B76BC6 /* TouchTourAnnouncementService.swift in Sources */,

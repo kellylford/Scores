@@ -10,6 +10,7 @@ import SwiftUI
 enum TeamHubTab: String, CaseIterable {
     case info         = "Info"
     case roster       = "Roster"
+    case stats        = "Stats"
     case news         = "News"
     case schedule     = "Schedule"
     case transactions = "Transactions"
@@ -18,6 +19,7 @@ enum TeamHubTab: String, CaseIterable {
         switch self {
         case .info:         return "info.circle"
         case .roster:       return "person.3"
+        case .stats:        return "chart.bar"
         case .news:         return "newspaper"
         case .schedule:     return "calendar"
         case .transactions: return "arrow.left.arrow.right"
@@ -56,6 +58,12 @@ struct TeamHubDetailView: View {
                 Label(TeamHubTab.roster.rawValue, systemImage: TeamHubTab.roster.systemImage)
             }
             .tag(TeamHubTab.roster)
+
+            TeamStatsTabView(teamId: team.id, teamAbbreviation: team.abbreviation, sport: sport)
+            .tabItem {
+                Label(TeamHubTab.stats.rawValue, systemImage: TeamHubTab.stats.systemImage)
+            }
+            .tag(TeamHubTab.stats)
 
             TeamNewsTabView(viewModel: viewModel)
             .tabItem {
@@ -102,9 +110,10 @@ struct TeamHubDetailView: View {
         switch tab {
         case .info:         await viewModel.loadInfo()
         case .roster:       await viewModel.loadRoster()
+        case .stats:        break  // TeamStatsTabView manages its own loading
         case .news:         await viewModel.loadNews()
         case .schedule:     await viewModel.loadSchedule()
-        case .transactions: break  // TransactionListView manages its own loading
+        case .transactions: break  // TeamTransactionsTabView manages its own loading
         }
     }
 }
