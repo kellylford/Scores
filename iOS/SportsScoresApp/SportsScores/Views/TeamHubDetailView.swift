@@ -33,6 +33,7 @@ struct TeamHubDetailView: View {
 
     @StateObject private var viewModel: TeamHubViewModel
     @State private var selectedTab: TeamHubTab = .info
+    @State private var teamStatsViewMode: ViewMode = .quickList
     @EnvironmentObject private var appSettings: AppSettings
 
     init(team: TransactionTeam, sport: Sport) {
@@ -59,7 +60,7 @@ struct TeamHubDetailView: View {
             }
             .tag(TeamHubTab.roster)
 
-            TeamStatsTabView(teamId: team.id, teamAbbreviation: team.abbreviation, sport: sport)
+            TeamStatsTabView(teamId: team.id, teamAbbreviation: team.abbreviation, sport: sport, viewMode: $teamStatsViewMode)
             .tabItem {
                 Label(TeamHubTab.stats.rawValue, systemImage: TeamHubTab.stats.systemImage)
             }
@@ -87,17 +88,22 @@ struct TeamHubDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    if isFavorite {
-                        appSettings.removeFavorite(teamId: team.id, sport: sport)
-                    } else {
-                        appSettings.addFavorite(team, sport: sport)
+                HStack(spacing: 16) {
+                    if selectedTab == .stats {
+                        ViewModeMenuButton(currentMode: $teamStatsViewMode)
                     }
-                } label: {
-                    Image(systemName: isFavorite ? "star.fill" : "star")
-                        .foregroundColor(.accentColor)
+                    Button {
+                        if isFavorite {
+                            appSettings.removeFavorite(teamId: team.id, sport: sport)
+                        } else {
+                            appSettings.addFavorite(team, sport: sport)
+                        }
+                    } label: {
+                        Image(systemName: isFavorite ? "star.fill" : "star")
+                            .foregroundColor(.accentColor)
+                    }
+                    .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
                 }
-                .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
             }
         }
         .onChange(of: selectedTab) { _, tab in

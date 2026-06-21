@@ -16,9 +16,9 @@ struct TeamStatsTabView: View {
     let teamId: String
     let teamAbbreviation: String
     let sport: Sport
+    @Binding var viewMode: ViewMode
 
     @StateObject private var viewModel = TeamStatsViewModel()
-    @State private var viewMode: ViewMode = .quickList
     @State private var subTab: SubTab = .players
 
     private enum SubTab: String, CaseIterable {
@@ -43,11 +43,6 @@ struct TeamStatsTabView: View {
                 case .players: playerContent
                 case .team:    teamContent
                 }
-            }
-        }
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                ViewModeMenuButton(currentMode: $viewMode)
             }
         }
         .task { await viewModel.load(teamId: teamId, teamAbbreviation: teamAbbreviation, sport: sport) }
@@ -121,8 +116,6 @@ struct TeamStatsTabView: View {
 
     @ViewBuilder
     private func teamQuickList(section: String, rankings: [TeamStatRanking]) -> some View {
-        let rows = rankings.map { r in [r.categoryDisplayName, r.teamValue, r.rankDisplay] }
-
         VStack(alignment: .leading, spacing: 0) {
             Text(section)
                 .font(.headline).padding(.bottom, 6)
@@ -131,15 +124,14 @@ struct TeamStatsTabView: View {
             VStack(spacing: 0) {
                 ForEach(Array(rankings.enumerated()), id: \.element.id) { idx, r in
                     HStack(spacing: 8) {
-                        Text(r.rankDisplay)
-                            .font(.subheadline.bold())
-                            .foregroundColor(rankColor(r.leagueRank))
-                            .frame(width: 52, alignment: .leading)
                         Text(r.categoryDisplayName)
                             .font(.subheadline)
                         Spacer()
                         Text(r.teamValue)
                             .font(.subheadline.bold()).monospacedDigit()
+                        Text(r.rankDisplay)
+                            .font(.caption)
+                            .foregroundColor(rankColor(r.leagueRank))
                     }
                     .padding(.horizontal, 12).padding(.vertical, 5)
                     .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.05))
@@ -149,11 +141,6 @@ struct TeamStatsTabView: View {
             }
             .background(Color.secondary.opacity(0.04))
             .cornerRadius(8)
-            .accessibilityHidden(true)
-            .overlay(
-                AccessibleDataTable(headers: ["Category", "Value", "Rank"], rows: rows)
-                    .allowsHitTesting(false)
-            )
         }
     }
 
@@ -215,8 +202,6 @@ struct TeamStatsTabView: View {
     // The only difference is the VoiceOver label includes label words.
     @ViewBuilder
     private func teamFullList(section: String, rankings: [TeamStatRanking]) -> some View {
-        let rows = rankings.map { r in [r.categoryDisplayName, r.teamValue, r.rankDisplay] }
-
         VStack(alignment: .leading, spacing: 0) {
             Text(section)
                 .font(.headline).padding(.bottom, 6)
@@ -225,15 +210,14 @@ struct TeamStatsTabView: View {
             VStack(spacing: 0) {
                 ForEach(Array(rankings.enumerated()), id: \.element.id) { idx, r in
                     HStack(spacing: 8) {
-                        Text(r.rankDisplay)
-                            .font(.subheadline.bold())
-                            .foregroundColor(rankColor(r.leagueRank))
-                            .frame(width: 52, alignment: .leading)
                         Text(r.categoryDisplayName)
                             .font(.subheadline)
                         Spacer()
                         Text(r.teamValue)
                             .font(.subheadline.bold()).monospacedDigit()
+                        Text(r.rankDisplay)
+                            .font(.caption)
+                            .foregroundColor(rankColor(r.leagueRank))
                     }
                     .padding(.horizontal, 12).padding(.vertical, 5)
                     .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.05))
@@ -243,11 +227,6 @@ struct TeamStatsTabView: View {
             }
             .background(Color.secondary.opacity(0.04))
             .cornerRadius(8)
-            .accessibilityHidden(true)
-            .overlay(
-                AccessibleDataTable(headers: ["Category", "Value", "Rank"], rows: rows)
-                    .allowsHitTesting(false)
-            )
         }
     }
 

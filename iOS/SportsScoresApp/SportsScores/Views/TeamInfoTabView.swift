@@ -77,11 +77,13 @@ struct TeamInfoTabView: View {
                                 .frame(width: 80, height: 80)
                         }
                     }
+                    .accessibilityHidden(true)
                 } else {
                     Image(systemName: "shield.fill")
                         .font(.system(size: 56))
                         .foregroundColor(accentColor)
                         .frame(width: 80, height: 80)
+                        .accessibilityHidden(true)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
