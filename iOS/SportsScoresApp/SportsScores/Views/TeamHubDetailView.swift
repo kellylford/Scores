@@ -32,14 +32,15 @@ struct TeamHubDetailView: View {
     let sport: Sport
 
     @StateObject private var viewModel: TeamHubViewModel
-    @State private var selectedTab: TeamHubTab = .info
+    @State private var selectedTab: TeamHubTab
     @State private var teamStatsViewMode: ViewMode = .quickList
     @EnvironmentObject private var appSettings: AppSettings
 
-    init(team: TransactionTeam, sport: Sport) {
+    init(team: TransactionTeam, sport: Sport, initialTab: TeamHubTab = .info) {
         self.team = team
         self.sport = sport
         _viewModel = StateObject(wrappedValue: TeamHubViewModel(teamId: team.id, sport: sport))
+        _selectedTab = State(initialValue: initialTab)
     }
 
     private var isFavorite: Bool {

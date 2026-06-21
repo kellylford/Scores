@@ -214,7 +214,18 @@ struct GameDetailView: View {
             }
             return team.score
         }()
-        return NavigationLink(destination: TeamScheduleView(team: team, sport: sport)) {
+        let hubTeam = TransactionTeam(
+            id: team.id,
+            location: nil,
+            name: team.name,
+            abbreviation: team.abbreviation,
+            displayName: team.displayName,
+            color: nil,
+            logos: team.logo.flatMap { url in
+                [TransactionTeamLogo(href: url, width: nil, height: nil, rel: ["default"])]
+            }
+        )
+        return NavigationLink(destination: TeamHubDetailView(team: hubTeam, sport: sport, initialTab: .schedule)) {
             VStack {
                 Text(team.abbreviation).font(.title2).fontWeight(.bold)
                 if let score = displayScore {
@@ -229,7 +240,7 @@ struct GameDetailView: View {
             .foregroundColor(.primary)
         }
         .accessibilityLabel(teamAccessibilityLabel(team, isHome: isHome, score: displayScore))
-        .accessibilityHint("Opens team schedule")
+        .accessibilityHint("Opens team hub")
     }
 
     private func teamAccessibilityLabel(_ team: Game.Team, isHome: Bool, score: Int?) -> String {
