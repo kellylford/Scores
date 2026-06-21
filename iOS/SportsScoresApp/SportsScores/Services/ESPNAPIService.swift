@@ -533,6 +533,10 @@ class ESPNAPIService {
                     let displayName = stat.displayName,
                     let displayValue = stat.displayValue,
                     let rank = stat.rank,
+                    // Rank > 34 is impossible in any pro league (max 32 teams: NFL/NHL).
+                    // Stats with higher ranks are ranked against cross-split or
+                    // individual-player pools in ESPN's data — not team-vs-team.
+                    rank <= 34,
                     let rankDisplay = stat.rankDisplayValue,
                     !rankDisplay.isEmpty, rankDisplay != "?",
                     displayValue != "0", displayValue != "0.0",
