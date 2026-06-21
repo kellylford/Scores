@@ -130,18 +130,18 @@ struct TeamStatsTabView: View {
 
             VStack(spacing: 0) {
                 ForEach(Array(rankings.enumerated()), id: \.element.id) { idx, r in
-                    HStack {
+                    HStack(spacing: 8) {
+                        Text(r.rankDisplay)
+                            .font(.subheadline.bold())
+                            .foregroundColor(rankColor(r.leagueRank))
+                            .frame(width: 52, alignment: .leading)
                         Text(r.categoryDisplayName)
                             .font(.subheadline)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Spacer()
                         Text(r.teamValue)
                             .font(.subheadline.bold()).monospacedDigit()
-                        Text(r.rankDisplay)
-                            .font(.subheadline)
-                            .foregroundColor(rankColor(r.leagueRank))
-                            .frame(width: 72, alignment: .trailing)
                     }
-                    .padding(.horizontal, 12).padding(.vertical, 7)
+                    .padding(.horizontal, 12).padding(.vertical, 5)
                     .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.05))
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("\(r.categoryDisplayName): \(r.teamValue), \(r.rankDisplay)")
