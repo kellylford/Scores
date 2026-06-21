@@ -457,11 +457,12 @@ class ESPNAPIService {
     }
     
     /// Fetch league leaders filtered to players on a specific team.
-    /// Fetches the top 50 across all of MLB (or equivalent league), then
-    /// returns only entries whose teamAbbreviation matches the target team.
-    /// Categories where this team has no players in the top 50 are dropped.
+    /// Fetches the top 100 across the league, then filters to players on this team.
+    /// limit=100 covers virtually all qualified hitters/pitchers (MLB has ~60-80
+    /// qualifiers per batting stat), so every team player with qualifying stats appears.
+    /// Categories where this team has no players in the top 100 are dropped.
     func fetchLeagueLeadersForTeam(teamAbbreviation: String, sport: Sport) async throws -> [LeagueLeaderCategory] {
-        let all = try await fetchLeagueLeaders(for: sport, limit: 50)
+        let all = try await fetchLeagueLeaders(for: sport, limit: 100)
         return all.compactMap { category in
             let teamEntries = category.leaders
                 .filter { $0.teamAbbreviation == teamAbbreviation }

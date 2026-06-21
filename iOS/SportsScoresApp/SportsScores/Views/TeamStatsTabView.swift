@@ -6,6 +6,9 @@
 //    Players — leaders on this team in each stat category (no View All needed)
 //    Team    — this team's rank in each league-wide stat category
 //
+//  Both sub-tabs honour the three view modes (Quick List / Table / Full List)
+//  via a shared ViewModeMenuButton in the toolbar. Default is Quick List.
+//
 
 import SwiftUI
 
@@ -44,9 +47,7 @@ struct TeamStatsTabView: View {
         }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                if subTab == .players {
-                    ViewModeMenuButton(currentMode: $viewMode)
-                }
+                ViewModeMenuButton(currentMode: $viewMode)
             }
         }
         .task { await viewModel.load(teamId: teamId, teamAbbreviation: teamAbbreviation, sport: sport) }
@@ -96,7 +97,6 @@ struct TeamStatsTabView: View {
     }
 
     private var teamRankingsList: some View {
-        // Group by sectionName (Batting / Pitching / etc.)
         let sections = Dictionary(grouping: viewModel.teamRankings, by: \.sectionName)
         let sectionOrder = viewModel.teamRankings.map(\.sectionName).reduce(into: [String]()) {
             if !$0.contains($1) { $0.append($1) }
@@ -106,62 +106,137 @@ struct TeamStatsTabView: View {
             VStack(alignment: .leading, spacing: 24) {
                 ForEach(sectionOrder, id: \.self) { section in
                     let rankings = sections[section] ?? []
-                    let rows = rankings.map { r in [r.categoryDisplayName, r.teamValue, r.rankDisplay] }
-                    let headers = ["Category", "Value", "Rank"]
-
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(section)
-                            .font(.headline)
-                            .padding(.bottom, 6)
-                            .accessibilityAddTraits(.isHeader)
-
-                        VStack(spacing: 0) {
-                            // Column header
-                            HStack(spacing: 0) {
-                                Text("Category")
-                                    .font(.caption.bold()).foregroundColor(.secondary)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                Text("Value")
-                                    .font(.caption.bold()).foregroundColor(.secondary)
-                                    .frame(width: 70, alignment: .trailing)
-                                Text("Rank")
-                                    .font(.caption.bold()).foregroundColor(.secondary)
-                                    .frame(width: 80, alignment: .trailing)
-                            }
-                            .padding(.horizontal, 12).padding(.vertical, 6)
-                            .background(Color.secondary.opacity(0.12))
-                            .accessibilityHidden(true)
-
-                            ForEach(Array(rankings.enumerated()), id: \.element.id) { idx, ranking in
-                                HStack(spacing: 0) {
-                                    Text(ranking.categoryDisplayName)
-                                        .font(.subheadline)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                    Text(ranking.teamValue)
-                                        .font(.subheadline.bold()).monospacedDigit()
-                                        .frame(width: 70, alignment: .trailing)
-                                    Text(ranking.rankDisplay)
-                                        .font(.subheadline)
-                                        .foregroundColor(rankColor(ranking.leagueRank))
-                                        .frame(width: 80, alignment: .trailing)
-                                }
-                                .padding(.horizontal, 12).padding(.vertical, 7)
-                                .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.04))
-                                .accessibilityElement(children: .ignore)
-                                .accessibilityLabel("\(ranking.categoryDisplayName): \(ranking.teamValue), \(ranking.rankDisplay)")
-                            }
-                        }
-                        .background(Color.secondary.opacity(0.04))
-                        .cornerRadius(8)
-                        .accessibilityHidden(true)
-                        .overlay(
-                            AccessibleDataTable(headers: headers, rows: rows)
-                                .allowsHitTesting(false)
-                        )
+                    switch viewMode {
+                    case .quickList: teamQuickList(section: section, rankings: rankings)
+                    case .table:     teamTable(section: section, rankings: rankings)
+                    case .fullList:  teamFullList(section: section, rankings: rankings)
                     }
                 }
             }
             .padding()
+        }
+    }
+
+    // MARK: - Team view mode variants
+
+    @ViewBuilder
+    private func teamQuickList(section: String, rankings: [TeamStatRanking]) -> some View {
+        let rows = rankings.map { r in [r.categoryDisplayName, r.teamValue, r.rankDisplay] }
+
+        VStack(alignment: .leading, spacing: 0) {
+            Text(section)
+                .font(.headline).padding(.bottom, 6)
+                .accessibilityAddTraits(.isHeader)
+
+            VStack(spacing: 0) {
+                ForEach(Array(rankings.enumerated()), id: \.element.id) { idx, r in
+                    HStack {
+                        Text(r.categoryDisplayName)
+                            .font(.subheadline)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Text(r.teamValue)
+                            .font(.subheadline.bold()).monospacedDigit()
+                        Text(r.rankDisplay)
+                            .font(.subheadline)
+                            .foregroundColor(rankColor(r.leagueRank))
+                            .frame(width: 72, alignment: .trailing)
+                    }
+                    .padding(.horizontal, 12).padding(.vertical, 7)
+                    .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.05))
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(r.categoryDisplayName): \(r.teamValue), \(r.rankDisplay)")
+                }
+            }
+            .background(Color.secondary.opacity(0.04))
+            .cornerRadius(8)
+            .accessibilityHidden(true)
+            .overlay(
+                AccessibleDataTable(headers: ["Category", "Value", "Rank"], rows: rows)
+                    .allowsHitTesting(false)
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func teamTable(section: String, rankings: [TeamStatRanking]) -> some View {
+        let rows = rankings.map { r in [r.categoryDisplayName, r.teamValue, r.rankDisplay] }
+
+        VStack(alignment: .leading, spacing: 0) {
+            Text(section)
+                .font(.headline).padding(.bottom, 6)
+                .accessibilityAddTraits(.isHeader)
+
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    Text("Category")
+                        .font(.caption.bold()).foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text("Value")
+                        .font(.caption.bold()).foregroundColor(.secondary)
+                        .frame(width: 70, alignment: .trailing)
+                    Text("Rank")
+                        .font(.caption.bold()).foregroundColor(.secondary)
+                        .frame(width: 80, alignment: .trailing)
+                }
+                .padding(.horizontal, 12).padding(.vertical, 6)
+                .background(Color.secondary.opacity(0.15))
+                .accessibilityHidden(true)
+
+                ForEach(Array(rankings.enumerated()), id: \.element.id) { idx, r in
+                    HStack(spacing: 0) {
+                        Text(r.categoryDisplayName)
+                            .font(.subheadline)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Text(r.teamValue)
+                            .font(.subheadline.bold()).monospacedDigit()
+                            .frame(width: 70, alignment: .trailing)
+                        Text(r.rankDisplay)
+                            .font(.subheadline)
+                            .foregroundColor(rankColor(r.leagueRank))
+                            .frame(width: 80, alignment: .trailing)
+                    }
+                    .padding(.horizontal, 12).padding(.vertical, 7)
+                    .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.05))
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(r.categoryDisplayName): \(r.teamValue), \(r.rankDisplay)")
+                }
+            }
+            .background(Color.secondary.opacity(0.04))
+            .cornerRadius(8)
+            .accessibilityHidden(true)
+            .overlay(
+                AccessibleDataTable(headers: ["Category", "Value", "Rank"], rows: rows)
+                    .allowsHitTesting(false)
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func teamFullList(section: String, rankings: [TeamStatRanking]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(section)
+                .font(.headline).padding(.bottom, 2)
+                .accessibilityAddTraits(.isHeader)
+
+            ForEach(rankings) { r in
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(r.categoryDisplayName)
+                            .font(.subheadline.bold())
+                        Text(r.teamValue)
+                            .font(.title3.bold()).monospacedDigit()
+                    }
+                    Spacer()
+                    Text(r.rankDisplay)
+                        .font(.title3.bold())
+                        .foregroundColor(rankColor(r.leagueRank))
+                }
+                .padding(14)
+                .background(Color.secondary.opacity(0.07))
+                .cornerRadius(10)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(r.categoryDisplayName): \(r.teamValue), \(r.rankDisplay)")
+            }
         }
     }
 
