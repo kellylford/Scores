@@ -85,17 +85,10 @@ struct StatisticsView: View {
             VStack(alignment: .leading, spacing: 24) {
                 ForEach(categories) { category in
                     VStack(alignment: .leading, spacing: 0) {
-                        // Summary: top 10 (or all if fewer)
-                        let summaryCategory = LeagueLeaderCategory(
-                            name: category.name,
-                            displayName: category.displayName,
-                            leaders: Array(category.leaders.prefix(10)),
-                            isTeamCategory: category.isTeamCategory
-                        )
-                        LeaderCategorySection(category: summaryCategory, viewMode: viewMode)
+                        LeaderCategorySection(category: category, viewMode: viewMode)
 
-                        // View All button — only when there are more than 10 entries
-                        if category.leaders.count > 10 {
+                        // View All button — shown when we hit the fetch limit (likely more data exists)
+                        if category.leaders.count >= 10 {
                             NavigationLink {
                                 StatLeaderDetailView(
                                     category: category,

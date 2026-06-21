@@ -3,19 +3,26 @@
 //  SportsScores
 //
 //  Full leader list for a single stat category, opened via "View All".
+//  Immediately shows the 10 summary entries already in memory, then
+//  fetches the full list (limit=50) in the background.
 //
 
 import SwiftUI
 
 struct StatLeaderDetailView: View {
-    let category: LeagueLeaderCategory
+    let summary: LeagueLeaderCategory   // 10 entries already in hand
     let sport: Sport
     let initialViewMode: ViewMode
 
     @State private var viewMode: ViewMode
+    @State private var fullCategory: LeagueLeaderCategory?
+    @State private var isLoadingMore = false
+    @State private var loadError: String?
+
+    private var displayCategory: LeagueLeaderCategory { fullCategory ?? summary }
 
     init(category: LeagueLeaderCategory, sport: Sport, initialViewMode: ViewMode) {
-        self.category = category
+        self.summary = category
         self.sport = sport
         self.initialViewMode = initialViewMode
         self._viewMode = State(initialValue: initialViewMode)
@@ -23,17 +30,44 @@ struct StatLeaderDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                LeaderCategorySection(category: category, viewMode: viewMode)
+            VStack(alignment: .leading, spacing: 8) {
+                LeaderCategorySection(category: displayCategory, viewMode: viewMode)
                     .padding()
+
+                if isLoadingMore {
+                    ProgressView("Loading more…")
+                        .frame(maxWidth: .infinity)
+                        .padding(.bottom)
+                } else if let err = loadError {
+                    Text(err)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding()
+                }
             }
         }
-        .navigationTitle(category.displayName)
+        .navigationTitle(summary.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 ViewModeMenuButton(currentMode: $viewMode)
             }
         }
+        .task { await loadFull() }
+    }
+
+    private func loadFull() async {
+        isLoadingMore = true
+        loadError = nil
+        do {
+            let allCategories = summary.isTeamCategory
+                ? try await ESPNAPIService.shared.fetchTeamLeaders(for: sport, limit: 30)
+                : try await ESPNAPIService.shared.fetchLeagueLeaders(for: sport, limit: 50)
+            fullCategory = allCategories.first { $0.name == summary.name }
+        } catch {
+            loadError = "Couldn't load full list."
+        }
+        isLoadingMore = false
     }
 }

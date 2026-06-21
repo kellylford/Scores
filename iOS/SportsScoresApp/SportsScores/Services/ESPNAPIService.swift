@@ -400,21 +400,21 @@ class ESPNAPIService {
 
     // MARK: - Fetch League Leaders (Phase 5)
 
-    func fetchLeagueLeaders(for sport: Sport) async throws -> [LeagueLeaderCategory] {
+    func fetchLeagueLeaders(for sport: Sport, limit: Int = 10) async throws -> [LeagueLeaderCategory] {
         // Extract league from apiPath (e.g., "basketball/nba" → "nba")
         let league = sport.apiPath.components(separatedBy: "/").last ?? sport.rawValue.lowercased()
         let sportType = sport.apiPath.components(separatedBy: "/").first ?? "unknown"
-        
+
         // Get current season year (NBA/WNBA use year+1 format)
         let currentYear = Calendar.current.component(.year, from: Date())
         let seasonYear = sport.usesNextYearFormat ? currentYear + 1 : currentYear
-        
+
         // Get season types to try (MLB spring training in Feb-March uses type 1)
         let seasonTypes = getSeasonTypes(for: sport)
-        
+
         // Try current season with all season types, then fallback to previous seasons
         let seasonsToTry = [seasonYear, seasonYear - 1, seasonYear - 2]
-        
+
         for season in seasonsToTry {
             for seasonType in seasonTypes {
                 do {
@@ -422,7 +422,8 @@ class ESPNAPIService {
                         sportType: sportType,
                         league: league,
                         season: season,
-                        seasonType: seasonType
+                        seasonType: seasonType,
+                        limit: limit
                     )
                     if !categories.isEmpty {
                         return categories
@@ -455,7 +456,7 @@ class ESPNAPIService {
         return [2, 3, 1]
     }
     
-    func fetchTeamLeaders(for sport: Sport) async throws -> [LeagueLeaderCategory] {
+    func fetchTeamLeaders(for sport: Sport, limit: Int = 10) async throws -> [LeagueLeaderCategory] {
         let league = sport.apiPath.components(separatedBy: "/").last ?? sport.rawValue.lowercased()
         let sportType = sport.apiPath.components(separatedBy: "/").first ?? "unknown"
         let currentYear = Calendar.current.component(.year, from: Date())
@@ -469,7 +470,7 @@ class ESPNAPIService {
                     let categories = try await fetchLeadersForSeason(
                         sportType: sportType, league: league,
                         season: season, seasonType: seasonType,
-                        limit: 30, isTeamStats: true
+                        limit: limit, isTeamStats: true
                     )
                     if !categories.isEmpty { return categories }
                 } catch { continue }
