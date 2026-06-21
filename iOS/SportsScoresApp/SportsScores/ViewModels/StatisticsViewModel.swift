@@ -3,30 +3,45 @@
 //  SportsScores
 //
 //  Phase 5 — League-wide stat leaders.
-//  Fetches the ESPN leaders endpoint for the current sport/season.
+//  Fetches player and team leaders from ESPN for the current sport/season.
 //
 
 import Foundation
 
 @MainActor
 class StatisticsViewModel: ObservableObject {
-    @Published var categories: [LeagueLeaderCategory] = []
-    @Published var isLoading = false
-    @Published var errorMessage: String?
+    @Published var playerCategories: [LeagueLeaderCategory] = []
+    @Published var teamCategories: [LeagueLeaderCategory] = []
+    @Published var isLoadingPlayers = false
+    @Published var isLoadingTeams = false
+    @Published var playerError: String?
+    @Published var teamError: String?
 
     private let apiService = ESPNAPIService.shared
 
     func fetchLeaders(for sport: Sport) async {
-        isLoading = categories.isEmpty
-        errorMessage = nil
+        isLoadingPlayers = playerCategories.isEmpty
+        isLoadingTeams = teamCategories.isEmpty
+        playerError = nil
+        teamError = nil
+
+        // Kick off both fetches concurrently; each updates its own state on completion.
+        async let playerTask = apiService.fetchLeagueLeaders(for: sport)
+        async let teamTask = apiService.fetchTeamLeaders(for: sport)
 
         do {
-            categories = try await apiService.fetchLeagueLeaders(for: sport)
+            playerCategories = try await playerTask
         } catch {
-            errorMessage = "Failed to load statistics: \(error.localizedDescription)"
+            playerError = "Failed to load statistics: \(error.localizedDescription)"
         }
+        isLoadingPlayers = false
 
-        isLoading = false
+        do {
+            teamCategories = try await teamTask
+        } catch {
+            teamError = "Failed to load team statistics: \(error.localizedDescription)"
+        }
+        isLoadingTeams = false
     }
 
     func refresh(for sport: Sport) async {

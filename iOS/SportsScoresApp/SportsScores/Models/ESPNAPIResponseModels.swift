@@ -15,20 +15,24 @@ struct LeagueLeaderCategory: Identifiable {
     let name: String
     let displayName: String
     let leaders: [LeagueLeaderEntry]
+    /// True when every entry represents a team rather than an individual player.
+    let isTeamCategory: Bool
 
     struct LeagueLeaderEntry: Identifiable {
         let id = UUID()
         let rank: Int
         let displayValue: String
+        /// Player name for player categories; team abbreviation for team categories.
         let athleteName: String
+        /// Team abbreviation for player categories; empty for team categories.
         let teamAbbreviation: String
     }
-    
-    // Direct init for Core API
-    init(name: String, displayName: String, leaders: [LeagueLeaderEntry]) {
+
+    init(name: String, displayName: String, leaders: [LeagueLeaderEntry], isTeamCategory: Bool = false) {
         self.name = name
         self.displayName = displayName
         self.leaders = leaders
+        self.isTeamCategory = isTeamCategory
     }
 }
 

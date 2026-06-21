@@ -455,13 +455,39 @@ class ESPNAPIService {
         return [2, 3, 1]
     }
     
+    func fetchTeamLeaders(for sport: Sport) async throws -> [LeagueLeaderCategory] {
+        let league = sport.apiPath.components(separatedBy: "/").last ?? sport.rawValue.lowercased()
+        let sportType = sport.apiPath.components(separatedBy: "/").first ?? "unknown"
+        let currentYear = Calendar.current.component(.year, from: Date())
+        let seasonYear = sport.usesNextYearFormat ? currentYear + 1 : currentYear
+        let seasonTypes = getSeasonTypes(for: sport)
+        let seasonsToTry = [seasonYear, seasonYear - 1, seasonYear - 2]
+
+        for season in seasonsToTry {
+            for seasonType in seasonTypes {
+                do {
+                    let categories = try await fetchLeadersForSeason(
+                        sportType: sportType, league: league,
+                        season: season, seasonType: seasonType,
+                        limit: 30, isTeamStats: true
+                    )
+                    if !categories.isEmpty { return categories }
+                } catch { continue }
+            }
+        }
+        return []
+    }
+
     private func fetchLeadersForSeason(
         sportType: String,
         league: String,
         season: Int,
-        seasonType: Int
+        seasonType: Int,
+        limit: Int = 50,
+        isTeamStats: Bool = false
     ) async throws -> [LeagueLeaderCategory] {
-        let urlString = "\(coreAPIBaseURL)/\(sportType)/leagues/\(league)/seasons/\(season)/types/\(seasonType)/leaders?limit=10"
+        let groupsParam = isTeamStats ? "&groups=50" : ""
+        let urlString = "\(coreAPIBaseURL)/\(sportType)/leagues/\(league)/seasons/\(season)/types/\(seasonType)/leaders?limit=\(limit)\(groupsParam)"
         guard let url = URL(string: urlString) else { throw APIError.invalidURL }
         
         let (data, response) = try await session.data(from: url)
@@ -503,16 +529,29 @@ class ESPNAPIService {
         // Build results using the resolved caches
         return categories.map { category in
             let leaders = (category.leaders ?? []).enumerated().map { index, leader -> LeagueLeaderCategory.LeagueLeaderEntry in
-                let athleteName: String
-                // Look up athlete/team using the https-upgraded ref to match the cache keys
+                let rawTeamAbbr = leader.team?.ref.flatMap { teams[secureURL($0)]?.abbreviation } ?? ""
+                let rawEntityName: String
                 if let ref = leader.athlete?.ref, let ath = athletes[secureURL(ref)] {
-                    athleteName = ath.displayName ?? "—"
+                    rawEntityName = ath.displayName ?? "—"
                 } else if let ref = leader.team?.ref, let team = teams[secureURL(ref)] {
-                    athleteName = team.displayName ?? "—"
+                    rawEntityName = team.displayName ?? "—"
                 } else {
-                    athleteName = "—"
+                    rawEntityName = "—"
                 }
-                let teamAbbr = leader.team?.ref.flatMap { teams[secureURL($0)]?.abbreviation } ?? ""
+
+                // For team-stat categories the entity IS the team: use the abbreviation
+                // as the compact display name and leave the team column empty so the
+                // view doesn't render a redundant "Team" column.
+                let entityName: String
+                let entityTeam: String
+                if isTeamStats {
+                    entityName = rawTeamAbbr.isEmpty ? rawEntityName : rawTeamAbbr
+                    entityTeam = ""
+                } else {
+                    entityName = rawEntityName
+                    entityTeam = rawTeamAbbr
+                }
+
                 // MLB displayValue is a full stats-line (e.g. "9-17, 4 HR, 2B, 6 RBI...").
                 // Use the numeric value field with smart formatting instead.
                 let statDisplay: String
@@ -524,14 +563,15 @@ class ESPNAPIService {
                 return LeagueLeaderCategory.LeagueLeaderEntry(
                     rank: index + 1,
                     displayValue: statDisplay,
-                    athleteName: athleteName,
-                    teamAbbreviation: teamAbbr
+                    athleteName: entityName,
+                    teamAbbreviation: entityTeam
                 )
             }
             return LeagueLeaderCategory(
                 name: category.name ?? "",
                 displayName: category.displayName ?? "",
-                leaders: leaders
+                leaders: leaders,
+                isTeamCategory: isTeamStats
             )
         }
     }
