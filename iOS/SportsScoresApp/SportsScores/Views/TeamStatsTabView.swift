@@ -96,76 +96,81 @@ struct TeamStatsTabView: View {
     }
 
     private var teamRankingsList: some View {
-        let rows = viewModel.teamRankings.map { r in
-            [r.categoryDisplayName, r.teamValue, ordinal(r.leagueRank)]
+        // Group by sectionName (Batting / Pitching / etc.)
+        let sections = Dictionary(grouping: viewModel.teamRankings, by: \.sectionName)
+        let sectionOrder = viewModel.teamRankings.map(\.sectionName).reduce(into: [String]()) {
+            if !$0.contains($1) { $0.append($1) }
         }
-        let headers = ["Category", "Value", "Rank"]
 
         return ScrollView {
-            VStack(spacing: 0) {
-                // Header row
-                HStack(spacing: 0) {
-                    Text("Category")
-                        .font(.caption.bold()).foregroundColor(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Text("Value")
-                        .font(.caption.bold()).foregroundColor(.secondary)
-                        .frame(width: 70, alignment: .trailing)
-                    Text("Rank")
-                        .font(.caption.bold()).foregroundColor(.secondary)
-                        .frame(width: 60, alignment: .trailing)
-                }
-                .padding(.horizontal, 16).padding(.vertical, 8)
-                .background(Color.secondary.opacity(0.12))
-                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 24) {
+                ForEach(sectionOrder, id: \.self) { section in
+                    let rankings = sections[section] ?? []
+                    let rows = rankings.map { r in [r.categoryDisplayName, r.teamValue, r.rankDisplay] }
+                    let headers = ["Category", "Value", "Rank"]
 
-                ForEach(Array(viewModel.teamRankings.enumerated()), id: \.element.id) { idx, ranking in
-                    HStack(spacing: 0) {
-                        Text(ranking.categoryDisplayName)
-                            .font(.subheadline)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        Text(ranking.teamValue)
-                            .font(.subheadline.bold()).monospacedDigit()
-                            .frame(width: 70, alignment: .trailing)
-                        Text(ordinal(ranking.leagueRank))
-                            .font(.subheadline)
-                            .foregroundColor(rankColor(ranking.leagueRank, of: ranking.totalTeams))
-                            .frame(width: 60, alignment: .trailing)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(section)
+                            .font(.headline)
+                            .padding(.bottom, 6)
+                            .accessibilityAddTraits(.isHeader)
+
+                        VStack(spacing: 0) {
+                            // Column header
+                            HStack(spacing: 0) {
+                                Text("Category")
+                                    .font(.caption.bold()).foregroundColor(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                Text("Value")
+                                    .font(.caption.bold()).foregroundColor(.secondary)
+                                    .frame(width: 70, alignment: .trailing)
+                                Text("Rank")
+                                    .font(.caption.bold()).foregroundColor(.secondary)
+                                    .frame(width: 80, alignment: .trailing)
+                            }
+                            .padding(.horizontal, 12).padding(.vertical, 6)
+                            .background(Color.secondary.opacity(0.12))
+                            .accessibilityHidden(true)
+
+                            ForEach(Array(rankings.enumerated()), id: \.element.id) { idx, ranking in
+                                HStack(spacing: 0) {
+                                    Text(ranking.categoryDisplayName)
+                                        .font(.subheadline)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    Text(ranking.teamValue)
+                                        .font(.subheadline.bold()).monospacedDigit()
+                                        .frame(width: 70, alignment: .trailing)
+                                    Text(ranking.rankDisplay)
+                                        .font(.subheadline)
+                                        .foregroundColor(rankColor(ranking.leagueRank))
+                                        .frame(width: 80, alignment: .trailing)
+                                }
+                                .padding(.horizontal, 12).padding(.vertical, 7)
+                                .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.04))
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityLabel("\(ranking.categoryDisplayName): \(ranking.teamValue), \(ranking.rankDisplay)")
+                            }
+                        }
+                        .background(Color.secondary.opacity(0.04))
+                        .cornerRadius(8)
+                        .accessibilityHidden(true)
+                        .overlay(
+                            AccessibleDataTable(headers: headers, rows: rows)
+                                .allowsHitTesting(false)
+                        )
                     }
-                    .padding(.horizontal, 16).padding(.vertical, 8)
-                    .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.04))
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(ranking.categoryDisplayName): \(ranking.teamValue), ranked \(ordinal(ranking.leagueRank))")
                 }
             }
             .padding()
-            .accessibilityHidden(true)
-            .overlay(
-                AccessibleDataTable(headers: headers, rows: rows)
-                    .allowsHitTesting(false)
-            )
         }
     }
 
     // MARK: - Helpers
 
-    private func ordinal(_ n: Int) -> String {
-        let ones = n % 10, tens = n % 100
-        let suffix: String
-        if tens >= 11 && tens <= 13    { suffix = "th" }
-        else if ones == 1              { suffix = "st" }
-        else if ones == 2              { suffix = "nd" }
-        else if ones == 3              { suffix = "rd" }
-        else                           { suffix = "th" }
-        return "\(n)\(suffix)"
-    }
-
-    private func rankColor(_ rank: Int, of total: Int) -> Color {
-        guard total > 0 else { return .primary }
-        let third = max(1, total / 3)
-        if rank <= third             { return .green }
-        if rank > total - third      { return Color(.systemRed) }
-        return .primary
+    private func rankColor(_ rank: Int) -> Color {
+        if rank <= 8  { return .green }
+        if rank <= 20 { return .primary }
+        return Color(.systemRed)
     }
 
     private func emptyState(icon: String, text: String) -> some View {

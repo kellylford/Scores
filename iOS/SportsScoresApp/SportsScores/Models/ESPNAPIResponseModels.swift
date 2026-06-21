@@ -13,38 +13,35 @@ import Foundation
 /// One row in the Team Stats tab: where this team ranks in a given stat category.
 struct TeamStatRanking: Identifiable {
     let id = UUID()
-    let categoryDisplayName: String
-    let teamValue: String
-    let leagueRank: Int
-    let totalTeams: Int
+    let sectionName: String          // "Batting", "Pitching", etc.
+    let categoryDisplayName: String  // "ERA", "Home Runs"
+    let teamValue: String            // "3.58"
+    let leagueRank: Int             // numeric rank, used for color coding
+    let rankDisplay: String          // ESPN display string: "2nd", "Tied-9th"
 }
 
-// MARK: - Site API Team Leaders Response
-// Used by ESPNAPIService.fetchTeamPlayerLeaders (site/v2 /teams/{id}/leaders).
-// ESPN embeds athlete info directly here, so no $ref resolution is needed.
+// MARK: - Core API Team Statistics Response
+// Used by ESPNAPIService.fetchTeamStatRankings.
+// URL: sports.core.api.espn.com/v2/sports/{sport}/leagues/{league}/seasons/{year}/types/{type}/teams/{id}/statistics
 
-struct SiteTeamLeadersResponse: Codable {
-    let team: TeamWrapper?
-    let leaders: [SiteLeaderCategory]?
+struct CoreTeamStatisticsResponse: Codable {
+    let splits: Splits?
 
-    var resolvedLeaders: [SiteLeaderCategory] { team?.leaders ?? leaders ?? [] }
+    struct Splits: Codable {
+        let categories: [StatCategory]?
 
-    struct TeamWrapper: Codable {
-        let leaders: [SiteLeaderCategory]?
-    }
+        struct StatCategory: Codable {
+            let name: String?
+            let displayName: String?
+            let stats: [Stat]?
 
-    struct SiteLeaderCategory: Codable {
-        let name: String?
-        let displayName: String?
-        let leaders: [SiteLeaderEntry]?
-
-        struct SiteLeaderEntry: Codable {
-            let value: Double?
-            let displayValue: String?
-            let athlete: SiteAthlete?
-
-            struct SiteAthlete: Codable {
+            struct Stat: Codable {
+                let name: String?
                 let displayName: String?
+                let value: Double?
+                let displayValue: String?
+                let rank: Int?
+                let rankDisplayValue: String?
             }
         }
     }

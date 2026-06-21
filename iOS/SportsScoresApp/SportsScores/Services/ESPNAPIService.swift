@@ -456,54 +456,98 @@ class ESPNAPIService {
         return [2, 3, 1]
     }
     
-    /// Fetch stat leaders for players on a specific team.
-    /// Uses the site API /teams/{id}/leaders which embeds athlete info inline
-    /// — no separate $ref resolution needed, so this is much faster than the
-    /// Core API league-leaders path.
-    func fetchTeamPlayerLeaders(teamId: String, sport: Sport) async throws -> [LeagueLeaderCategory] {
-        let urlString = "\(baseURL)/\(sport.apiPath)/teams/\(teamId)/leaders"
-        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
-        let (data, response) = try await session.data(from: url)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-            throw APIError.invalidResponse
-        }
-        let apiResponse = try JSONDecoder().decode(SiteTeamLeadersResponse.self, from: data)
-        return apiResponse.resolvedLeaders.compactMap { cat in
-            let leaders = (cat.leaders ?? []).enumerated().map { idx, entry -> LeagueLeaderCategory.LeagueLeaderEntry in
-                let statDisplay: String
-                if let v = entry.value {
-                    statDisplay = formatLeaderStatValue(v)
-                } else {
-                    statDisplay = entry.displayValue ?? "-"
+    /// Fetch league leaders filtered to players on a specific team.
+    /// Fetches the top 50 across all of MLB (or equivalent league), then
+    /// returns only entries whose teamAbbreviation matches the target team.
+    /// Categories where this team has no players in the top 50 are dropped.
+    func fetchLeagueLeadersForTeam(teamAbbreviation: String, sport: Sport) async throws -> [LeagueLeaderCategory] {
+        let all = try await fetchLeagueLeaders(for: sport, limit: 50)
+        return all.compactMap { category in
+            let teamEntries = category.leaders
+                .filter { $0.teamAbbreviation == teamAbbreviation }
+                .enumerated()
+                .map { idx, entry in
+                    // Clear team column — all players are on the same team
+                    LeagueLeaderCategory.LeagueLeaderEntry(
+                        rank: entry.rank,
+                        displayValue: entry.displayValue,
+                        athleteName: entry.athleteName,
+                        teamAbbreviation: ""
+                    )
                 }
-                return LeagueLeaderCategory.LeagueLeaderEntry(
-                    rank: idx + 1,
-                    displayValue: statDisplay,
-                    athleteName: entry.athlete?.displayName ?? "—",
-                    teamAbbreviation: ""
-                )
-            }
-            guard !leaders.isEmpty else { return nil }
-            return LeagueLeaderCategory(name: cat.name ?? "", displayName: cat.displayName ?? "", leaders: leaders)
+            guard !teamEntries.isEmpty else { return nil }
+            return LeagueLeaderCategory(name: category.name, displayName: category.displayName, leaders: teamEntries)
         }
     }
 
-    /// Returns this team's rank in each league-wide team stat category.
-    /// Fetches all team leaders (limit=35 to cover all ~30+ teams) and finds
-    /// entries matching the given team abbreviation.
-    func fetchTeamStatRankings(teamAbbreviation: String, sport: Sport) async throws -> [TeamStatRanking] {
-        let allTeamCategories = try await fetchTeamLeaders(for: sport, limit: 35)
-        return allTeamCategories.compactMap { category in
-            guard let entry = category.leaders.first(where: { $0.athleteName == teamAbbreviation }) else {
-                return nil
+    /// Returns this team's rank in each stat category using the Core API
+    /// per-team statistics endpoint, which provides real team-aggregate values
+    /// (e.g. team ERA, team batting average) along with ESPN's rank display string.
+    func fetchTeamStatRankings(teamId: String, sport: Sport) async throws -> [TeamStatRanking] {
+        let league = sport.apiPath.components(separatedBy: "/").last ?? sport.rawValue.lowercased()
+        let sportType = sport.apiPath.components(separatedBy: "/").first ?? "unknown"
+        let currentYear = Calendar.current.component(.year, from: Date())
+        let seasonYear = sport.usesNextYearFormat ? currentYear + 1 : currentYear
+        let seasonTypes = getSeasonTypes(for: sport)
+
+        for season in [seasonYear, seasonYear - 1] {
+            for seasonType in seasonTypes {
+                let urlString = "\(coreAPIBaseURL)/\(sportType)/leagues/\(league)/seasons/\(season)/types/\(seasonType)/teams/\(teamId)/statistics"
+                guard let url = URL(string: urlString) else { continue }
+                do {
+                    let (data, response) = try await session.data(from: url)
+                    guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { continue }
+                    let apiResponse = try JSONDecoder().decode(CoreTeamStatisticsResponse.self, from: data)
+                    let rankings = buildTeamStatRankings(from: apiResponse)
+                    if !rankings.isEmpty { return rankings }
+                } catch { continue }
             }
-            return TeamStatRanking(
-                categoryDisplayName: category.displayName,
-                teamValue: entry.displayValue,
-                leagueRank: entry.rank,
-                totalTeams: category.leaders.count
-            )
         }
+        return []
+    }
+
+    private func buildTeamStatRankings(from response: CoreTeamStatisticsResponse) -> [TeamStatRanking] {
+        // Stat names that are technical, trivial, or duplicate — hide from the user.
+        let excluded: Set<String> = [
+            "gamesPlayed", "teamGamesPlayed", "isQualified", "isQualifiedSteals",
+            "isQualifiedCatcher", "isQualifiedPitcher", "playerRating", "pitcherRating",
+            "batterRating", "MLBRating", "projectedHomeRuns", "WAR", "DWAR", "OWAR",
+            "thirdInnings", "pitchesAsStarter", "pitchesPerStart", "gameScore",
+            "pitchCount", "strikes", "strikesToPitchRatio", "pickoffAttempts",
+            "runsCreated", "runsCreatedPer27Outs", "secondaryAvgMinusBA",
+            "pinchAvg", "pinchHits", "pinchAtBats", "fullInnings", "partInnings",
+            "catcherInterference", "gameWinningRBIs", "sacHits", "sacBunts",
+            "sacFlies", "atBats", "plateAppearances", "pitches", "battersFaced",
+            "thirdInningsPlayed", "saveOpportunitiesPerWin", "inheritedRunners",
+            "inheritedRunnersScored", "blownSaves", "groundBalls", "flyBalls",
+            "runSupportAvg", "groundToFlyRatio", "pitchesPerInning",
+        ]
+
+        var rankings: [TeamStatRanking] = []
+        for category in response.splits?.categories ?? [] {
+            guard let sectionName = category.displayName, sectionName != "Fielding" else { continue }
+            for stat in category.stats ?? [] {
+                guard
+                    let name = stat.name, !excluded.contains(name),
+                    let displayName = stat.displayName,
+                    let displayValue = stat.displayValue,
+                    let rank = stat.rank,
+                    let rankDisplay = stat.rankDisplayValue,
+                    !rankDisplay.isEmpty, rankDisplay != "?",
+                    displayValue != "0", displayValue != "0.0",
+                    rankDisplay != "Tied-1st"
+                else { continue }
+
+                rankings.append(TeamStatRanking(
+                    sectionName: sectionName,
+                    categoryDisplayName: displayName,
+                    teamValue: displayValue,
+                    leagueRank: rank,
+                    rankDisplay: rankDisplay
+                ))
+            }
+        }
+        return rankings
     }
 
     func fetchTeamLeaders(for sport: Sport, limit: Int = 10) async throws -> [LeagueLeaderCategory] {
