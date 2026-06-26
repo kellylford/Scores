@@ -104,6 +104,17 @@ struct TheBenchView: View {
             } header: {
                 Text("Soccer")
             }
+
+            Section {
+                rowLink(
+                    title: "Race Tracks",
+                    subtitle: "Daytona · Talladega · Indianapolis · Bristol · Charlotte",
+                    icon: "flag.checkered",
+                    destination: RaceTrackHubView()
+                )
+            } header: {
+                Text("Auto Racing")
+            }
         }
         .navigationTitle("The Bench")
     }
