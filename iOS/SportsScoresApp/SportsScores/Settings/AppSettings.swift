@@ -21,6 +21,7 @@ private enum StorageKeys {
     static let soccerHubEnabled = "soccerHubEnabled"
     static let golfHubEnabled = "golfHubEnabled"
     static let cflEnabled = "cflEnabled"
+    static let racingHubEnabled = "racingHubEnabled"
     static let worldCupHubEnabled = "worldCupHubEnabled"
     static let worldCupWomensHubEnabled = "worldCupWomensHubEnabled"
     static let defaultTableViewMode = "defaultTableViewMode"
@@ -69,6 +70,11 @@ final class AppSettings: ObservableObject {
     /// Whether the Golf hub row is shown on the home page.
     @Published var golfHubEnabled: Bool {
         didSet { UserDefaults.standard.set(golfHubEnabled, forKey: StorageKeys.golfHubEnabled) }
+    }
+
+    /// Whether the Auto Racing hub row is shown on the home page.
+    @Published var racingHubEnabled: Bool {
+        didSet { UserDefaults.standard.set(racingHubEnabled, forKey: StorageKeys.racingHubEnabled) }
     }
 
     /// Whether the CFL row is shown on the home page.
@@ -218,6 +224,12 @@ final class AppSettings: ObservableObject {
             golfHubEnabled = true
         } else {
             golfHubEnabled = UserDefaults.standard.bool(forKey: StorageKeys.golfHubEnabled)
+        }
+
+        if UserDefaults.standard.object(forKey: StorageKeys.racingHubEnabled) == nil {
+            racingHubEnabled = true
+        } else {
+            racingHubEnabled = UserDefaults.standard.bool(forKey: StorageKeys.racingHubEnabled)
         }
 
         // CFL — default on until the user explicitly turns it off.

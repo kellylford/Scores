@@ -30,6 +30,11 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
     // home-page row (see SportSelectionView) and appears in Team Hub.
     case cfl = "CFL"
 
+    // ── Auto racing (appear in Racing hub, not the main home page list) ──
+    case formulaOne = "F1"
+    case indyCar    = "IndyCar"
+    case nascarCup  = "NASCAR"
+
     // ── World Cup hubs (separate from the Soccer hub; appear on the home page when enabled) ──
     case worldCup        = "WorldCup"
     case worldCupWomens  = "WorldCupWomens"
@@ -64,8 +69,13 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
     /// All golf tour cases. Feed these to the Golf hub.
     static var golfTours: [Sport] { [.pga, .lpga] }
 
+    /// All auto racing series. Feed these to the Racing hub.
+    static var racingSeries: [Sport] { [.formulaOne, .indyCar, .nascarCup] }
+
     /// Sports available in Team Hub (main sports plus CFL — no soccer or golf).
     static var teamHubSports: [Sport] { allCases + [.cfl] }
+
+    var isRacing: Bool { Sport.racingSeries.contains(self) }
 
     var displayName: String {
         switch self {
@@ -79,6 +89,9 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
         case .wnba:             return "WNBA Basketball"
         case .ncaah:            return "NCAA Men's Hockey"
         case .ncaawh:           return "NCAA Women's Hockey"
+        case .formulaOne:       return "Formula 1"
+        case .indyCar:          return "IndyCar Series"
+        case .nascarCup:        return "NASCAR Cup Series"
         case .worldCup:        return "2026 FIFA World Cup"
         case .worldCupWomens:  return "2027 FIFA Women's World Cup"
         case .soccerEPL:        return "Premier League"
@@ -125,6 +138,9 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
         case .soccerCONCACAF:   return "soccer/concacaf.champions"
         case .pga:              return "golf/pga"
         case .lpga:             return "golf/lpga"
+        case .formulaOne:       return "racing/f1"
+        case .indyCar:          return "racing/irl"
+        case .nascarCup:        return "racing/nascar-premier"
         // CFL is not served by ESPN; CFLAPIService ignores this path. Kept for completeness.
         case .cfl:              return "football/cfl"
         }
@@ -253,6 +269,9 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
 
     var icon: String {
         switch self {
+        case .formulaOne: return "F1"
+        case .indyCar:    return "IC"
+        case .nascarCup:  return "NAC"
         case .mlb:    return "MLB"
         case .nfl:    return "NFL"
         case .nba:    return "NBA"
@@ -275,6 +294,7 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
     /// SF Symbol name suitable for a tab or list icon.
     var systemImage: String {
         switch self {
+        case .formulaOne, .indyCar, .nascarCup: return "flag.checkered"
         case .mlb:                              return "figure.baseball"
         case .nfl, .ncaaf, .cfl:                return "figure.american.football"
         case .nba, .ncaam, .ncaawb, .wnba:     return "figure.basketball"

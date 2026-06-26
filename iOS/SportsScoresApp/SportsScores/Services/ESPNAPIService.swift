@@ -779,6 +779,107 @@ class ESPNAPIService {
         return GolfTournamentResult(tournament: tournament, calendar: calendar)
     }
 
+    // MARK: - Racing (F1, IndyCar, NASCAR Cup)
+
+    /// Fetches the current or upcoming race event for a racing series.
+    /// Returns nil when the ESPN scoreboard has no events (off-season).
+    func fetchRaceEvent(for series: Sport) async throws -> RaceEvent? {
+        let urlString = "\(baseURL)/\(series.apiPath)/scoreboard"
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+
+        let (data, response) = try await session.data(from: url)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw APIError.invalidResponse
+        }
+
+        let api = try JSONDecoder().decode(RacingScoreboardResponse.self, from: data)
+        guard let eventAPI = api.events.first else { return nil }
+
+        let competition = eventAPI.competitions.first
+        let broadcasts = competition?.broadcasts?.flatMap(\.names) ?? []
+        let competitors = (competition?.competitors ?? [])
+            .sorted { $0.order < $1.order }
+            .map { c -> RaceCompetitor in
+                RaceCompetitor(
+                    id: c.id,
+                    position: c.order,
+                    driverName: c.athlete?.displayName ?? "—",
+                    shortName: c.athlete?.shortName ?? "—",
+                    nationality: c.athlete?.flag?.alt ?? ""
+                )
+            }
+
+        let date = parseESPNDateString(eventAPI.date) ?? Date()
+        let status = eventAPI.status.type
+
+        return RaceEvent(
+            id: eventAPI.id,
+            name: eventAPI.name,
+            date: date,
+            statusState: status.state,
+            statusDescription: status.description,
+            broadcasts: broadcasts,
+            competitors: competitors
+        )
+    }
+
+    /// Fetches championship standings for a racing series.
+    /// F1 returns two groups (Driver + Constructor); others return one.
+    func fetchRacingStandings(for series: Sport) async throws -> [RacingStandingsGroup] {
+        let urlString = "\(standingsBaseURL)/\(series.apiPath)/standings"
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+
+        let (data, response) = try await session.data(from: url)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw APIError.invalidResponse
+        }
+
+        let api = try JSONDecoder().decode(RacingStandingsResponse.self, from: data)
+        return api.children.enumerated().compactMap { index, groupAPI -> RacingStandingsGroup? in
+            guard let standingsData = groupAPI.standings else { return nil }
+
+            let isConstructors = groupAPI.name.lowercased().contains("constructor")
+
+            let entries: [RacingStandingsEntry] = standingsData.entries.compactMap { entry in
+                let stats = Dictionary(
+                    entry.stats.compactMap { s -> (String, String)? in
+                        guard let name = s.name, let val = s.displayValue else { return nil }
+                        return (name, val)
+                    },
+                    uniquingKeysWith: { first, _ in first }
+                )
+                guard let rankStr = stats["rank"], let rank = Int(rankStr) else { return nil }
+
+                let points = stats["championshipPts"] ?? stats["points"] ?? "—"
+
+                if isConstructors, let team = entry.team {
+                    return RacingStandingsEntry(
+                        id: team.id ?? "\(index)-\(rank)",
+                        rank: rank,
+                        name: team.displayName ?? team.abbreviation ?? "—",
+                        shortName: team.abbreviation ?? "—",
+                        nationality: "",
+                        points: points
+                    )
+                } else if let athlete = entry.athlete {
+                    return RacingStandingsEntry(
+                        id: athlete.id ?? "\(index)-\(rank)",
+                        rank: rank,
+                        name: athlete.displayName ?? "—",
+                        shortName: athlete.shortName ?? "—",
+                        nationality: athlete.flag?.alt ?? "",
+                        points: points
+                    )
+                }
+                return nil
+            }
+
+            guard !entries.isEmpty else { return nil }
+            let groupId = isConstructors ? "constructors" : "drivers-\(index)"
+            return RacingStandingsGroup(id: groupId, name: groupAPI.name, entries: entries)
+        }
+    }
+
     // MARK: - NFL Draft
 
     func fetchDraft(year: Int) async throws -> DraftResponse {

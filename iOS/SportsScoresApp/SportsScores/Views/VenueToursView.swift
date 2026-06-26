@@ -60,6 +60,17 @@ struct VenueToursView: View {
             } header: {
                 Text("Basketball")
             }
+
+            Section {
+                rowLink(
+                    title: "Race Tracks",
+                    subtitle: "Daytona · Talladega · Indianapolis · Bristol · Charlotte",
+                    icon: "flag.checkered",
+                    destination: RaceTrackHubView()
+                )
+            } header: {
+                Text("Auto Racing")
+            }
         }
         .navigationTitle("Field Tours")
     }

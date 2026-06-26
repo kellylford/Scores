@@ -126,6 +126,23 @@ struct SettingsView: View {
             .accessibilityLabel("Soccer hub")
             .accessibilityHint(appSettings.soccerHubEnabled ? "On. Tap to hide Soccer from the home page." : "Off. Tap to show Soccer on the home page.")
 
+            Toggle(isOn: $appSettings.racingHubEnabled) {
+                HStack(spacing: 12) {
+                    Image(systemName: "flag.checkered")
+                        .font(.title3)
+                        .frame(width: 28)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Auto Racing")
+                            .font(.headline)
+                        Text("Formula 1, IndyCar, and NASCAR Cup")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .accessibilityLabel("Auto Racing hub")
+            .accessibilityHint(appSettings.racingHubEnabled ? "On. Tap to hide Auto Racing from the home page." : "Off. Tap to show Auto Racing on the home page.")
+
             Toggle(isOn: $appSettings.golfHubEnabled) {
                 HStack(spacing: 12) {
                     Image(systemName: "figure.golf")

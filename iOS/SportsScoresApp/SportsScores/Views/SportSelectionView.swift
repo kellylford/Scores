@@ -76,6 +76,26 @@ struct SportSelectionView: View {
                             .accessibilityLabel(soccerAccessibilityLabel)
                         }
 
+                        // Auto Racing hub — F1, IndyCar, NASCAR Cup
+                        if appSettings.racingHubEnabled {
+                            NavigationLink(destination: RacingHubView()) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "flag.checkered")
+                                        .font(.title2)
+                                        .foregroundColor(.accentColor)
+                                        .frame(width: 36)
+                                    Text("Auto Racing")
+                                        .font(.headline)
+                                    Spacer()
+                                    Text("F1 · IndyCar · NASCAR")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                .padding(.vertical, 4)
+                            }
+                            .accessibilityLabel("Auto Racing — Formula 1, IndyCar, and NASCAR Cup Series")
+                        }
+
                         // Golf hub — PGA Tour and LPGA Tour
                         if appSettings.golfHubEnabled {
                             NavigationLink(destination: GolfHubView()) {
