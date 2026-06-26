@@ -136,7 +136,7 @@ struct RaceTrackTourView: View {
         }, with: .color(.white))
 
         // ── Track name label in infield ────────────────────────────────────────
-        var labelText = Text(track.shortName)
+        let labelText = Text(track.shortName)
             .font(.system(size: max(8, min(14, innerW * 0.08))))
             .foregroundColor(.white.opacity(0.5))
         ctx.draw(labelText, at: CGPoint(x: cx, y: cy), anchor: .center)
@@ -189,7 +189,10 @@ struct RaceTrackTourView: View {
         if zone.name != lastZoneName {
             lastZoneName = zone.name
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            if zone.isLandmark { fieldAudio.playLandmark() }
+            if zone.isLandmark {
+                fieldAudio.playLandmark()
+                TouchTourAnnouncementService.shared.announce(zone.name)
+            }
         }
 
         let pan = Float((fx / track.semiMinor).clamped(to: -1.0...1.0))
@@ -220,8 +223,14 @@ struct RaceTrackTourView: View {
             }
 
             if let ff = fingerField {
-                Text(track.detectZone(x: ff.x, y: ff.y).name)
+                let zone = track.detectZone(x: ff.x, y: ff.y)
+                Text(zone.name)
                     .font(.subheadline.bold())
+                if !zone.detail.isEmpty {
+                    Text(zone.detail)
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
             } else {
                 Text("Touch track to explore")
                     .font(.caption)
@@ -253,7 +262,9 @@ struct RaceTrackTourView: View {
         guard let ff = fingerField else {
             return "\(track.name). Touch the track to explore."
         }
-        return track.detectZone(x: ff.x, y: ff.y).name
+        let zone = track.detectZone(x: ff.x, y: ff.y)
+        if zone.detail.isEmpty { return zone.name }
+        return "\(zone.name). \(zone.detail)."
     }
 }
 

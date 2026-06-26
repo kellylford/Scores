@@ -24,6 +24,7 @@ struct TrackZone {
     let name: String
     let terrain: FieldTerrain
     var isLandmark: Bool = false
+    var detail: String = ""
 }
 
 // MARK: - Track geometry
@@ -75,9 +76,10 @@ struct RaceTrackGeometry: Identifiable, Equatable, Hashable {
             let ny = y / semiMajor
             let theta = atan2(nx, -ny) * 180.0 / .pi
             if abs(theta) < 50 && dInner > 0.45 {
-                return TrackZone(name: "Pit road", terrain: .warningTrack, isLandmark: true)
+                return TrackZone(name: "Pit road", terrain: .warningTrack, isLandmark: true,
+                                 detail: "Cars stop here for tires, fuel, and repairs")
             }
-            return TrackZone(name: "Infield", terrain: .foul)
+            return infieldZone(theta: theta, dInner: dInner)
         }
 
         // Racing surface (dOuter < 1.0 AND dInner > 1.0) — the actual track
@@ -85,6 +87,31 @@ struct RaceTrackGeometry: Identifiable, Equatable, Hashable {
     }
 
     // MARK: - Private zone helpers
+
+    private func infieldZone(theta: Double, dInner: Double) -> TrackZone {
+        // Very center of oval
+        if dInner < 0.35 {
+            return TrackZone(name: "Infield center", terrain: .foul,
+                             detail: "Center of the oval, well inside the racing surface")
+        }
+        // Near frontstretch but inside pit road zone
+        if abs(theta) < 50 {
+            return TrackZone(name: "Infield — frontstretch end", terrain: .foul,
+                             detail: "Near start/finish line, inside the pit wall")
+        }
+        // Backstretch side
+        if abs(theta) > 130 {
+            return TrackZone(name: "Infield — backstretch", terrain: .foul,
+                             detail: "Inside the backstretch, opposite start/finish")
+        }
+        // Turn 1-2 side (theta positive = right side of canvas)
+        if theta > 0 {
+            return TrackZone(name: "Infield — Turn 1 and 2 side", terrain: .foul,
+                             detail: "Infield alongside Turns 1 and 2")
+        }
+        return TrackZone(name: "Infield — Turn 3 and 4 side", terrain: .foul,
+                         detail: "Infield alongside Turns 3 and 4")
+    }
 
     // Fractional position across track width: 0.0 = at inner wall, 1.0 = at outer wall.
     private func groovePosition(dOuter: Double, dInner: Double) -> String {
@@ -104,34 +131,42 @@ struct RaceTrackGeometry: Identifiable, Equatable, Hashable {
 
         // Start/Finish line: narrow angle band across the full track width
         if abs(theta) < 6 {
-            return TrackZone(name: "Start/Finish line", terrain: .fair, isLandmark: true)
+            return TrackZone(name: "Start/Finish line", terrain: .fair, isLandmark: true,
+                             detail: "Timing line — where each lap begins and ends")
         }
 
         switch theta {
         case -35..<35:
-            return TrackZone(name: "Frontstretch — \(pos)", terrain: .fair)
+            return TrackZone(name: "Frontstretch — \(pos)", terrain: .fair,
+                             detail: "Main straight — start/finish area, \(straightBankingDeg)° banking")
 
         case 35..<90:
             return TrackZone(name: "Turn 1 — \(pos) — \(turnBankingDeg)° banking", terrain: .fair,
-                             isLandmark: abs(theta - 62) < 12)
+                             isLandmark: abs(theta - 62) < 12,
+                             detail: "First left turn exiting the frontstretch, \(turnBankingDeg)° banking")
 
         case 90..<145:
             return TrackZone(name: "Turn 2 — \(pos) — \(turnBankingDeg)° banking", terrain: .fair,
-                             isLandmark: abs(theta - 117) < 12)
+                             isLandmark: abs(theta - 117) < 12,
+                             detail: "Second left turn entering the backstretch, \(turnBankingDeg)° banking")
 
         case 145...180, -180 ..< -145:
-            return TrackZone(name: "Backstretch — \(pos)", terrain: .fair)
+            return TrackZone(name: "Backstretch — \(pos)", terrain: .fair,
+                             detail: "Back straight opposite start/finish, \(straightBankingDeg)° banking")
 
         case -145 ..< -90:
             return TrackZone(name: "Turn 3 — \(pos) — \(turnBankingDeg)° banking", terrain: .fair,
-                             isLandmark: abs(theta + 117) < 12)
+                             isLandmark: abs(theta + 117) < 12,
+                             detail: "Third left turn exiting the backstretch, \(turnBankingDeg)° banking")
 
         case -90 ..< -35:
             return TrackZone(name: "Turn 4 — \(pos) — \(turnBankingDeg)° banking", terrain: .fair,
-                             isLandmark: abs(theta + 62) < 12)
+                             isLandmark: abs(theta + 62) < 12,
+                             detail: "Fourth left turn returning to the frontstretch, \(turnBankingDeg)° banking")
 
         default:
-            return TrackZone(name: "Racing surface", terrain: .fair)
+            return TrackZone(name: "Racing surface", terrain: .fair,
+                             detail: "On the racing surface")
         }
     }
 
