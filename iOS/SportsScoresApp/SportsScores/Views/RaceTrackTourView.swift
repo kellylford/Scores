@@ -43,6 +43,7 @@ struct RaceTrackTourView: View {
 
     @State private var fingerField: CGPoint? = nil
     @State private var lastZoneName: String = ""
+    @State private var lastAngleBand: Int = -1
 
     var body: some View {
         VStack(spacing: 0) {
@@ -186,12 +187,36 @@ struct RaceTrackTourView: View {
 
         let zone = track.detectZone(x: fx, y: fy)
 
+        var zoneChanged = false
         if zone.name != lastZoneName {
             lastZoneName = zone.name
+            zoneChanged = true
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             if zone.isLandmark {
                 fieldAudio.playLandmark()
                 TouchTourAnnouncementService.shared.announce(zone.name)
+            }
+        }
+
+        // Angular position announcements — fire at each ~15° band on the racing surface,
+        // matching how football announces yard numbers at each 5-yard crossing.
+        if zone.terrain == .fair {
+            let nx = fx / track.semiMinor
+            let ny = fy / track.semiMajor
+            let theta = atan2(nx, -ny) * 180.0 / .pi
+            let band = Int((theta + 195.0) / 15.0) % 24
+            if band != lastAngleBand {
+                lastAngleBand = band
+                if !zone.isLandmark {
+                    let label = trackPositionLabel(theta: theta)
+                    if !label.isEmpty {
+                        TouchTourAnnouncementService.shared.announce(label)
+                    }
+                    // Only add haptic if zone-name change didn't already fire one
+                    if !zoneChanged {
+                        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                    }
+                }
             }
         }
 
@@ -206,6 +231,31 @@ struct RaceTrackTourView: View {
         }
         fingerField = nil
         fieldAudio.stop()
+        lastAngleBand = -1
+    }
+
+    // Short positional label announced at each 15° arc band while dragging on the racing surface.
+    // Landmark zones (start/finish, apexes) return empty — their zone-name change handles the announce.
+    private func trackPositionLabel(theta: Double) -> String {
+        if abs(theta) < 8 { return "" }   // Start/Finish landmark handles this
+        switch theta {
+        case 8..<35:    return "Frontstretch"
+        case 35..<62:   return "Turn 1 — entering"
+        case 62..<80:   return ""          // Turn 1 apex landmark
+        case 80..<90:   return "Turn 1 — exiting"
+        case 90..<118:  return "Turn 2"
+        case 118..<130: return ""          // Turn 2 apex landmark
+        case 130..<145: return "Turn 2 — exiting"
+        case 145...180, -180 ..< -145: return "Backstretch"
+        case -145 ..< -130: return "Turn 3 — entering"
+        case -130 ..< -118: return ""      // Turn 3 apex landmark
+        case -118 ..< -90:  return "Turn 3"
+        case -90 ..< -80:   return "Turn 4 — entering"
+        case -80 ..< -62:   return ""      // Turn 4 apex landmark
+        case -62 ..< -35:   return "Turn 4 — exiting"
+        case -35 ..< -8:    return "Frontstretch"
+        default: return ""
+        }
     }
 
     // MARK: - Status bar
