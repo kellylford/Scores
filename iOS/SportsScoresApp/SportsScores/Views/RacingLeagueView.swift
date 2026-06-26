@@ -5,6 +5,9 @@
 //  Tabbed view for a single racing series: Results · Standings · News.
 //  Mirrors GolfLeagueView. One StateObject ViewModel per presented series.
 //
+//  ViewModeMenuButton appears in the toolbar for Results and Standings tabs.
+//  News has no list to mode-switch.
+//
 
 import SwiftUI
 
@@ -16,6 +19,7 @@ struct RacingLeagueView: View {
     let series: Sport
     @StateObject private var viewModel = RacingViewModel()
     @State private var selectedTab: RacingTab = .results
+    @State private var viewMode: ViewMode = .quickList
 
     var body: some View {
         VStack(spacing: 0) {
@@ -34,6 +38,13 @@ struct RacingLeagueView: View {
             .padding(.bottom, 8)
         }
         .navigationTitle(series.displayName)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                if selectedTab != .news {
+                    ViewModeMenuButton(currentMode: $viewMode)
+                }
+            }
+        }
         .task { await viewModel.load(series: series) }
         .refreshable { await viewModel.refresh(series: series) }
     }
@@ -50,14 +61,16 @@ struct RacingLeagueView: View {
                 RacingResultsView(
                     series: series,
                     raceEvent: viewModel.raceEvent,
-                    isLoading: viewModel.isLoadingEvent
+                    isLoading: viewModel.isLoadingEvent,
+                    viewMode: viewMode
                 )
             }
 
         case .standings:
             RacingStandingsView(
                 standings: viewModel.standings,
-                isLoading: viewModel.isLoadingStandings
+                isLoading: viewModel.isLoadingStandings,
+                viewMode: viewMode
             )
 
         case .news:
