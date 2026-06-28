@@ -569,7 +569,9 @@ struct ScoresView: View {
         else if game.status.isCancelled { status = "Cancelled" }
         else if game.status.isCompleted { status = "Final" }
         else { status = game.displayTime }
-        return "\(away) @ \(home) — \(status)"
+        var line = "\(away) @ \(home) — \(status)"
+        if let venue = game.venue, !venue.name.isEmpty { line += " · \(venue.fullName)" }
+        return line
     }
 
     private func gameQuickAccessibilityText(_ game: Game) -> String {
@@ -586,6 +588,8 @@ struct ScoresView: View {
         else if game.status.isCompleted { status = "Final" }
         else { status = game.displayTime }
         var label = "\(away) at \(home), \(status)"
+        // Venue: unlabeled (terse) but the data is still spoken.
+        if let venue = game.venue, !venue.name.isEmpty { label += ", \(venue.fullName)" }
         if game.shouldShowBroadcastInfo, let broadcast = game.broadcasts.first, !broadcast.isEmpty {
             label += ", on \(broadcast)"
         }
@@ -716,11 +720,13 @@ struct GameRow: View {
                 }
             }
 
-            // Venue (compact)
-            if let venue = game.venue, let city = venue.city {
-                Text("\(city)\(venue.state.map { ", \($0)" } ?? "")")
+            // Venue / location
+            if let venue = game.venue, !venue.name.isEmpty {
+                Label(venue.fullName, systemImage: "mappin.and.ellipse")
+                    .labelStyle(.titleAndIcon)
                     .font(.caption2)
                     .foregroundColor(.secondary)
+                    .lineLimit(1)
             }
         }
         .padding(.vertical, 4)
@@ -809,6 +815,11 @@ struct GameRow: View {
         var parts = [awayPart, homePart]
         if !statusParts.isEmpty {
             parts.append("Status: \(statusParts.joined(separator: ", "))")
+        }
+
+        // Venue / location
+        if let venue = game.venue, !venue.name.isEmpty {
+            parts.append("at \(venue.fullName)")
         }
 
         // Broadcast last

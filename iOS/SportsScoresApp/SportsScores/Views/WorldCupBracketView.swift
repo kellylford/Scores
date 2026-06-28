@@ -25,6 +25,11 @@ struct WorldCupBracketView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            pathToTheCupButton
+                .padding(.horizontal)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+
             phasePicker
                 .padding(.horizontal)
                 .padding(.vertical, 8)
@@ -47,12 +52,42 @@ struct WorldCupBracketView: View {
             if let phase = viewModel.selectedPhase, phase.id != "1" {
                 await viewModel.loadBracket(for: phase)
             }
+            // Load the full knockout bracket so placeholders ("Round of 32 N
+            // Winner") can be resolved to real teams and Path to the Cup is ready.
+            await viewModel.loadFullBracket()
         }
         .onAppear {
             guard !viewModeInitialized else { return }
             viewMode = appSettings.defaultTableViewMode
             viewModeInitialized = true
         }
+    }
+
+    // MARK: - Path to the Cup
+
+    private var pathToTheCupButton: some View {
+        NavigationLink {
+            WorldCupPathView(viewModel: viewModel, sport: sport)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "trophy.fill")
+                    .accessibilityHidden(true)
+                Text("Path to the Cup")
+                    .font(.subheadline.bold())
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundColor(.secondary)
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
+            .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Path to the Cup")
+        .accessibilityHint("Pick any team to see their road to the title, or where they were eliminated")
     }
 
     // MARK: - Phase picker
@@ -226,7 +261,7 @@ struct WorldCupBracketView: View {
             ForEach(games) { game in
                 NavigationLink(destination: GameDetailView(game: game, sport: sport)) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("\(game.awayTeam.displayName) vs \(game.homeTeam.displayName)")
+                        Text(fullHeadline(game))
                             .font(.headline)
                         Text(fullDetailText(game))
                             .font(.caption)
@@ -248,9 +283,28 @@ struct WorldCupBracketView: View {
 
     // MARK: - Row formatters
 
+    /// Resolved side labels for a match. When the full bracket is loaded, ESPN's
+    /// "Round of 32 N Winner" placeholders are replaced with the real teams that
+    /// feed the match (capped so a reader never tracks more than four teams).
+    private func labels(for game: Game) -> WorldCupBracket.SideLabels {
+        let pref = appSettings.teamNamePreference
+        if let bracket = viewModel.bracket {
+            return bracket.inlineLabels(for: game, pref: pref)
+        }
+        return WorldCupBracket.SideLabels(
+            awayVisual: game.awayTeam.abbreviation,
+            homeVisual: game.homeTeam.abbreviation,
+            awayVoice:  game.awayTeam.voiceOverName(for: pref),
+            homeVoice:  game.homeTeam.voiceOverName(for: pref)
+        )
+    }
+
+    private func scoreSuffix(_ score: Int?) -> String { score.map { " \($0)" } ?? "" }
+
     private func tableRow(_ game: Game) -> [String] {
-        let away = game.awayTeam.abbreviation + (game.awayTeam.score.map { " \($0)" } ?? "")
-        let home = game.homeTeam.abbreviation + (game.homeTeam.score.map { " \($0)" } ?? "")
+        let l = labels(for: game)
+        let away = l.awayVisual + scoreSuffix(game.awayTeam.score)
+        let home = l.homeVisual + scoreSuffix(game.homeTeam.score)
         let status: String
         if game.status.isLive            { status = game.status.displayText }
         else if game.status.isPostponed  { status = "PPD" }
@@ -261,17 +315,29 @@ struct WorldCupBracketView: View {
     }
 
     private func quickText(_ game: Game) -> String {
-        let away = game.awayTeam.abbreviation + (game.awayTeam.score.map { " \($0)" } ?? "")
-        let home = game.homeTeam.abbreviation + (game.homeTeam.score.map { " \($0)" } ?? "")
+        let l = labels(for: game)
+        let away = l.awayVisual + scoreSuffix(game.awayTeam.score)
+        let home = l.homeVisual + scoreSuffix(game.homeTeam.score)
         let status = statusText(game, abbreviated: true)
-        return "\(away) @ \(home) — \(status)"
+        var line = "\(away) @ \(home) — \(status)"
+        if let venue = game.venue, !venue.name.isEmpty { line += " · \(venue.fullName)" }
+        return line
     }
 
     private func quickAccessibilityText(_ game: Game) -> String {
-        let pref = appSettings.teamNamePreference
-        let away = game.awayTeam.voiceOverName(for: pref) + (game.awayTeam.score.map { " \($0)" } ?? "")
-        let home = game.homeTeam.voiceOverName(for: pref) + (game.homeTeam.score.map { " \($0)" } ?? "")
-        return "\(away) at \(home), \(statusText(game, abbreviated: false))"
+        let l = labels(for: game)
+        let away = l.awayVoice + scoreSuffix(game.awayTeam.score)
+        let home = l.homeVoice + scoreSuffix(game.homeTeam.score)
+        var label = "\(away) at \(home), \(statusText(game, abbreviated: false))"
+        // Venue: unlabeled (terse) but still spoken. Scheduled even before teams are known.
+        if let venue = game.venue, !venue.name.isEmpty { label += ", \(venue.fullName)" }
+        return label
+    }
+
+    /// Headline for the Full List card — uses the resolved, name-preference form.
+    private func fullHeadline(_ game: Game) -> String {
+        let l = labels(for: game)
+        return "\(l.awayVoice) vs \(l.homeVoice)"
     }
 
     private func fullDetailText(_ game: Game) -> String {

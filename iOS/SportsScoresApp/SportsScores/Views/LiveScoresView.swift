@@ -496,6 +496,15 @@ struct CompactGameRow: View {
                         .foregroundColor(.secondary)
                 }
             }
+
+            // Venue / location
+            if let venue = game.venue, !venue.name.isEmpty {
+                Label(venue.fullName, systemImage: "mappin.and.ellipse")
+                    .labelStyle(.titleAndIcon)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
         }
         .padding(12)
         .background(Color.secondary.opacity(0.05))
@@ -545,6 +554,11 @@ struct CompactGameRow: View {
         var parts = [awayPart, homePart]
         if !statusParts.isEmpty {
             parts.append("Status: \(statusParts.joined(separator: ", "))")
+        }
+
+        // Venue / location
+        if let venue = game.venue, !venue.name.isEmpty {
+            parts.append("at \(venue.fullName)")
         }
 
         // Broadcast last

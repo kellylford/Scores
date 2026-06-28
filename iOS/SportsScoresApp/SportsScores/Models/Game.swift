@@ -66,7 +66,11 @@ struct Game: Identifiable, Codable {
         let score: Int?
         let record: String?
         let logo: String?
-        
+        /// True when ESPN marks this competitor as the winner of a completed match.
+        /// Used by the World Cup bracket to determine advancement reliably (knockout
+        /// matches decided on penalties have equal scores, so score alone is insufficient).
+        var isWinner: Bool? = nil
+
         var displayText: String {
             if let score = score, let record = record {
                 return "\(abbreviation) (\(record)) - \(score)"
@@ -146,14 +150,25 @@ struct Game: Identifiable, Codable {
         let name: String
         let city: String?
         let state: String?
-        
-        var fullName: String {
-            if let city = city, let state = state {
-                return "\(name), \(city), \(state)"
-            } else if let city = city {
-                return "\(name), \(city)"
+        var country: String? = nil
+
+        /// City + region: "Inglewood, California" for US venues, "Guadalupe, Mexico"
+        /// for international ones (where ESPN omits the state).
+        var shortLocation: String {
+            var parts: [String] = []
+            if let city = city, !city.isEmpty { parts.append(city) }
+            if let state = state, !state.isEmpty {
+                parts.append(state)
+            } else if let country = country, !country.isEmpty, country != "USA" {
+                parts.append(country)
             }
-            return name
+            return parts.joined(separator: ", ")
+        }
+
+        /// Stadium name + location: "SoFi Stadium, Inglewood, California".
+        var fullName: String {
+            let loc = shortLocation
+            return loc.isEmpty ? name : "\(name), \(loc)"
         }
     }
     
@@ -305,7 +320,8 @@ extension Game {
             // flatMap returns nil when score is nil or non-numeric (e.g. pre-game "").
             score: suppressScores ? nil : homeCompetitor?.score.flatMap({ Int($0) }),
             record: homeCompetitor?.records?.first?.summary,
-            logo: homeCompetitor?.team.logo
+            logo: homeCompetitor?.team.logo,
+            isWinner: homeCompetitor?.winner
         )
         
         self.awayTeam = Team(
@@ -315,7 +331,8 @@ extension Game {
             displayName: awayCompetitor?.team.displayName ?? "",
             score: suppressScores ? nil : awayCompetitor?.score.flatMap({ Int($0) }),
             record: awayCompetitor?.records?.first?.summary,
-            logo: awayCompetitor?.team.logo
+            logo: awayCompetitor?.team.logo,
+            isWinner: awayCompetitor?.winner
         )
         
         // Parse venue
@@ -323,7 +340,8 @@ extension Game {
             self.venue = Venue(
                 name: venueData.fullName,
                 city: venueData.address?.city,
-                state: venueData.address?.state
+                state: venueData.address?.state,
+                country: venueData.address?.country
             )
         } else {
             self.venue = nil
@@ -393,6 +411,8 @@ struct APIGame: Codable {
             let team: APITeam
             let score: String?
             let records: [APIRecord]?
+            /// ESPN flags the advancing/winning competitor in completed knockout matches.
+            let winner: Bool?
             
             struct APITeam: Codable {
                 let id: String
@@ -414,6 +434,7 @@ struct APIGame: Codable {
             struct APIAddress: Codable {
                 let city: String?
                 let state: String?
+                let country: String?
             }
         }
         

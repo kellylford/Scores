@@ -29,6 +29,12 @@ final class WorldCupViewModel: ObservableObject {
     @Published var bracketError: String? = nil
     @Published var selectedPhaseId: String
 
+    /// Full knockout bracket model — powers inline placeholder resolution and the
+    /// "Path to the Cup" feature. Loaded once across all knockout rounds.
+    @Published var bracket: WorldCupBracket? = nil
+    @Published var isLoadingFullBracket = false
+    private var fullBracketLoaded = false
+
     // MARK: - Configuration
 
     let sport: Sport
@@ -163,6 +169,57 @@ final class WorldCupViewModel: ObservableObject {
             bracketError = "Could not load bracket matches."
         }
         isLoadingBracket = false
+    }
+
+    // MARK: - Full bracket (all knockout rounds)
+
+    /// Maps a phase to its knockout round (group stage / unknown → nil).
+    private func knockoutRound(for phase: WorldCupPhase) -> KnockoutRound? {
+        let label = phase.label.lowercased()
+        if label.contains("round of 32") { return .roundOf32 }
+        if label.contains("round of 16") { return .roundOf16 }
+        if label.contains("quarter")     { return .quarterfinals }
+        if label.contains("semi")        { return .semifinals }
+        if label.contains("3rd") || label.contains("third") { return .thirdPlace }
+        if label.contains("final")       { return .final }
+        return nil
+    }
+
+    /// Fetches every knockout round (plus group standings) and builds the bracket
+    /// model used for placeholder resolution and the Path to the Cup view.
+    func loadFullBracket(force: Bool = false) async {
+        if fullBracketLoaded && !force { return }
+        isLoadingFullBracket = true
+
+        if groups.isEmpty { await loadGroups() }
+
+        let knockoutPhases = phases.compactMap { phase -> (KnockoutRound, WorldCupPhase)? in
+            guard let round = knockoutRound(for: phase) else { return nil }
+            return (round, phase)
+        }
+
+        // Fetch each round's games concurrently.
+        let results = await withTaskGroup(of: (KnockoutRound, [Game]).self) { group -> [(KnockoutRound, [Game])] in
+            for (round, phase) in knockoutPhases {
+                group.addTask { [api, sport] in
+                    let games = (try? await api.fetchGamesRange(
+                        for: sport, startDate: phase.startDate, endDate: phase.endDate)) ?? []
+                    return (round, games)
+                }
+            }
+            var collected: [(KnockoutRound, [Game])] = []
+            for await item in group { collected.append(item) }
+            return collected
+        }
+
+        var roundGames: [KnockoutRound: [Game]] = [:]
+        for (round, games) in results where !games.isEmpty {
+            roundGames[round] = games
+        }
+
+        bracket = WorldCupBracket(roundGames: roundGames, groups: groups)
+        fullBracketLoaded = bracket?.hasKnockoutGames ?? false
+        isLoadingFullBracket = false
     }
 
     // MARK: - Game grouping helpers (used by Scores tab)

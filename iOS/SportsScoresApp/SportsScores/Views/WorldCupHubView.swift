@@ -354,14 +354,19 @@ struct WorldCupHubView: View {
     private func gameQuickText(_ game: Game) -> String {
         let away = game.awayTeam.abbreviation + (game.awayTeam.score.map { " \($0)" } ?? "")
         let home = game.homeTeam.abbreviation + (game.homeTeam.score.map { " \($0)" } ?? "")
-        return "\(away) @ \(home) — \(gameStatusText(game, abbreviated: true))"
+        var line = "\(away) @ \(home) — \(gameStatusText(game, abbreviated: true))"
+        if let venue = game.venue, !venue.name.isEmpty { line += " · \(venue.fullName)" }
+        return line
     }
 
     private func gameQuickAccessibilityText(_ game: Game) -> String {
         let pref = appSettings.teamNamePreference
         let away = game.awayTeam.voiceOverName(for: pref) + (game.awayTeam.score.map { " \($0)" } ?? "")
         let home = game.homeTeam.voiceOverName(for: pref) + (game.homeTeam.score.map { " \($0)" } ?? "")
-        return "\(away) at \(home), \(gameStatusText(game, abbreviated: false))"
+        var label = "\(away) at \(home), \(gameStatusText(game, abbreviated: false))"
+        // Venue: unlabeled (terse) but still spoken.
+        if let venue = game.venue, !venue.name.isEmpty { label += ", \(venue.fullName)" }
+        return label
     }
 
     private func gameFullDetailText(_ game: Game) -> String {
