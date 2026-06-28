@@ -569,13 +569,15 @@ struct WorldCupBracket {
 
     private func pickerRank(_ fate: TeamFate) -> Int {
         switch fate {
-        case .champion:        return 0
-        case .alive:           return 1
-        case .runnerUp:        return 2
-        case .thirdPlace:      return 3
-        case .fourthPlace:     return 4
-        case .eliminated(let r): return 100 - r.rawValue   // deeper eliminations first
-        case .eliminatedInGroup: return 200
+        case .champion:          return 0
+        case .alive:             return 1
+        // Eliminated knockout teams in the order they went out: Round of 32 first,
+        // then Round of 16, Quarterfinals, Semifinals (rawValue 0…3).
+        case .eliminated(let r): return 10 + r.rawValue
+        case .runnerUp:          return 20   // lost the Final
+        case .thirdPlace:        return 21
+        case .fourthPlace:       return 22
+        case .eliminatedInGroup: return 30   // never reached the knockouts → last
         }
     }
 
