@@ -34,6 +34,9 @@ final class WorldCupViewModel: ObservableObject {
     @Published var bracket: WorldCupBracket? = nil
     @Published var isLoadingFullBracket = false
     private var fullBracketLoaded = false
+    /// Official match numbers never change for a tournament, so cache them and only
+    /// fetch the ones we haven't seen — keeps refreshes (results/counts) cheap.
+    private var cachedMatchNumbers: [String: Int] = [:]
 
     // MARK: - Configuration
 
@@ -221,10 +224,14 @@ final class WorldCupViewModel: ObservableObject {
         // matches correctly — ESPN's placeholders reference them, and they don't
         // match kickoff or event-id order.
         let allIds = roundGames.values.flatMap { $0.map(\.id) }
-        let matchNumbers = await api.fetchMatchNumbers(for: sport, eventIds: allIds)
+        let missing = allIds.filter { cachedMatchNumbers[$0] == nil }
+        if !missing.isEmpty {
+            let fetched = await api.fetchMatchNumbers(for: sport, eventIds: missing)
+            for (id, number) in fetched { cachedMatchNumbers[id] = number }
+        }
 
         bracket = WorldCupBracket(roundGames: roundGames,
-                                  matchNumbers: matchNumbers,
+                                  matchNumbers: cachedMatchNumbers,
                                   groups: groups)
         fullBracketLoaded = bracket?.hasKnockoutGames ?? false
         isLoadingFullBracket = false
