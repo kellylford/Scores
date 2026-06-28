@@ -219,21 +219,30 @@ struct WorldCupBracket {
 
     /// - Parameters:
     ///   - roundGames: knockout games grouped by round (each round's games in
-    ///     any order — numbering is derived here from event-id order).
+    ///     any order — numbering is derived here).
+    ///   - matchNumbers: `[eventId: officialMatchNumber]` from the core API. This
+    ///     is what ESPN's "Round of 32 N Winner" placeholders actually reference;
+    ///     neither kickoff order nor event-id order matches it (FIFA's match
+    ///     numbers follow the fixed bracket layout, not the schedule).
     ///   - groups: group standings, used as the master list of all teams.
-    init(roundGames: [KnockoutRound: [Game]], groups: [WorldCupGroup]) {
+    init(roundGames: [KnockoutRound: [Game]],
+         matchNumbers: [String: Int],
+         groups: [WorldCupGroup]) {
         var byRound: [KnockoutRound: [BracketMatch]] = [:]
         var index: [String: BracketMatch] = [:]
 
         for (round, games) in roundGames {
-            // Match numbers follow KICKOFF ORDER within a round — this matches the
-            // official FIFA match numbering that ESPN's "Round of 32 N Winner"
-            // placeholders reference. (Event-id order is NOT the same: ESPN does
-            // not issue event ids in chronological order, so sorting by id put the
-            // wrong team at position N and mis-resolved R16 opponents.) Tie-break
-            // by event id for determinism when two matches share a kickoff time.
-            let ordered = games.sorted {
-                $0.date != $1.date ? $0.date < $1.date : (Int($0.id) ?? 0) < (Int($1.id) ?? 0)
+            // Number matches within a round by their official match number. Within
+            // a round these are contiguous (R32 = 73–88, R16 = 89–96, …), so
+            // sorting by match number and assigning 1…K reproduces exactly the N
+            // that the "Round of 32 N Winner" placeholders point at. Fall back to
+            // kickoff time, then event id, if a match number is unavailable.
+            let ordered = games.sorted { a, b in
+                if let na = matchNumbers[a.id], let nb = matchNumbers[b.id], na != nb {
+                    return na < nb
+                }
+                if a.date != b.date { return a.date < b.date }
+                return (Int(a.id) ?? 0) < (Int(b.id) ?? 0)
             }
             var matches: [BracketMatch] = []
             for (i, game) in ordered.enumerated() {

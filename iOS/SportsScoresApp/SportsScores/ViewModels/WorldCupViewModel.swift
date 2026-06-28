@@ -217,7 +217,15 @@ final class WorldCupViewModel: ObservableObject {
             roundGames[round] = games
         }
 
-        bracket = WorldCupBracket(roundGames: roundGames, groups: groups)
+        // Official match numbers (from the core API) are required to order knockout
+        // matches correctly — ESPN's placeholders reference them, and they don't
+        // match kickoff or event-id order.
+        let allIds = roundGames.values.flatMap { $0.map(\.id) }
+        let matchNumbers = await api.fetchMatchNumbers(for: sport, eventIds: allIds)
+
+        bracket = WorldCupBracket(roundGames: roundGames,
+                                  matchNumbers: matchNumbers,
+                                  groups: groups)
         fullBracketLoaded = bracket?.hasKnockoutGames ?? false
         isLoadingFullBracket = false
     }

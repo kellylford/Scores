@@ -272,6 +272,45 @@ class ESPNAPIService {
         return try apiResponse.events.map { try Game(from: $0, seasonType: seasonType) }
     }
 
+    /// Fetches each event's official tournament match number (e.g. FIFA World Cup
+    /// match 73–104) from the core API. The site scoreboard feed omits this, yet it
+    /// is the only reliable way to order knockout matches: ESPN's bracket
+    /// placeholders ("Round of 32 N Winner") reference the official match number,
+    /// which is NOT the same as kickoff order or event-id order.
+    /// Returns `[eventId: matchNumber]`; events without a number are omitted.
+    func fetchMatchNumbers(for sport: Sport, eventIds: [String]) async -> [String: Int] {
+        let parts = sport.apiPath.split(separator: "/")
+        guard parts.count == 2 else { return [:] }
+        let sportType = String(parts[0])
+        let league    = String(parts[1])
+
+        struct CoreEvent: Decodable {
+            struct Competition: Decodable { let matchNumber: Int? }
+            let competitions: [Competition]
+        }
+
+        return await withTaskGroup(of: (String, Int?).self) { group in
+            for id in eventIds {
+                group.addTask { [coreAPIBaseURL, session] in
+                    let urlString = "\(coreAPIBaseURL)/\(sportType)/leagues/\(league)/events/\(id)?lang=en"
+                    guard let url = URL(string: urlString) else { return (id, nil) }
+                    do {
+                        let (data, _) = try await session.data(from: url)
+                        let decoded = try JSONDecoder().decode(CoreEvent.self, from: data)
+                        return (id, decoded.competitions.first?.matchNumber)
+                    } catch {
+                        return (id, nil)
+                    }
+                }
+            }
+            var result: [String: Int] = [:]
+            for await (id, number) in group {
+                if let number { result[id] = number }
+            }
+            return result
+        }
+    }
+
     // MARK: - Fetch News
 
     func fetchNews(for sport: Sport, limit: Int = 25) async throws -> [NewsItem] {
