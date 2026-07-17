@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		02204E507D7434022AB59839 /* RacingHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5527896BC8638A1E72DE5823 /* RacingHubView.swift */; };
+		0628508F6916E0005D37835D /* CheatsheetPlayerDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17E2EBBAD69446226C28DA4A /* CheatsheetPlayerDetailView.swift */; };
 		11745FDAA05A67412D2D514B /* TeamHubModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B24C7FC69C8CFAB2F651990B /* TeamHubModels.swift */; };
 		12D1B45EAF2BBCDCEBEB1005 /* PlaysView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 730BF6E5A4FF66C7DF52BCC2 /* PlaysView.swift */; };
 		135113FE9015B742D1B2EE64 /* TeamHubConferencePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EA35C821420E24CE5DF8EE7 /* TeamHubConferencePickerView.swift */; };
@@ -136,6 +137,7 @@
 		12FB064B32BB710D09EE1967 /* RacingLeagueView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RacingLeagueView.swift; sourceTree = "<group>"; };
 		16ED99CDD716191F0D4DBA6A /* SoccerLiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoccerLiveView.swift; sourceTree = "<group>"; };
 		170934144144BFF79BD8E765 /* StatisticsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsViewModel.swift; sourceTree = "<group>"; };
+		17E2EBBAD69446226C28DA4A /* CheatsheetPlayerDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheatsheetPlayerDetailView.swift; sourceTree = "<group>"; };
 		1B8554FE9C77A1F32389D68F /* TeamTransactionsTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamTransactionsTabView.swift; sourceTree = "<group>"; };
 		1C3E87CD273A22E278284964 /* SportsScores.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = SportsScores.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1CEE4CE2353099109FF62D72 /* DivisionMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DivisionMapper.swift; sourceTree = "<group>"; };
@@ -352,6 +354,7 @@
 				93169AB8FB73DA57C45D0C7A /* BaseballFieldTourView.swift */,
 				5B9633ED3A95DF8C72813B8D /* BasketballCourtTourView.swift */,
 				5DB8AE94C204A50146E9F867 /* BoxScoreView.swift */,
+				17E2EBBAD69446226C28DA4A /* CheatsheetPlayerDetailView.swift */,
 				797D09AB2E8244D9B87B18DD /* DatePickerView.swift */,
 				289A82398ECDB07D2544E980 /* FantasyCheatsheetView.swift */,
 				CA292638C3237DA00CF63E2C /* FavoriteTeamCardView.swift */,
@@ -528,6 +531,7 @@
 				7FE49CE6841F2741FB6D9993 /* BasketballCourtTourView.swift in Sources */,
 				4EBA8B3274D13D19014A34C4 /* BoxScoreView.swift in Sources */,
 				186C57EB9184039417063728 /* CFLAPIService.swift in Sources */,
+				0628508F6916E0005D37835D /* CheatsheetPlayerDetailView.swift in Sources */,
 				66941444CDF6D80C2263573F /* ContentView.swift in Sources */,
 				EDF2DE37CADCCD46B40AB0AB /* DataTableView.swift in Sources */,
 				898FBB6809528DF5A40939BE /* DatePickerView.swift in Sources */,

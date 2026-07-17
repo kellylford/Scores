@@ -283,6 +283,36 @@ final class FantasyCheatsheetViewModel: ObservableObject {
         } catch {
             // Leaders fetch is best-effort; the pool is still browsable.
         }
+
+        // Enrich D/ST rows with team defensive stats (32 parallel calls).
+        await enrichTeamDefenses()
+    }
+
+    /// Fetches team defensive/special-teams stats for every NFL team in
+    /// parallel so each D/ST row gets a real fantasy-points value.
+    private func enrichTeamDefenses() async {
+        let season = statsSeason
+        let defenseStatsByTeamId = await withTaskGroup(
+            of: (String, [String: Double]).self
+        ) { group -> [String: [String: Double]] in
+            for defense in teamDefenses {
+                let teamId = defense.teamId
+                group.addTask { [service] in
+                    let stats = await service.fetchTeamDefenseStats(teamId: teamId, season: season)
+                    return (teamId, stats)
+                }
+            }
+            var dict = [String: [String: Double]]()
+            for await (id, stats) in group { dict[id] = stats }
+            return dict
+        }
+
+        for i in teamDefenses.indices {
+            if let stats = defenseStatsByTeamId[teamDefenses[i].teamId], !stats.isEmpty {
+                teamDefenses[i].stats = stats
+                teamDefenses[i].computedPoints = points(for: teamDefenses[i])
+            }
+        }
     }
 
     /// Lazily enrich a single player's stats when the user taps into detail.
@@ -293,6 +323,17 @@ final class FantasyCheatsheetViewModel: ObservableObject {
         if let idx = offensivePlayers.firstIndex(where: { $0.id == player.id }) {
             offensivePlayers[idx].stats = stats
             offensivePlayers[idx].computedPoints = points(for: offensivePlayers[idx])
+        }
+    }
+
+    /// Lazily enrich a single team defense's stats when the user taps into detail.
+    func enrichTeamDefense(_ defense: CheatsheetTeamDefense) async {
+        guard teamDefenses.first(where: { $0.id == defense.id })?.stats.isEmpty ?? true else { return }
+        let stats = await service.fetchTeamDefenseStats(teamId: defense.teamId, season: statsSeason)
+        guard !stats.isEmpty else { return }
+        if let idx = teamDefenses.firstIndex(where: { $0.id == defense.id }) {
+            teamDefenses[idx].stats = stats
+            teamDefenses[idx].computedPoints = points(for: teamDefenses[idx])
         }
     }
 

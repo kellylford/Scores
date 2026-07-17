@@ -20,6 +20,7 @@ struct FantasyCheatsheetView: View {
     @StateObject private var viewModel = FantasyCheatsheetViewModel()
     @State private var viewMode: ViewMode = .quickList
     @State private var showingSettings = false
+    @State private var selectedRow: CheatsheetRow?
 
     var body: some View {
         Group {
@@ -62,6 +63,9 @@ struct FantasyCheatsheetView: View {
             NavigationStack {
                 ScoringSettingsView(viewModel: viewModel)
             }
+        }
+        .navigationDestination(item: $selectedRow) { row in
+            CheatsheetPlayerDetailView(row: row, viewModel: viewModel)
         }
     }
 
@@ -188,28 +192,34 @@ struct FantasyCheatsheetView: View {
     }
 
     private func listRow(_ row: CheatsheetRow, fullLabels: Bool) -> some View {
-        HStack(spacing: 12) {
-            // Taken indicator
-            Image(systemName: viewModel.isTaken(row) ? "checkmark.circle.fill" : "circle")
-                .foregroundColor(viewModel.isTaken(row) ? .green : .secondary)
-                .accessibilityHidden(true)
+        Button {
+            selectedRow = row
+        } label: {
+            HStack(spacing: 12) {
+                // Taken indicator
+                Image(systemName: viewModel.isTaken(row) ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(viewModel.isTaken(row) ? .green : .secondary)
+                    .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(row.displayName)
-                    .font(.subheadline.weight(.medium))
-                    .strikethrough(viewModel.isTaken(row), color: .secondary)
-                Text("\(row.positionLabel) · \(row.teamAbbreviation)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(row.displayName)
+                        .font(.subheadline.weight(.medium))
+                        .strikethrough(viewModel.isTaken(row), color: .secondary)
+                    Text("\(row.positionLabel) · \(row.teamAbbreviation)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                Text(row.pointsString(settings: viewModel.scoringSettings))
+                    .font(.system(.subheadline, design: .monospaced).bold())
+                    .foregroundColor(.accentColor)
             }
-
-            Spacer()
-
-            Text(row.pointsString(settings: viewModel.scoringSettings))
-                .font(.system(.subheadline, design: .monospaced).bold())
-                .foregroundColor(.accentColor)
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
         }
-        .padding(.vertical, 4)
+        .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(listVoiceOverLabel(row, fullLabels: fullLabels))
     }
@@ -254,7 +264,12 @@ struct FantasyCheatsheetView: View {
 
                 VStack(spacing: 0) {
                     ForEach(Array(rows.enumerated()), id: \.element.id) { idx, row in
-                        tableEntryRow(row, rank: idx + 1)
+                        Button {
+                            selectedRow = row
+                        } label: {
+                            tableEntryRow(row, rank: idx + 1)
+                        }
+                        .buttonStyle(.plain)
                         if idx < rows.count - 1 {
                             Divider().padding(.leading, 16)
                         }

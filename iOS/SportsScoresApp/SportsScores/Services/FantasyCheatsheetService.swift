@@ -348,6 +348,42 @@ final class FantasyCheatsheetService {
         return resolved
     }
 
+    // MARK: - Team Defense Stats (D/ST)
+
+    /// Fetches a team's defensive/special-teams stats flattened to the
+    /// `[String: Double]` shape the points engine expects. Pulls from the same
+    /// Core API team-statistics endpoint used by Team Hub's stat rankings.
+    /// Returns empty on failure so a single miss doesn't break the D/ST column.
+    func fetchTeamDefenseStats(teamId: String, season: Int) async -> [String: Double] {
+        // Try regular season (type 2), then postseason (3).
+        for seasonType in [2, 3] {
+            let urlString = "\(coreBase)/football/leagues/nfl/seasons/\(season)/types/\(seasonType)/teams/\(teamId)/statistics"
+            guard let url = URL(string: urlString) else { continue }
+            do {
+                let (data, response) = try await session.data(from: url)
+                guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { continue }
+                let stats = try JSONDecoder().decode(CoreTeamStatisticsResponse.self, from: data)
+                let flat = flattenedTeamStats(stats)
+                if !flat.isEmpty { return flat }
+            } catch { continue }
+        }
+        return [:]
+    }
+
+    /// Flattens a CoreTeamStatisticsResponse (splits.categories[].stats[])
+    /// to a name→value dict, mirroring the athlete-stats shape.
+    private func flattenedTeamStats(_ response: CoreTeamStatisticsResponse) -> [String: Double] {
+        var dict = [String: Double]()
+        for category in response.splits?.categories ?? [] {
+            for stat in category.stats ?? [] {
+                if let name = stat.name, let value = stat.value {
+                    dict[name] = value
+                }
+            }
+        }
+        return dict
+    }
+
     // MARK: - Helpers
 
     private func secure(_ ref: String) -> String {
