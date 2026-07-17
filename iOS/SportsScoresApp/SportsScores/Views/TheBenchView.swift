@@ -27,6 +27,12 @@ struct TheBenchView: View {
                     icon: "person.3.sequence.fill",
                     destination: NFLDraftView()
                 )
+                rowLink(
+                    title: "Fantasy Cheatsheet",
+                    subtitle: "Draft board · sortable · custom scoring",
+                    icon: "list.clipboard",
+                    destination: FantasyCheatsheetView()
+                )
             }
 
             Section {
