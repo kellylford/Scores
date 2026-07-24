@@ -2,106 +2,157 @@
 //  FantasyCheatsheet.swift
 //  SportsScores
 //
-//  Fantasy football cheatsheet models. Pulls player identity/position from the
-//  ESPN site roster endpoint and per-player statistical splits from the Core
-//  API athlete-statistics endpoint, then computes a fantasy-points column from
-//  user-configurable ScoringSettings.
+//  Fantasy football cheatsheet models. Backed by ESPN's fantasy player universe
+//  (lm-api-reads.fantasy.espn.com …/players?view=kona_player_info), which — unlike
+//  the public site/core APIs — exposes real draft data: average draft position
+//  (ADP), auction values, PPR/Standard consensus ranks, and season projections.
 //
-//  ESPN does NOT expose an official fantasy-points value, ADP, or projections —
-//  only raw past-season / season-to-date stats. The cheatsheet therefore ranks
-//  by a stats-derived points value, not by consensus rank or ADP.
+//  The cheatsheet is a "good starting point" draft board, not a full draft app:
+//  it ranks by ESPN's published rank/ADP and shows projected points for the
+//  chosen scoring format. Team defenses (D/ST) come from the same feed, so a
+//  single struct represents both players and defenses.
 //
 
 import Foundation
 
 // MARK: - Fantasy Position
 
-/// Fantasy-relevant NFL positions. Defensive players are grouped under a
-/// synthetic "D/ST" row per team (derived, not from the roster) so the cheatsheet
-/// matches a standard fantasy draft board.
+/// Fantasy-relevant NFL positions, including a synthetic D/ST row per team.
 enum FantasyPosition: String, CaseIterable, Identifiable, Hashable {
-    case qb = "QB"
-    case rb = "RB"
-    case wr = "WR"
-    case te = "TE"
-    case k  = "K"
+    case qb  = "QB"
+    case rb  = "RB"
+    case wr  = "WR"
+    case te  = "TE"
+    case k   = "K"
     case dst = "D/ST"
 
     var id: String { rawValue }
-
-    /// Display label used in the filter chips and column headers.
     var displayName: String { rawValue }
 
-    /// Maps an ESPN roster position abbreviation to a fantasy position.
-    /// Returns nil for positions that aren't fantasy-relevant (OL, LS, etc.).
-    static func from(espnAbbr: String) -> FantasyPosition? {
-        switch espnAbbr.uppercased() {
-        case "QB": return .qb
-        case "RB": return .rb
-        case "FB": return .rb   // fullbacks pool with RBs
-        case "WR": return .wr
-        case "TE": return .te
-        case "K", "PK": return .k
-        default:  return nil
+    /// Maps ESPN's `defaultPositionId` to a fantasy position.
+    /// Returns nil for non-fantasy positions (IDL, LB, DB, P, etc.).
+    static func from(positionId: Int) -> FantasyPosition? {
+        switch positionId {
+        case 1:  return .qb
+        case 2:  return .rb
+        case 3:  return .wr
+        case 4:  return .te
+        case 5:  return .k
+        case 16: return .dst
+        default: return nil
         }
     }
 }
 
-// MARK: - Cheatsheet Player
+// MARK: - Scoring format
 
-/// A single row in the cheatsheet. Holds identity + the raw stat splits needed
-/// to compute fantasy points. The computed `fantasyPoints` value is derived
-/// from `stats` + `ScoringSettings` at view time so changing settings re-ranks
-/// instantly without refetching.
-struct CheatsheetPlayer: Identifiable, Hashable {
-    let id: String                 // ESPN athlete id
-    let fullName: String
-    let shortName: String
-    let teamAbbreviation: String
-    let teamId: String
-    let position: FantasyPosition
-    let jersey: String
-    let experienceYears: Int?
-    let isRookie: Bool
-    let headshotURL: URL?
-    /// Raw named stats keyed by ESPN stat name (e.g. "passingYards").
-    /// Populated lazily from the Core API statistics/0 endpoint.
-    var stats: [String: Double]
+/// The three common scoring formats. ESPN publishes separate PPR and Standard
+/// rank boards + projections; Half-PPR is derived from the PPR board with the
+/// reception value halved.
+enum ScoringPreset: String, CaseIterable, Identifiable, Codable {
+    case standard = "Standard"
+    case halfPPR  = "Half-PPR"
+    case ppr      = "PPR"
 
-    /// Cached fantasy-points total for the current scoring settings.
-    /// Nil until first computed.
-    var computedPoints: Double?
+    var id: String { rawValue }
+
+    /// Points awarded per reception in this format.
+    var pointsPerReception: Double {
+        switch self {
+        case .standard: return 0.0
+        case .halfPPR:  return 0.5
+        case .ppr:      return 1.0
+        }
+    }
 }
 
-// MARK: - Cheatsheet Team Defense (D/ST)
+// MARK: - Pro team map
 
-/// A derived D/ST row — one per NFL team. Defense stats come from the team
-/// statistics endpoint rather than an individual athlete.
-struct CheatsheetTeamDefense: Identifiable, Hashable {
-    /// Team id prefixed to avoid colliding with athlete ids.
-    let id: String
+/// ESPN `proTeamId` → team abbreviation. These ids are stable and match the
+/// team ids used elsewhere in ESPN's APIs. `0` denotes a free agent.
+enum NFLProTeams {
+    static let abbreviations: [Int: String] = [
+        1: "ATL",  2: "BUF",  3: "CHI",  4: "CIN",  5: "CLE",  6: "DAL",
+        7: "DEN",  8: "DET",  9: "GB",  10: "TEN", 11: "IND", 12: "KC",
+        13: "LV",  14: "LAR", 15: "MIA", 16: "MIN", 17: "NE",  18: "NO",
+        19: "NYG", 20: "NYJ", 21: "PHI", 22: "ARI", 23: "PIT", 24: "LAC",
+        25: "SF",  26: "SEA", 27: "TB",  28: "WSH", 29: "CAR", 30: "JAX",
+        33: "BAL", 34: "HOU"
+    ]
+
+    static func abbreviation(for id: Int) -> String { abbreviations[id] ?? "FA" }
+}
+
+// MARK: - Cheatsheet Player (also represents D/ST)
+
+/// A single row on the cheatsheet — an offensive player or a team defense.
+/// All the draft-relevant values come pre-computed from the fantasy feed, so
+/// switching scoring format only re-derives points/rank locally (no refetch).
+struct CheatsheetPlayer: Identifiable, Hashable {
+    let id: String                  // ESPN athlete id, or "dst-<proTeamId>"
+    let fullName: String            // players: name; defenses: "<Team> D/ST"
+    let position: FantasyPosition
+    let proTeamId: Int
     let teamAbbreviation: String
-    let teamDisplayName: String
-    let teamId: String
-    /// Raw team defensive stats (sacks, interceptions, fumbles recovered, etc.)
-    var stats: [String: Double]
-    var computedPoints: Double?
+    /// Injury designation ("QUESTIONABLE", "OUT", …). Nil when active/unknown.
+    let injuryStatus: String?
+    /// Average draft position. Nil when the player is effectively undrafted.
+    let adp: Double?
+    /// Average auction dollar value. Nil when none is published.
+    let auctionValue: Double?
+    let pprRank: Int?
+    let standardRank: Int?
+    /// ESPN's projected season fantasy points under PPR scoring (its default
+    /// `appliedTotal`). Nil when no projection exists.
+    let pprProjectedPoints: Double?
+    /// Projected receptions — used to convert the PPR projection to Half/Standard.
+    let projectedReceptions: Double
+    let headshotURL: URL?
 
-    init(teamId: String, abbreviation: String, displayName: String, stats: [String: Double] = [:]) {
-        self.id = "dst-\(teamId)"
-        self.teamId = teamId
-        self.teamAbbreviation = abbreviation
-        self.teamDisplayName = displayName
-        self.stats = stats
+    var isDST: Bool { position == .dst }
+
+    /// Display name. Team defenses already arrive as "<Team> D/ST" from the feed.
+    var displayName: String { fullName }
+
+    /// Published rank for the chosen format. Half-PPR reuses the PPR board
+    /// (ESPN publishes no separate Half-PPR ranks).
+    func rank(for preset: ScoringPreset) -> Int? {
+        preset == .standard ? standardRank : pprRank
+    }
+
+    /// Projected fantasy points for the chosen format, derived from the PPR
+    /// projection minus the reception delta.
+    func projectedPoints(for preset: ScoringPreset) -> Double? {
+        guard let ppr = pprProjectedPoints else { return nil }
+        let delta = projectedReceptions * (1.0 - preset.pointsPerReception)
+        return ppr - delta
+    }
+
+    /// One-decimal projected-points string, or "—" when no projection exists.
+    func projectedPointsString(for preset: ScoringPreset) -> String {
+        guard let pts = projectedPoints(for: preset) else { return "—" }
+        return String(format: "%.1f", pts)
+    }
+
+    /// ADP string ("—" when undrafted).
+    var adpString: String {
+        guard let adp, adp > 0, adp < 300 else { return "—" }
+        return String(format: "%.1f", adp)
+    }
+
+    /// Auction value string ("—" when none), e.g. "$42".
+    var auctionString: String {
+        guard let auctionValue, auctionValue > 0 else { return "—" }
+        return "$\(Int(auctionValue.rounded()))"
     }
 }
 
 // MARK: - Draft State
 
-/// Tracks whether a player has been drafted (taken) in the user's live draft.
+/// Tracks which players have been marked taken in the user's live draft.
 /// Persisted in UserDefaults keyed by player id so it survives app restarts.
 struct DraftState: Codable, Equatable {
-    /// Player ids (athlete id or "dst-<teamId>") that have been marked taken.
+    /// Player ids (athlete id or "dst-<proTeamId>") marked taken.
     var takenIds: Set<String> = []
 
     mutating func toggleTaken(_ id: String) {
@@ -114,33 +165,13 @@ struct DraftState: Codable, Equatable {
 
 // MARK: - Sort Category
 
-/// Columns the cheatsheet can be sorted by.
+/// Columns the cheatsheet can be sorted by. All map to draft data the fantasy
+/// feed provides directly.
 enum CheatsheetSort: String, CaseIterable, Identifiable {
-    case fantasyPoints = "Fantasy Points"
-    case passingYards = "Pass Yds"
-    case passingTDs = "Pass TD"
-    case rushingYards = "Rush Yds"
-    case rushingTDs = "Rush TD"
-    case receivingYards = "Rec Yds"
-    case receivingTDs = "Rec TD"
-    case receptions = "Receptions"
-    case totalTDs = "Total TD"
+    case rank            = "ESPN Rank"
+    case adp             = "ADP"
+    case auctionValue    = "Auction Value"
+    case projectedPoints = "Projected Points"
 
     var id: String { rawValue }
-
-    /// The ESPN stat name this sort maps to. Nil for the computed fantasy
-    /// points column (which is derived, not a raw stat).
-    var statKey: String? {
-        switch self {
-        case .fantasyPoints: return nil
-        case .passingYards: return "passingYards"
-        case .passingTDs: return "passingTouchdowns"
-        case .rushingYards: return "rushingYards"
-        case .rushingTDs: return "rushingTouchdowns"
-        case .receivingYards: return "receivingYards"
-        case .receivingTDs: return "receivingTouchdowns"
-        case .receptions: return "receptions"
-        case .totalTDs: return "totalTouchdowns"
-        }
-    }
 }

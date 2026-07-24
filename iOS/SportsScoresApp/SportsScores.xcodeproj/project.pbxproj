@@ -83,7 +83,6 @@
 		976CAEAE9184F2A78CC4262E /* GolfLeaderboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB0F1FC019A93C679C5BE1B0 /* GolfLeaderboardView.swift */; };
 		98B229A70D3A2325E2F1C4F9 /* FavoritesHubViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3D586C7F66434AAA1A123DD /* FavoritesHubViewModel.swift */; };
 		9D93010B54E6E1BDF2438669 /* Standings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F730ED25EF184C36C9EEC13 /* Standings.swift */; };
-		A1C53760F4BD82713A7D95CC /* FantasyScoringSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B46D107F3C0031B89E78C8B6 /* FantasyScoringSettings.swift */; };
 		A1F816EAE924F8B5EF769FEE /* Draft.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF309DE2E51E7352C8748699 /* Draft.swift */; };
 		A221F73D4E746FEADF29971B /* FavoriteTeamCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA292638C3237DA00CF63E2C /* FavoriteTeamCardView.swift */; };
 		A36114AE09C2ACD5B6CC1EDA /* WorldCupHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F50D5B47D984181FA4F50D2 /* WorldCupHubView.swift */; };
@@ -218,7 +217,6 @@
 		AD66FC8613BE001BF933296A /* PitchMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PitchMapView.swift; sourceTree = "<group>"; };
 		AE2796BCB4469DAC7E4FFE0E /* ESPNAPIResponseModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ESPNAPIResponseModels.swift; sourceTree = "<group>"; };
 		B24C7FC69C8CFAB2F651990B /* TeamHubModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamHubModels.swift; sourceTree = "<group>"; };
-		B46D107F3C0031B89E78C8B6 /* FantasyScoringSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FantasyScoringSettings.swift; sourceTree = "<group>"; };
 		BAB026ED5A307D8628CB7D79 /* PollsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PollsViewModel.swift; sourceTree = "<group>"; };
 		BC0CEB0D3A5E7470A9CA7DB9 /* WorldCupTeamView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCupTeamView.swift; sourceTree = "<group>"; };
 		BDDD36E16EA39ADB21259034 /* PollsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PollsView.swift; sourceTree = "<group>"; };
@@ -431,7 +429,6 @@
 				CF309DE2E51E7352C8748699 /* Draft.swift */,
 				AE2796BCB4469DAC7E4FFE0E /* ESPNAPIResponseModels.swift */,
 				5D03CE813404E0EBFD58F87D /* FantasyCheatsheet.swift */,
-				B46D107F3C0031B89E78C8B6 /* FantasyScoringSettings.swift */,
 				08AB11969A6D49301493C976 /* Game.swift */,
 				D9E24CEFF6C7E1D434DB90C5 /* GameDetails.swift */,
 				DACD1DD000CD9B7A9D3FBA99 /* Golf.swift */,
@@ -544,7 +541,6 @@
 				5CB5BC34BCD9CFE9AF28BFDB /* FantasyCheatsheetService.swift in Sources */,
 				25EDD6B8C34B2ACC2DA9BBAC /* FantasyCheatsheetView.swift in Sources */,
 				ABE86BFE5705A55FA2190FA3 /* FantasyCheatsheetViewModel.swift in Sources */,
-				A1C53760F4BD82713A7D95CC /* FantasyScoringSettings.swift in Sources */,
 				A221F73D4E746FEADF29971B /* FavoriteTeamCardView.swift in Sources */,
 				98B229A70D3A2325E2F1C4F9 /* FavoritesHubViewModel.swift in Sources */,
 				B7F18A6B46B91155BE6DE856 /* FieldAudioEngine.swift in Sources */,

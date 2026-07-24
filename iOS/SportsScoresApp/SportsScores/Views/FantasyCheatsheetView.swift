@@ -2,16 +2,13 @@
 //  FantasyCheatsheetView.swift
 //  SportsScores
 //
-//  NFL fantasy football cheatsheet. Lists fantasy-relevant players + team
-//  defenses, sortable by several stat categories, filterable by position,
-//  with a taken/available toggle for live drafts and user-configurable
-//  scoring settings that re-rank instantly.
+//  NFL fantasy draft cheatsheet. A "good starting point" board backed by ESPN's
+//  fantasy feed: players + team defenses ranked by ESPN's consensus rank, with
+//  ADP, auction $ values, and season projections. Filterable by position, with a
+//  taken/available toggle for live drafts and a scoring-format picker.
 //
 //  Three view modes (Quick List / Full List / Table) per DESIGN_PRINCIPLES.md.
 //  Table mode uses AccessibleDataTable for VoiceOver row/column navigation.
-//
-//  Data note: ranks by a stats-derived points value (last completed season),
-//  NOT by ADP or expert consensus — ESPN's public API exposes no ADP/projections.
 //
 
 import SwiftUI
@@ -20,12 +17,12 @@ struct FantasyCheatsheetView: View {
     @StateObject private var viewModel = FantasyCheatsheetViewModel()
     @State private var viewMode: ViewMode = .quickList
     @State private var showingSettings = false
-    @State private var selectedRow: CheatsheetRow?
+    @State private var selectedPlayer: CheatsheetPlayer?
 
     var body: some View {
         Group {
             if viewModel.isLoading {
-                ProgressView("Loading fantasy data…")
+                ProgressView("Loading draft board…")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let error = viewModel.errorMessage {
                 ErrorStateView(message: error) { Task { await viewModel.loadAll() } }
@@ -36,25 +33,16 @@ struct FantasyCheatsheetView: View {
         .navigationTitle("Fantasy Cheatsheet")
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $viewModel.searchQuery, prompt: "Search player or team")
-        .task { if viewModel.offensivePlayers.isEmpty { await viewModel.loadAll() } }
+        .task { if viewModel.players.isEmpty { await viewModel.loadAll() } }
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
-                Menu {
-                    Picker("Sort", selection: $viewModel.selectedSort) {
-                        ForEach(CheatsheetSort.allCases) { sort in
-                            Text(sort.rawValue).tag(sort)
-                        }
-                    }
-                } label: {
-                    Label("Sort", systemImage: "arrow.up.arrow.down")
-                }
-
+                optionsMenu
                 Button {
                     showingSettings = true
                 } label: {
                     Image(systemName: "slider.horizontal.3")
                 }
-                .accessibilityLabel("Scoring settings")
+                .accessibilityLabel("Cheatsheet settings")
 
                 ViewModeMenuButton(currentMode: $viewMode)
             }
@@ -64,8 +52,27 @@ struct FantasyCheatsheetView: View {
                 ScoringSettingsView(viewModel: viewModel)
             }
         }
-        .navigationDestination(item: $selectedRow) { row in
-            CheatsheetPlayerDetailView(row: row, viewModel: viewModel)
+        .navigationDestination(item: $selectedPlayer) { player in
+            CheatsheetPlayerDetailView(player: player, viewModel: viewModel)
+        }
+    }
+
+    // MARK: - Options menu (sort + format)
+
+    private var optionsMenu: some View {
+        Menu {
+            Picker("Sort by", selection: $viewModel.selectedSort) {
+                ForEach(CheatsheetSort.allCases) { sort in
+                    Text(sort.rawValue).tag(sort)
+                }
+            }
+            Picker("Scoring format", selection: $viewModel.preset) {
+                ForEach(ScoringPreset.allCases) { preset in
+                    Text(preset.rawValue).tag(preset)
+                }
+            }
+        } label: {
+            Label("Sort and format", systemImage: "arrow.up.arrow.down")
         }
     }
 
@@ -74,9 +81,9 @@ struct FantasyCheatsheetView: View {
     private var content: some View {
         VStack(spacing: 0) {
             positionFilterBar
-            seasonBanner
+            infoBanner
             Divider()
-            if viewModel.displayedRows.isEmpty {
+            if viewModel.displayedPlayers.isEmpty {
                 emptyState
             } else {
                 cheatsheetBody
@@ -127,13 +134,14 @@ struct FantasyCheatsheetView: View {
         .accessibilityValue(selected ? "on" : "off")
     }
 
-    // MARK: - Season banner
+    // MARK: - Info banner
 
-    private var seasonBanner: some View {
+    private var infoBanner: some View {
         HStack {
             Image(systemName: "info.circle")
                 .foregroundColor(.secondary)
-            Text("Based on \(viewModel.statsSeason) NFL regular-season stats")
+                .accessibilityHidden(true)
+            Text("\(String(viewModel.season)) rankings · \(viewModel.preset.rawValue) · ESPN ADP & projections")
                 .font(.caption)
                 .foregroundColor(.secondary)
             Spacer()
@@ -146,7 +154,7 @@ struct FantasyCheatsheetView: View {
         .padding(.vertical, 6)
     }
 
-    // MARK: - Body (view mode switch)
+    // MARK: - Body (view-mode switch)
 
     @ViewBuilder
     private var cheatsheetBody: some View {
@@ -161,117 +169,134 @@ struct FantasyCheatsheetView: View {
 
     private func listView(fullLabels: Bool) -> some View {
         List {
-            ForEach(viewModel.displayedRows) { row in
-                listRow(row, fullLabels: fullLabels)
-                    .swipeActions(edge: .trailing) {
-                        Button {
-                            viewModel.toggleTaken(row)
-                        } label: {
-                            Label(viewModel.isTaken(row) ? "Available" : "Taken",
-                                   systemImage: viewModel.isTaken(row) ? "checkmark.circle" : "checkmark.circle.fill")
-                        }
-                        .tint(viewModel.isTaken(row) ? .green : .gray)
-                    }
-                    .accessibilityAction(named: viewModel.isTaken(row) ? "Mark available" : "Mark taken") {
-                        viewModel.toggleTaken(row)
+            ForEach(viewModel.displayedPlayers) { player in
+                // Marking taken is exposed to VoiceOver as a single explicit
+                // rotor action. We intentionally do NOT use .swipeActions here:
+                // on a row that is itself a button with its own accessibility
+                // element, SwiftUI double-exposed the swipe action to VoiceOver
+                // (two identical "Mark Taken" entries). One accessibilityAction is
+                // unambiguous. Sighted quick-marking is available inside the
+                // player detail screen.
+                listRow(player, fullLabels: fullLabels)
+                    .accessibilityAction(named: viewModel.isTaken(player) ? "Mark Available" : "Mark Taken") {
+                        viewModel.toggleTaken(player)
                     }
             }
         }
         .listStyle(.plain)
-        .overlay {
-            if viewModel.isEnriching {
-                VStack {
-                    ProgressView("Enriching top players…")
-                        .padding(12)
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
-                    Spacer()
-                }
-                .padding(.top, 12)
-            }
-        }
     }
 
-    private func listRow(_ row: CheatsheetRow, fullLabels: Bool) -> some View {
+    private func listRow(_ player: CheatsheetPlayer, fullLabels: Bool) -> some View {
         Button {
-            selectedRow = row
+            selectedPlayer = player
         } label: {
             HStack(spacing: 12) {
-                // Taken indicator
-                Image(systemName: viewModel.isTaken(row) ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(viewModel.isTaken(row) ? .green : .secondary)
+                Image(systemName: viewModel.isTaken(player) ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(viewModel.isTaken(player) ? .green : .secondary)
+                    .accessibilityHidden(true)
+
+                Text(rankText(player))
+                    .font(.system(.subheadline, design: .monospaced))
+                    .foregroundColor(.secondary)
+                    .frame(minWidth: 34, alignment: .trailing)
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(row.displayName)
+                    Text(player.displayName)
                         .font(.subheadline.weight(.medium))
-                        .strikethrough(viewModel.isTaken(row), color: .secondary)
-                    Text("\(row.positionLabel) · \(row.teamAbbreviation)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .strikethrough(viewModel.isTaken(player), color: .secondary)
+                    HStack(spacing: 4) {
+                        Text("\(player.position.displayName) · \(player.teamAbbreviation)")
+                        if let injury = player.injuryStatus {
+                            Text("· \(injury)").foregroundColor(.orange)
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundColor(.secondary)
                 }
 
                 Spacer()
 
-                Text(row.pointsString(settings: viewModel.scoringSettings))
-                    .font(.system(.subheadline, design: .monospaced).bold())
-                    .foregroundColor(.accentColor)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(player.projectedPointsString(for: viewModel.preset))
+                        .font(.system(.subheadline, design: .monospaced).bold())
+                        .foregroundColor(.accentColor)
+                    Text("ADP \(player.adpString) · \(player.auctionString)")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                .accessibilityHidden(true)
             }
             .padding(.vertical, 4)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(listVoiceOverLabel(row, fullLabels: fullLabels))
+        .accessibilityLabel(listVoiceOverLabel(player, fullLabels: fullLabels))
     }
 
-    private func listVoiceOverLabel(_ row: CheatsheetRow, fullLabels: Bool) -> String {
-        let taken = viewModel.isTaken(row) ? ", taken" : ""
-        let pts = row.pointsString(settings: viewModel.scoringSettings)
-        let name = row.displayName
-        let pos = row.positionLabel
-        let team = row.teamAbbreviation
+    /// Leading rank index for the current format ("—" when unranked).
+    private func rankText(_ player: CheatsheetPlayer) -> String {
+        guard let rank = player.rank(for: viewModel.preset) else { return "—" }
+        return "#\(rank)"
+    }
+
+    private func listVoiceOverLabel(_ player: CheatsheetPlayer, fullLabels: Bool) -> String {
+        let taken = viewModel.isTaken(player) ? ", taken" : ""
+        let rank = player.rank(for: viewModel.preset).map(String.init) ?? "unranked"
+        let name = player.displayName
+        let pos = player.position.displayName
+        let team = player.teamAbbreviation
+        let proj = player.projectedPointsString(for: viewModel.preset)
+        let adp = player.adpString
+        let auction = player.auctionString
+        let injury = player.injuryStatus.map { ", \($0)" } ?? ""
 
         if fullLabels {
-            return "Player: \(name), Position: \(pos), Team: \(team), Points: \(pts)\(taken)"
+            let adpPhrase = adp == "—" ? "no ADP" : "ADP \(adp)"
+            let auctionPhrase = auction == "—" ? "no auction value" : "auction \(auction)"
+            let projPhrase = proj == "—" ? "no projection" : "projected \(proj) points"
+            return "Rank \(rank), Player: \(name), Position: \(pos), Team: \(team)\(injury), \(adpPhrase), \(auctionPhrase), \(projPhrase)\(taken)"
         } else {
-            return "\(name) \(pos) \(team) — \(pts)\(taken)"
+            return "#\(rank) \(name) \(pos) \(team)\(injury) — \(proj) projected, ADP \(adp), \(auction)\(taken)"
         }
     }
 
     // MARK: - Table mode
 
     private var tableView: some View {
-        let rows = viewModel.displayedRows
-        let headers = ["Rank", "Player", "Pos", "Team", "Pts"]
+        let rows = viewModel.displayedPlayers
+        let headers = ["Rank", "Player", "Pos", "Team", "ADP", "$", "Proj"]
 
         return ScrollView {
             VStack(spacing: 0) {
-                // Column header row
                 HStack(spacing: 0) {
-                    Text("Rank").frame(width: 44, alignment: .trailing)
-                    Text("Player").frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 12)
-                    Text("Pos").frame(width: 44, alignment: .center)
-                    Text("Team").frame(width: 50, alignment: .leading)
-                    Text("Pts").frame(width: 56, alignment: .trailing)
+                    Text("Rank").frame(width: 46, alignment: .trailing)
+                    Text("Player").frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 10)
+                    Text("Pos").frame(width: 40, alignment: .center)
+                    Text("Tm").frame(width: 40, alignment: .leading)
+                    Text("ADP").frame(width: 46, alignment: .trailing)
+                    Text("$").frame(width: 40, alignment: .trailing)
+                    Text("Proj").frame(width: 52, alignment: .trailing)
                 }
                 .font(.caption.bold())
                 .foregroundColor(.secondary)
                 .padding(.vertical, 6)
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 12)
                 .background(Color.secondary.opacity(0.10))
 
                 Divider()
 
                 VStack(spacing: 0) {
-                    ForEach(Array(rows.enumerated()), id: \.element.id) { idx, row in
+                    ForEach(Array(rows.enumerated()), id: \.element.id) { idx, player in
                         Button {
-                            selectedRow = row
+                            selectedPlayer = player
                         } label: {
-                            tableEntryRow(row, rank: idx + 1)
+                            tableEntryRow(player)
                         }
                         .buttonStyle(.plain)
                         if idx < rows.count - 1 {
-                            Divider().padding(.leading, 16)
+                            Divider().padding(.leading, 12)
                         }
                     }
                 }
@@ -279,8 +304,14 @@ struct FantasyCheatsheetView: View {
                 .overlay(
                     AccessibleDataTable(
                         headers: headers,
-                        rows: rows.enumerated().map { i, row in
-                            [String(i + 1), row.displayName, row.positionLabel, row.teamAbbreviation, row.pointsString(settings: viewModel.scoringSettings)]
+                        rows: rows.map { p in
+                            [rankText(p),
+                             p.displayName,
+                             p.position.displayName,
+                             p.teamAbbreviation,
+                             p.adpString,
+                             p.auctionString,
+                             p.projectedPointsString(for: viewModel.preset)]
                         }
                     )
                     .allowsHitTesting(false)
@@ -289,38 +320,47 @@ struct FantasyCheatsheetView: View {
         }
     }
 
-    private func tableEntryRow(_ row: CheatsheetRow, rank: Int) -> some View {
+    private func tableEntryRow(_ player: CheatsheetPlayer) -> some View {
         HStack(spacing: 0) {
-            Text("\(rank)")
+            Text(rankText(player))
                 .font(.system(.body, design: .monospaced))
-                .frame(width: 44, alignment: .trailing)
+                .frame(width: 46, alignment: .trailing)
 
-            Text(row.displayName)
+            Text(player.displayName)
                 .font(.body)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.leading, 12)
-                .strikethrough(viewModel.isTaken(row), color: .secondary)
+                .padding(.leading, 10)
+                .strikethrough(viewModel.isTaken(player), color: .secondary)
 
-            Text(row.positionLabel)
+            Text(player.position.displayName)
                 .font(.caption)
-                .frame(width: 44, alignment: .center)
+                .frame(width: 40, alignment: .center)
                 .foregroundColor(.secondary)
 
-            Text(row.teamAbbreviation)
+            Text(player.teamAbbreviation)
                 .font(.caption)
-                .frame(width: 50, alignment: .leading)
+                .frame(width: 40, alignment: .leading)
                 .foregroundColor(.secondary)
 
-            Text(row.pointsString(settings: viewModel.scoringSettings))
+            Text(player.adpString)
+                .font(.system(.caption, design: .monospaced))
+                .frame(width: 46, alignment: .trailing)
+                .foregroundColor(.secondary)
+
+            Text(player.auctionString)
+                .font(.system(.caption, design: .monospaced))
+                .frame(width: 40, alignment: .trailing)
+                .foregroundColor(.secondary)
+
+            Text(player.projectedPointsString(for: viewModel.preset))
                 .font(.system(.body, design: .monospaced).bold())
-                .frame(width: 56, alignment: .trailing)
+                .frame(width: 52, alignment: .trailing)
                 .foregroundColor(.accentColor)
         }
         .padding(.vertical, 8)
-        .padding(.horizontal, 16)
-        .background(rank % 2 == 0 ? Color.clear : Color.secondary.opacity(0.04))
-        .accessibilityHidden(true)  // exposed via AccessibleDataTable overlay
+        .padding(.horizontal, 12)
+        .accessibilityHidden(true)   // exposed via AccessibleDataTable overlay
     }
 
     // MARK: - Empty state

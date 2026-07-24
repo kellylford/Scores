@@ -2,430 +2,198 @@
 //  FantasyCheatsheetService.swift
 //  SportsScores
 //
-//  Fetches the player universe + per-player stats that back the fantasy
-//  cheatsheet. Built on the same ESPN endpoints the rest of the app uses:
-//    • site/v2  …/nfl/teams  → all 32 team ids
-//    • site/v2  …/teams/{id}/roster → per-team players (identity + position)
-//    • core/v2  …/seasons/{y}/types/2/athletes/{id}/statistics/0 → raw splits
-//    • core/v2  …/seasons/{y}/types/2/leaders → top-N boards (for quick fills)
-//  ESPN does NOT expose fantasy points, ADP, or projections — only raw past
-//  stats. Points are computed client-side from FantasyScoringSettings.
+//  Loads the fantasy draft board from ESPN's fantasy player universe:
+//    lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/{year}/players
+//      ?view=kona_player_info
+//
+//  Unlike the public site/core ESPN APIs (raw stats only), this feed carries the
+//  draft data the cheatsheet needs: ADP, auction values, PPR/Standard consensus
+//  ranks, and season projections — all in ONE response.
+//
+//  Quirks handled here:
+//   • The `X-Fantasy-Filter` header must be PRESENT to get the full pool, but
+//     ESPN ignores its `limit`/`sort` fields — so we always receive every player
+//     (~11.5k) and filter + sort client-side.
+//   • The payload is large (~38 MB decompressed). We decode with a custom
+//     initializer that pulls only the projected-points scalars out of each
+//     player's `stats` array and immediately discards the heavy stat dictionaries,
+//     keeping peak memory low. Decoding runs off the main actor.
 //
 
 import Foundation
 
-/// Lightweight team record used to seed the player pool.
-struct NFLTeamInfo: Identifiable, Hashable, Codable {
-    let id: String
-    let abbreviation: String
-    let displayName: String
-}
-
-/// A resolved athlete from the Core API (position, name, headshot).
-struct CoreAthleteDetail: Decodable {
-    let id: String?
-    let fullName: String?
-    let shortName: String?
-    let jersey: String?
-    let experience: Experience?
-    let status: Status?
-    let position: Position?
-    let team: Reference?
-
-    struct Experience: Decodable { let years: Int? }
-    struct Status: Decodable {
-        let id: String?
-        let name: String?
-        let type: String?
-    }
-    struct Position: Decodable {
-        let id: String?
-        let name: String?
-        let abbreviation: String?
-    }
-    struct Reference: Decodable {
-        let ref: String?
-        enum CodingKeys: String, CodingKey { case ref = "$ref" }
-    }
-}
-
-/// The Core API athlete-statistics response: a single "splits" object holding
-/// named categories, each with named stats. We flatten to `[String: Double]`.
-struct CoreAthleteStatistics: Decodable {
-    let splits: Splits?
-
-    struct Splits: Decodable {
-        let categories: [Category]?
-        struct Category: Decodable {
-            let name: String?
-            let stats: [Stat]?
-            struct Stat: Decodable {
-                let name: String?
-                let value: Double?
-            }
-        }
-    }
-
-    /// Flattened stat-name → value dictionary.
-    var flatStats: [String: Double] {
-        guard let categories = splits?.categories else { return [:] }
-        var dict = [String: Double]()
-        for category in categories {
-            for stat in category.stats ?? [] {
-                if let name = stat.name, let value = stat.value {
-                    dict[name] = value
-                }
-            }
-        }
-        return dict
-    }
-}
-
-/// The site API team roster response (grouped by offense/defense/special teams).
-struct GroupedRosterResponse: Decodable {
-    let athletes: [PositionGroup]?
-    let team: TeamRef?
-
-    struct PositionGroup: Decodable {
-        let position: String?
-        let items: [RosterAthlete]?
-    }
-
-    struct RosterAthlete: Decodable {
-        let id: String
-        let fullName: String?
-        let shortName: String?
-        let jersey: String?
-        let position: Position?
-        let experience: Experience?
-        let status: Status?
-        let headshot: Headshot?
-
-        struct Position: Decodable {
-            let abbreviation: String?
-        }
-        struct Experience: Decodable { let years: Int? }
-        struct Status: Decodable {
-            let name: String?
-            let type: String?
-        }
-        struct Headshot: Decodable { let href: String? }
-    }
-
-    struct TeamRef: Decodable {
-        let id: String?
-        let abbreviation: String?
-        let displayName: String?
-    }
-}
-
-/// The site API /teams list response (nested sports > leagues > teams).
-struct NFLTeamsListResponse: Decodable {
-    let sports: [Sport]?
-    struct Sport: Decodable {
-        let leagues: [League]?
-        struct League: Decodable {
-            let teams: [TeamEntry]?
-            struct TeamEntry: Decodable {
-                let team: Team?
-                struct Team: Decodable {
-                    let id: String
-                    let abbreviation: String?
-                    let displayName: String?
-                }
-            }
-        }
-    }
-
-    var allTeams: [NFLTeamInfo] {
-        (sports ?? []).flatMap { sport in
-            (sport.leagues ?? []).flatMap { league in
-                (league.teams ?? []).compactMap { entry -> NFLTeamInfo? in
-                    guard let t = entry.team else { return nil }
-                    return NFLTeamInfo(
-                        id: t.id,
-                        abbreviation: t.abbreviation ?? "",
-                        displayName: t.displayName ?? t.id
-                    )
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Service
-
-/// Reads-only API layer for the fantasy cheatsheet. Uses ESPNAPIService's
-/// session via the shared instance's helpers where possible, but keeps its
-/// own decode models so it doesn't bloat the core response types.
 final class FantasyCheatsheetService {
     static let shared = FantasyCheatsheetService()
 
-    private let siteBase = "https://site.api.espn.com/apis/site/v2/sports"
-    private let coreBase = "https://sports.core.api.espn.com/v2/sports"
+    private let base = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons"
+    /// Only players ranked at or above this position are kept — a generous
+    /// draftable pool (covers deep leagues) while discarding ~10k irrelevant ids.
+    private let maxRank = 500
+
     private let session: URLSession
 
     private init() {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 30
-        config.timeoutIntervalForResource = 120
+        config.timeoutIntervalForRequest = 60
+        config.timeoutIntervalForResource = 180
         self.session = URLSession(configuration: config)
     }
 
-    // MARK: - NFL season resolution
+    // MARK: - Season resolution
 
-    /// Returns the most recent completed NFL regular season year. In
-    /// Feb–June the season is the prior calendar year; July+ uses the same
-    /// prior year until the new season starts in September.
-    func statsSeason() -> Int {
-        let cal = Calendar.current
-        let now = Date()
-        let year = cal.component(.year, from: now)
-        let month = cal.component(.month, from: now)
-        // NFL season N spans Sept(year)–Feb(year+1). Stats for "last season"
-        // are complete by ~mid-February. Before the new season starts (month < 9)
-        // use year-1; from September onward use current year (the new season).
-        return month < 9 ? year - 1 : year
+    /// The season whose draft data to load. ESPN publishes the upcoming season's
+    /// ADP/auction/ranks in late winter/spring; once a season completes those
+    /// pre-draft values are scrubbed. We target the current calendar year and
+    /// rely on the empty-feed fallback in `fetchCheatsheet` for the deep offseason.
+    func upcomingSeason() -> Int {
+        Calendar.current.component(.year, from: Date())
     }
 
-    // MARK: - Teams
+    // MARK: - Public load
 
-    /// Fetches all 32 NFL teams in one call.
-    func fetchAllNFLTeams() async throws -> [NFLTeamInfo] {
-        let urlString = "\(siteBase)/football/nfl/teams?limit=40"
+    /// Loads and returns the draft board (players + D/ST) sorted by ESPN's PPR
+    /// rank. If the requested season carries almost no draft data (deep offseason
+    /// before ESPN publishes), retries the prior season.
+    func fetchCheatsheet(season: Int) async throws -> [CheatsheetPlayer] {
+        let rows = try await load(season: season)
+        if rows.count < 50 {
+            // Feed not populated for this season yet — fall back a year.
+            let fallback = try await load(season: season - 1)
+            if fallback.count > rows.count { return fallback }
+        }
+        return rows
+    }
+
+    private func load(season: Int) async throws -> [CheatsheetPlayer] {
+        let urlString = "\(base)/\(season)/players?view=kona_player_info&scoringPeriodId=0"
         guard let url = URL(string: urlString) else { throw APIError.invalidURL }
-        let (data, response) = try await session.data(from: url)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-            throw APIError.invalidResponse
-        }
-        let resp = try JSONDecoder().decode(NFLTeamsListResponse.self, from: data)
-        return resp.allTeams.sorted { $0.abbreviation < $1.abbreviation }
-    }
 
-    // MARK: - Roster (player universe)
+        var request = URLRequest(url: url)
+        // Header must be present to receive the full player pool. The filter body
+        // itself is ignored by ESPN, so a minimal value is fine.
+        request.setValue(#"{"players":{"limit":12000}}"#, forHTTPHeaderField: "X-Fantasy-Filter")
 
-    /// Fetches a single team's roster and returns fantasy-relevant players
-    /// (QB/RB/WR/TE/K). Defensive players are excluded — D/ST is derived
-    /// separately from team statistics.
-    func fetchRoster(teamId: String) async throws -> [CheatsheetPlayer] {
-        let urlString = "\(siteBase)/football/nfl/teams/\(teamId)/roster"
-        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
-        let (data, response) = try await session.data(from: url)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-            throw APIError.invalidResponse
-        }
-        let resp = try JSONDecoder().decode(GroupedRosterResponse.self, from: data)
-        let teamAbbr = resp.team?.abbreviation ?? ""
-        var players: [CheatsheetPlayer] = []
-        for group in resp.athletes ?? [] {
-            for a in group.items ?? [] {
-                guard let posAbbr = a.position?.abbreviation,
-                      let fantasyPos = FantasyPosition.from(espnAbbr: posAbbr),
-                      a.status?.type != "inactive" || a.status?.name == "Active" else { continue }
-                // Skip inactive/IR players from the draftable pool.
-                if let statusType = a.status?.type?.lowercased(),
-                   statusType == "inactive" || statusType == "ir" || statusType == "pup" || statusType == "suspended" {
-                    continue
-                }
-                players.append(CheatsheetPlayer(
-                    id: a.id,
-                    fullName: a.fullName ?? "Unknown",
-                    shortName: a.shortName ?? a.fullName ?? "Unknown",
-                    teamAbbreviation: teamAbbr,
-                    teamId: teamId,
-                    position: fantasyPos,
-                    jersey: a.jersey ?? "–",
-                    experienceYears: a.experience?.years,
-                    isRookie: (a.experience?.years ?? 1) == 0,
-                    headshotURL: a.headshot?.href.flatMap { URL(string: $0) },
-                    stats: [:]
-                ))
-            }
-        }
-        return players
-    }
-
-    // MARK: - Per-player statistics (Core API)
-
-    /// Fetches the raw stat splits for a single athlete and returns the
-    /// flattened name→value dictionary. Returns empty on failure so a single
-    /// player error doesn't break the whole pool.
-    func fetchAthleteStats(athleteId: String, season: Int) async -> [String: Double] {
-        // Regular season = type 2. Try that first, fall back to type 3 (postseason).
-        for seasonType in [2, 3] {
-            let urlString = "\(coreBase)/football/leagues/nfl/seasons/\(season)/types/\(seasonType)/athletes/\(athleteId)/statistics/0"
-            guard let url = URL(string: urlString) else { continue }
-            do {
-                let (data, response) = try await session.data(from: url)
-                guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { continue }
-                let stats = try JSONDecoder().decode(CoreAthleteStatistics.self, from: data)
-                let flat = stats.flatStats
-                if !flat.isEmpty { return flat }
-            } catch {
-                continue
-            }
-        }
-        return [:]
-    }
-
-    // MARK: - Leaders (quick top-N fill)
-
-    /// A leader entry resolved with athlete name + team abbreviation + id.
-    struct ResolvedLeader {
-        let athleteId: String
-        let fullName: String
-        let teamAbbreviation: String
-        let statName: String
-        let statValue: Double
-    }
-
-    /// Fetches the league leaders board and resolves athlete/team refs.
-    /// Used to seed the top of the cheatsheet with players who have real stats
-    /// before the full roster pool is enriched.
-    func fetchLeaders(season: Int, limit: Int = 40) async throws -> [ResolvedLeader] {
-        let urlString = "\(coreBase)/football/leagues/nfl/seasons/\(season)/types/2/leaders?limit=\(limit)"
-        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
-        let (data, response) = try await session.data(from: url)
+        let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             throw APIError.invalidResponse
         }
 
-        // Decode the same shape ESPNAPIService already understands.
-        struct LeadersResponse: Decodable {
-            let categories: [Category]?
-            struct Category: Decodable {
-                let name: String?
-                let leaders: [Leader]?
-                struct Leader: Decodable {
-                    let value: Double?
-                    let athlete: Ref?
-                    let team: Ref?
-                    struct Ref: Decodable {
-                        let ref: String?
-                        enum CodingKeys: String, CodingKey { case ref = "$ref" }
-                    }
-                }
-            }
-        }
-
-        let resp = try JSONDecoder().decode(LeadersResponse.self, from: data)
-
-        // Collect refs to resolve in parallel.
-        var athleteRefs = Set<String>()
-        var teamRefs = Set<String>()
-        for cat in resp.categories ?? [] {
-            for leader in cat.leaders ?? [] {
-                if let r = leader.athlete?.ref { athleteRefs.insert(secure(r)) }
-                if let r = leader.team?.ref { teamRefs.insert(secure(r)) }
-            }
-        }
-
-        // Freeze into immutable constants before concurrent capture (Swift 6).
-        let frozenAthleteRefs = athleteRefs
-        let frozenTeamRefs = teamRefs
-        async let athletesTask = resolveRefs(frozenAthleteRefs, as: CoreAthleteDetail.self)
-        async let teamsTask = resolveRefs(frozenTeamRefs, as: CoreTeamInfo.self)
-        let (athletes, teams) = await (athletesTask, teamsTask)
-
-        var resolved: [ResolvedLeader] = []
-        for cat in resp.categories ?? [] {
-            guard let statName = cat.name else { continue }
-            for leader in cat.leaders ?? [] {
-                guard let value = leader.value,
-                      let athleteRef = leader.athlete?.ref,
-                      let athlete = athletes[secure(athleteRef)],
-                      let aid = athlete.id ?? athleteIdFromRef(athleteRef) else { continue }
-                let teamAbbr = leader.team?.ref.flatMap { teams[secure($0)]?.abbreviation } ?? ""
-                resolved.append(ResolvedLeader(
-                    athleteId: aid,
-                    fullName: athlete.fullName ?? "Unknown",
-                    teamAbbreviation: teamAbbr,
-                    statName: statName,
-                    statValue: value
-                ))
-            }
-        }
-        return resolved
+        // Decode + map off the main actor (this call is already non-isolated).
+        let raw = try JSONDecoder().decode([RawFantasyPlayer].self, from: data)
+        let mapped = raw.compactMap { Self.map($0, maxRank: maxRank) }
+        return mapped.sorted { ($0.pprRank ?? Int.max) < ($1.pprRank ?? Int.max) }
     }
 
-    // MARK: - Team Defense Stats (D/ST)
+    // MARK: - Mapping
 
-    /// Fetches a team's defensive/special-teams stats flattened to the
-    /// `[String: Double]` shape the points engine expects. Pulls from the same
-    /// Core API team-statistics endpoint used by Team Hub's stat rankings.
-    /// Returns empty on failure so a single miss doesn't break the D/ST column.
-    func fetchTeamDefenseStats(teamId: String, season: Int) async -> [String: Double] {
-        // Try regular season (type 2), then postseason (3).
-        for seasonType in [2, 3] {
-            let urlString = "\(coreBase)/football/leagues/nfl/seasons/\(season)/types/\(seasonType)/teams/\(teamId)/statistics"
-            guard let url = URL(string: urlString) else { continue }
-            do {
-                let (data, response) = try await session.data(from: url)
-                guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { continue }
-                let stats = try JSONDecoder().decode(CoreTeamStatisticsResponse.self, from: data)
-                let flat = flattenedTeamStats(stats)
-                if !flat.isEmpty { return flat }
-            } catch { continue }
+    private static func map(_ raw: RawFantasyPlayer, maxRank: Int) -> CheatsheetPlayer? {
+        guard let posId = raw.defaultPositionId,
+              let position = FantasyPosition.from(positionId: posId) else { return nil }
+
+        let pprRank = raw.rank(for: "PPR")
+        let stdRank = raw.rank(for: "STANDARD")
+        // Keep only players inside the draftable pool.
+        guard let best = [pprRank, stdRank].compactMap({ $0 }).min(), best <= maxRank else {
+            return nil
         }
-        return [:]
+
+        let proTeamId = raw.proTeamId ?? 0
+        let isDST = position == .dst
+        let id = isDST ? "dst-\(proTeamId)" : String(raw.id)
+        let headshot = isDST ? nil
+            : URL(string: "https://a.espncdn.com/i/headshots/nfl/players/full/\(raw.id).png")
+
+        return CheatsheetPlayer(
+            id: id,
+            fullName: raw.fullName ?? "Unknown",
+            position: position,
+            proTeamId: proTeamId,
+            teamAbbreviation: NFLProTeams.abbreviation(for: proTeamId),
+            injuryStatus: normalizedInjury(raw.injuryStatus),
+            adp: raw.ownership?.averageDraftPosition,
+            auctionValue: raw.ownership?.auctionValueAverage,
+            pprRank: pprRank,
+            standardRank: stdRank,
+            pprProjectedPoints: raw.pprProjectedPoints,
+            projectedReceptions: raw.projectedReceptions,
+            headshotURL: headshot
+        )
     }
 
-    /// Flattens a CoreTeamStatisticsResponse (splits.categories[].stats[])
-    /// to a name→value dict, mirroring the athlete-stats shape.
-    private func flattenedTeamStats(_ response: CoreTeamStatisticsResponse) -> [String: Double] {
-        var dict = [String: Double]()
-        for category in response.splits?.categories ?? [] {
-            for stat in category.stats ?? [] {
-                if let name = stat.name, let value = stat.value {
-                    dict[name] = value
-                }
-            }
-        }
-        return dict
-    }
-
-    // MARK: - Helpers
-
-    private func secure(_ ref: String) -> String {
-        ref.hasPrefix("http://") ? "https://" + ref.dropFirst(7) : ref
-    }
-
-    /// Extract the trailing numeric athlete id from a Core API $ref URL.
-    private func athleteIdFromRef(_ ref: String) -> String? {
-        var trimmed = ref
-        if let q = trimmed.firstIndex(of: "?") { trimmed = String(trimmed[..<q]) }
-        return trimmed.split(separator: "/").last.map(String.init)
-    }
-
-    private func resolveRefs<T: Decodable & Sendable>(
-        _ refs: Set<String>, as type: T.Type
-    ) async -> [String: T] {
-        var cache = [String: T]()
-        await withTaskGroup(of: (String, T?).self) { group in
-            for ref in refs {
-                group.addTask {
-                    guard let url = URL(string: ref) else { return (ref, nil) }
-                    do {
-                        let (data, response) = try await self.session.data(from: url)
-                        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                            return (ref, nil)
-                        }
-                        return (ref, try? JSONDecoder().decode(T.self, from: data))
-                    } catch {
-                        return (ref, nil)
-                    }
-                }
-            }
-            for await (ref, value) in group {
-                if let value { cache[ref] = value }
-            }
-        }
-        return cache
+    /// ESPN reports healthy players as "ACTIVE"; surface only real designations.
+    private static func normalizedInjury(_ raw: String?) -> String? {
+        guard let raw, !raw.isEmpty, raw.uppercased() != "ACTIVE" else { return nil }
+        // Convert "INJURY_RESERVE" → "Injury Reserve", "DAY_TO_DAY" → "Day To Day".
+        return raw.split(separator: "_")
+            .map { $0.prefix(1).uppercased() + $0.dropFirst().lowercased() }
+            .joined(separator: " ")
     }
 }
 
-/// Minimal team info resolved from the Core API team $ref.
-private struct CoreTeamInfo: Decodable {
-    let abbreviation: String?
-    let displayName: String?
+// MARK: - Raw decode DTOs
+
+/// Minimal decodable mirror of a fantasy-feed player. The custom initializer
+/// extracts the projected-points scalars from `stats` and discards the heavy
+/// per-player stat dictionaries so they are never retained in bulk.
+private struct RawFantasyPlayer: Decodable {
+    let id: Int
+    let fullName: String?
+    let defaultPositionId: Int?
+    let proTeamId: Int?
+    let injuryStatus: String?
+    let ownership: Ownership?
+    let draftRanksByRankType: [String: DraftRank]?
+
+    /// ESPN's projected season points under PPR scoring (its `appliedTotal`).
+    let pprProjectedPoints: Double?
+    /// Projected receptions (stat id "53"), used to derive Half/Standard points.
+    let projectedReceptions: Double
+
+    struct Ownership: Decodable {
+        let averageDraftPosition: Double?
+        let auctionValueAverage: Double?
+    }
+    struct DraftRank: Decodable {
+        let rank: Int?
+    }
+    private struct StatSet: Decodable {
+        let statSourceId: Int?
+        let statSplitTypeId: Int?
+        let appliedTotal: Double?
+        let stats: [String: Double]?
+    }
+
+    func rank(for type: String) -> Int? {
+        guard let r = draftRanksByRankType?[type]?.rank, r > 0 else { return nil }
+        return r
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, fullName, defaultPositionId, proTeamId, injuryStatus, ownership, draftRanksByRankType, stats
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int.self, forKey: .id)
+        fullName = try c.decodeIfPresent(String.self, forKey: .fullName)
+        defaultPositionId = try c.decodeIfPresent(Int.self, forKey: .defaultPositionId)
+        proTeamId = try c.decodeIfPresent(Int.self, forKey: .proTeamId)
+        injuryStatus = try c.decodeIfPresent(String.self, forKey: .injuryStatus)
+        ownership = try c.decodeIfPresent(Ownership.self, forKey: .ownership)
+        draftRanksByRankType = try c.decodeIfPresent([String: DraftRank].self, forKey: .draftRanksByRankType)
+
+        // Pull projected points + receptions from the projected season stat set
+        // (statSourceId 1, statSplitTypeId 0). The decoded array is a local and
+        // is released as soon as this initializer returns.
+        var proj: Double?
+        var rec: Double = 0
+        if let sets = try? c.decodeIfPresent([StatSet].self, forKey: .stats) {
+            for set in sets where set.statSourceId == 1 && set.statSplitTypeId == 0 {
+                if proj == nil, let total = set.appliedTotal { proj = total }
+                if let r = set.stats?["53"], r > 0 { rec = r }
+            }
+        }
+        pprProjectedPoints = proj
+        projectedReceptions = rec
+    }
 }
