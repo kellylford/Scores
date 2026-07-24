@@ -139,27 +139,8 @@ struct SportSelectionView: View {
                             .accessibilityLabel(cflAccessibilityLabel)
                         }
 
-                        // 2026 FIFA World Cup hub
-                        if appSettings.worldCupHubEnabled {
-                            NavigationLink(destination: WorldCupHubView(sport: .worldCup)) {
-                                HStack(spacing: 12) {
-                                    Image(systemName: Sport.worldCup.systemImage)
-                                        .font(.title2)
-                                        .foregroundColor(.accentColor)
-                                        .frame(width: 36)
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text("2026 FIFA World Cup")
-                                            .font(.headline)
-                                        Text("Jun 11 – Jul 19 · USA, Canada, Mexico")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-                                    Spacer()
-                                }
-                                .padding(.vertical, 4)
-                            }
-                            .accessibilityLabel("2026 FIFA World Cup hub — Scores, Groups, Bracket, and News")
-                        }
+                        // 2026 FIFA World Cup has concluded — its hub now lives at
+                        // the bottom of The Bench (see TheBenchView) as an archive.
 
                         // 2027 FIFA Women's World Cup hub
                         if appSettings.worldCupWomensHubEnabled {

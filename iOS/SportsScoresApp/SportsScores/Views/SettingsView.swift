@@ -185,14 +185,14 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("2026 FIFA World Cup")
                             .font(.headline)
-                        Text("Jun 11 – Jul 19, 2026")
+                        Text("Concluded · archived in The Bench")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
                 }
             }
             .accessibilityLabel("2026 FIFA World Cup hub")
-            .accessibilityHint(appSettings.worldCupHubEnabled ? "On. Tap to hide from the home page." : "Off. Tap to show on the home page.")
+            .accessibilityHint(appSettings.worldCupHubEnabled ? "On. Tap to hide from The Bench." : "Off. Tap to show in The Bench.")
 
             Toggle(isOn: $appSettings.worldCupWomensHubEnabled) {
                 HStack(spacing: 12) {

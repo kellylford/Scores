@@ -9,6 +9,8 @@
 import SwiftUI
 
 struct TheBenchView: View {
+    @EnvironmentObject private var appSettings: AppSettings
+
     var body: some View {
         List {
             Section {
@@ -120,6 +122,22 @@ struct TheBenchView: View {
                 )
             } header: {
                 Text("Auto Racing")
+            }
+
+            // The 2026 World Cup has concluded; its hub lives here as an archive
+            // rather than on the Scores home page. The existing Settings toggle
+            // still hides/shows it.
+            if appSettings.worldCupHubEnabled {
+                Section {
+                    rowLink(
+                        title: "2026 FIFA World Cup",
+                        subtitle: "Final bracket, results & standings · Jun 11 – Jul 19",
+                        icon: Sport.worldCup.systemImage,
+                        destination: WorldCupHubView(sport: .worldCup)
+                    )
+                } header: {
+                    Text("Archive")
+                }
             }
         }
         .navigationTitle("The Bench")
