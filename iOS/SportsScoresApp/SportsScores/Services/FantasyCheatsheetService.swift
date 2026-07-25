@@ -114,7 +114,8 @@ final class FantasyCheatsheetService {
             auctionValue: raw.ownership?.auctionValueAverage,
             pprRank: pprRank,
             standardRank: stdRank,
-            pprProjectedPoints: raw.pprProjectedPoints,
+            // Kickers and D/ST have no usable ESPN projection, so we don't score them.
+            projectedPointsBase: (position == .k || position == .dst) ? nil : raw.projectedPointsBase,
             projectedReceptions: raw.projectedReceptions,
             headshotURL: headshot
         )
@@ -144,9 +145,11 @@ private struct RawFantasyPlayer: Decodable {
     let ownership: Ownership?
     let draftRanksByRankType: [String: DraftRank]?
 
-    /// ESPN's projected season points under PPR scoring (its `appliedTotal`).
-    let pprProjectedPoints: Double?
-    /// Projected receptions (stat id "53"), used to derive Half/Standard points.
+    /// Non-reception projected points, scored from ESPN's raw projected stat
+    /// line. (ESPN's own `appliedTotal` is corrupted for many players — kickers
+    /// read ~23,000, some QBs/WRs 2–30× too high — so we never use it.)
+    let projectedPointsBase: Double?
+    /// Projected receptions (stat id "53"), valued per format by the caller.
     let projectedReceptions: Double
 
     struct Ownership: Decodable {
@@ -159,7 +162,7 @@ private struct RawFantasyPlayer: Decodable {
     private struct StatSet: Decodable {
         let statSourceId: Int?
         let statSplitTypeId: Int?
-        let appliedTotal: Double?
+        let scoringPeriodId: Int?
         let stats: [String: Double]?
     }
 
@@ -182,18 +185,31 @@ private struct RawFantasyPlayer: Decodable {
         ownership = try c.decodeIfPresent(Ownership.self, forKey: .ownership)
         draftRanksByRankType = try c.decodeIfPresent([String: DraftRank].self, forKey: .draftRanksByRankType)
 
-        // Pull projected points + receptions from the projected season stat set
-        // (statSourceId 1, statSplitTypeId 0). The decoded array is a local and
-        // is released as soon as this initializer returns.
-        var proj: Double?
+        // Score the projected SEASON stat line ourselves — the source-1 /
+        // season-split / period-0 set with a non-empty stat dict. ESPN's own
+        // `appliedTotal` is unreliable, so we compute from the raw stats.
+        // The decoded array is local and released when init returns.
+        var base: Double?
         var rec: Double = 0
         if let sets = try? c.decodeIfPresent([StatSet].self, forKey: .stats) {
-            for set in sets where set.statSourceId == 1 && set.statSplitTypeId == 0 {
-                if proj == nil, let total = set.appliedTotal { proj = total }
-                if let r = set.stats?["53"], r > 0 { rec = r }
+            for set in sets where set.statSourceId == 1
+                && set.statSplitTypeId == 0
+                && set.scoringPeriodId == 0 {
+                guard let st = set.stats, !st.isEmpty else { continue }
+                func v(_ k: String) -> Double { st[k] ?? 0 }
+                rec = v("53")                       // receptions
+                base = v("3") * 0.04                // passing yards (1 pt / 25)
+                     + v("4") * 4                   // passing TD
+                     - v("20") * 2                  // interception thrown
+                     + v("24") * 0.1                // rushing yards (1 pt / 10)
+                     + v("25") * 6                  // rushing TD
+                     + v("42") * 0.1                // receiving yards (1 pt / 10)
+                     + v("43") * 6                  // receiving TD
+                     - v("72") * 2                  // fumbles lost
+                break
             }
         }
-        pprProjectedPoints = proj
+        projectedPointsBase = base
         projectedReceptions = rec
     }
 }

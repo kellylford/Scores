@@ -102,10 +102,13 @@ struct CheatsheetPlayer: Identifiable, Hashable {
     let auctionValue: Double?
     let pprRank: Int?
     let standardRank: Int?
-    /// ESPN's projected season fantasy points under PPR scoring (its default
-    /// `appliedTotal`). Nil when no projection exists.
-    let pprProjectedPoints: Double?
-    /// Projected receptions — used to convert the PPR projection to Half/Standard.
+    /// Projected fantasy points EXCLUDING receptions, computed from ESPN's raw
+    /// projected stat line (passing/rushing/receiving yards + TDs, turnovers).
+    /// Reception points are added per scoring format in `projectedPoints(for:)`.
+    /// Nil when there is no reliable projection — kickers and D/ST, whose ESPN
+    /// `appliedTotal` values are corrupted (e.g. ~23,000) and unusable.
+    let projectedPointsBase: Double?
+    /// Projected receptions — added at the chosen format's per-reception value.
     let projectedReceptions: Double
     let headshotURL: URL?
 
@@ -120,12 +123,11 @@ struct CheatsheetPlayer: Identifiable, Hashable {
         preset == .standard ? standardRank : pprRank
     }
 
-    /// Projected fantasy points for the chosen format, derived from the PPR
-    /// projection minus the reception delta.
+    /// Projected fantasy points for the chosen format: the non-reception base
+    /// plus receptions valued at the format's per-reception rate.
     func projectedPoints(for preset: ScoringPreset) -> Double? {
-        guard let ppr = pprProjectedPoints else { return nil }
-        let delta = projectedReceptions * (1.0 - preset.pointsPerReception)
-        return ppr - delta
+        guard let base = projectedPointsBase else { return nil }
+        return base + projectedReceptions * preset.pointsPerReception
     }
 
     /// One-decimal projected-points string, or "—" when no projection exists.
