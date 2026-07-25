@@ -26,6 +26,8 @@ final class FantasyCheatsheetViewModel: ObservableObject {
     @Published var selectedPositions: Set<FantasyPosition> = Set(FantasyPosition.allCases)
     @Published var searchQuery: String = ""
     @Published var hideTaken: Bool = false
+    /// Team abbreviation to filter by; nil shows all teams.
+    @Published var selectedTeam: String? = nil
     @Published private(set) var season: Int
 
     // MARK: - Private
@@ -64,10 +66,16 @@ final class FantasyCheatsheetViewModel: ObservableObject {
     var totalPlayerCount: Int { players.count }
     var displayedCount: Int { displayedPlayers.count }
 
+    /// Team abbreviations present in the pool, sorted, for the team filter menu.
+    var availableTeams: [String] {
+        Set(players.map(\.teamAbbreviation)).subtracting(["", "FA"]).sorted()
+    }
+
     // MARK: - Filtering
 
     private func matches(_ p: CheatsheetPlayer) -> Bool {
         if !selectedPositions.contains(p.position) { return false }
+        if let team = selectedTeam, p.teamAbbreviation != team { return false }
         if hideTaken && draftState.isTaken(p.id) { return false }
         if !searchQuery.isEmpty {
             let q = searchQuery.lowercased()

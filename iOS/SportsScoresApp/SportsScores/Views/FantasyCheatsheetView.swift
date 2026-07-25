@@ -35,6 +35,9 @@ struct FantasyCheatsheetView: View {
         .searchable(text: $viewModel.searchQuery, prompt: "Search player or team")
         .task { if viewModel.players.isEmpty { await viewModel.loadAll() } }
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                teamMenu
+            }
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 optionsMenu
                 Button {
@@ -74,6 +77,33 @@ struct FantasyCheatsheetView: View {
         } label: {
             Label("Sort and format", systemImage: "arrow.up.arrow.down")
         }
+    }
+
+    // MARK: - Team filter menu
+
+    /// A popup team picker. Collapsed to a filter icon (with the team code when
+    /// active) so the 32-team list stays hidden until the user opens it.
+    private var teamMenu: some View {
+        Menu {
+            Picker("Team", selection: $viewModel.selectedTeam) {
+                Text("All Teams").tag(String?.none)
+                ForEach(viewModel.availableTeams, id: \.self) { team in
+                    Text(team).tag(String?.some(team))
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: viewModel.selectedTeam == nil
+                      ? "line.3.horizontal.decrease.circle"
+                      : "line.3.horizontal.decrease.circle.fill")
+                if let team = viewModel.selectedTeam {
+                    Text(team).font(.subheadline.bold())
+                }
+            }
+        }
+        .accessibilityLabel("Filter by team")
+        .accessibilityValue(viewModel.selectedTeam ?? "All teams")
+        .accessibilityHint("Shows only players from the chosen NFL team")
     }
 
     // MARK: - Content
