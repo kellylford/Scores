@@ -68,18 +68,21 @@ class ESPNAPIService {
         let weekLabel: String
         let seasonType: Int
         let season: Int
+        /// The season calendar ESPN embedded in the response, when present.
+        /// Only the live-season call returns one.
+        var calendar: SeasonCalendar? = nil
     }
 
-    func fetchFootballGames(for sport: Sport,
-                            week: Int? = nil,
-                            season: Int? = nil,
-                            seasonType: Int = 2) async throws -> FootballScoreboardResult {
-        var components: [String] = []
-        components.append("seasontype=\(seasonType)")
-        if let w = week { components.append("week=\(w)") }
-        if let s = season { components.append("season=\(s)") }
-        let query = components.isEmpty ? "" : "?" + components.joined(separator: "&")
-        let urlString = "\(baseURL)/\(sport.apiPath)/scoreboard\(query)"
+    /// Fetches the **live** football scoreboard, letting ESPN resolve which
+    /// season, season type, and week are current.
+    ///
+    /// No `week=`/`seasontype=` params are sent on purpose: ESPN ignores
+    /// `season=` whenever `week=` is present and serves the *previous* season
+    /// instead, which during the preseason means the last completed regular
+    /// season shows up in place of the games about to be played.  Explicit weeks
+    /// go through `fetchFootballWeek` and its date-range query instead.
+    func fetchFootballGames(for sport: Sport) async throws -> FootballScoreboardResult {
+        let urlString = "\(baseURL)/\(sport.apiPath)/scoreboard"
         guard let url = URL(string: urlString) else { throw APIError.invalidURL }
 
         let (data, response) = try await session.data(from: url)
@@ -89,18 +92,76 @@ class ESPNAPIService {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let apiResponse = try decoder.decode(ScoreboardResponse.self, from: data)
-        let resolvedSeasonType = apiResponse.season?.type ?? seasonType
-        let resolvedSeason = apiResponse.season?.year ?? season ?? Calendar.current.component(.year, from: Date())
-        let resolvedWeek = apiResponse.week?.number ?? week ?? 1
-        let weekLabel = apiResponse.week?.text ?? "Week \(resolvedWeek)"
+        let resolvedSeasonType = apiResponse.season?.type ?? 2
+        let resolvedSeason = apiResponse.season?.year ?? Calendar.current.component(.year, from: Date())
+        let resolvedWeek = apiResponse.week?.number ?? 1
         let games = try apiResponse.events.map { try Game(from: $0, seasonType: resolvedSeasonType) }
+
+        // Cache the embedded calendar so week navigation within the live season
+        // needs no further Core API round-trips.
+        let calendar = seasonCalendar(from: apiResponse, sport: sport, season: resolvedSeason)
+        if let calendar = calendar {
+            seasonCalendarCache["\(sport.rawValue)-\(resolvedSeason)"] = calendar
+            cacheWeekRanges(from: calendar)
+        }
+
+        // ESPN's live `week` block carries only a number; prefer the calendar's
+        // label so preseason weeks read "Hall of Fame Weekend" rather than "Week 1".
+        let weekLabel = calendar?.week(resolvedWeek, seasonType: resolvedSeasonType)?.label
+            ?? apiResponse.week?.text
+            ?? "Week \(resolvedWeek)"
+
         return FootballScoreboardResult(
             games: games,
             week: resolvedWeek,
             weekLabel: weekLabel,
             seasonType: resolvedSeasonType,
-            season: resolvedSeason
+            season: resolvedSeason,
+            calendar: calendar
         )
+    }
+
+    // MARK: - Embedded scoreboard calendar
+
+    /// Builds a `SeasonCalendar` from the `leagues[].calendar` block of a
+    /// football scoreboard response. Returns nil when the block is absent or
+    /// carries no playable season types (e.g. the off-season entry only).
+    private func seasonCalendar(from response: ScoreboardResponse,
+                                sport: Sport,
+                                season: Int) -> SeasonCalendar? {
+        guard let sections = response.leagues?.first?.calendar, !sections.isEmpty else { return nil }
+
+        var types: [SeasonTypeInfo] = []
+        for section in sections {
+            guard let type = section.value.flatMap(Int.init) else { continue }
+            // Season type 4 is ESPN's "Off Season" bucket — never navigable.
+            guard (1...3).contains(type) else { continue }
+
+            let weeks: [WeekInfo] = (section.entries ?? []).compactMap { entry in
+                guard let number = entry.value.flatMap(Int.init),
+                      let start = entry.startDate.flatMap(parseESPNDateString),
+                      let end   = entry.endDate.flatMap(parseESPNDateString) else { return nil }
+                return WeekInfo(number: number,
+                                label: entry.label ?? "Week \(number)",
+                                startDate: start,
+                                endDate: end)
+            }
+            guard !weeks.isEmpty else { continue }
+            types.append(SeasonTypeInfo(type: type, weekCount: weeks.count, weeks: weeks))
+        }
+
+        guard !types.isEmpty else { return nil }
+        return SeasonCalendar(sport: sport, season: season, seasonTypes: types.sorted { $0.type < $1.type })
+    }
+
+    /// Seeds `weekDateRangeCache` from a calendar's week entries.
+    private func cacheWeekRanges(from calendar: SeasonCalendar) {
+        for typeInfo in calendar.seasonTypes {
+            for week in typeInfo.weeks {
+                let key = "\(calendar.sport.rawValue)-\(calendar.season)-\(typeInfo.type)-\(week.number)"
+                weekDateRangeCache[key] = (start: week.startDate, end: week.endDate, text: week.label)
+            }
+        }
     }
 
     // MARK: - Historical Football Calendar (Core API)
@@ -191,7 +252,13 @@ class ESPNAPIService {
         }
 
         // Step 2 — fetch the scoreboard using the date range.
+        // ESPN's week boundaries are Pacific midnights (07:00Z / 06:59Z), and the
+        // `dates=` param is read the same way — so format in Pacific rather than
+        // the device's zone, which would otherwise pull in the neighbouring
+        // week's Thursday game for anyone east of Los Angeles.
         let fmt = DateFormatter()
+        fmt.locale = Locale(identifier: "en_US_POSIX")
+        fmt.timeZone = TimeZone(identifier: "America/Los_Angeles") ?? .current
         fmt.dateFormat = "yyyyMMdd"
         let startStr = fmt.string(from: weekRange.start)
         let endStr   = fmt.string(from: weekRange.end)

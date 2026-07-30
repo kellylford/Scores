@@ -70,7 +70,7 @@ class ScoresViewModel: ObservableObject {
     // MARK: - Computed helpers
 
     /// Week number bounds for the current season type, derived from the fetched calendar.
-    /// `nil` when viewing the live (current) season — no hard bounds are enforced there.
+    /// `nil` when no calendar has been loaded — no hard bounds are enforced then.
     var currentWeekBounds: (min: Int, max: Int)? {
         guard let cal = footballCalendar else { return nil }
         let count = cal.weekCount(for: currentSeasonType)
@@ -78,18 +78,31 @@ class ScoresViewModel: ObservableObject {
         return (min: 1, max: count)
     }
 
-    /// True when the back arrow should be disabled (first week/round).
+    /// The season type before/after the current one within the loaded calendar,
+    /// so week navigation can roll over between preseason, regular, and postseason.
+    private func adjacentSeasonType(offset: Int) -> SeasonTypeInfo? {
+        guard let cal = footballCalendar,
+              let index = cal.seasonTypes.firstIndex(where: { $0.type == currentSeasonType })
+        else { return nil }
+        let target = index + offset
+        guard cal.seasonTypes.indices.contains(target) else { return nil }
+        return cal.seasonTypes[target]
+    }
+
+    /// True when the back arrow should be disabled (first week of the first season type).
     var isAtWeekStart: Bool {
         if cflRoundCount > 0 { return (cflRoundIndex ?? 0) <= 0 }
         guard let bounds = currentWeekBounds else { return false }
-        return (currentWeek ?? 1) <= bounds.min
+        guard (currentWeek ?? 1) <= bounds.min else { return false }
+        return adjacentSeasonType(offset: -1) == nil
     }
 
-    /// True when the forward arrow should be disabled (last week/round).
+    /// True when the forward arrow should be disabled (last week of the last season type).
     var isAtWeekEnd: Bool {
         if cflRoundCount > 0 { return (cflRoundIndex ?? 0) >= cflRoundCount - 1 }
         guard let bounds = currentWeekBounds else { return false }
-        return (currentWeek ?? 1) >= bounds.max
+        guard (currentWeek ?? 1) >= bounds.max else { return false }
+        return adjacentSeasonType(offset: 1) == nil
     }
 
     // MARK: - Sectioned game lists
@@ -168,27 +181,32 @@ class ScoresViewModel: ObservableObject {
                 weekLabel      = result.label
                 isOnCurrentWeek = result.isCurrentRound
             } else if sport.isFootball {
-                if let season = currentSeason {
-                    // Historical season: fetch via Core API date ranges.
+                // Only the "current week of the current season" view lets ESPN
+                // resolve things; every explicit week goes through the date-range
+                // path, because the scoreboard's `week=` param ignores `season=`
+                // and serves the previous season.
+                if currentSeason == nil && isOnCurrentWeek {
+                    let result = try await apiService.fetchFootballGames(for: sport)
+                    games             = result.games
+                    currentWeek       = result.week
+                    weekLabel         = result.weekLabel
+                    currentSeasonType = result.seasonType
+                    resolvedSeason    = result.season
+                    // The live scoreboard embeds the whole season calendar —
+                    // adopt it so the season-type picker and week bounds work
+                    // in the live season too, not just historical ones.
+                    if let cal = result.calendar {
+                        footballCalendar     = cal
+                        availableSeasonTypes = cal.seasonTypes
+                    }
+                } else {
+                    let season = currentSeason ?? resolvedSeason
                     let week = currentWeek ?? 1
                     let result = try await apiService.fetchFootballWeek(
                         sport: sport,
                         season: season,
                         seasonType: currentSeasonType,
                         week: week
-                    )
-                    games             = result.games
-                    currentWeek       = result.week
-                    weekLabel         = result.weekLabel
-                    currentSeasonType = result.seasonType
-                    resolvedSeason    = result.season
-                } else {
-                    // Current (live) season: let ESPN resolve the week automatically.
-                    let result = try await apiService.fetchFootballGames(
-                        for: sport,
-                        week: currentWeek,
-                        season: nil,
-                        seasonType: currentSeasonType
                     )
                     games             = result.games
                     currentWeek       = result.week
@@ -217,9 +235,15 @@ class ScoresViewModel: ObservableObject {
             isOnCurrentWeek = false
         } else if sport.isFootball {
             let nextWeek = (currentWeek ?? 1) + 1
-            // Respect bounds when we have a loaded calendar.
-            if let bounds = currentWeekBounds, nextWeek > bounds.max { return }
-            currentWeek = nextWeek
+            // Respect bounds when we have a loaded calendar, rolling over into the
+            // next season type (preseason → regular → postseason) at the boundary.
+            if let bounds = currentWeekBounds, nextWeek > bounds.max {
+                guard let next = adjacentSeasonType(offset: 1) else { return }
+                currentSeasonType = next.type
+                currentWeek       = 1
+            } else {
+                currentWeek = nextWeek
+            }
             isOnCurrentWeek = false
         } else {
             currentDate = Calendar.current.date(byAdding: .day, value: 1, to: currentDate) ?? currentDate
@@ -235,10 +259,15 @@ class ScoresViewModel: ObservableObject {
             isOnCurrentWeek = false
         } else if sport.isFootball {
             let prevWeek = (currentWeek ?? 2) - 1
-            if prevWeek < 1 { return }
-            // Respect bounds when we have a loaded calendar.
-            if let bounds = currentWeekBounds, prevWeek < bounds.min { return }
-            currentWeek = prevWeek
+            // Respect bounds when we have a loaded calendar, rolling back into the
+            // previous season type's final week at the boundary.
+            if prevWeek < (currentWeekBounds?.min ?? 1) {
+                guard let previous = adjacentSeasonType(offset: -1) else { return }
+                currentSeasonType = previous.type
+                currentWeek       = max(previous.weekCount, 1)
+            } else {
+                currentWeek = prevWeek
+            }
             isOnCurrentWeek = false
         } else {
             currentDate = Calendar.current.date(byAdding: .day, value: -1, to: currentDate) ?? currentDate
@@ -301,12 +330,15 @@ class ScoresViewModel: ObservableObject {
         await fetchGames(for: sport)
     }
 
-    /// Switch to a different season type within the current historical football season.
-    /// No-op if the type isn't in the loaded calendar or if no calendar is loaded.
+    /// Switch to a different season type within the football season being viewed
+    /// (historical or live). No-op if the type isn't in the loaded calendar.
     func goToSeasonType(_ type: Int, for sport: Sport) async {
         guard let cal = footballCalendar, cal.hasSeasonType(type) else { return }
         currentSeasonType = type
         currentWeek       = 1
+        // Leave "current week" mode so the explicit week is honoured rather than
+        // ESPN re-resolving back to whatever it considers current.
+        isOnCurrentWeek   = false
         await fetchGames(for: sport)
     }
 

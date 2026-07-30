@@ -11,6 +11,22 @@
 
 import Foundation
 
+// MARK: - WeekInfo
+
+/// One navigable week within a season type, with the label and date range ESPN
+/// publishes for it.  Populated from the scoreboard `calendar` block; absent
+/// when the calendar came from the Core API week-count endpoints.
+struct WeekInfo: Identifiable, Equatable {
+    /// Week number within its season type (1-based).
+    let number: Int
+    /// Display label, e.g. "Hall of Fame Weekend", "Preseason Week 1", "Week 12".
+    let label: String
+    let startDate: Date
+    let endDate: Date
+
+    var id: Int { number }
+}
+
 // MARK: - SeasonTypeInfo
 
 /// One season-type bucket (preseason / regular / postseason) and the number of
@@ -20,6 +36,8 @@ struct SeasonTypeInfo: Identifiable, Equatable {
     let type: Int
     /// Total number of weeks in this season type.
     let weekCount: Int
+    /// The individual weeks, when known. Empty when only a count was fetched.
+    var weeks: [WeekInfo] = []
 
     var id: Int { type }
 
@@ -68,5 +86,26 @@ struct SeasonCalendar {
     /// Whether the calendar contains data for the given season type.
     func hasSeasonType(_ type: Int) -> Bool {
         seasonTypes.contains { $0.type == type }
+    }
+
+    /// The weeks of a season type, when the calendar carries them.
+    func weeks(for seasonType: Int) -> [WeekInfo] {
+        seasonTypes.first { $0.type == seasonType }?.weeks ?? []
+    }
+
+    /// A single week's label and date range, when known.
+    func week(_ number: Int, seasonType: Int) -> WeekInfo? {
+        weeks(for: seasonType).first { $0.number == number }
+    }
+
+    /// The season type + week whose date range contains `date`, if any.
+    /// Used to keep week navigation anchored on the live week.
+    func location(of date: Date) -> (seasonType: Int, week: Int)? {
+        for typeInfo in seasonTypes {
+            for week in typeInfo.weeks where week.startDate <= date && date <= week.endDate {
+                return (typeInfo.type, week.number)
+            }
+        }
+        return nil
     }
 }

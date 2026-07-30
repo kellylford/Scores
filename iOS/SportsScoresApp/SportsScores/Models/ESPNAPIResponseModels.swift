@@ -200,21 +200,56 @@ struct RankingsAPIResponse: Codable {
 
 // MARK: - Scoreboard Response
 
-struct ScoreboardResponse: Codable {
+struct ScoreboardResponse: Decodable {
     let events: [APIGame]
     /// Present for football sports — describes the current week.
     let week: APIWeek?
     /// Describes the current season being served.
     let season: APISeason?
+    /// Football scoreboards embed the whole season calendar here — season types
+    /// and every navigable week with its label and date range.
+    let leagues: [APILeague]?
 
-    struct APIWeek: Codable {
+    struct APIWeek: Decodable {
         let number: Int?
         let text: String?
     }
 
-    struct APISeason: Codable {
+    struct APISeason: Decodable {
         let year: Int?
         let type: Int?
+    }
+
+    struct APILeague: Decodable {
+        let calendar: [APICalendarSection]?
+
+        private enum CodingKeys: String, CodingKey { case calendar }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            // Non-football scoreboards return `calendar` as a flat array of date
+            // strings rather than season-type objects — ignore those rather than
+            // failing the whole decode.
+            calendar = try? container.decodeIfPresent([APICalendarSection].self, forKey: .calendar)
+        }
+    }
+
+    /// One season type ("Preseason", "Regular Season", …) and its weeks.
+    struct APICalendarSection: Decodable {
+        let label: String?
+        /// ESPN season type code as a string ("1" / "2" / "3").
+        let value: String?
+        let entries: [APICalendarEntry]?
+    }
+
+    /// One navigable week within a season type.
+    struct APICalendarEntry: Decodable {
+        let label: String?
+        let alternateLabel: String?
+        /// Week number within its season type, as a string.
+        let value: String?
+        let startDate: String?
+        let endDate: String?
     }
 }
 
