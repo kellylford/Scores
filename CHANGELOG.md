@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Windows installer**: `Scores-<version>-Setup.exe`, a per-user install into
+  `%LocalAppData%\Programs\Scores` that needs no administrator rights and adds a
+  Start Menu shortcut (desktop shortcut optional). Built with Inno Setup from
+  `installer/scores.iss`.
+- **Automatic updates**: Scores checks GitHub for a newer release at startup and
+  can download and install it for you; *Check for Updates* on the home page runs
+  the same check on demand. The startup check can be turned off in Settings.
+  Portable copies update too — the installer relocates them.
+- **Code signing**: releases are Authenticode-signed with Azure Artifact Signing
+  via GitHub OIDC, so downloads no longer trip SmartScreen.
+- `build.py` builds both distributables (one-dir installer input plus the portable
+  one-file exe) and is what CI runs.
+- `docs/INSTALLER.md` documents the installer, the updater and the signing setup.
+
+### Changed
+- The application version now lives in `version.py`, and the release workflow
+  refuses to build a `v*` tag that disagrees with it or with the VERSION file.
+
 ### In Progress
 - **Game Wrap Up Feature**: ESPN text processing and game story extraction (under construction)
   - Core infrastructure implemented, text processing being refined

@@ -1,9 +1,10 @@
 """
 Scores - Sports Analysis Application
-Version: 0.8.0
+
+The version lives in version.py (imported below) so there is one copy of it for
+the app, the updater and the release workflow to agree on.
 """
 
-__version__ = "0.8.0"
 __author__ = "Kelly Ford"
 __description__ = "Sports Analysis Application with ESPN API integration"
 
@@ -25,13 +26,15 @@ def _resource_path(filename):
     return os.path.join(ROOT_DIR, filename)
 
 import settings
+from version import __version__
+from services import updater
 
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QListWidget, QPushButton, QLabel,
     QHBoxLayout, QCheckBox, QDialog, QMessageBox, QTextEdit, QScrollArea,
     QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget, QStackedWidget,
     QListWidgetItem, QTreeWidget, QTreeWidgetItem, QSpinBox, QComboBox,
-    QSizePolicy, QMenu
+    QSizePolicy, QMenu, QProgressDialog
 )
 from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
 from PyQt6.QtGui import QColor, QAction, QFont
@@ -250,6 +253,13 @@ class HomeSettingsDialog(QDialog):
         move_layout.addWidget(reset_btn)
         layout.addLayout(move_layout)
 
+        self.auto_update_check = QCheckBox("Automatically check for updates at startup")
+        self.auto_update_check.setAccessibleDescription(
+            "When checked, Scores looks for a newer version each time it starts. "
+            "You can always check manually from the home page.")
+        self.auto_update_check.setChecked(settings.get('auto_check_updates', True))
+        layout.addWidget(self.auto_update_check)
+
         ok_layout = QHBoxLayout()
         ok_btn = QPushButton("OK")
         ok_btn.clicked.connect(self._save_and_accept)
@@ -293,6 +303,7 @@ class HomeSettingsDialog(QDialog):
             visibility[item.text()] = (item.checkState() == Qt.CheckState.Checked)
         settings.set('sport_order', order)
         settings.set('sport_visibility', visibility)
+        settings.set('auto_check_updates', self.auto_update_check.isChecked())
         self.accept()
 
 
@@ -483,13 +494,7 @@ class HomeView(BaseView):
         for league in _get_home_leagues(leagues):
             self.league_list.addItem(league)
 
-        # User Guide at the bottom
-        guide_sep = QListWidgetItem("─" * 30)
-        guide_sep.setFlags(Qt.ItemFlag.NoItemFlags)
-        self.league_list.addItem(guide_sep)
-        guide_item = QListWidgetItem("User Guide")
-        guide_item.setData(Qt.ItemDataRole.UserRole, "__user_guide__")
-        self.league_list.addItem(guide_item)
+        self._append_footer_items()
 
         self.league_list.itemActivated.connect(self._on_league_selected)
         self.layout.addWidget(self.league_list)
@@ -510,6 +515,11 @@ class HomeView(BaseView):
         if user_data == "__user_guide__":
             guide_path = _resource_path("user_guide.html")
             webbrowser.open(f"file:///{guide_path.replace(os.sep, '/')}")
+            return
+
+        if user_data == "__check_updates__":
+            if self.parent_app:
+                self.parent_app.check_for_updates(manual=True)
             return
 
         # Golf tours open a dedicated tournament dialog instead of a standard league view
@@ -599,15 +609,26 @@ class HomeView(BaseView):
         for league in _get_home_leagues(leagues):
             self.league_list.addItem(league)
 
-        # User Guide at the bottom
-        guide_sep = QListWidgetItem("─" * 30)
-        guide_sep.setFlags(Qt.ItemFlag.NoItemFlags)
-        self.league_list.addItem(guide_sep)
+        self._append_footer_items()
+
+        self.set_focus_and_select_first(self.league_list)
+
+    def _append_footer_items(self):
+        """Add the non-league entries that close the home list.
+
+        Called from both setup_ui and refresh so the two paths cannot drift.
+        """
+        footer_sep = QListWidgetItem("─" * 30)
+        footer_sep.setFlags(Qt.ItemFlag.NoItemFlags)
+        self.league_list.addItem(footer_sep)
+
         guide_item = QListWidgetItem("User Guide")
         guide_item.setData(Qt.ItemDataRole.UserRole, "__user_guide__")
         self.league_list.addItem(guide_item)
 
-        self.set_focus_and_select_first(self.league_list)
+        update_item = QListWidgetItem("Check for Updates")
+        update_item.setData(Qt.ItemDataRole.UserRole, "__check_updates__")
+        self.league_list.addItem(update_item)
 
     # ---------------------------------------------------------------- favorites
 
@@ -7320,6 +7341,46 @@ class StandingsLoader(QThread):
             self.error_occurred.emit(f"Failed to load standings: {str(e)}")
 
 
+class UpdateCheckLoader(QThread):
+    """Background check of the GitHub release feed for a newer version."""
+    # object rather than dict: None means "already up to date", which a dict
+    # signal cannot carry.
+    data_loaded = pyqtSignal(object)
+    error_occurred = pyqtSignal(str)
+
+    def run(self):
+        try:
+            self.data_loaded.emit(updater.check_for_update())
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+
+
+class UpdateDownloadLoader(QThread):
+    """Background download of the installer for a newer version."""
+    data_loaded = pyqtSignal(object)          # installer path, or None if cancelled
+    progress_changed = pyqtSignal(int, int)   # bytes downloaded, total bytes
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, url: str):
+        super().__init__()
+        self.url = url
+        self._cancelled = False
+
+    def cancel(self):
+        self._cancelled = True
+
+    def run(self):
+        try:
+            path = updater.download_installer(
+                self.url,
+                progress=lambda done, total: self.progress_changed.emit(done, total),
+                should_cancel=lambda: self._cancelled,
+            )
+            self.data_loaded.emit(path)
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+
+
 class GameDetailsDialog(QDialog):
     """Dialog wrapper for GameDetailsView to show game details"""
     
@@ -11058,7 +11119,10 @@ class SportsScoresApp(QWidget):
         # Handle startup navigation
         self._handle_startup_navigation()
         self.show()
-    
+
+        # Automatic update check, once the window is up so it never delays launch.
+        QTimer.singleShot(2000, self._maybe_auto_check_updates)
+
     def _init_config(self):
         try:
             leagues = ApiService.get_leagues()
@@ -11317,6 +11381,128 @@ class SportsScoresApp(QWidget):
     def _push_to_stack(self, view_type: str, data: Any):
         self.view_stack.append({"type": view_type, "data": data})
 
+    # ------------------------------------------------------------- updates
+
+    def _maybe_auto_check_updates(self):
+        """Startup check, skipped when running from source or turned off."""
+        if updater.is_frozen() and settings.get('auto_check_updates', True):
+            self.check_for_updates(manual=False)
+
+    def check_for_updates(self, manual=False):
+        """Ask GitHub whether a newer release exists.
+
+        A manual check reports every outcome; the automatic one stays silent
+        unless there is an update, so a failed network call never interrupts
+        launch.
+        """
+        if getattr(self, '_update_check_loader', None) and self._update_check_loader.isRunning():
+            return
+        self._update_check_manual = manual
+        self._update_check_loader = UpdateCheckLoader()
+        self._update_check_loader.data_loaded.connect(self._on_update_check_done)
+        self._update_check_loader.error_occurred.connect(self._on_update_check_error)
+        self._update_check_loader.start()
+        # A manual check needs visible (and screen-reader announced) feedback that
+        # something is happening; the automatic one must stay out of the way.
+        self._update_check_progress = None
+        if manual:
+            progress = QProgressDialog("Checking for updates...", None, 0, 0, self)
+            progress.setWindowTitle("Checking for Updates - Sports Scores")
+            progress.setAccessibleName("Checking for updates")
+            progress.setMinimumDuration(0)
+            progress.setAutoClose(False)
+            progress.setAutoReset(False)
+            progress.show()
+            self._update_check_progress = progress
+
+    def _close_update_check_progress(self):
+        if getattr(self, '_update_check_progress', None):
+            self._update_check_progress.close()
+            self._update_check_progress = None
+
+    def _on_update_check_done(self, info):
+        self._close_update_check_progress()
+        if not info:
+            if self._update_check_manual:
+                QMessageBox.information(
+                    self, "No Updates",
+                    f"You're up to date (version {__version__}).")
+            return
+        self._prompt_update(info)
+
+    def _on_update_check_error(self, message):
+        self._close_update_check_progress()
+        if self._update_check_manual:
+            QMessageBox.warning(
+                self, "Update Check",
+                f"Couldn't check for updates: {message}")
+
+    def _prompt_update(self, info):
+        notes = info.get('notes', '')
+        if len(notes) > 600:
+            notes = notes[:600] + "\n..."
+
+        # No installer asset (or running from source): point at the releases page
+        # rather than offering an install this build can't perform.
+        if not info.get('url') or not updater.is_frozen():
+            answer = QMessageBox.question(
+                self, "Update Available",
+                f"Scores {info['version']} is available (you have {__version__}).\n\n"
+                f"{notes}\n\nOpen the downloads page?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if answer == QMessageBox.StandardButton.Yes:
+                webbrowser.open(updater.RELEASES_PAGE)
+            return
+
+        relocate = "" if updater.is_installed() else (
+            "\n\nThis will install Scores to your user Programs folder; you can "
+            "delete the portable copy afterwards.")
+        answer = QMessageBox.question(
+            self, "Update Available",
+            f"Scores {info['version']} is available (you have {__version__}).\n\n"
+            f"{notes}\n\nDownload and install now? Scores will close to finish "
+            f"installing.{relocate}",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self._download_update(info)
+
+    def _download_update(self, info):
+        self._update_progress = QProgressDialog(
+            f"Downloading Scores {info['version']}...", "Cancel", 0, 100, self)
+        self._update_progress.setWindowTitle("Downloading Update - Sports Scores")
+        self._update_progress.setAccessibleName("Update download progress")
+        self._update_progress.setAutoClose(False)
+        self._update_progress.setAutoReset(False)
+        self._update_progress.setMinimumDuration(0)
+        self._update_progress.show()  # shown up front, not on the first chunk
+
+        self._update_download_loader = UpdateDownloadLoader(info['url'])
+        self._update_progress.canceled.connect(self._update_download_loader.cancel)
+        self._update_download_loader.progress_changed.connect(self._on_update_progress)
+        self._update_download_loader.data_loaded.connect(self._on_update_downloaded)
+        self._update_download_loader.error_occurred.connect(self._on_update_download_error)
+        self._update_download_loader.start()
+
+    def _on_update_progress(self, done, total):
+        if total > 0:
+            self._update_progress.setValue(int(done * 100 / total))
+        else:
+            # Unknown length: an indeterminate bar beats a percentage that lies.
+            self._update_progress.setRange(0, 0)
+
+    def _on_update_downloaded(self, path):
+        self._update_progress.close()
+        if not path:
+            return  # cancelled
+        updater.launch_installer(path)
+        QApplication.quit()
+
+    def _on_update_download_error(self, message):
+        self._update_progress.close()
+        QMessageBox.critical(
+            self, "Update", f"The update download failed: {message}")
+
     def keyPressEvent(self, event):
         # Global back shortcut
         if event.modifiers() == Qt.KeyboardModifier.AltModifier and event.key() == Qt.Key.Key_B:
@@ -11339,5 +11525,7 @@ class SportsScoresApp(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    # Held for the life of the process so the installer can detect a running copy.
+    app._scores_mutex = updater.hold_app_mutex()
     window = SportsScoresApp()
     sys.exit(app.exec())

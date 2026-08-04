@@ -72,12 +72,21 @@ Experience baseball like never before with spatial audio mapping that converts p
 ## Quick Start
 
 ### For End Users (Recommended)
-The easiest way to get started is with the standalone executable:
 
-1. **Download**: Get `Scores.exe` from the [latest release](https://github.com/kellylford/Scores/releases) (no installation needed!)
-2. **Run**: Double-click or press Enter on the executable to launch
-3. **Explore**: Choose your sport (MLB/NFL) and start browsing games
+1. **Download**: Get `Scores-<version>-Setup.exe` from the [latest release](https://github.com/kellylford/Scores/releases)
+2. **Install**: Run it — it installs just for you, needs no administrator rights,
+   and adds a Start Menu shortcut. The download is code-signed, so there is no
+   SmartScreen warning to click through.
+3. **Explore**: Choose your sport and start browsing games
 4. **Navigate**: Use mouse or keyboard to explore scores, standings, and statistics
+5. **Stay current**: Scores checks for new versions at startup and can install them
+   for you. Turn that off in Settings if you would rather check by hand with
+   *Check for Updates* on the home page.
+
+Prefer no installer? `Scores.exe` on the same release page is a standalone
+portable build that needs no installation. It updates itself the same way — the
+update installs to your user Programs folder, after which the portable copy can be
+deleted.
 
 **System Requirements:**
 - Windows 10/11 (64-bit)

@@ -15,6 +15,7 @@ _DEFAULTS = {
     'sport_order': [],               # [] = use API default order
     'sport_visibility': {},          # {} = all visible
     'favorites': [],                 # [{team_id, team_name, league, abbreviation}]
+    'auto_check_updates': True,      # check GitHub for a newer release at startup
 }
 
 _cache: dict | None = None

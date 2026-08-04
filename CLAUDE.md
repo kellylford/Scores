@@ -18,10 +18,16 @@ python scores.py
 python main.py --sport mlb
 ```
 
-**Build executable:**
+**Build distributables:**
 ```powershell
-pyinstaller Scores.spec
-# Output: dist\Scores.exe
+python build.py
+# Output: dist\Scores\ (one-dir, installer input) and dist\Scores.exe (portable)
+```
+
+**Build installer:**
+```powershell
+"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=0.8.0 installer\scores.iss
+# Output: installer\Output\Scores-0.8.0-Setup.exe
 ```
 
 **Setup dev environment:**
@@ -42,6 +48,7 @@ pytest tests/
 
 - `main.py` — CLI argument parser; passes sport selection into the main window
 - `scores.py` — The entire UI (9,700+ lines): `QApplication`, main window, all dialogs, all views, refresh logic, keyboard handling
+- `version.py` — The version string, single source of truth. The app, the in-app updater and the release workflow all read it; bump it together with the `VERSION` file.
 
 ### Data Layer
 
@@ -49,6 +56,7 @@ pytest tests/
 - `services/api_service.py` — Thin wrapper around `espn_api.py` with unified error handling
 - `services/venue_service.py` — Stadium/venue info
 - `services/football_calendar.py` — NFL week/season calendar utilities
+- `services/updater.py` — In-app update check against the GitHub release feed; downloads and launches the installer
 - `models/` — `GameData`, `NewsData`, `StandingsData` dataclasses
 
 ### UI Components
@@ -67,6 +75,13 @@ pytest tests/
 - `text_utils.py` — ESPN text cleaning (strips HTML/placeholders from news content)
 - `timezone_utils.py` — Converts ESPN UTC times to local timezone
 - `exceptions.py` — `ApiError`, `DataModelError`
+
+### Packaging and Release
+
+- `build.py` — Builds both distributables. The installer packages the **one-dir** build, never the one-file exe; the reason is documented at the top of the file.
+- `installer/scores.iss` — Inno Setup script. Per-user install into `%LocalAppData%\Programs\Scores`, no elevation, so the in-app updater can install without a UAC prompt.
+- `.github/workflows/scores.yml` — Tests, builds, signs (Azure Artifact Signing over GitHub OIDC), packages the installer and publishes the release on a `v*` tag.
+- `docs/INSTALLER.md` — How the installer, updater and signing fit together, plus the release checklist.
 
 ## Key Patterns
 

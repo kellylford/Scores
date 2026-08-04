@@ -66,45 +66,68 @@ dist/Scores.exe
 
 ## Building Windows Executable
 
-### Option 1: Automated Build (Recommended)
+### Option 1: build.py (Recommended)
 ```bash
-build-enhanced.bat
+.venv\Scripts\activate
+python build.py
 ```
 
-This script will:
-- Create virtual environment if needed
-- Install dependencies
-- Clean previous builds
-- Build the executable
-- Provide detailed status information
+This is what CI runs, so it is the definition of a Scores build. It produces both
+distributables:
+
+- `dist/Scores/` — one-dir build; the input to the installer
+- `dist/Scores.exe` — one-file portable build
+
+Pass `--onedir` or `--onefile` to build just one of them.
 
 ### Option 2: Manual Build
 ```bash
 # Activate virtual environment
 source .venv/Scripts/activate
 
-# Build executable
-pyinstaller --onefile --windowed --name=Scores scores.py
+# Portable one-file build only
+pyinstaller --onefile --windowed --name=Scores --add-data "user_guide.html;." main.py
 ```
 
-### Option 3: Original Build Script
+### Option 3: Original Build Scripts
 ```bash
+build-enhanced.bat
 build.bat
 ```
+These predate `build.py` and only produce the one-file exe.
+
+## Building the Installer
+```powershell
+python build.py
+"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=0.8.0 installer\scores.iss
+# -> installer\Output\Scores-0.8.0-Setup.exe
+```
+The installer packages the **one-dir** output, never the one-file exe — see the
+comment at the top of `build.py` for why. Full detail on the installer, the in-app
+updater and code signing is in [docs/INSTALLER.md](docs/INSTALLER.md).
 
 ## Build Output
-- **Executable**: `dist/Scores.exe` (~40MB)
-- **Spec file**: `Scores.spec` (PyInstaller configuration)
-- **Build artifacts**: `build/` directory
+- **Installer input**: `dist/Scores/` (~73MB on disk)
+- **Portable executable**: `dist/Scores.exe` (~28MB)
+- **Installer**: `installer/Output/Scores-<version>-Setup.exe` (~22MB)
+- **Build artifacts**: `build/onedir/` and `build/onefile/`
 
 ## Distribution
-The built executable (`dist/Scores.exe`) is completely standalone and includes:
+Both builds are completely standalone and include:
 - Python runtime
 - PyQt6 GUI framework
 - All application dependencies
 - Application code and assets
 
-It can be distributed to other Windows machines without requiring Python installation.
+They can be distributed to other Windows machines without requiring Python
+installation. Releases are code-signed by CI; local builds are not, so Windows
+SmartScreen will warn on them.
+
+## Releasing
+Bump `version.py` **and** `VERSION`, write `docs/release-notes-v<version>.md`,
+update `CHANGELOG.md`, then push a `v<version>` tag. The workflow verifies those
+match, builds, signs, packages the installer and publishes the release. See
+[docs/INSTALLER.md](docs/INSTALLER.md#cutting-a-release).
 
 ## Entry Points Comparison
 

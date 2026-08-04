@@ -97,6 +97,7 @@ def determine_startup_params(args):
 if __name__ == "__main__":
     from PyQt6.QtWidgets import QApplication
     from scores import SportsScoresApp
+    from services import updater
 
     # Comprehensive fix: handle --help and all options before launching the app
     import argparse
@@ -154,5 +155,7 @@ Examples:
     startup_params = determine_startup_params(args)
 
     app = QApplication(sys.argv)
+    # Held for the life of the process so the installer can detect a running copy.
+    app._scores_mutex = updater.hold_app_mutex()
     window = SportsScoresApp(startup_params=startup_params)
     sys.exit(app.exec())

@@ -9,6 +9,7 @@ __pycache__/
 # Build outputs - keep repository clean
 /build/
 /dist/
+/installer/Output/
 *.exe
 *.spec
 *.pyz

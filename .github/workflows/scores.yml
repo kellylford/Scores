@@ -1,5 +1,13 @@
 name: Scores
 
+# Pushing a `v<semver>` tag (e.g. v0.9.0) builds the app, packages the installer,
+# code-signs both, and publishes a GitHub Release. Pushes to main and pull
+# requests build and test but never sign or release.
+#
+# Adopted from WeatherFast's windows-release.yml, which took the shape from
+# QuickMail: per-user installer + in-app updater + Azure Artifact Signing over
+# GitHub OIDC (no signing certificate or long-lived secret stored anywhere).
+
 on:
   push:
     branches: [main]
@@ -8,11 +16,20 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write   # create the GitHub release
+  id-token: write   # OIDC token azure/login exchanges for Azure creds (signing)
+
 jobs:
   build:
     runs-on: windows-latest
-    permissions:
-      contents: write
+    # Runs in the `azure-signing` environment so the OIDC token's subject is
+    # repo:kellylford/Scores:environment:azure-signing, which the Azure federated
+    # credential trusts (wildcard tag subjects aren't supported in this tenant).
+    # This is ONLY a claim-matching mechanism, not a deployment gate — do not add
+    # protection rules to this environment or every build, including PRs, will
+    # require approval. Signing still only runs on v* tags and manual runs (below).
+    environment: azure-signing
 
     steps:
       - uses: actions/checkout@v7
@@ -27,23 +44,165 @@ jobs:
       - name: Run tests
         run: python -m pytest tests/unit/ -v --ignore=tests/unit/test_window_title_accessibility.py
 
-      - name: Build executable
-        run: python -m PyInstaller --onefile --windowed --name=Scores --add-data "user_guide.html;." main.py
+      # The tag is the single source of truth for the release version. version.py
+      # is what the app reports and what the in-app updater compares against the
+      # release feed, and the VERSION file is what the release scripts read — a
+      # partial bump would ship an app that mis-reports itself and perpetually
+      # announces an update it already has.
+      - name: Verify tag matches app version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $tag = '${{ github.ref_name }}'.TrimStart('v')
+          $py = Get-Content version.py -Raw
+          if ($py -notmatch '__version__\s*=\s*"([^"]+)"') { throw "Could not read __version__ from version.py." }
+          if ($tag -ne $Matches[1]) { throw "Tag '$tag' does not match version.py '$($Matches[1])'. Bump version.py or re-tag." }
+          $file = (Get-Content VERSION -Raw).Trim()
+          if ($tag -ne $file) { throw "Tag '$tag' does not match the VERSION file '$file'. Bump VERSION or re-tag." }
+          Write-Host "Version OK: $tag"
 
-      - name: Upload artifact
+      # Release notes are written by hand per version and published as the release
+      # body. Checked here so a missing file fails fast, before the build and
+      # signing, rather than at the publish step.
+      - name: Verify release notes exist
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $notes = "docs/release-notes-${{ github.ref_name }}.md"
+          if (-not (Test-Path $notes)) {
+            throw "Missing $notes. Write the release notes and commit them before tagging."
+          }
+          Write-Host "Release notes OK: $notes"
+
+      - name: Determine version
+        id: ver
+        shell: pwsh
+        run: |
+          if ('${{ github.ref }}' -like 'refs/tags/v*') {
+            $v = '${{ github.ref_name }}'.TrimStart('v')
+          } else {
+            $null = (Get-Content version.py -Raw) -match '__version__\s*=\s*"([^"]+)"'
+            $v = $Matches[1]
+          }
+          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Building version $v"
+
+      # Builds dist/Scores/ (one-dir, the installer input) and dist/Scores.exe
+      # (one-file, the portable download). See build.py for why the installer
+      # cannot package the one-file build.
+      - name: Build executables (PyInstaller)
+        run: python build.py
+
+      # --- Code signing (Azure Artifact Signing via GitHub OIDC) --------------
+      # azure/login exchanges the workflow OIDC token for a short-lived Azure
+      # credential; the signing action authenticates through that session. The app
+      # binaries are signed BEFORE Inno Setup runs so the copy inside the
+      # installer is signed too; the installer itself is signed after.
+      - name: Azure login (code signing)
+        if: ${{ startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' }}
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Sign application (one-dir build)
+        if: ${{ startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' }}
+        uses: azure/artifact-signing-action@v2.0.0
+        with:
+          endpoint: https://eus.codesigning.azure.net/
+          signing-account-name: kellylford
+          certificate-profile-name: kellyford-public
+          files-folder: ${{ github.workspace }}\dist\Scores
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      # Signed separately: the portable exe sits in dist/ rather than dist/Scores/,
+      # and the step above is folder-scoped. Named explicitly via `files` rather
+      # than another folder+filter pair, so this can never reach back into
+      # dist/Scores/ and re-sign the one-dir executable.
+      - name: Sign portable Scores.exe
+        if: ${{ startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' }}
+        uses: azure/artifact-signing-action@v2.0.0
+        with:
+          endpoint: https://eus.codesigning.azure.net/
+          signing-account-name: kellylford
+          certificate-profile-name: kellyford-public
+          files: ${{ github.workspace }}\dist\Scores.exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      - name: Build installer (Inno Setup)
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+            $iscc = (Get-Command iscc).Source
+          }
+          & $iscc /DMyAppVersion=${{ steps.ver.outputs.version }} installer/scores.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed ($LASTEXITCODE)" }
+          Get-ChildItem installer/Output | Select-Object Name, Length
+
+      - name: Sign installer
+        if: ${{ startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' }}
+        uses: azure/artifact-signing-action@v2.0.0
+        with:
+          endpoint: https://eus.codesigning.azure.net/
+          signing-account-name: kellylford
+          certificate-profile-name: kellyford-public
+          files-folder: ${{ github.workspace }}\installer\Output
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      # Guard against a signing step that silently signed nothing — a wrong filter
+      # or an empty folder would leave the release unsigned, and the only place
+      # that shows up is a SmartScreen warning on a user's machine.
+      #
+      # NotSigned/HashMismatch fail the build; any other non-Valid status only
+      # warns, because those depend on chain validation on the runner rather than
+      # on whether we actually signed.
+      - name: Verify signatures
+        if: ${{ startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' }}
+        shell: pwsh
+        run: |
+          $targets = @('dist/Scores.exe', 'dist/Scores/Scores.exe')
+          $targets += @(Get-ChildItem installer/Output/*.exe | ForEach-Object { $_.FullName })
+          foreach ($t in $targets) {
+            $sig = Get-AuthenticodeSignature $t
+            Write-Host "$t -> $($sig.Status): $($sig.SignerCertificate.Subject)"
+            if ($sig.Status -in @('NotSigned', 'HashMismatch')) {
+              throw "$t is not signed ($($sig.Status)). The signing steps did not cover it."
+            }
+            if ($sig.Status -ne 'Valid') {
+              Write-Warning "$t signature status is $($sig.Status); it is signed but did not validate on this runner."
+            }
+          }
+
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: Scores-win-x64
-          path: dist/Scores.exe
+          name: Scores-${{ steps.ver.outputs.version }}
+          path: |
+            dist/Scores.exe
+            installer/Output/Scores-*-Setup.exe
           if-no-files-found: error
+          retention-days: 14
 
-      # Create a GitHub Release when a version tag is pushed (e.g. v0.8.0)
-      # Release notes are read from docs/release-notes-<tag>.md if present,
-      # otherwise GitHub auto-generates notes from commits.
-      - name: Release
+      # The in-app updater picks the asset whose name ends in Setup.exe, so the
+      # installer must be attached to every release.
+      - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v3
         with:
           name: Scores ${{ github.ref_name }}
-          files: dist/Scores.exe
           body_path: docs/release-notes-${{ github.ref_name }}.md
+          files: |
+            installer/Output/Scores-*-Setup.exe
+            dist/Scores.exe
+          fail_on_unmatched_files: true
