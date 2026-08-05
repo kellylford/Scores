@@ -104,25 +104,33 @@ and CFL (`Sport.hasTeamStats`).
 
 #### Stat definitions
 
-Activating a stat category heading opens `StatDefinitionSheet` with ESPN's own
-definition of that stat ("WHIP — the number representing walks plus hits divided
-by innings pitched"). Definitions come from the `descriptions` array in the
-`byteam` payload, never from hand-written copy, so they cannot drift from the
-data. Rules:
+Activating a stat category heading opens an alert with ESPN's own definition of
+that stat ("WHIP — the number representing walks plus hits divided by innings
+pitched"). Definitions come from the `descriptions` array in the `byteam`
+payload, never from hand-written copy, so they cannot drift from the data.
+Rules:
 
-- **The heading stays a heading.** It carries `[.isHeader, .isButton]` — losing
-  the header trait would break rotor navigation, which is how a screen with 24
-  sections is skimmed.
+- **The heading stays a heading.** It is a `Button` with `.isHeader` added —
+  losing the header trait would break rotor navigation, which is how a screen
+  with 24 sections is skimmed. The `.isButton` trait comes from the `Button`
+  itself.
+- **Never apply `.accessibilityElement(children: .combine)` to that heading.**
+  On a `Button` it replaces the button's own accessibility element, discarding
+  its activation action: VoiceOver reads the heading, announces "button", and
+  activating does nothing. This shipped once and had to be fixed.
 - **No dead affordance.** The info glyph and button behavior appear only after a
   definition is found. Stats ESPN does not define (PER, plus/minus, tackles)
   render as plain-text headings exactly as before.
-- **Escape closes it** via `.keyboardShortcut(.cancelAction)` on the Close
-  button, for hardware keyboards on iPad and Mac. The visible Close button is
-  required regardless — it is the only way out on iPhone.
-- **Focus returns to the originating heading** on dismiss, rather than dropping
-  VoiceOver at the top of the list.
+- **An alert, not a sheet.** A Close button is the requirement. Escape is not
+  wired up: under Mac Catalyst neither `.keyboardShortcut(.cancelAction)`, an
+  explicit `.escape` key equivalent (on a toolbar button or a hidden one), nor
+  `.onKeyPress(.escape)` with forced focus closes a sheet — all three were
+  tried. An alert is simpler, VoiceOver moves into it on its own, and iPhone has
+  no Escape key regardless.
+- **Focus returns to the originating heading** when Close is activated, rather
+  than dropping VoiceOver at the top of the list.
 - **Opponent categories lead with context.** ESPN's text defines the raw stat,
-  which reads backwards under "Fewest Points Allowed Per Game", so the sheet
+  which reads backwards under "Fewest Points Allowed Per Game", so the alert
   states what the category ranks before quoting the definition.
 
 ---

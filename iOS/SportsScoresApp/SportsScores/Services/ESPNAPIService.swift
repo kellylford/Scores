@@ -21,10 +21,9 @@ class ESPNAPIService {
 
     // MARK: - Caches (historical season data)
 
-    /// Keyed by "{SportRawValue}-{season}" → SeasonCalendar
-    private var seasonCalendarCache: [String: SeasonCalendar] = [:]
-    /// Keyed by "{SportRawValue}-{season}-{seasonType}-{week}" → (start, end, label)
-    private var weekDateRangeCache: [String: (start: Date, end: Date, text: String)] = [:]
+    /// Season calendars and week date ranges. Held by an actor because these
+    /// methods are non-isolated and run concurrently — see `ScheduleCacheStore`.
+    private let scheduleCache = ScheduleCacheStore()
 
     /// League team statistics and stat definitions. Held by an actor because
     /// stat headings request definitions concurrently — see `TeamStatsStore`.
@@ -109,8 +108,8 @@ class ESPNAPIService {
         // needs no further Core API round-trips.
         let calendar = seasonCalendar(from: apiResponse, sport: sport, season: resolvedSeason)
         if let calendar = calendar {
-            seasonCalendarCache["\(sport.rawValue)-\(resolvedSeason)"] = calendar
-            cacheWeekRanges(from: calendar)
+            await scheduleCache.store(calendar, forKey: "\(sport.rawValue)-\(resolvedSeason)")
+            await scheduleCache.storeWeekRanges(from: calendar)
         }
 
         // ESPN's live `week` block carries only a number; prefer the calendar's
@@ -162,16 +161,6 @@ class ESPNAPIService {
         return SeasonCalendar(sport: sport, season: season, seasonTypes: types.sorted { $0.type < $1.type })
     }
 
-    /// Seeds `weekDateRangeCache` from a calendar's week entries.
-    private func cacheWeekRanges(from calendar: SeasonCalendar) {
-        for typeInfo in calendar.seasonTypes {
-            for week in typeInfo.weeks {
-                let key = "\(calendar.sport.rawValue)-\(calendar.season)-\(typeInfo.type)-\(week.number)"
-                weekDateRangeCache[key] = (start: week.startDate, end: week.endDate, text: week.label)
-            }
-        }
-    }
-
     // MARK: - Historical Football Calendar (Core API)
 
     /// Fetches the season calendar from the ESPN Core API for a specific football
@@ -182,7 +171,7 @@ class ESPNAPIService {
     /// cost nothing after the first fetch.
     func fetchFootballCalendar(sport: Sport, season: Int) async throws -> SeasonCalendar {
         let cacheKey = "\(sport.rawValue)-\(season)"
-        if let cached = seasonCalendarCache[cacheKey] { return cached }
+        if let cached = await scheduleCache.calendar(forKey: cacheKey) { return cached }
 
         let league = coreLeagueName(for: sport)
 
@@ -199,7 +188,7 @@ class ESPNAPIService {
         if post > 0 { types.append(SeasonTypeInfo(type: 3, weekCount: post)) }
 
         let calendar = SeasonCalendar(sport: sport, season: season, seasonTypes: types)
-        seasonCalendarCache[cacheKey] = calendar
+        await scheduleCache.store(calendar, forKey: cacheKey)
         return calendar
     }
 
@@ -232,9 +221,9 @@ class ESPNAPIService {
     ) async throws -> FootballScoreboardResult {
         // Step 1 — get the date range for this week (cached after first fetch).
         let weekCacheKey = "\(sport.rawValue)-\(season)-\(seasonType)-\(week)"
-        let weekRange: (start: Date, end: Date, text: String)
+        let weekRange: ScheduleCacheStore.WeekRange
 
-        if let cached = weekDateRangeCache[weekCacheKey] {
+        if let cached = await scheduleCache.weekRange(forKey: weekCacheKey) {
             weekRange = cached
         } else {
             let league = coreLeagueName(for: sport)
@@ -255,8 +244,8 @@ class ESPNAPIService {
             let start = parseESPNDateString(coreWeek.startDate) ?? Date()
             let end   = parseESPNDateString(coreWeek.endDate)   ?? Date()
             let text  = coreWeek.text ?? "Week \(week)"
-            weekRange = (start: start, end: end, text: text)
-            weekDateRangeCache[weekCacheKey] = weekRange
+            weekRange = ScheduleCacheStore.WeekRange(start: start, end: end, text: text)
+            await scheduleCache.store(weekRange, forKey: weekCacheKey)
         }
 
         // Step 2 — fetch the scoreboard using the date range.

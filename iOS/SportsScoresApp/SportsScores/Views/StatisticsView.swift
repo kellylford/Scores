@@ -193,17 +193,35 @@ struct LeaderCategorySection: View {
                 for: category.statKey, sport: sport
             )
         }
-        .sheet(isPresented: $showingDefinition, onDismiss: { headingFocused = true }) {
-            if let definition {
-                StatDefinitionSheet(
-                    title: category.displayName,
-                    definition: definition,
-                    opponentNote: category.isOpponentCategory
-                        ? "This category ranks teams by what their opponents did against them."
-                        : nil
-                )
-            }
+        // An alert rather than a sheet: UIKit gives an alert's cancel button
+        // native Escape handling on iPad and Mac, which a sheet never got —
+        // .keyboardShortcut(.cancelAction), an explicit .escape shortcut, and
+        // .onKeyPress with forced focus all failed to close it. VoiceOver also
+        // moves into an alert on its own. The definitions are a sentence or two,
+        // so they suit an alert better than a half-height sheet anyway.
+        .alert(category.displayName, isPresented: $showingDefinition) {
+            Button("Close", role: .cancel) { headingFocused = true }
+        } message: {
+            Text(definitionMessage)
         }
+    }
+
+    /// Body text for the definition alert.
+    ///
+    /// For an opponent category ESPN's text defines the raw stat ("the number of
+    /// points scored per game"), which reads backwards under a heading like
+    /// "Fewest Points Allowed Per Game" — so state what the category ranks
+    /// first, and attribute the definition after it.
+    private var definitionMessage: String {
+        let definition = definition ?? ""
+        if category.isOpponentCategory {
+            return """
+            This category ranks teams by what their opponents did against them.
+
+            ESPN defines the underlying statistic as: \(definition)
+            """
+        }
+        return "\(definition)\n\nDefinition from ESPN."
     }
 
     // MARK: Heading
@@ -225,13 +243,19 @@ struct LeaderCategorySection: View {
                     Image(systemName: "info.circle")
                         .font(.caption)
                         .foregroundColor(.accentColor)
+                        .accessibilityHidden(true)
                 }
             }
             .buttonStyle(.plain)
-            .accessibilityElement(children: .combine)
+            // Do NOT add .accessibilityElement(children: .combine) here. On a
+            // Button it replaces the button's own element — and its activation
+            // action — with a synthesized one, so VoiceOver reads the heading,
+            // announces "button", and does nothing when you activate it.
+            // .isButton comes from the Button itself; only .isHeader is added,
+            // so the heading stays in the rotor.
             .accessibilityLabel(category.displayName)
             .accessibilityHint("Shows the definition of this statistic")
-            .accessibilityAddTraits([.isHeader, .isButton])
+            .accessibilityAddTraits(.isHeader)
             .accessibilityFocused($headingFocused)
         } else {
             Text(category.displayName)
