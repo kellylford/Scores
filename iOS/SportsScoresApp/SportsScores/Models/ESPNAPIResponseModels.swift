@@ -117,6 +117,19 @@ struct LeagueLeaderCategory: Identifiable {
         self.leaders = leaders
         self.isTeamCategory = isTeamCategory
     }
+
+    /// The bare ESPN stat key, used to look up this category's definition.
+    /// Team categories are named "section.stat" (or "opponent.section.stat");
+    /// player categories are already a bare key like "homeRuns".
+    var statKey: String {
+        name.components(separatedBy: ".").last ?? name
+    }
+
+    /// True when the category ranks teams by what their opponents did to them
+    /// (yards allowed, opponent shooting percentage).
+    var isOpponentCategory: Bool {
+        name.hasPrefix("opponent.")
+    }
 }
 
 // MARK: - Core API Response Models
@@ -168,6 +181,10 @@ struct TeamStatsByTeamResponse: Codable {
         /// Stat keys, e.g. ["gamesPlayed", "atBats", "runs", …]
         let names: [String]?
         let displayNames: [String]?
+        /// Plain-English definitions, parallel to `names` — ESPN's own glossary
+        /// text, e.g. "The number representing walks plus hits divided by
+        /// innings pitched." Surfaced by the stat-definition sheet.
+        let descriptions: [String]?
     }
 
     struct TeamStats: Codable {

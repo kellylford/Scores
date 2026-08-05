@@ -89,7 +89,7 @@ struct StatisticsView: View {
             VStack(alignment: .leading, spacing: 24) {
                 ForEach(categories) { category in
                     VStack(alignment: .leading, spacing: 0) {
-                        LeaderCategorySection(category: category, viewMode: viewMode)
+                        LeaderCategorySection(category: category, viewMode: viewMode, sport: sport)
 
                         // View All button — shown when we hit the fetch limit (likely more data exists)
                         if category.leaders.count >= 10 {
@@ -147,8 +147,19 @@ struct StatisticsView: View {
 struct LeaderCategorySection: View {
     let category: LeagueLeaderCategory
     let viewMode: ViewMode
+    /// Needed to look up this category's definition; ESPN's glossary is
+    /// per-league.
+    let sport: Sport
 
     @EnvironmentObject private var appSettings: AppSettings
+
+    /// ESPN's definition of this stat. Nil until looked up, and stays nil when
+    /// ESPN publishes none — the heading then renders as plain text with no
+    /// affordance, rather than offering a button that leads to nothing.
+    @State private var definition: String?
+    @State private var showingDefinition = false
+    /// Returns VoiceOver to the heading after the sheet closes.
+    @AccessibilityFocusState private var headingFocused: Bool
 
     private var hasTeams: Bool {
         category.leaders.contains { !$0.teamAbbreviation.isEmpty }
@@ -166,10 +177,7 @@ struct LeaderCategorySection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(category.displayName)
-                .font(.headline)
-                .foregroundColor(.primary)
-                .accessibilityAddTraits(.isHeader)
+            heading
 
             switch viewMode {
             case .table:
@@ -179,6 +187,57 @@ struct LeaderCategorySection: View {
             case .fullList:
                 fullListSection
             }
+        }
+        .task {
+            definition = await ESPNAPIService.shared.statDefinition(
+                for: category.statKey, sport: sport
+            )
+        }
+        .sheet(isPresented: $showingDefinition, onDismiss: { headingFocused = true }) {
+            if let definition {
+                StatDefinitionSheet(
+                    title: category.displayName,
+                    definition: definition,
+                    opponentNote: category.isOpponentCategory
+                        ? "This category ranks teams by what their opponents did against them."
+                        : nil
+                )
+            }
+        }
+    }
+
+    // MARK: Heading
+    //
+    // The heading stays a heading — it must remain reachable by the VoiceOver
+    // heading rotor, which is how this screen is skimmed — while also being
+    // activatable to show the stat's definition.
+
+    @ViewBuilder
+    private var heading: some View {
+        if definition != nil {
+            Button {
+                showingDefinition = true
+            } label: {
+                HStack(spacing: 4) {
+                    Text(category.displayName)
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    Image(systemName: "info.circle")
+                        .font(.caption)
+                        .foregroundColor(.accentColor)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(category.displayName)
+            .accessibilityHint("Shows the definition of this statistic")
+            .accessibilityAddTraits([.isHeader, .isButton])
+            .accessibilityFocused($headingFocused)
+        } else {
+            Text(category.displayName)
+                .font(.headline)
+                .foregroundColor(.primary)
+                .accessibilityAddTraits(.isHeader)
         }
     }
 

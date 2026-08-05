@@ -65,7 +65,7 @@ struct TeamStatsTabView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     ForEach(viewModel.playerCategories) { category in
-                        LeaderCategorySection(category: category, viewMode: viewMode)
+                        LeaderCategorySection(category: category, viewMode: viewMode, sport: sport)
                     }
                 }
                 .padding()

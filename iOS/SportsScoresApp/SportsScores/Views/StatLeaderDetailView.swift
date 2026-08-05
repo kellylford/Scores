@@ -31,7 +31,7 @@ struct StatLeaderDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
-                LeaderCategorySection(category: displayCategory, viewMode: viewMode)
+                LeaderCategorySection(category: displayCategory, viewMode: viewMode, sport: sport)
                     .padding()
 
                 if isLoadingMore {

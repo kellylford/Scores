@@ -26,22 +26,17 @@ class ESPNAPIService {
     /// Keyed by "{SportRawValue}-{season}-{seasonType}-{week}" → (start, end, label)
     private var weekDateRangeCache: [String: (start: Date, end: Date, text: String)] = [:]
 
-    /// League team statistics, keyed by sport. The college payloads run to a
-    /// few hundred KB, and the Stats screen fetches the same document again
-    /// when "View All" opens a category, so it is worth holding briefly.
-    private var teamStatsCache: [String: CachedTeamStats] = [:]
-    private let teamStatsCacheTTL: TimeInterval = 15 * 60
-
-    private struct CachedTeamStats {
-        let response: TeamStatsByTeamResponse
-        let fetchedAt: Date
-    }
+    /// League team statistics and stat definitions. Held by an actor because
+    /// stat headings request definitions concurrently — see `TeamStatsStore`.
+    private let teamStatsStore: TeamStatsStore
 
     private init() {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
         config.timeoutIntervalForResource = 60
-        self.session = URLSession(configuration: config)
+        let session = URLSession(configuration: config)
+        self.session = session
+        self.teamStatsStore = TeamStatsStore(session: session, baseURL: webAPIBaseURL)
     }
 
     // MARK: - Core API league name helper
@@ -688,37 +683,45 @@ class ESPNAPIService {
         let specs = TeamStatCatalog.specs(for: sport)
         guard !specs.isEmpty else { return [] }
 
-        let response = try await fetchTeamStatsByTeam(for: sport)
+        let response = try await teamStatsStore.payload(for: sport)
         return buildTeamLeaderCategories(from: response, specs: specs, limit: limit)
     }
 
-    /// Fetches (and caches) the full league team-stats payload for a sport.
+    // MARK: - Stat Definitions
+
+    /// Plain-English definition of a stat, or nil when ESPN publishes none.
     ///
-    /// No season parameters are sent — ESPN resolves the most recent season
-    /// that has data, which is what we want in the offseason (asking for a
-    /// season that hasn't started returns an empty document).
-    private func fetchTeamStatsByTeam(for sport: Sport) async throws -> TeamStatsByTeamResponse {
-        if let cached = teamStatsCache[sport.rawValue],
-           Date().timeIntervalSince(cached.fetchedAt) < teamStatsCacheTTL {
-            return cached.response
-        }
-
-        // College leagues need a high limit: ESPN's list runs to several hundred
-        // teams (including non-Division-I opponents), and it is not ordered by
-        // rank, so a small limit would silently drop the actual leaders.
-        let limit = sport.isCollegeSport ? 500 : 50
-        let urlString = "\(webAPIBaseURL)/\(sport.apiPath)/statistics/byteam?region=us&lang=en&limit=\(limit)"
-        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
-
-        let (data, response) = try await session.data(from: url)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-            throw APIError.invalidResponse
-        }
-
-        let decoded = try JSONDecoder().decode(TeamStatsByTeamResponse.self, from: data)
-        teamStatsCache[sport.rawValue] = CachedTeamStats(response: decoded, fetchedAt: Date())
-        return decoded
+    /// ESPN ships its own glossary text alongside the team statistics payload —
+    /// a `descriptions` array parallel to each category's stat names — so both
+    /// the Players and Teams tabs read definitions from the same document
+    /// rather than from hand-written copy that would drift.
+    func statDefinition(for statKey: String, sport: Sport) async -> String? {
+        guard !TeamStatCatalog.specs(for: sport).isEmpty else { return nil }
+        let definitions = await teamStatsStore.glossary(for: sport)
+        if let exact = definitions[statKey] { return exact }
+        return Self.playerStatAliases[statKey].flatMap { definitions[$0] }
     }
+
+    /// Player-leader categories and team statistics use different keys for the
+    /// same stat — basketball is the worst offender ("pointsPerGame" on the
+    /// leaders endpoint, "avgPoints" in the team payload). Map the ones that
+    /// differ so the Players tab gets definitions too. Keys with no team-level
+    /// equivalent at all (PER, plus/minus, tackles) are simply absent, and
+    /// those headings show no definition button.
+    private static let playerStatAliases: [String: String] = [
+        "pointsPerGame":        "avgPoints",
+        "assistsPerGame":       "avgAssists",
+        "reboundsPerGame":      "avgRebounds",
+        "stealsPerGame":        "avgSteals",
+        "blocksPerGame":        "avgBlocks",
+        "turnoversPerGame":     "avgTurnovers",
+        "foulsPerGame":         "avgFouls",
+        "fieldGoalPercentage":  "fieldGoalPct",
+        "FreeThrowPct":         "freeThrowPct",
+        "3PointPct":            "threePointFieldGoalPct",
+        "3PointsMadePerGame":   "avgThreePointFieldGoalsMade",
+        "quarterbackRating":    "QBRating",
+    ]
 
     private func buildTeamLeaderCategories(
         from response: TeamStatsByTeamResponse,

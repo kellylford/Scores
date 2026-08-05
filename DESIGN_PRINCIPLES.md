@@ -102,6 +102,29 @@ columns per team). The Players / Teams switch is hidden entirely for sports
 where ESPN publishes no team statistics — soccer, golf, racing, college hockey
 and CFL (`Sport.hasTeamStats`).
 
+#### Stat definitions
+
+Activating a stat category heading opens `StatDefinitionSheet` with ESPN's own
+definition of that stat ("WHIP — the number representing walks plus hits divided
+by innings pitched"). Definitions come from the `descriptions` array in the
+`byteam` payload, never from hand-written copy, so they cannot drift from the
+data. Rules:
+
+- **The heading stays a heading.** It carries `[.isHeader, .isButton]` — losing
+  the header trait would break rotor navigation, which is how a screen with 24
+  sections is skimmed.
+- **No dead affordance.** The info glyph and button behavior appear only after a
+  definition is found. Stats ESPN does not define (PER, plus/minus, tackles)
+  render as plain-text headings exactly as before.
+- **Escape closes it** via `.keyboardShortcut(.cancelAction)` on the Close
+  button, for hardware keyboards on iPad and Mac. The visible Close button is
+  required regardless — it is the only way out on iPhone.
+- **Focus returns to the originating heading** on dismiss, rather than dropping
+  VoiceOver at the top of the list.
+- **Opponent categories lead with context.** ESPN's text defines the raw stat,
+  which reads backwards under "Fewest Points Allowed Per Game", so the sheet
+  states what the category ranks before quoting the definition.
+
 ---
 
 ## Live Scores View
