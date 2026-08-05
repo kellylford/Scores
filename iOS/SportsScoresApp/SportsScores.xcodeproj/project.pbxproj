@@ -45,6 +45,7 @@
 		43515A69C1AC52DA8773923D /* TeamNewsTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BA63414CE0A8CC7087E5892 /* TeamNewsTabView.swift */; };
 		437405AD156F24694A662BEB /* WorldCupTeamView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC0CEB0D3A5E7470A9CA7DB9 /* WorldCupTeamView.swift */; };
 		44CC376BD3D339F8307B9B03 /* WorldCupPathView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F80EB90ACAB4BA3DF377959B /* WorldCupPathView.swift */; };
+		48411DCF26B1305F61766CD1 /* TeamStatCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F7442D4B0FEAEC59978A844 /* TeamStatCatalog.swift */; };
 		4B2393188AA82F3FEFA7D8FC /* TheBenchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89BE97DE902E6DA78B864E54 /* TheBenchView.swift */; };
 		4C29DBE2E2D7001F23D97407 /* TransactionHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 929F276A5AC1D12C6ED0233B /* TransactionHubView.swift */; };
 		4EBA8B3274D13D19014A34C4 /* BoxScoreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DB8AE94C204A50146E9F867 /* BoxScoreView.swift */; };
@@ -105,6 +106,7 @@
 		BAC55B44D2DD6AFAC014F6B5 /* StatisticsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 170934144144BFF79BD8E765 /* StatisticsViewModel.swift */; };
 		BC4CAE67D1B91E0DD0EF8F48 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA9D3C2F2CF69EA0F2C44FC /* AppSettings.swift */; };
 		BE2C0E300624C50840FFC407 /* GolfScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86BB430071A120C3BDDD7C3A /* GolfScheduleView.swift */; };
+		C1D2FE59C92ED3060EE7A9AD /* Collection+Safe.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5CE33EAAFA4237153027182 /* Collection+Safe.swift */; };
 		C32F5CC0E58BF2711BCF4EB7 /* UserGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2211E4610908171638A8635E /* UserGuideView.swift */; };
 		C64061F39E9C72D852DCECC2 /* NFLDraftView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ED382A04A08304321DF379A /* NFLDraftView.swift */; };
 		C95B57CC27DD8C19A2979B32 /* StandingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95F96BD2C7E1B5D0F0EC4DE8 /* StandingsView.swift */; };
@@ -187,6 +189,7 @@
 		7BA63414CE0A8CC7087E5892 /* TeamNewsTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamNewsTabView.swift; sourceTree = "<group>"; };
 		7E3E7A006B915059C012DF6C /* StatLeaderDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatLeaderDetailView.swift; sourceTree = "<group>"; };
 		7ED382A04A08304321DF379A /* NFLDraftView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NFLDraftView.swift; sourceTree = "<group>"; };
+		7F7442D4B0FEAEC59978A844 /* TeamStatCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamStatCatalog.swift; sourceTree = "<group>"; };
 		7FE78616C1AF25271D897613 /* TeamRosterTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamRosterTabView.swift; sourceTree = "<group>"; };
 		82A66944C86F3ADCC7364DEA /* TransactionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionViewModel.swift; sourceTree = "<group>"; };
 		82D271FEAD8DE2FBDC83CFF8 /* RacingAPIModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RacingAPIModels.swift; sourceTree = "<group>"; };
@@ -211,6 +214,7 @@
 		A123364C5844F97428FC4E90 /* Racing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Racing.swift; sourceTree = "<group>"; };
 		A3C96FBD3BA920855AB05605 /* ErrorStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorStateView.swift; sourceTree = "<group>"; };
 		A3D586C7F66434AAA1A123DD /* FavoritesHubViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesHubViewModel.swift; sourceTree = "<group>"; };
+		A5CE33EAAFA4237153027182 /* Collection+Safe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Collection+Safe.swift"; sourceTree = "<group>"; };
 		A8BB65FBC95D5C0925F74FD8 /* GameDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameDetailViewModel.swift; sourceTree = "<group>"; };
 		A9F2BB0CD2C7656B02544A70 /* WorldCupPathDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCupPathDetailView.swift; sourceTree = "<group>"; };
 		AA74734FB552A44C1F62E3C7 /* SportSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportSelectionView.swift; sourceTree = "<group>"; };
@@ -275,6 +279,7 @@
 			isa = PBXGroup;
 			children = (
 				D0E882578A16436F5C152578 /* AppLifecycle.swift */,
+				A5CE33EAAFA4237153027182 /* Collection+Safe.swift */,
 				1F02454A9066804EF35F956A /* ViewMode.swift */,
 			);
 			path = Utilities;
@@ -443,6 +448,7 @@
 				C54D54E4F45E8D6A098DFF0B /* StadiumGeometry.swift */,
 				2F730ED25EF184C36C9EEC13 /* Standings.swift */,
 				B24C7FC69C8CFAB2F651990B /* TeamHubModels.swift */,
+				7F7442D4B0FEAEC59978A844 /* TeamStatCatalog.swift */,
 				5F7BC9D746343F8C08C38ADE /* Transaction.swift */,
 				E20197AC616142E4CCBB6D0A /* WorldCup.swift */,
 				43A5EDEFADDCBD6C53E9D458 /* WorldCupBracket.swift */,
@@ -529,6 +535,7 @@
 				4EBA8B3274D13D19014A34C4 /* BoxScoreView.swift in Sources */,
 				186C57EB9184039417063728 /* CFLAPIService.swift in Sources */,
 				0628508F6916E0005D37835D /* CheatsheetPlayerDetailView.swift in Sources */,
+				C1D2FE59C92ED3060EE7A9AD /* Collection+Safe.swift in Sources */,
 				66941444CDF6D80C2263573F /* ContentView.swift in Sources */,
 				EDF2DE37CADCCD46B40AB0AB /* DataTableView.swift in Sources */,
 				898FBB6809528DF5A40939BE /* DatePickerView.swift in Sources */,
@@ -616,6 +623,7 @@
 				620C4CFF1983222CC72994D2 /* TeamScheduleTabView.swift in Sources */,
 				3B583CE5901CF86D24E84764 /* TeamScheduleView.swift in Sources */,
 				32A6FF663F55FDB3009D64C7 /* TeamScheduleViewModel.swift in Sources */,
+				48411DCF26B1305F61766CD1 /* TeamStatCatalog.swift in Sources */,
 				C995418E06A9086A5F63BAD7 /* TeamStatsTabView.swift in Sources */,
 				D6D4DE994975F6640BCD8CF6 /* TeamStatsViewModel.swift in Sources */,
 				CC4CC995A5F7BE0BF99E0A0C /* TeamTransactionsTabView.swift in Sources */,

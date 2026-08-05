@@ -81,6 +81,27 @@ The `ScoresView` segmented tab picker has these tabs (in order):
 | Stats | All sports |
 | Polls | NCAAF, NCAAM, NCAAWB only |
 
+#### Stats tab data sources
+
+The Stats tab has a Players / Teams switch, and the two halves come from
+different ESPN endpoints:
+
+| Sub-tab | Endpoint | Notes |
+|---|---|---|
+| Players | Core API `…/types/{type}/leaders` | Individual leaders, top 10 per category |
+| Teams | Web API `…/statistics/byteam` | Real team aggregates for every team |
+
+The Core API `leaders` endpoint **only ever returns individual players** — its
+`groups=50` "team" parameter is silently ignored, which once made the Teams
+sub-tab show player numbers labelled with team abbreviations. Team statistics
+must come from `statistics/byteam`.
+
+Which stats appear, in what order, and which direction ranks best-first is
+declared per sport in `Models/TeamStatCatalog.swift` (ESPN returns 100+ raw
+columns per team). The Players / Teams switch is hidden entirely for sports
+where ESPN publishes no team statistics — soccer, golf, racing, college hockey
+and CFL (`Sport.hasTeamStats`).
+
 ---
 
 ## Live Scores View

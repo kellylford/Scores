@@ -62,7 +62,7 @@ struct StatLeaderDetailView: View {
         loadError = nil
         do {
             let allCategories = summary.isTeamCategory
-                ? try await ESPNAPIService.shared.fetchTeamLeaders(for: sport, limit: 30)
+                ? try await ESPNAPIService.shared.fetchTeamLeaders(for: sport, limit: 50)
                 : try await ESPNAPIService.shared.fetchLeagueLeaders(for: sport, limit: 50)
             fullCategory = allCategories.first { $0.name == summary.name }
         } catch {

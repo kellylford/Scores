@@ -196,6 +196,13 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
         }
     }
 
+    /// True for sports where ESPN publishes league-wide team statistics.
+    /// Soccer, golf, racing, college hockey and CFL have none, so the Stats
+    /// screen hides its Players/Teams switch for them.
+    var hasTeamStats: Bool {
+        !TeamStatCatalog.specs(for: self).isEmpty
+    }
+
     /// True for sports that publish weekly polls/rankings.
     var hasPolls: Bool {
         self == .ncaaf || self == .ncaam || self == .ncaawb

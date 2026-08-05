@@ -15,6 +15,8 @@ class ESPNAPIService {
     private let standingsBaseURL = "https://site.api.espn.com/apis/v2/sports"
     /// Core API for leaders/statistics and week calendar data
     private let coreAPIBaseURL = "https://sports.core.api.espn.com/v2/sports"
+    /// Web API — the only ESPN host that serves league-wide team statistics
+    private let webAPIBaseURL = "https://site.web.api.espn.com/apis/common/v3/sports"
     private let session: URLSession
 
     // MARK: - Caches (historical season data)
@@ -23,6 +25,17 @@ class ESPNAPIService {
     private var seasonCalendarCache: [String: SeasonCalendar] = [:]
     /// Keyed by "{SportRawValue}-{season}-{seasonType}-{week}" → (start, end, label)
     private var weekDateRangeCache: [String: (start: Date, end: Date, text: String)] = [:]
+
+    /// League team statistics, keyed by sport. The college payloads run to a
+    /// few hundred KB, and the Stats screen fetches the same document again
+    /// when "View All" opens a category, so it is worth holding briefly.
+    private var teamStatsCache: [String: CachedTeamStats] = [:]
+    private let teamStatsCacheTTL: TimeInterval = 15 * 60
+
+    private struct CachedTeamStats {
+        let response: TeamStatsByTeamResponse
+        let fetchedAt: Date
+    }
 
     private init() {
         let config = URLSessionConfiguration.default
@@ -661,27 +674,147 @@ class ESPNAPIService {
         return rankings
     }
 
-    func fetchTeamLeaders(for sport: Sport, limit: Int = 10) async throws -> [LeagueLeaderCategory] {
-        let league = sport.apiPath.components(separatedBy: "/").last ?? sport.rawValue.lowercased()
-        let sportType = sport.apiPath.components(separatedBy: "/").first ?? "unknown"
-        let currentYear = Calendar.current.component(.year, from: Date())
-        let seasonYear = sport.usesNextYearFormat ? currentYear + 1 : currentYear
-        let seasonTypes = getSeasonTypes(for: sport)
-        let seasonsToTry = [seasonYear, seasonYear - 1, seasonYear - 2]
+    // MARK: - Fetch Team Leaders (league-wide team statistics)
 
-        for season in seasonsToTry {
-            for seasonType in seasonTypes {
-                do {
-                    let categories = try await fetchLeadersForSeason(
-                        sportType: sportType, league: league,
-                        season: season, seasonType: seasonType,
-                        limit: limit, isTeamStats: true
+    /// League-wide team statistics, one category per curated stat, teams ranked
+    /// best-first.
+    ///
+    /// This does *not* use the Core API `leaders` endpoint: that endpoint only
+    /// ever returns individual players (its `groups=50` team parameter is
+    /// silently ignored), which is why the Teams tab used to show player
+    /// numbers labelled with team abbreviations. Real team aggregates come from
+    /// the `statistics/byteam` endpoint instead.
+    func fetchTeamLeaders(for sport: Sport, limit: Int = 10) async throws -> [LeagueLeaderCategory] {
+        let specs = TeamStatCatalog.specs(for: sport)
+        guard !specs.isEmpty else { return [] }
+
+        let response = try await fetchTeamStatsByTeam(for: sport)
+        return buildTeamLeaderCategories(from: response, specs: specs, limit: limit)
+    }
+
+    /// Fetches (and caches) the full league team-stats payload for a sport.
+    ///
+    /// No season parameters are sent — ESPN resolves the most recent season
+    /// that has data, which is what we want in the offseason (asking for a
+    /// season that hasn't started returns an empty document).
+    private func fetchTeamStatsByTeam(for sport: Sport) async throws -> TeamStatsByTeamResponse {
+        if let cached = teamStatsCache[sport.rawValue],
+           Date().timeIntervalSince(cached.fetchedAt) < teamStatsCacheTTL {
+            return cached.response
+        }
+
+        // College leagues need a high limit: ESPN's list runs to several hundred
+        // teams (including non-Division-I opponents), and it is not ordered by
+        // rank, so a small limit would silently drop the actual leaders.
+        let limit = sport.isCollegeSport ? 500 : 50
+        let urlString = "\(webAPIBaseURL)/\(sport.apiPath)/statistics/byteam?region=us&lang=en&limit=\(limit)"
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+
+        let (data, response) = try await session.data(from: url)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw APIError.invalidResponse
+        }
+
+        let decoded = try JSONDecoder().decode(TeamStatsByTeamResponse.self, from: data)
+        teamStatsCache[sport.rawValue] = CachedTeamStats(response: decoded, fetchedAt: Date())
+        return decoded
+    }
+
+    private func buildTeamLeaderCategories(
+        from response: TeamStatsByTeamResponse,
+        specs: [TeamStatSpec],
+        limit: Int
+    ) -> [LeagueLeaderCategory] {
+        let teams = qualifiedTeams(in: response)
+        guard !teams.isEmpty else { return [] }
+
+        // Stat name → column index, taken from the first metadata copy of each
+        // category that actually carries the names array.
+        var columns: [String: [String: Int]] = [:]
+        for meta in response.categories ?? [] {
+            guard let section = meta.name, let names = meta.names, !names.isEmpty,
+                  columns[section] == nil else { continue }
+            var index: [String: Int] = [:]
+            // ESPN repeats a few stat keys within a category (NFL rushing lists
+            // rushingYards twice); the first occurrence is the one to use.
+            for (i, name) in names.enumerated() where index[name] == nil {
+                index[name] = i
+            }
+            columns[section] = index
+        }
+
+        return specs.compactMap { spec -> LeagueLeaderCategory? in
+            guard let index = columns[spec.section]?[spec.stat] else { return nil }
+            let wantedSplit = spec.split == .opponent ? "900" : "0"
+
+            var rows: [(value: Double, display: String, team: TeamStatsByTeamResponse.TeamStats.TeamInfo)] = []
+            for team in teams {
+                guard let category = (team.categories ?? []).first(where: {
+                    $0.name == spec.section && ($0.splitId ?? "0") == wantedSplit
+                }) else { continue }
+                guard let value = category.values?[safe: index] ?? nil,
+                      let display = category.totals?[safe: index] ?? nil,
+                      !display.isEmpty, display != "-"
+                else { continue }
+                rows.append((value, display, team.team))
+            }
+            guard !rows.isEmpty else { return nil }
+
+            rows.sort { spec.higherIsBetter ? $0.value > $1.value : $0.value < $1.value }
+
+            let leaders = rows.prefix(limit).enumerated().map { index, row in
+                LeagueLeaderCategory.LeagueLeaderEntry(
+                    rank: index + 1,
+                    displayValue: row.display,
+                    athleteName: row.team.abbreviation ?? row.team.displayName ?? "—",
+                    teamAbbreviation: "",
+                    teamNames: LeagueLeaderCategory.TeamNameSet(
+                        displayName: row.team.displayName ?? row.team.abbreviation ?? "—",
+                        name: row.team.name ?? row.team.displayName ?? "",
+                        abbreviation: row.team.abbreviation ?? ""
                     )
-                    if !categories.isEmpty { return categories }
-                } catch { continue }
+                )
+            }
+            return LeagueLeaderCategory(
+                name: spec.key,
+                displayName: spec.title,
+                leaders: Array(leaders),
+                isTeamCategory: true
+            )
+        }
+    }
+
+    /// Drops teams that have played far fewer games than the rest of the league.
+    ///
+    /// ESPN's college feeds include every team that faced a Division I opponent,
+    /// so a Division II school with a single game can top a per-game category.
+    /// Teams below half the league-leading games-played count are excluded.
+    private func qualifiedTeams(in response: TeamStatsByTeamResponse) -> [TeamStatsByTeamResponse.TeamStats] {
+        let teams = response.teams ?? []
+
+        // Locate the games-played column. Its category and key vary by sport
+        // (baseball "batting"/"gamesPlayed", hockey "general"/"games").
+        var gamesColumn: (section: String, index: Int)?
+        for meta in response.categories ?? [] {
+            guard let section = meta.name, let names = meta.names else { continue }
+            if let index = names.firstIndex(where: { $0 == "gamesPlayed" || $0 == "games" }) {
+                gamesColumn = (section, index)
+                break
             }
         }
-        return []
+        guard let gamesColumn else { return teams }
+
+        func gamesPlayed(_ team: TeamStatsByTeamResponse.TeamStats) -> Double? {
+            guard let category = (team.categories ?? []).first(where: {
+                $0.name == gamesColumn.section && ($0.splitId ?? "0") == "0"
+            }) else { return nil }
+            return category.values?[safe: gamesColumn.index] ?? nil
+        }
+
+        let played = teams.compactMap(gamesPlayed)
+        guard let mostGames = played.max(), mostGames > 0 else { return teams }
+        let threshold = mostGames / 2
+        return teams.filter { (gamesPlayed($0) ?? mostGames) >= threshold }
     }
 
     private func fetchLeadersForSeason(
@@ -689,11 +822,9 @@ class ESPNAPIService {
         league: String,
         season: Int,
         seasonType: Int,
-        limit: Int = 50,
-        isTeamStats: Bool = false
+        limit: Int = 50
     ) async throws -> [LeagueLeaderCategory] {
-        let groupsParam = isTeamStats ? "&groups=50" : ""
-        let urlString = "\(coreAPIBaseURL)/\(sportType)/leagues/\(league)/seasons/\(season)/types/\(seasonType)/leaders?limit=\(limit)\(groupsParam)"
+        let urlString = "\(coreAPIBaseURL)/\(sportType)/leagues/\(league)/seasons/\(season)/types/\(seasonType)/leaders?limit=\(limit)"
         guard let url = URL(string: urlString) else { throw APIError.invalidURL }
         
         let (data, response) = try await session.data(from: url)
@@ -735,27 +866,14 @@ class ESPNAPIService {
         // Build results using the resolved caches
         return categories.map { category in
             let leaders = (category.leaders ?? []).enumerated().map { index, leader -> LeagueLeaderCategory.LeagueLeaderEntry in
-                let rawTeamAbbr = leader.team?.ref.flatMap { teams[secureURL($0)]?.abbreviation } ?? ""
-                let rawEntityName: String
-                if let ref = leader.athlete?.ref, let ath = athletes[secureURL(ref)] {
-                    rawEntityName = ath.displayName ?? "—"
-                } else if let ref = leader.team?.ref, let team = teams[secureURL(ref)] {
-                    rawEntityName = team.displayName ?? "—"
-                } else {
-                    rawEntityName = "—"
-                }
-
-                // For team-stat categories the entity IS the team: use the abbreviation
-                // as the compact display name and leave the team column empty so the
-                // view doesn't render a redundant "Team" column.
+                let entityTeam = leader.team?.ref.flatMap { teams[secureURL($0)]?.abbreviation } ?? ""
                 let entityName: String
-                let entityTeam: String
-                if isTeamStats {
-                    entityName = rawTeamAbbr.isEmpty ? rawEntityName : rawTeamAbbr
-                    entityTeam = ""
+                if let ref = leader.athlete?.ref, let ath = athletes[secureURL(ref)] {
+                    entityName = ath.displayName ?? "—"
+                } else if let ref = leader.team?.ref, let team = teams[secureURL(ref)] {
+                    entityName = team.displayName ?? "—"
                 } else {
-                    entityName = rawEntityName
-                    entityTeam = rawTeamAbbr
+                    entityName = "—"
                 }
 
                 // MLB displayValue is a full stats-line (e.g. "9-17, 4 HR, 2B, 6 RBI...").
@@ -776,8 +894,7 @@ class ESPNAPIService {
             return LeagueLeaderCategory(
                 name: category.name ?? "",
                 displayName: category.displayName ?? "",
-                leaders: leaders,
-                isTeamCategory: isTeamStats
+                leaders: leaders
             )
         }
     }

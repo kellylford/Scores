@@ -22,15 +22,19 @@ struct StatisticsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("Stats Type", selection: $statsTab) {
-                ForEach(StatsTab.allCases, id: \.self) { tab in
-                    Text(tab.rawValue).tag(tab)
+            // Sports without ESPN team statistics show player leaders only —
+            // no switch to an always-empty tab.
+            if sport.hasTeamStats {
+                Picker("Stats Type", selection: $statsTab) {
+                    ForEach(StatsTab.allCases, id: \.self) { tab in
+                        Text(tab.rawValue).tag(tab)
+                    }
                 }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
             }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
-            .padding(.top, 8)
-            .padding(.bottom, 4)
 
             Group {
                 switch statsTab {
@@ -144,12 +148,21 @@ struct LeaderCategorySection: View {
     let category: LeagueLeaderCategory
     let viewMode: ViewMode
 
+    @EnvironmentObject private var appSettings: AppSettings
+
     private var hasTeams: Bool {
         category.leaders.contains { !$0.teamAbbreviation.isEmpty }
     }
 
     /// Column headers: "Team" replaces "Player" for team-stat categories.
     private var entityHeader: String { category.isTeamCategory ? "Team" : "Player" }
+
+    /// What VoiceOver reads for the leading column. Team rows show an
+    /// abbreviation on screen but speak the name the user asked for in
+    /// Settings; player rows speak the name as written.
+    private func spokenName(_ entry: LeagueLeaderCategory.LeagueLeaderEntry) -> String {
+        entry.teamNames?.voiceOverName(for: appSettings.teamNamePreference) ?? entry.athleteName
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -176,8 +189,8 @@ struct LeaderCategorySection: View {
         let headers  = hasTeams ? ["Rank", entityHeader, "Team", "Value"] : ["Rank", entityHeader, "Value"]
         let rows = category.leaders.map { entry -> [String] in
             hasTeams
-                ? ["\(entry.rank)", entry.athleteName, entry.teamAbbreviation, entry.displayValue]
-                : ["\(entry.rank)", entry.athleteName, entry.displayValue]
+                ? ["\(entry.rank)", spokenName(entry), entry.teamAbbreviation, entry.displayValue]
+                : ["\(entry.rank)", spokenName(entry), entry.displayValue]
         }
 
         VStack(spacing: 0) {
@@ -257,7 +270,7 @@ struct LeaderCategorySection: View {
                 .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.04))
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(
-                    "#\(entry.rank) \(entry.athleteName)\(hasTeams ? " \(entry.teamAbbreviation)" : "") — \(entry.displayValue)"
+                    "#\(entry.rank) \(spokenName(entry))\(hasTeams ? " \(entry.teamAbbreviation)" : "") — \(entry.displayValue)"
                 )
             }
         }
@@ -291,7 +304,7 @@ struct LeaderCategorySection: View {
                 .background(idx % 2 == 0 ? Color.clear : Color.secondary.opacity(0.04))
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(
-                    "Rank \(entry.rank), \(entityHeader): \(entry.athleteName)\(hasTeams ? ", Team: \(entry.teamAbbreviation)" : ""), Value: \(entry.displayValue)"
+                    "Rank \(entry.rank), \(entityHeader): \(spokenName(entry))\(hasTeams ? ", Team: \(entry.teamAbbreviation)" : ""), Value: \(entry.displayValue)"
                 )
             }
         }
@@ -315,5 +328,6 @@ struct LeaderCategorySection: View {
     NavigationStack {
         StatisticsView(sport: .mlb)
             .navigationTitle("MLB Statistics")
+            .environmentObject(AppSettings())
     }
 }

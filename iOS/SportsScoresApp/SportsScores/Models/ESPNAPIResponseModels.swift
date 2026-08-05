@@ -65,6 +65,50 @@ struct LeagueLeaderCategory: Identifiable {
         let athleteName: String
         /// Team abbreviation for player categories; empty for team categories.
         let teamAbbreviation: String
+        /// Full name set for team categories, so VoiceOver can speak the team
+        /// per the user's TeamNamePreference instead of reading the
+        /// abbreviation shown on screen. Nil for player categories.
+        let teamNames: TeamNameSet?
+
+        init(rank: Int,
+             displayValue: String,
+             athleteName: String,
+             teamAbbreviation: String,
+             teamNames: TeamNameSet? = nil) {
+            self.rank = rank
+            self.displayValue = displayValue
+            self.athleteName = athleteName
+            self.teamAbbreviation = teamAbbreviation
+            self.teamNames = teamNames
+        }
+    }
+
+    /// The name variants ESPN publishes for a team, so a view can honor the
+    /// user's `TeamNamePreference` without another lookup.
+    struct TeamNameSet {
+        /// "Baltimore Orioles"
+        let displayName: String
+        /// "Orioles"
+        let name: String
+        /// "BAL"
+        let abbreviation: String
+
+        /// "Baltimore" — `displayName` with the mascot stripped off the end.
+        var cityName: String {
+            guard displayName.hasSuffix(name) else { return displayName }
+            let city = String(displayName.dropLast(name.count))
+                .trimmingCharacters(in: .whitespaces)
+            return city.isEmpty ? displayName : city
+        }
+
+        func voiceOverName(for preference: TeamNamePreference) -> String {
+            switch preference {
+            case .full:         return displayName
+            case .mascot:       return name
+            case .city:         return cityName
+            case .abbreviation: return abbreviation
+            }
+        }
     }
 
     init(name: String, displayName: String, leaders: [LeagueLeaderEntry], isTeamCategory: Bool = false) {
@@ -101,6 +145,52 @@ struct CoreLeadersAPIResponse: Codable {
                     case ref = "$ref"
                 }
             }
+        }
+    }
+}
+
+/// League-wide team statistics — every team's full stat line for the season.
+/// From `site.web.api.espn.com/apis/common/v3/sports/{sport}/{league}/statistics/byteam`.
+///
+/// The payload is column-oriented: the top-level `categories` carry the stat
+/// names/labels, and each team's matching category carries `totals` (display
+/// strings), `values` (numbers) and `ranks` in the same order. Look a stat's
+/// index up once in the top-level metadata, then read that index out of every
+/// team's arrays.
+struct TeamStatsByTeamResponse: Codable {
+    let teams: [TeamStats]?
+    /// Column metadata. ESPN repeats a category name once per split, and only
+    /// the first copy is guaranteed to carry the `names` array.
+    let categories: [CategoryMetadata]?
+
+    struct CategoryMetadata: Codable {
+        let name: String?
+        /// Stat keys, e.g. ["gamesPlayed", "atBats", "runs", …]
+        let names: [String]?
+        let displayNames: [String]?
+    }
+
+    struct TeamStats: Codable {
+        let team: TeamInfo
+        let categories: [TeamCategory]?
+
+        struct TeamInfo: Codable {
+            let id: String?
+            let abbreviation: String?
+            let displayName: String?
+            let name: String?
+        }
+
+        struct TeamCategory: Codable {
+            let name: String?
+            /// "0" for the team's own production, "900" for what opponents did
+            /// against it. Absent on categories that have no split (e.g. NBA
+            /// "differential"), which are treated as the team's own.
+            let splitId: String?
+            /// Display strings, e.g. ["115", "3,939", ".250", …]
+            let totals: [String]?
+            /// The same values as numbers, for sorting.
+            let values: [Double?]?
         }
     }
 }
