@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### In Progress
+- **Game Wrap Up Feature**: ESPN text processing and game story extraction (under construction)
+  - Core infrastructure implemented, text processing being refined
+  - Game story text placeholders currently under investigation
+
+## [0.9.0] - 2026-08-05
+
 ### Added
 - **Windows installer**: `Scores-<version>-Setup.exe`, a per-user install into
   `%LocalAppData%\Programs\Scores` that needs no administrator rights and adds a
@@ -25,11 +32,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - The application version now lives in `version.py`, and the release workflow
   refuses to build a `v*` tag that disagrees with it or with the VERSION file.
-
-### In Progress
-- **Game Wrap Up Feature**: ESPN text processing and game story extraction (under construction)
-  - Core infrastructure implemented, text processing being refined
-  - Game story text placeholders currently under investigation
 
 ## [0.65.0] - 2025-12-14
 
