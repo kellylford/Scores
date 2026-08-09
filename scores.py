@@ -34,9 +34,9 @@ from PyQt6.QtWidgets import (
     QHBoxLayout, QCheckBox, QDialog, QMessageBox, QTextEdit, QScrollArea,
     QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget, QStackedWidget,
     QListWidgetItem, QTreeWidget, QTreeWidgetItem, QSpinBox, QComboBox,
-    QSizePolicy, QMenu, QProgressDialog
+    QSizePolicy, QMenu, QProgressDialog, QLineEdit
 )
-from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal, QEvent
 from PyQt6.QtGui import QColor, QAction, QFont
 
 # Windows UIA notification support
@@ -1414,6 +1414,8 @@ class LeagueView(BaseView):
             self._show_transactions_dialog(); return
         if data == "__draft__":
             self._show_draft_dialog(); return
+        if data == "__fantasy__":
+            self._show_fantasy_cheatsheet(); return
         if data == "__venues__":
             self._show_venues_dialog(); return
         if data == "__bowls__":
@@ -1499,6 +1501,10 @@ class LeagueView(BaseView):
                 self.scores_list.addItem("--- NFL Draft ---")
                 draft_item = self.scores_list.item(self.scores_list.count()-1)
                 draft_item.setData(Qt.ItemDataRole.UserRole, "__draft__")
+
+                self.scores_list.addItem("--- Fantasy Cheatsheet ---")
+                cheatsheet_item = self.scores_list.item(self.scores_list.count()-1)
+                cheatsheet_item.setData(Qt.ItemDataRole.UserRole, "__fantasy__")
 
             # Add Bowls & Playoffs for NCAAF
             if self.league == "NCAAF":
@@ -1709,6 +1715,16 @@ class LeagueView(BaseView):
             if self.parent_app:
                 self.parent_app.update_window_title(["NFL Draft", "NFL"])
             dialog = NFLDraftDialog(self)
+            dialog.exec()
+        finally:
+            if self.parent_app:
+                self.parent_app.update_window_title(["NFL"])
+
+    def _show_fantasy_cheatsheet(self):
+        try:
+            if self.parent_app:
+                self.parent_app.update_window_title(["Fantasy Cheatsheet", "NFL"])
+            dialog = FantasyCheatsheetDialog(self)
             dialog.exec()
         finally:
             if self.parent_app:
@@ -7933,6 +7949,21 @@ class NFLDraftRoundLoader(QThread):
             self.error_occurred.emit(str(e))
 
 
+class FantasyCheatsheetLoader(QThread):
+    data_loaded = pyqtSignal(dict)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, season=None):
+        super().__init__()
+        self.season = season
+
+    def run(self):
+        try:
+            self.data_loaded.emit(ApiService.get_fantasy_cheatsheet(self.season) or {})
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+
+
 class GolfLeaderboardLoader(QThread):
     data_loaded = pyqtSignal(dict)
     error_occurred = pyqtSignal(str)
@@ -8693,6 +8724,643 @@ class NFLDraftDialog(QDialog):
             self.accept()
         else:
             super().keyPressEvent(event)
+
+
+FANTASY_SCORING_FORMATS = {"Standard": 0.0, "Half-PPR": 0.5, "PPR": 1.0}
+
+FANTASY_POSITION_FILTERS = [
+    ("All Positions", None),
+    ("QB", ("QB",)),
+    ("RB", ("RB",)),
+    ("WR", ("WR",)),
+    ("TE", ("TE",)),
+    ("FLEX (RB, WR, TE)", ("RB", "WR", "TE")),
+    ("K", ("K",)),
+    ("D/ST", ("D/ST",)),
+]
+
+FANTASY_SORTS = ["ESPN Rank", "ADP", "Auction Value", "Projected Points", "Player Name"]
+
+# Shown in any column with no value. Spelled out rather than a dash so screen
+# readers say something meaningful in all three view modes.
+FANTASY_NO_VALUE = "N/A"
+
+# ESPN parks undrafted players at an ADP of 300+ instead of omitting the field.
+FANTASY_UNDRAFTED_ADP = 300
+
+
+class CheatsheetTable(AccessibleTable):
+    """Draft board table: Space drafts or un-drafts, Enter opens player details.
+
+    Both keys are handled here rather than on the individual views so they behave
+    identically in Table, Quick List and Full List mode.
+    """
+
+    toggle_requested = pyqtSignal()
+    details_requested = pyqtSignal()
+    selection_changed = pyqtSignal()
+
+    def __init__(self, parent=None):
+        super().__init__(
+            parent=parent,
+            accessible_name="Fantasy Draft Board",
+            accessible_description=(
+                "Fantasy football draft board. Press Space to mark the selected player "
+                "drafted or available, Enter for full player details"
+            ),
+        )
+        self.setup_columns(
+            ["Rank", "Player", "Pos", "Team", "ADP", "Auction", "Proj", "Status"],
+            stretch_column=1,
+        )
+        # AccessibleTable only exposes the table view's selection signal, but the
+        # board has to track the selection in whichever view mode is showing.
+        self.table_widget.currentCellChanged.connect(lambda *_: self.selection_changed.emit())
+        self.quick_list.currentRowChanged.connect(lambda *_: self.selection_changed.emit())
+        self.full_list.currentRowChanged.connect(lambda *_: self.selection_changed.emit())
+
+    def current_row_index(self) -> int:
+        """Index of the selected row in whichever view mode is showing."""
+        return self._get_current_row()
+
+    def select_row(self, row: int, focus: bool = False, reannounce: bool = False):
+        """Move the selection to a row, keeping the current column in table view.
+
+        `reannounce` forces the selection through an empty state first. Re-setting
+        the cell a row already sits on is a no-op in Qt — no selection event, so
+        nothing for a screen reader to speak — which matters when the row's own
+        contents just changed underneath it. The list views clear on repopulate,
+        so they already emit the change and need no help.
+        """
+        if row < 0:
+            return
+        if self._current_view == self.VIEW_TABLE:
+            if row < self.table_widget.rowCount():
+                if reannounce:
+                    self.table_widget.setCurrentCell(-1, -1)
+                self.table_widget.setCurrentCell(row, max(0, self.table_widget.currentColumn()))
+        else:
+            self._restore_position(row)
+        if focus:
+            self._set_focus_to_current_view()
+
+    def eventFilter(self, obj, event):
+        # Keypad Enter always carries KeypadModifier, so it is masked out rather
+        # than excluded — otherwise it would fall through to the dialog's default
+        # button and do something other than what the main Enter key does.
+        if event.type() == QEvent.Type.KeyPress:
+            modifiers = event.modifiers() & ~Qt.KeyboardModifier.KeypadModifier
+            if modifiers == Qt.KeyboardModifier.NoModifier:
+                if event.key() == Qt.Key.Key_Space:
+                    self.toggle_requested.emit()
+                    return True
+                if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                    self.details_requested.emit()
+                    return True
+        return super().eventFilter(obj, event)
+
+
+class FantasyCheatsheetDialog(QDialog):
+    """NFL fantasy football draft cheatsheet.
+
+    A "good starting point" draft board built on ESPN's fantasy feed: every
+    draftable player plus all 32 team defenses, with ESPN's consensus rank,
+    average draft position, auction value and season projection. Filter by
+    position, team or name, sort by any of those, and mark players drafted as a
+    live draft goes by. The drafted set and the scoring format persist between
+    sessions.
+
+    Changing the scoring format never refetches: each row carries projected
+    points excluding receptions plus a projected reception count, so
+    Standard / Half-PPR / PPR is a local recalculation.
+    """
+
+    # Process-wide cache — the board comes from a ~38 MB download, so reopening
+    # the dialog mid-draft should not pay for it again.
+    _cached_board = None
+    _active_loader = None
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Fantasy Cheatsheet — NFL — Sports Scores")
+        self.setMinimumSize(820, 560)
+        self.resize(1020, 700)
+
+        self._players = []      # the whole board, as loaded
+        self._filtered = []     # the rows the table is currently showing
+        self._season = datetime.now().year
+
+        self.scoring = settings.get('fantasy_scoring', 'PPR')
+        if self.scoring not in FANTASY_SCORING_FORMATS:
+            self.scoring = 'PPR'
+        self._taken = set(settings.get('fantasy_taken') or [])
+
+        self._setup_ui()
+        self._load_board()
+
+    # ------------------------------------------------------------------ UI
+
+    def _setup_ui(self):
+        layout = QVBoxLayout()
+
+        layout.addLayout(self._build_filter_row())
+        layout.addLayout(self._build_sort_row())
+
+        self.status_label = QLabel("Loading draft board…")
+        self.status_label.setAccessibleName("Draft board status")
+        layout.addWidget(self.status_label)
+
+        self.table = CheatsheetTable()
+        self.table.toggle_requested.connect(self._toggle_selected)
+        self.table.details_requested.connect(self._show_selected_details)
+        self.table.selection_changed.connect(self._update_toggle_button)
+        layout.addWidget(self.table)
+
+        layout.addLayout(self._build_button_row())
+        self.setLayout(layout)
+        self._set_controls_enabled(False)
+
+    def _build_filter_row(self):
+        row = QHBoxLayout()
+
+        search_label = QLabel("&Search:")
+        self.search_box = QLineEdit()
+        self.search_box.setAccessibleName("Search players")
+        self.search_box.setAccessibleDescription(
+            "Type part of a player name or team abbreviation to narrow the board")
+        self.search_box.setPlaceholderText("Player or team")
+        # Debounced: each rebuild reconstructs ~3,000 table cells and 700 list
+        # items, and doing that per keystroke lags typing and floods the screen
+        # reader with selection changes.
+        self._search_timer = QTimer(self)
+        self._search_timer.setSingleShot(True)
+        self._search_timer.setInterval(200)
+        self._search_timer.timeout.connect(self._apply_filters)
+        self.search_box.textChanged.connect(lambda _: self._search_timer.start())
+        search_label.setBuddy(self.search_box)
+        row.addWidget(search_label)
+        row.addWidget(self.search_box)
+
+        position_label = QLabel("&Position:")
+        self.position_combo = QComboBox()
+        self.position_combo.setAccessibleName("Position filter")
+        self.position_combo.setAccessibleDescription(
+            "Show only players at the selected fantasy position")
+        for label, positions in FANTASY_POSITION_FILTERS:
+            self.position_combo.addItem(label, positions)
+        self.position_combo.currentIndexChanged.connect(lambda _: self._apply_filters())
+        position_label.setBuddy(self.position_combo)
+        row.addWidget(position_label)
+        row.addWidget(self.position_combo)
+
+        # Alt+T, Alt+V, Alt+Q and Alt+F belong to AccessibleTable's view switching
+        # app-wide. Qt gives a label mnemonic priority over the focused widget's
+        # key handling, so no control in this dialog may claim one of them.
+        team_label = QLabel("Te&am:")
+        self.team_combo = QComboBox()
+        self.team_combo.setAccessibleName("Team filter")
+        self.team_combo.setAccessibleDescription(
+            "Show only players from the selected NFL team")
+        self.team_combo.addItem("All Teams", None)
+        self.team_combo.currentIndexChanged.connect(lambda _: self._apply_filters())
+        team_label.setBuddy(self.team_combo)
+        row.addWidget(team_label)
+        row.addWidget(self.team_combo)
+
+        row.addStretch()
+        return row
+
+    def _build_sort_row(self):
+        row = QHBoxLayout()
+
+        sort_label = QLabel("Sort &by:")
+        self.sort_combo = QComboBox()
+        self.sort_combo.setAccessibleName("Sort order")
+        self.sort_combo.setAccessibleDescription("Column the draft board is sorted by")
+        self.sort_combo.addItems(FANTASY_SORTS)
+        self.sort_combo.currentIndexChanged.connect(lambda _: self._apply_filters())
+        sort_label.setBuddy(self.sort_combo)
+        row.addWidget(sort_label)
+        row.addWidget(self.sort_combo)
+
+        scoring_label = QLabel("Sc&oring:")
+        self.scoring_combo = QComboBox()
+        self.scoring_combo.setAccessibleName("Scoring format")
+        self.scoring_combo.setAccessibleDescription(
+            "League scoring format. Sets which ESPN rankings and projected points are shown")
+        self.scoring_combo.addItems(list(FANTASY_SCORING_FORMATS))
+        self.scoring_combo.setCurrentText(self.scoring)
+        self.scoring_combo.currentTextChanged.connect(self._on_scoring_changed)
+        scoring_label.setBuddy(self.scoring_combo)
+        row.addWidget(scoring_label)
+        row.addWidget(self.scoring_combo)
+
+        self.hide_drafted_check = QCheckBox("&Hide drafted players")
+        self.hide_drafted_check.setAccessibleName("Hide drafted players")
+        self.hide_drafted_check.setAccessibleDescription(
+            "When checked, players marked drafted are removed from the board")
+        self.hide_drafted_check.toggled.connect(lambda _: self._apply_filters())
+        row.addWidget(self.hide_drafted_check)
+
+        row.addStretch()
+        return row
+
+    def _build_button_row(self):
+        row = QHBoxLayout()
+
+        self.toggle_btn = QPushButton("&Mark Drafted")
+        self.toggle_btn.setAccessibleDescription(
+            "Mark the selected player drafted or available. "
+            "Space does the same thing on the board")
+        self.toggle_btn.clicked.connect(self._toggle_selected)
+        row.addWidget(self.toggle_btn)
+
+        self.details_btn = QPushButton("Player &Details")
+        self.details_btn.setAccessibleDescription(
+            "Show every draft value and projection for the selected player")
+        self.details_btn.clicked.connect(self._show_selected_details)
+        row.addWidget(self.details_btn)
+
+        self.clear_btn = QPushButton("C&lear Draft Board")
+        self.clear_btn.setAccessibleDescription("Mark every drafted player available again")
+        self.clear_btn.clicked.connect(self._clear_draft)
+        row.addWidget(self.clear_btn)
+
+        self.refresh_btn = QPushButton("&Reload from ESPN")
+        self.refresh_btn.setAccessibleDescription(
+            "Download the draft board again. Your drafted marks are kept")
+        self.refresh_btn.clicked.connect(self._reload_board)
+        row.addWidget(self.refresh_btn)
+
+        row.addStretch()
+        close_btn = QPushButton("&Close")
+        close_btn.clicked.connect(self.accept)
+        row.addWidget(close_btn)
+
+        # None of these may become the default button: Enter belongs to the board
+        # (open player details) and to the search box, and an auto-default button
+        # would silently steal it and draft whoever happens to be selected.
+        for button in (self.toggle_btn, self.details_btn, self.clear_btn,
+                       self.refresh_btn, close_btn):
+            button.setAutoDefault(False)
+            button.setDefault(False)
+        return row
+
+    def _set_controls_enabled(self, enabled: bool):
+        for widget in (self.search_box, self.position_combo, self.team_combo,
+                       self.sort_combo, self.scoring_combo, self.hide_drafted_check,
+                       self.toggle_btn, self.details_btn, self.clear_btn):
+            widget.setEnabled(enabled)
+
+    # ---------------------------------------------------------------- Load
+
+    def _load_board(self):
+        if FantasyCheatsheetDialog._cached_board:
+            self._on_board_loaded(FantasyCheatsheetDialog._cached_board)
+            return
+        self.refresh_btn.setEnabled(False)
+        loader = FantasyCheatsheetLoader()
+        loader.data_loaded.connect(self._on_board_loaded)
+        loader.error_occurred.connect(self._on_board_error)
+        # Held on the class, not the instance: the download outlives a dialog the
+        # user closes straight away, and a QThread deleted mid-run warns and can
+        # take the process with it.
+        FantasyCheatsheetDialog._active_loader = loader
+        loader.start()
+
+    def _reload_board(self):
+        FantasyCheatsheetDialog._cached_board = None
+        self.status_label.setText("Reloading draft board from ESPN…")
+        self._load_board()
+
+    def _on_board_loaded(self, board: dict):
+        self.refresh_btn.setEnabled(True)
+        players = (board or {}).get('players') or []
+        if not players:
+            self._set_controls_enabled(False)
+            self.status_label.setText(
+                "ESPN has not published fantasy draft data yet. Try again closer to the season.")
+            return
+
+        FantasyCheatsheetDialog._cached_board = board
+        self._players = players
+        self._season = board.get('season', self._season)
+        self._drop_marks_from_a_past_season()
+
+        self.team_combo.blockSignals(True)
+        self.team_combo.clear()
+        self.team_combo.addItem("All Teams", None)
+        for team in sorted({p['team'] for p in players if p.get('team') and p['team'] != 'FA'}):
+            self.team_combo.addItem(team, team)
+        self.team_combo.blockSignals(False)
+
+        self._set_controls_enabled(True)
+        self._apply_filters(focus_table=True)
+
+    def _drop_marks_from_a_past_season(self):
+        """Forget drafted marks left over from an earlier season's draft.
+
+        ESPN player ids are stable year to year, so last August's board would
+        otherwise open with a third of this year's players already crossed off.
+        """
+        marked_season = settings.get('fantasy_taken_season')
+        if marked_season == self._season:
+            return
+        if self._taken:
+            self._taken.clear()
+            settings.set('fantasy_taken', [])
+        settings.set('fantasy_taken_season', self._season)
+
+    def _on_board_error(self, error: str):
+        self.refresh_btn.setEnabled(True)
+        self.status_label.setText(
+            f"Could not load the draft board: {error}. "
+            "Choose Reload from ESPN to try again.")
+
+    # ------------------------------------------------------- Value helpers
+
+    def _rank(self, player):
+        """ESPN's consensus rank for the current format.
+
+        ESPN publishes PPR and Standard boards only, so Half-PPR reuses the PPR one.
+        """
+        return player['standard_rank'] if self.scoring == 'Standard' else player['ppr_rank']
+
+    def _projected_points(self, player, scoring=None):
+        """Projected season points in the given format, or None when unscored."""
+        base = player.get('proj_base')
+        if base is None:
+            return None
+        per_reception = FANTASY_SCORING_FORMATS[scoring or self.scoring]
+        return base + player.get('proj_receptions', 0) * per_reception
+
+    def _adp_text(self, player):
+        adp = player.get('adp')
+        return f"{adp:.1f}" if adp and 0 < adp < FANTASY_UNDRAFTED_ADP else FANTASY_NO_VALUE
+
+    def _auction_text(self, player):
+        value = player.get('auction')
+        return f"${value:.0f}" if value and value > 0 else FANTASY_NO_VALUE
+
+    def _projection_text(self, player, scoring=None):
+        points = self._projected_points(player, scoring)
+        return f"{points:.1f}" if points is not None else FANTASY_NO_VALUE
+
+    def _status_text(self, player):
+        parts = []
+        if self.is_taken(player):
+            parts.append("Drafted")
+        if player.get('injury'):
+            parts.append(player['injury'])
+        return ", ".join(parts) if parts else "Available"
+
+    def _row_for(self, player):
+        rank = self._rank(player)
+        return [
+            str(rank) if rank else FANTASY_NO_VALUE,
+            player['name'],
+            player['position'],
+            player['team'],
+            self._adp_text(player),
+            self._auction_text(player),
+            self._projection_text(player),
+            self._status_text(player),
+        ]
+
+    # ---------------------------------------------------- Filter and sort
+
+    def _matches(self, player, query, positions, team):
+        if positions and player['position'] not in positions:
+            return False
+        if team and player['team'] != team:
+            return False
+        if self.hide_drafted_check.isChecked() and self.is_taken(player):
+            return False
+        if query and query not in player['name'].lower() and query not in player['team'].lower():
+            return False
+        return True
+
+    def _sort_key(self, sort_name):
+        """Comparison key for a sort choice. Rank breaks every tie."""
+        def rank(player):
+            return self._rank(player) or 9999
+
+        if sort_name == "ADP":
+            # Players ESPN treats as undrafted sort to the bottom, not to the top.
+            def adp(player):
+                value = player.get('adp')
+                return value if value and 0 < value < FANTASY_UNDRAFTED_ADP else float('inf')
+            return lambda p: (adp(p), rank(p))
+        if sort_name == "Auction Value":
+            return lambda p: (-(p.get('auction') or 0), rank(p))
+        if sort_name == "Projected Points":
+            # Kickers and defenses carry no projection, so they sort last.
+            def points(player):
+                value = self._projected_points(player)
+                return -value if value is not None else float('inf')
+            return lambda p: (points(p), rank(p))
+        if sort_name == "Player Name":
+            return lambda p: p['name'].lower()
+        return lambda p: (rank(p), p['name'].lower())
+
+    def _apply_filters(self, focus_table: bool = False, preserve_row: int = None,
+                       reannounce: bool = False):
+        if not self._players:
+            return
+
+        query = self.search_box.text().strip().lower()
+        positions = self.position_combo.currentData()
+        team = self.team_combo.currentData()
+
+        self._filtered = sorted(
+            (p for p in self._players if self._matches(p, query, positions, team)),
+            key=self._sort_key(self.sort_combo.currentText()),
+        )
+
+        keep_focus = focus_table or self.table.hasFocus()
+        self.table.populate_data([self._row_for(p) for p in self._filtered], set_focus=False)
+        self._update_status()
+
+        if self._filtered:
+            row = min(preserve_row, len(self._filtered) - 1) if preserve_row is not None else 0
+            self.table.select_row(row, focus=keep_focus, reannounce=reannounce)
+        self._update_toggle_button()
+
+    def _update_status(self):
+        if not self._filtered:
+            self.status_label.setText(
+                f"No players match the current filters. "
+                f"{len(self._players)} players are on the {self._season} board.")
+            return
+        drafted = sum(1 for p in self._players if self.is_taken(p))
+        self.status_label.setText(
+            f"{len(self._filtered)} of {len(self._players)} players — "
+            f"{self._season} {self.scoring} rankings, ADP and projections from ESPN — "
+            f"{drafted} marked drafted"
+        )
+
+    def _on_scoring_changed(self, scoring: str):
+        self.scoring = scoring
+        settings.set('fantasy_scoring', scoring)
+        self._apply_filters(preserve_row=self.table.current_row_index())
+
+    # -------------------------------------------------------- Draft board
+
+    def _selected_player(self):
+        row = self.table.current_row_index()
+        if 0 <= row < len(self._filtered):
+            return row, self._filtered[row]
+        return -1, None
+
+    def is_taken(self, player) -> bool:
+        """Whether this player is marked drafted."""
+        return player['id'] in self._taken
+
+    def toggle_taken(self, player) -> bool:
+        """Flip a player between drafted and available. Returns the new state."""
+        if player['id'] in self._taken:
+            self._taken.discard(player['id'])
+            drafted = False
+        else:
+            self._taken.add(player['id'])
+            drafted = True
+        settings.set('fantasy_taken', sorted(self._taken))
+        return drafted
+
+    def _toggle_selected(self):
+        row, player = self._selected_player()
+        if not player:
+            return
+        drafted = self.toggle_taken(player)
+        # reannounce: the row's contents change under a selection that does not
+        # move, which by itself produces no accessibility event. Forcing the
+        # selection through an empty state makes the screen reader read the row
+        # back, so the new Drafted/Available status is spoken right away.
+        self._apply_filters(preserve_row=row, reannounce=True)
+        state = "drafted" if drafted else "available"
+        self.status_label.setText(f"{player['name']} marked {state}. {self.status_label.text()}")
+
+    def _update_toggle_button(self):
+        _, player = self._selected_player()
+        drafted = bool(player) and self.is_taken(player)
+        self.toggle_btn.setText("&Mark Available" if drafted else "&Mark Drafted")
+
+    def _clear_draft(self):
+        if not self._taken:
+            self.status_label.setText("No players are marked drafted.")
+            return
+        confirm = QMessageBox.question(
+            self, "Clear Draft Board",
+            f"Mark all {len(self._taken)} drafted players available again?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if confirm != QMessageBox.StandardButton.Yes:
+            return
+        self._taken.clear()
+        settings.set('fantasy_taken', [])
+        self._apply_filters(preserve_row=self.table.current_row_index())
+        self.status_label.setText(f"Draft board cleared. {self.status_label.text()}")
+
+    # ------------------------------------------------------------ Details
+
+    def detail_rows(self, player):
+        """Field/value pairs describing one player, for the details dialog."""
+        def rank_text(rank):
+            return f"#{rank}" if rank else FANTASY_NO_VALUE
+
+        rows = [
+            ["Position", player['position']],
+            ["Team", player['team'] if player['team'] != 'FA' else "Free agent"],
+            ["PPR Rank", rank_text(player['ppr_rank'])],
+            ["Standard Rank", rank_text(player['standard_rank'])],
+            ["Average Draft Position", self._adp_text(player)],
+            ["Auction Value", self._auction_text(player)],
+        ]
+        for scoring in FANTASY_SCORING_FORMATS:
+            rows.append([f"Projected Points, {scoring}", self._projection_text(player, scoring)])
+        rows.append(["Injury Status", player.get('injury') or "None reported"])
+        rows.append(["Draft Status", "Drafted" if self.is_taken(player) else "Available"])
+        return rows
+
+    def _show_selected_details(self):
+        row, player = self._selected_player()
+        if not player:
+            return
+        dialog = FantasyPlayerDialog(player, self, self)
+        dialog.exec()
+        # The details dialog can draft the player, so rebuild on the way out.
+        self._apply_filters(preserve_row=row, focus_table=True)
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.accept()
+            return
+        super().keyPressEvent(event)
+
+
+class FantasyPlayerDialog(QDialog):
+    """Every draft value ESPN publishes for one cheatsheet player or defense."""
+
+    def __init__(self, player, board, parent=None):
+        super().__init__(parent)
+        self.player = player
+        self.board = board
+
+        self.setWindowTitle(f"{player['name']} — Fantasy Cheatsheet — Sports Scores")
+        self.setMinimumSize(520, 460)
+
+        layout = QVBoxLayout()
+
+        heading = QLabel(f"{player['name']} — {player['position']}, {player['team']}")
+        heading.setAccessibleName("Player")
+        layout.addWidget(heading)
+
+        self.table = AccessibleTable(
+            accessible_name=f"{player['name']} draft values",
+            accessible_description="Draft values and projections for this player",
+        )
+        self.table.setup_columns(["Field", "Value"], stretch_column=1)
+        self.table.populate_data(board.detail_rows(player), set_focus=True)
+        layout.addWidget(self.table)
+
+        row = QHBoxLayout()
+        self.toggle_btn = QPushButton()
+        self.toggle_btn.clicked.connect(self._toggle)
+        self._sync_toggle_button()
+        row.addWidget(self.toggle_btn)
+        row.addStretch()
+        close_btn = QPushButton("&Close")
+        close_btn.clicked.connect(self.accept)
+        row.addWidget(close_btn)
+        layout.addLayout(row)
+
+        # Focus opens on the table, so Enter has to mean "I'm done reading" —
+        # the first button added would otherwise become the default and draft
+        # the player instead.
+        self.toggle_btn.setAutoDefault(False)
+        self.toggle_btn.setDefault(False)
+        close_btn.setAutoDefault(True)
+        close_btn.setDefault(True)
+
+        self.setLayout(layout)
+
+    def _sync_toggle_button(self):
+        drafted = self.board.is_taken(self.player)
+        self.toggle_btn.setText("&Mark Available" if drafted else "&Mark Drafted")
+        self.toggle_btn.setAccessibleDescription(
+            f"{self.player['name']} is currently {'drafted' if drafted else 'available'}")
+
+    def _toggle(self):
+        self.board.toggle_taken(self.player)
+        self.table.populate_data(self.board.detail_rows(self.player), set_focus=False)
+        self._sync_toggle_button()
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.accept()
+            return
+        super().keyPressEvent(event)
 
 
 class GolfTournamentDialog(QDialog):

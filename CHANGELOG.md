@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.9.0] - 2026-08-05
 
 ### Added
+- **Fantasy football cheatsheet**: a draft board on the NFL screen with every
+  draftable player plus all 32 team defenses — ESPN consensus rank, average draft
+  position, auction value and projected season points. Search by player or team,
+  filter by position (including FLEX) or team, sort by any column, and switch
+  between Standard, Half-PPR and PPR scoring without a refetch. Space marks a
+  player drafted, *Hide drafted players* clears them off the board, and both the
+  drafted set and the scoring format persist between sessions.
 - **Windows installer**: `Scores-<version>-Setup.exe`, a per-user install into
   `%LocalAppData%\Programs\Scores` that needs no administrator rights and adds a
   Start Menu shortcut (desktop shortcut optional). Built with Inno Setup from

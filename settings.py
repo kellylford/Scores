@@ -16,6 +16,9 @@ _DEFAULTS = {
     'sport_visibility': {},          # {} = all visible
     'favorites': [],                 # [{team_id, team_name, league, abbreviation}]
     'auto_check_updates': True,      # check GitHub for a newer release at startup
+    'fantasy_scoring': 'PPR',        # cheatsheet scoring format: Standard/Half-PPR/PPR
+    'fantasy_taken': [],             # cheatsheet player ids marked drafted
+    'fantasy_taken_season': None,    # season those marks belong to; older ones are dropped
 }
 
 _cache: dict | None = None

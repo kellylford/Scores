@@ -4692,3 +4692,197 @@ def get_world_cup_scores_range(league_key, start_date, end_date):
             pass
         current += timedelta(days=1)
     return all_games
+
+
+# ---------------------------------------------------------------------------
+# Fantasy football cheatsheet
+# ---------------------------------------------------------------------------
+#
+# Backed by ESPN's fantasy player universe:
+#   lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/{year}/players
+#     ?view=kona_player_info
+#
+# Unlike the public site/core APIs (raw stats only) this feed carries the draft
+# data a cheatsheet needs — average draft position, auction values, PPR and
+# Standard consensus ranks, and season projections — all in one response.
+#
+# Quirks handled below:
+#  * The X-Fantasy-Filter header must be PRESENT to get the full pool, but ESPN
+#    ignores its limit/sort fields, so we always receive every player (~11.5k)
+#    and filter/sort here.
+#  * The payload is ~38 MB. We map each player to a small dict and drop the raw
+#    list immediately, so the ~300 MB spike is confined to this call.
+#  * A player's `stats` array holds a projected-season set for BOTH the upcoming
+#    and the prior season. They are not in a stable order, so the projection
+#    lookup matches on seasonId — taking "the first match" silently returns last
+#    year's numbers for a chunk of the pool.
+#  * ESPN's own `appliedTotal` is unusable (kickers read ~6,600, defenses
+#    ~1,900), so points are scored here from the raw projected stat line.
+
+FANTASY_BASE = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons"
+
+# ESPN defaultPositionId -> fantasy position. Ids absent here (IDL, LB, DB, P…)
+# are not fantasy-relevant and are dropped.
+FANTASY_POSITIONS = {1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "D/ST"}
+
+# ESPN proTeamId -> abbreviation. 0 means free agent.
+NFL_PRO_TEAMS = {
+    1: "ATL", 2: "BUF", 3: "CHI", 4: "CIN", 5: "CLE", 6: "DAL",
+    7: "DEN", 8: "DET", 9: "GB", 10: "TEN", 11: "IND", 12: "KC",
+    13: "LV", 14: "LAR", 15: "MIA", 16: "MIN", 17: "NE", 18: "NO",
+    19: "NYG", 20: "NYJ", 21: "PHI", 22: "ARI", 23: "PIT", 24: "LAC",
+    25: "SF", 26: "SEA", 27: "TB", 28: "WSH", 29: "CAR", 30: "JAX",
+    33: "BAL", 34: "HOU",
+}
+
+# Projected-stat ids and their value under ESPN's default scoring. Receptions
+# (id 53) are deliberately excluded — they are carried separately so the UI can
+# price them per scoring format (Standard 0, Half-PPR 0.5, PPR 1) without a refetch.
+_FANTASY_SCORING = {
+    "3": 0.04,    # passing yards, 1 point per 25
+    "4": 4.0,     # passing touchdown
+    "19": 2.0,    # two-point conversion passed
+    "20": -2.0,   # interception thrown
+    "24": 0.1,    # rushing yards, 1 point per 10
+    "25": 6.0,    # rushing touchdown
+    "26": 2.0,    # two-point conversion rushed
+    "42": 0.1,    # receiving yards, 1 point per 10
+    "43": 6.0,    # receiving touchdown
+    "44": 2.0,    # two-point conversion caught
+    "72": -2.0,   # fumble lost
+}
+
+_FANTASY_RECEPTIONS_STAT = "53"
+
+
+def _fantasy_projection(raw_player, season):
+    """Return (base_points, receptions) from a player's projected season stat line.
+
+    base_points excludes receptions and is None when the feed carries no
+    projection for this season. Only the projected (statSourceId 1), full-season
+    (statSplitTypeId 0, scoringPeriodId 0) set for the requested season counts.
+    """
+    for stat_set in raw_player.get("stats") or []:
+        if (stat_set.get("statSourceId") != 1
+                or stat_set.get("statSplitTypeId") != 0
+                or stat_set.get("scoringPeriodId") != 0
+                or stat_set.get("seasonId") != season):
+            continue
+        stats = stat_set.get("stats") or {}
+        if not stats:
+            continue
+        # `or 0` rather than a default: ESPN sometimes carries an explicit null,
+        # and one bad stat should not take the whole board down.
+        base = sum((stats.get(stat_id) or 0) * value
+                   for stat_id, value in _FANTASY_SCORING.items())
+        return base, stats.get(_FANTASY_RECEPTIONS_STAT) or 0
+    return None, 0
+
+
+def _map_fantasy_player(raw, season, max_rank):
+    """Map one raw feed player to a cheatsheet row, or None if not draftable."""
+    position = FANTASY_POSITIONS.get(raw.get("defaultPositionId"))
+    if not position:
+        return None
+
+    ranks = raw.get("draftRanksByRankType") or {}
+
+    def rank_for(rank_type):
+        value = (ranks.get(rank_type) or {}).get("rank")
+        return int(value) if isinstance(value, (int, float)) and value > 0 else None
+
+    ppr_rank = rank_for("PPR")
+    standard_rank = rank_for("STANDARD")
+    best_rank = min([r for r in (ppr_rank, standard_rank) if r], default=None)
+    if best_rank is None or best_rank > max_rank:
+        return None
+
+    pro_team_id = raw.get("proTeamId") or 0
+    ownership = raw.get("ownership") or {}
+    is_dst = position == "D/ST"
+
+    # Kickers and defenses have no usable projection: their raw stat lines use a
+    # different id space (field-goal distance buckets, points/yards allowed
+    # tiers) that the offensive scoring table above cannot price. Their rank,
+    # ADP and auction value still come through, which is what a draft needs.
+    if is_dst or position == "K":
+        proj_base, proj_receptions = None, 0
+    else:
+        proj_base, proj_receptions = _fantasy_projection(raw, season)
+
+    return {
+        "id": f"dst-{pro_team_id}" if is_dst else str(raw.get("id")),
+        "name": raw.get("fullName") or "Unknown",
+        "position": position,
+        "team": NFL_PRO_TEAMS.get(pro_team_id, "FA"),
+        "injury": _normalize_fantasy_injury(raw.get("injuryStatus")),
+        "adp": ownership.get("averageDraftPosition"),
+        "auction": ownership.get("auctionValueAverage"),
+        "ppr_rank": ppr_rank,
+        "standard_rank": standard_rank,
+        "proj_base": proj_base,
+        "proj_receptions": proj_receptions,
+    }
+
+
+def _normalize_fantasy_injury(status):
+    """ESPN reports healthy players as ACTIVE; surface only real designations."""
+    if not status or str(status).upper() in ("ACTIVE", "NORMAL"):
+        return ""
+    return " ".join(part.capitalize() for part in str(status).split("_"))
+
+
+def _load_fantasy_season(season, max_rank):
+    """Fetch and map one season's draft board. Returns [] when unavailable."""
+    url = f"{FANTASY_BASE}/{season}/players?view=kona_player_info&scoringPeriodId=0"
+    # The header must be present to receive the full pool; ESPN ignores its body.
+    headers = {
+        "X-Fantasy-Filter": '{"players":{"limit":12000}}',
+        "Accept": "application/json",
+    }
+    resp = requests.get(url, headers=headers, timeout=90)
+    if resp.status_code != 200:
+        # Raised, not swallowed: an empty list here would be indistinguishable
+        # from "ESPN has not published this season yet", and the caller reports
+        # those two very differently.
+        raise RuntimeError(f"ESPN fantasy feed returned HTTP {resp.status_code}")
+    raw_players = resp.json()
+    if not isinstance(raw_players, list):
+        return []
+    players = [p for p in (_map_fantasy_player(r, season, max_rank) for r in raw_players) if p]
+    del raw_players  # release the ~38 MB payload before returning
+    players.sort(key=lambda p: p["ppr_rank"] or p["standard_rank"] or 9999)
+    return players
+
+
+def get_fantasy_cheatsheet(season=None, max_rank=800):
+    """Return the fantasy draft board: {'season': int, 'players': [...]}.
+
+    Defaults to the current calendar year, which is the season ESPN publishes
+    draft data for from late winter onward. In the deep offseason — before ESPN
+    populates the new season, when the feed answers with a near-empty pool or a
+    404 — falls back to the prior season so the board is never empty. A network
+    or server failure propagates instead, so the caller can say so.
+
+    `max_rank` caps the pool at ESPN's consensus rank. That rank is overall, and
+    ESPN interleaves IDP players into it, so 800 yields roughly 370 fantasy rows
+    — every team defense and kicker plus a deeper skill-position pool than any
+    league drafts — while discarding ~11k irrelevant ids.
+    """
+    from datetime import datetime
+    season = int(season or datetime.now().year)
+    try:
+        players = _load_fantasy_season(season, max_rank)
+    except Exception as e:
+        # The upcoming season's feed can 404 before ESPN creates it.
+        print(f"[get_fantasy_cheatsheet] {season}: {e}")
+        return {"season": season - 1, "players": _load_fantasy_season(season - 1, max_rank)}
+
+    if len(players) < 50:
+        try:
+            fallback = _load_fantasy_season(season - 1, max_rank)
+            if len(fallback) > len(players):
+                return {"season": season - 1, "players": fallback}
+        except Exception as e:
+            print(f"[get_fantasy_cheatsheet] fallback to {season - 1}: {e}")
+    return {"season": season, "players": players}

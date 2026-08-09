@@ -52,7 +52,7 @@ pytest tests/
 
 ### Data Layer
 
-- `espn_api.py` (4,100+ lines) — All network calls. Fetches from ESPN's undocumented API (`site.api.espn.com/apis/site/v2/sports`) and the official MLB Stats API (`statsapi.mlb.com`). Contains per-sport logic for scores, standings, play-by-play, box scores, injuries, news, and advanced stats.
+- `espn_api.py` (4,100+ lines) — All network calls. Fetches from ESPN's undocumented API (`site.api.espn.com/apis/site/v2/sports`), the official MLB Stats API (`statsapi.mlb.com`), and ESPN's fantasy feed (`lm-api-reads.fantasy.espn.com`, the only source for draft ranks/ADP/auction values). Contains per-sport logic for scores, standings, play-by-play, box scores, injuries, news, advanced stats, and the fantasy football cheatsheet.
 - `services/api_service.py` — Thin wrapper around `espn_api.py` with unified error handling
 - `services/venue_service.py` — Stadium/venue info
 - `services/football_calendar.py` — NFL week/season calendar utilities

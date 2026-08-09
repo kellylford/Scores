@@ -123,3 +123,8 @@ class ApiService:
     @staticmethod
     def get_world_cup_scores_range(league: str, start_date, end_date) -> List[Dict]:
         return ApiService._call(espn_api.get_world_cup_scores_range, league, start_date, end_date)
+
+    @staticmethod
+    def get_fantasy_cheatsheet(season: int = None, max_rank: int = 800) -> Dict:
+        """Fantasy football draft board: {'season': int, 'players': [...]}."""
+        return ApiService._call(espn_api.get_fantasy_cheatsheet, season, max_rank)
