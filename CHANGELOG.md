@@ -25,6 +25,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   defenses show no projection: ESPN's published numbers for those two positions
   are unusable, so the board shows N/A rather than a wrong number.
 
+### Fixed
+- **NFL preseason games and weeks now appear.** The NFL screen only ever showed
+  regular-season weeks, so during August it opened on the September opener
+  labelled "Week: 1" and there was no way to reach the preseason at all. Weeks
+  are now resolved from ESPN's season calendar and carry their season type, the
+  Previous/Next Week buttons roll over between preseason, regular season and
+  postseason, and weeks are named as ESPN names them — "Hall of Fame Weekend",
+  "Preseason Week 1", "Wild Card" — instead of a bare, ambiguous week number.
+- **Football weeks no longer include the next week's games.** ESPN marks the end
+  of a week at 23:59 Pacific, which reads as the following day in UTC; the extra
+  day pulled the next week's Thursday games into the current week. Affected the
+  regular season too, and was most visible in the preseason.
+
 ## [0.9.0] - 2026-08-05
 
 ### Added

@@ -544,18 +544,11 @@ class HomeView(BaseView):
                 self.parent_app.update_window_title()
             return
 
-        # For NFL/NCAAF, determine current week and show those games
-        if league in ("NFL", "NCAAF"):
-            try:
-                from services.football_calendar import get_current_football_week
-                today = datetime.now().date()
-                week = get_current_football_week(league, today=today)
-                if week is not None and self.parent_app:
-                    self.parent_app.open_league(league, week=week)
-                    return
-            except Exception as e:
-                print(f"Failed to get current week for {league}: {e}")
-                # Fallback to default
+        # NFL/NCAAF resolve their own current week from the season calendar, so
+        # this no longer pre-computes one. It used to pass a bare week number,
+        # which the view could only read as a regular-season week — the reason
+        # opening NFL in August landed on the September opener instead of the
+        # preseason games being played that day.
         if self.parent_app:
             self.parent_app.open_league(league)
     
@@ -1351,32 +1344,38 @@ class LiveScoresView(BaseView):
 class LeagueView(BaseView):
     """View showing scores for a specific league"""
     
-    def __init__(self, parent=None, league=None, week=None):
+    def __init__(self, parent=None, league=None, week=None, season_type=None):
         super().__init__(parent)
         self.league = league
         self.news_headlines = []
-        
+
         # For football leagues, ensure we have a week
         if self.is_football_league():
             try:
-                from services.football_calendar import get_current_football_week, get_football_season_year
-                self.current_season = get_football_season_year(league)
+                from services.football_calendar import (
+                    get_current_season_week_and_type, SEASON_TYPE_REGULAR)
+                # Season, week and season type all come from ESPN's own calendar.
+                # A week number alone does not identify a week — they restart at 1
+                # in each season type — so the type travels with it. That pairing
+                # is what lets preseason show at all: ESPN's week.number is 1
+                # during preseason, which read as the September opener.
+                self.current_season, current_type, current_week = (
+                    get_current_season_week_and_type(league))
+                self.current_week = week if week is not None else current_week
+                self.current_season_type = (
+                    season_type if season_type is not None
+                    else (current_type if week is None else SEASON_TYPE_REGULAR))
             except Exception:
                 self.current_season = datetime.now().year
-            if week is not None:
-                self.current_week = week
-            else:
-                try:
-                    from services.football_calendar import get_current_football_week
-                    self.current_week = get_current_football_week(league, season=self.current_season)
-                except Exception:
-                    self.current_week = 1
+                self.current_week = week if week is not None else 1
+                self.current_season_type = season_type or 2
             self.current_date = None
         else:
             self.current_season = None
             self.current_week = None
+            self.current_season_type = None
             self.current_date = datetime.now().date()
-        
+
         self.setup_ui()
 
     def is_football_league(self):
@@ -1385,6 +1384,8 @@ class LeagueView(BaseView):
     def setup_ui(self):
         # Navigation label (date or week)
         self.date_label = QLabel()
+        self.date_label.setAccessibleName(
+            "Week shown" if self.is_football_league() else "Date shown")
         self.layout.addWidget(self.date_label)
 
         self.layout.addWidget(QLabel(f"Scores for {self.league}:"))
@@ -1427,9 +1428,11 @@ class LeagueView(BaseView):
         """Load scores for the current date or week"""
         self.scores_list.clear()
         if self.is_football_league() and self.current_week is not None:
-            self.date_label.setText(f"Week: {self.current_week}")
+            self.date_label.setText(self._week_label())
             try:
-                scores_data = ApiService.get_scores(self.league, week=self.current_week, season=self.current_season)
+                scores_data = ApiService.get_scores(
+                    self.league, week=self.current_week, season=self.current_season,
+                    seasontype=self.current_season_type)
                 self.news_headlines = ApiService.get_news(self.league)
                 if not scores_data:
                     self.scores_list.addItem("No games found for this week.")
@@ -1860,17 +1863,57 @@ class LeagueView(BaseView):
 
         self.layout.addLayout(btn_layout)
 
-    def previous_week(self):
-        if self.current_week and self.current_week > 1:
-            self.current_week -= 1
-            self.load_scores()
+    def _week_label(self, suffix: str = ""):
+        """Label for the current week, e.g. 'Week: Preseason Week 1'.
+
+        ESPN's week numbers restart in each season type, so a bare "Week 1" is
+        genuinely ambiguous in August — the calendar label is what tells a
+        preseason game apart from the September opener. Prefixed like the
+        non-football "Date: …" label so a screen reader hearing the window
+        knows what the value refers to.
+        """
+        try:
+            from services.football_calendar import get_week_label
+            label = get_week_label(self.league, self.current_season,
+                                   self.current_season_type, self.current_week)
+        except Exception:
+            label = f"Week {self.current_week}"
+        # ESPN's labels are a mix: "Week 1" and "Preseason Week 1" already say
+        # what they are, "Hall of Fame Weekend" and "Wild Card" do not.
+        if "week" not in label.lower():
+            label = f"Week: {label}"
+        return f"{label}{suffix}"
+
+    def _step_week(self, delta: int):
+        """Move one week, rolling over between preseason, regular and postseason."""
+        try:
+            from services.football_calendar import step_week
+            season_type, week = step_week(
+                self.league, self.current_season,
+                self.current_season_type, self.current_week, delta)
+        except Exception:
+            season_type, week = self.current_season_type, max(1, self.current_week + delta)
+
+        if (season_type, week) == (self.current_season_type, self.current_week):
+            # Already at one end of the season. Say so rather than doing nothing:
+            # the default view in August *is* the first week, so a silent no-op
+            # here reads as the app having frozen. Focus still moves, so the key
+            # press produces an audible result either way.
+            edge = "first" if delta < 0 else "last"
+            self.date_label.setText(self._week_label(f" — {edge} week of the season"))
             self.set_focus_and_select_first(self.scores_list)
+            return
+        self.current_season_type, self.current_week = season_type, week
+        self.load_scores()
+        self.set_focus_and_select_first(self.scores_list)
+
+    def previous_week(self):
+        if self.current_week:
+            self._step_week(-1)
 
     def next_week(self):
         if self.current_week:
-            self.current_week += 1
-            self.load_scores()
-            self.set_focus_and_select_first(self.scores_list)
+            self._step_week(+1)
     
     def _show_api_error(self, message: str):
         """Show API error message"""
@@ -11827,11 +11870,16 @@ class SportsScoresApp(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to show live scores view: {str(e)}")
     
-    def open_league(self, league: str, week: int = None):
-        """Open a league view, optionally for a specific week (football)"""
+    def open_league(self, league: str, week: int = None, season_type: int = None):
+        """Open a league view, optionally for a specific week (football).
+
+        `season_type` accompanies `week` because football week numbers restart in
+        each season type; without it a week is ambiguous. Leave both unset to let
+        the view resolve today's week from the season calendar.
+        """
         try:
             self._push_to_stack("home", None)
-            league_view = LeagueView(self, league, week=week)
+            league_view = LeagueView(self, league, week=week, season_type=season_type)
             self._switch_to_view(league_view, "league", league)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open league: {e}")

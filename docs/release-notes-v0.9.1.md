@@ -21,6 +21,14 @@ Kickers and team defenses show **N/A** for projected points. ESPN's published pr
 
 Drafted marks are remembered per season, so last year's draft will not pre-cross-off this year's board.
 
+### NFL Preseason
+
+The NFL screen now shows preseason games. It never did before — open it in August and you would get the regular-season opener several weeks away, labelled simply "Week: 1", with no way to reach the games actually being played that week.
+
+Weeks are now named the way ESPN names them, so you get **Hall of Fame Weekend**, **Preseason Week 1**, **Wild Card** and **Super Bowl** rather than a bare number that means something different depending on the time of year. **Previous Week** and **Next Week** (Alt+P and Alt+N) run straight through the whole season, rolling from the last preseason week into Week 1 of the regular season and on into the playoffs.
+
+One related fix: a week's games were being fetched with a date range one day too long, which pulled the *following* week's Thursday game into the week you were looking at. That affected the regular season as well.
+
 ### Upgrading from 0.9.0
 
 Scores will offer the update itself, or run `Scores-0.9.1-Setup.exe`.

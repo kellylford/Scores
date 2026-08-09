@@ -926,15 +926,24 @@ def get_scores(league_key, date=None, week=None, seasontype=None, season=None):
     elif week is not None and league_key in ("NFL", "NCAAF"):
         if season is not None:
             # ESPN ignores season= when week= is also passed (known API quirk).
-            # Use the Core API to get authoritative week date bounds, then fetch
-            # via dates= — same approach as the iOS app.
+            # Resolve the week's date bounds from the season calendar instead and
+            # fetch via dates= — same approach as the iOS app.
+            #
+            # seasontype matters here: week numbers restart within each season
+            # type, so week 1 is the Hall of Fame game in preseason and the
+            # September opener in the regular season.
             try:
-                from services.football_calendar import get_week_dates
-                start_str, end_str = get_week_dates(league_key, week, season)
+                from services.football_calendar import get_week_dates, SEASON_TYPE_REGULAR
+                start_str, end_str = get_week_dates(
+                    league_key, week, season, seasontype or SEASON_TYPE_REGULAR)
                 if start_str and end_str:
                     params.append(f"dates={start_str}-{end_str}")
+                    # dates= already scopes the request to this week; leaving
+                    # seasontype= on as well makes ESPN drop games in the weeks
+                    # that straddle a season-type boundary.
+                    seasontype = None
                 else:
-                    # Core API lookup failed; fall back to week= without season
+                    # Calendar lookup failed; fall back to week= without season
                     params.append(f"week={week}")
             except Exception:
                 params.append(f"week={week}")

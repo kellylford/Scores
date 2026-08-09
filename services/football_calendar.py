@@ -1,10 +1,243 @@
 import requests
-from datetime import datetime, date as date_type
+from datetime import datetime, timedelta, date as date_type
 
 BASE_URL = "https://site.api.espn.com/apis/site/v2/sports"
 CORE_BASE = "https://sports.core.api.espn.com/v2/sports"
 
+_LEAGUE_PATHS = {"NFL": "football/nfl", "NCAAF": "football/college-football"}
+
+# ESPN season type ids. Off Season (4) is deliberately not navigable: it holds no
+# games for the NFL, and only the college all-star exhibition for NCAAF.
+SEASON_TYPE_PRESEASON = 1
+SEASON_TYPE_REGULAR = 2
+SEASON_TYPE_POSTSEASON = 3
+_NAVIGABLE_SEASON_TYPES = (SEASON_TYPE_PRESEASON, SEASON_TYPE_REGULAR, SEASON_TYPE_POSTSEASON)
+
 _WEEK_DATE_CACHE: dict = {}  # (league_key, season, season_type, week) -> (start_YYYYMMDD, end_YYYYMMDD)
+_SEASON_WEEKS_CACHE: dict = {}  # (league_key, season) -> [week dicts]
+
+
+def _bound_dates(start_iso, end_iso):
+    """Convert an ESPN week's ISO bounds to inclusive (start_date, end_date).
+
+    ESPN stamps week bounds at Pacific midnight — a start of `T07:00Z` and an end
+    of `T06:59Z`, which is 23:59 Pacific on the day *before* the UTC date reads.
+    Taking the UTC date of the end therefore overshoots by a day and drags the
+    next week's Thursday games into this week; in preseason, where games run
+    Thursday through Sunday, that is most of the following week. Subtracting the
+    day gives the last day the week actually covers, and holds across daylight
+    saving (the offset moves to 08:00Z/07:59Z, still the same UTC calendar day).
+    """
+    start = datetime.fromisoformat(start_iso.replace("Z", "+00:00")).date()
+    end = datetime.fromisoformat(end_iso.replace("Z", "+00:00")).date() - timedelta(days=1)
+    if end < start:
+        end = start
+    return start, end
+
+
+def _fetch_calendar(league_key, season=None):
+    """Fetch a season calendar. Returns (actual_season_year, weeks) or (None, []).
+
+    The season year comes back from the response rather than the request, because
+    ESPN ignores `season=` on the scoreboard and always serves whatever season it
+    considers current. Asking for 2025 in 2026 yields the 2026 calendar with no
+    error, so the caller has to check what it actually got.
+    """
+    league_path = _LEAGUE_PATHS.get(league_key)
+    if not league_path:
+        return None, []
+
+    url = f"{BASE_URL}/{league_path}/scoreboard"
+    if season is not None:
+        url += f"?season={season}"
+
+    resp = requests.get(url, timeout=20)
+    if resp.status_code != 200:
+        return None, []
+    leagues = resp.json().get('leagues', [])
+    if not leagues:
+        return None, []
+
+    try:
+        actual_season = int(leagues[0].get('season', {}).get('year'))
+    except (TypeError, ValueError):
+        actual_season = None
+
+    weeks = []
+    for block in leagues[0].get('calendar', []):
+        try:
+            season_type = int(block.get('value', 0))
+        except (TypeError, ValueError):
+            continue
+        if season_type not in _NAVIGABLE_SEASON_TYPES:
+            continue
+        for entry in block.get('entries', []):
+            try:
+                start, end = _bound_dates(entry.get('startDate', ''), entry.get('endDate', ''))
+                week = int(entry.get('value', 0))
+            except (TypeError, ValueError, AttributeError):
+                continue
+            if not week:
+                continue
+            weeks.append({
+                'season_type': season_type,
+                'week': week,
+                'label': entry.get('label') or f"Week {week}",
+                'start': start,
+                'end': end,
+            })
+
+    # Sorted by date, not by (type, week): NCAAF numbers its College Football
+    # Playoff entry 999, so week order and calendar order are not the same thing.
+    weeks.sort(key=lambda w: (w['start'], w['season_type'], w['week']))
+    return actual_season, weeks
+
+
+def get_season_weeks(league_key, season=None):
+    """Every week of a football season in date order, across all season types.
+
+    Returns a list of dicts: {'season_type', 'week', 'label', 'start', 'end'}.
+    `week` is the week number *within* its season type, which is what ESPN's
+    endpoints expect, so (season_type, week) is the pair that identifies a week —
+    the number alone is ambiguous.
+
+    Returns [] when ESPN has no calendar for the requested season. That is not the
+    same as a failure: ESPN only publishes the season it considers current, and it
+    does not switch to a new one until roughly late July, months after
+    `get_football_season_year` starts naming it. Handing back the wrong season's
+    weeks would put the app on last February's Super Bowl all spring.
+    """
+    if league_key not in _LEAGUE_PATHS:
+        return []
+
+    cache_key = (league_key, season)
+    if cache_key in _SEASON_WEEKS_CACHE:
+        return _SEASON_WEEKS_CACHE[cache_key]
+
+    try:
+        actual_season, weeks = _fetch_calendar(league_key, season)
+    except Exception as e:
+        print(f"[get_season_weeks] {league_key} {season}: {e}")
+        return []
+
+    if not weeks:
+        return []
+    if season is not None and actual_season is not None and actual_season != season:
+        # ESPN served a different season than the one asked for. Cache it under
+        # the season it really is, so a later request for that year is free, and
+        # report nothing for the year that was asked about.
+        _SEASON_WEEKS_CACHE[(league_key, actual_season)] = weeks
+        _seed_week_dates(league_key, actual_season, weeks)
+        return []
+
+    resolved = actual_season if actual_season is not None else season
+    _SEASON_WEEKS_CACHE[cache_key] = weeks
+    if resolved is not None:
+        _SEASON_WEEKS_CACHE[(league_key, resolved)] = weeks
+        _seed_week_dates(league_key, resolved, weeks)
+    return weeks
+
+
+def _seed_week_dates(league_key, season, weeks):
+    """Fill the per-week bounds cache from a calendar already in hand.
+
+    The calendar knows every week's dates, so seeding here spares the Core API a
+    request per arrow tap during navigation.
+    """
+    for entry in weeks:
+        _WEEK_DATE_CACHE[(league_key, season, entry['season_type'], entry['week'])] = (
+            entry['start'].strftime("%Y%m%d"), entry['end'].strftime("%Y%m%d"))
+
+
+def get_current_season_week_and_type(league_key, today=None):
+    """Return (season, season_type, week) for right now, per ESPN.
+
+    The season comes from ESPN rather than from `get_football_season_year`, whose
+    calendar-year heuristic rolls over on 1 March while ESPN keeps serving the
+    previous season until around late July. Trusting the heuristic through that
+    window resolves every date as past the end of the season and lands the view on
+    the last Super Bowl.
+    """
+    today = today or datetime.now().date()
+    if isinstance(today, datetime):
+        today = today.date()
+
+    try:
+        actual_season, weeks = _fetch_calendar(league_key)
+    except Exception as e:
+        print(f"[get_current_season_week_and_type] {league_key}: {e}")
+        actual_season, weeks = None, []
+
+    season = actual_season if actual_season is not None else get_football_season_year(league_key, today)
+    if not weeks:
+        return season, SEASON_TYPE_REGULAR, 1
+
+    _SEASON_WEEKS_CACHE[(league_key, season)] = weeks
+    _seed_week_dates(league_key, season, weeks)
+    season_type, week = _week_for_date(weeks, today)
+    return season, season_type, week
+
+
+def _week_for_date(weeks, today):
+    """Pick the week covering `today`, else the next one, else the last."""
+    for entry in weeks:
+        if entry['start'] <= today <= entry['end']:
+            return entry['season_type'], entry['week']
+    upcoming = [w for w in weeks if w['start'] > today]
+    entry = upcoming[0] if upcoming else weeks[-1]
+    return entry['season_type'], entry['week']
+
+
+def get_current_week_and_type(league_key, season=None, today=None):
+    """Return (season_type, week) for today, resolved from the season calendar.
+
+    Falls back to (2, 1) — regular season, week 1 — when the calendar is
+    unavailable. Preferred over `get_current_football_week`, which returns a bare
+    week number: during preseason, week 1 means the Hall of Fame game, not the
+    regular season opener a month later.
+    """
+    today = today or datetime.now().date()
+    if isinstance(today, datetime):
+        today = today.date()
+    if season is None:
+        season = get_football_season_year(league_key, today)
+
+    weeks = get_season_weeks(league_key, season)
+    if not weeks:
+        return SEASON_TYPE_REGULAR, 1
+    return _week_for_date(weeks, today)
+
+
+def get_week_label(league_key, season, season_type, week):
+    """Human label for a week, e.g. 'Hall of Fame Weekend' or 'Wild Card'.
+
+    ESPN's live `week` block carries only a number, so the calendar label is what
+    distinguishes preseason Week 1 from the regular season opener.
+    """
+    for entry in get_season_weeks(league_key, season):
+        if entry['season_type'] == season_type and entry['week'] == week:
+            return entry['label']
+    return f"Week {week}"
+
+
+def step_week(league_key, season, season_type, week, delta):
+    """Move one week forward or back, rolling over between season types.
+
+    Returns (season_type, week), unchanged at the ends of the season. Stepping
+    past the last preseason week lands on regular season Week 1 rather than
+    dead-ending, which is the only way to reach preseason at all once the
+    regular season view is the default.
+    """
+    weeks = get_season_weeks(league_key, season)
+    if not weeks:
+        return season_type, max(1, week + delta)
+    for index, entry in enumerate(weeks):
+        if entry['season_type'] == season_type and entry['week'] == week:
+            target = index + delta
+            if 0 <= target < len(weeks):
+                return weeks[target]['season_type'], weeks[target]['week']
+            return season_type, week
+    return season_type, week
 
 
 def get_football_season_year(league_key="NFL", today=None):
@@ -38,11 +271,11 @@ def get_football_calendar(league_key, season=None):
     else:
         url = f"{BASE_URL}/{league_path}/scoreboard"
     
-    resp = requests.get(url)
+    resp = requests.get(url, timeout=20)
     if resp.status_code != 200:
         return []
     data = resp.json()
-    
+
     leagues = data.get('leagues', [])
     if not leagues:
         return []
@@ -63,62 +296,35 @@ def get_football_calendar(league_key, season=None):
 
 # This function finds the current week number for NFL/NCAAF based on today
 def get_current_football_week(league_key, season=None, today=None):
-    league_path = {
-        "NFL": "football/nfl",
-        "NCAAF": "football/college-football"
-    }.get(league_key)
-    if not league_path:
+    """Current week number, without its season type.
+
+    Kept for callers that only need a number. Prefer `get_current_week_and_type`:
+    a week number on its own is ambiguous, and during preseason ESPN's own
+    `week.number` of 1 means the Hall of Fame game, which a caller assuming the
+    regular season will render as the September opener.
+    """
+    if league_key not in _LEAGUE_PATHS:
         return None
-
-    today = today or datetime.now().date()
-    if isinstance(today, datetime):
-        today = today.date()
-
-    # Resolve season year so we always query the right season
-    if season is None:
-        season = get_football_season_year(league_key, today)
-
-    url = f"{BASE_URL}/{league_path}/scoreboard?season={season}"
-
-    try:
-        resp = requests.get(url)
-        if resp.status_code == 200:
-            data = resp.json()
-            # Use the week ESPN says is current for this season
-            current_week = data.get('week', {}).get('number')
-            if current_week:
-                return current_week
-    except Exception:
-        pass
-
-    # Fallback: scan the calendar for a week that brackets today
-    calendar = get_football_calendar(league_key, season)
-    if not calendar:
-        return 1
-
-    for entry in calendar:
-        try:
-            start = datetime.fromisoformat(entry['start'].replace('Z', '+00:00')).date()
-            end = datetime.fromisoformat(entry['end'].replace('Z', '+00:00')).date()
-            if start <= today <= end:
-                return entry['week']
-        except Exception:
-            continue
-
-    # Off-season or no matching week: default to week 1
-    return 1
+    return get_current_week_and_type(league_key, season, today)[1]
 
 
-def get_week_dates(league_key, week_num, season, season_type=2):
-    """Return (start_YYYYMMDD, end_YYYYMMDD) for a specific week via the ESPN Core API.
+def get_week_dates(league_key, week_num, season, season_type=SEASON_TYPE_REGULAR):
+    """Return (start_YYYYMMDD, end_YYYYMMDD) for one week, or (None, None).
 
-    Uses the same approach as the iOS app: Core API gives authoritative date bounds,
-    which are then used with the site scoreboard's dates= parameter (avoiding the ESPN
-    bug where season= and week= params together return the wrong season).
+    These bounds drive the scoreboard's `dates=` parameter, which is how football
+    weeks are fetched at all: ESPN ignores `season=` whenever `week=` is present
+    and serves the previous season instead.
 
-    Returns (None, None) on failure.
+    The season calendar is consulted first and covers every week in one request;
+    the Core API is the per-week fallback. Both are normalised through
+    `_bound_dates`, so the end bound is the last day the week actually covers.
     """
     cache_key = (league_key, season, season_type, week_num)
+    if cache_key in _WEEK_DATE_CACHE:
+        return _WEEK_DATE_CACHE[cache_key]
+
+    # Populates the cache for every week of the season in a single request.
+    get_season_weeks(league_key, season)
     if cache_key in _WEEK_DATE_CACHE:
         return _WEEK_DATE_CACHE[cache_key]
 
@@ -126,24 +332,25 @@ def get_week_dates(league_key, week_num, season, season_type=2):
     league = league_map.get(league_key, league_key.lower())
     sport = "football"
 
+    # Failures are deliberately not cached. The cache never expires, so storing a
+    # miss would make one timeout — a laptop resuming from sleep mid-navigation —
+    # permanently degrade that week to the `week=` fallback for the rest of the
+    # session, with no way back short of restarting the app.
     url = (f"{CORE_BASE}/{sport}/leagues/{league}"
            f"/seasons/{season}/types/{season_type}/weeks/{week_num}")
     try:
-        resp = requests.get(url)
+        resp = requests.get(url, timeout=20)
         if resp.status_code != 200:
-            _WEEK_DATE_CACHE[cache_key] = (None, None)
             return None, None
         data = resp.json()
         start_iso = data.get("startDate", "")
         end_iso = data.get("endDate", "")
         if not start_iso or not end_iso:
-            _WEEK_DATE_CACHE[cache_key] = (None, None)
             return None, None
-        start_str = datetime.fromisoformat(start_iso.replace("Z", "+00:00")).strftime("%Y%m%d")
-        end_str = datetime.fromisoformat(end_iso.replace("Z", "+00:00")).strftime("%Y%m%d")
-        _WEEK_DATE_CACHE[cache_key] = (start_str, end_str)
-        return start_str, end_str
+        start, end = _bound_dates(start_iso, end_iso)
+        bounds = (start.strftime("%Y%m%d"), end.strftime("%Y%m%d"))
+        _WEEK_DATE_CACHE[cache_key] = bounds
+        return bounds
     except Exception as e:
         print(f"[get_week_dates] {league_key} {season}/t{season_type}/w{week_num}: {e}")
-        _WEEK_DATE_CACHE[cache_key] = (None, None)
         return None, None
