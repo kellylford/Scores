@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Core infrastructure implemented, text processing being refined
   - Game story text placeholders currently under investigation
 
-## [0.9.0] - 2026-08-05
+## [0.9.1] - 2026-08-09
 
 ### Added
 - **Fantasy football cheatsheet**: a draft board on the NFL screen with every
@@ -21,7 +21,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   filter by position (including FLEX) or team, sort by any column, and switch
   between Standard, Half-PPR and PPR scoring without a refetch. Space marks a
   player drafted, *Hide drafted players* clears them off the board, and both the
-  drafted set and the scoring format persist between sessions.
+  drafted set and the scoring format persist between sessions. Kickers and team
+  defenses show no projection: ESPN's published numbers for those two positions
+  are unusable, so the board shows N/A rather than a wrong number.
+
+## [0.9.0] - 2026-08-05
+
+### Added
 - **Windows installer**: `Scores-<version>-Setup.exe`, a per-user install into
   `%LocalAppData%\Programs\Scores` that needs no administrator rights and adds a
   Start Menu shortcut (desktop shortcut optional). Built with Inno Setup from
