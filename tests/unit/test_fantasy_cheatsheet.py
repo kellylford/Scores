@@ -145,6 +145,37 @@ class TestMapping:
                             stats=[projected_set(2026, {"83": 35.0, "86": 46.0})])
         assert espn_api._map_fantasy_player(kicker, 2026, 800)["proj_base"] is None
 
+    def test_rookie_has_no_prior_season(self):
+        rookie = raw_player(stats=[projected_set(2026, {"24": 500.0})])
+        assert espn_api._map_fantasy_player(rookie, 2026, 800)["rookie"] is True
+
+    def test_veteran_carries_a_prior_season(self):
+        # raw_player's default stat line is 2026-only, so add last year's.
+        veteran = raw_player(stats=[
+            projected_set(2025, {"24": 900.0}),
+            projected_set(2026, {"24": 1000.0}),
+        ])
+        assert espn_api._map_fantasy_player(veteran, 2026, 800)["rookie"] is False
+
+    def test_no_stats_at_all_is_not_called_a_rookie(self):
+        # Nothing to judge on. Guessing here would flag every player the feed
+        # happens to carry no stat block for.
+        assert espn_api._map_fantasy_player(raw_player(stats=[]), 2026, 800)["rookie"] is False
+
+    def test_defense_is_never_a_rookie(self):
+        dst = raw_player(defaultPositionId=16, proTeamId=7, fullName="Broncos D/ST",
+                         stats=[projected_set(2026, {"89": 1.0})])
+        assert espn_api._map_fantasy_player(dst, 2026, 800)["rookie"] is False
+
+    def test_prior_season_from_a_weekly_split_still_counts(self):
+        # Rookie detection looks at every stat set, not just projected ones.
+        veteran = raw_player(stats=[
+            {"statSourceId": 0, "statSplitTypeId": 1, "scoringPeriodId": 5,
+             "seasonId": 2025, "stats": {"24": 60.0}},
+            projected_set(2026, {"24": 1000.0}),
+        ])
+        assert espn_api._map_fantasy_player(veteran, 2026, 800)["rookie"] is False
+
     def test_free_agent_team_id(self):
         assert espn_api._map_fantasy_player(raw_player(proTeamId=0), 2026, 800)["team"] == "FA"
 

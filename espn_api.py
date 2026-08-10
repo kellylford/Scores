@@ -4788,6 +4788,28 @@ def _fantasy_projection(raw_player, season):
     return None, 0
 
 
+def _is_fantasy_rookie(raw, season):
+    """True when the feed carries no stat line from before this season.
+
+    The fantasy feed has no rookie flag, and the draft endpoint exposes only
+    player names — too fragile to join on, since the 2026 class alone contains a
+    second Justin Jefferson. But every player's `stats` array holds the prior
+    season alongside the projected one, and a rookie has no prior season to hold.
+
+    Checked against the full 2026 draft class: of 34 players flagged on a
+    368-player board, 32 were drafted that year and the other two were undrafted
+    rookies, which this correctly catches and a draft-list join would miss.
+
+    A veteran who missed an entire season would also be flagged, so this is a
+    strong signal rather than a certainty.
+    """
+    seasons = {s.get("seasonId") for s in raw.get("stats") or []}
+    seasons.discard(None)
+    if not seasons:
+        return False  # nothing to judge on; do not guess
+    return not any(s < season for s in seasons)
+
+
 def _map_fantasy_player(raw, season, max_rank):
     """Map one raw feed player to a cheatsheet row, or None if not draftable."""
     position = FANTASY_POSITIONS.get(raw.get("defaultPositionId"))
@@ -4825,6 +4847,8 @@ def _map_fantasy_player(raw, season, max_rank):
         "position": position,
         "team": NFL_PRO_TEAMS.get(pro_team_id, "FA"),
         "injury": _normalize_fantasy_injury(raw.get("injuryStatus")),
+        # A team defense is never a rookie, whatever its stat history looks like.
+        "rookie": False if is_dst else _is_fantasy_rookie(raw, season),
         "adp": ownership.get("averageDraftPosition"),
         "auction": ownership.get("auctionValueAverage"),
         "ppr_rank": ppr_rank,

@@ -8,6 +8,7 @@ the app, the updater and the release workflow to agree on.
 __author__ = "Kelly Ford"
 __description__ = "Sports Analysis Application with ESPN API integration"
 
+import csv
 import sys
 import webbrowser
 import time
@@ -34,7 +35,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout, QCheckBox, QDialog, QMessageBox, QTextEdit, QScrollArea,
     QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget, QStackedWidget,
     QListWidgetItem, QTreeWidget, QTreeWidgetItem, QSpinBox, QComboBox,
-    QSizePolicy, QMenu, QProgressDialog, QLineEdit
+    QSizePolicy, QMenu, QProgressDialog, QLineEdit, QFileDialog
 )
 from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal, QEvent
 from PyQt6.QtGui import QColor, QAction, QFont
@@ -8771,15 +8772,24 @@ class NFLDraftDialog(QDialog):
 
 FANTASY_SCORING_FORMATS = {"Standard": 0.0, "Half-PPR": 0.5, "PPR": 1.0}
 
+# (label, positions or None for all, rookies only). Rookies share this control
+# rather than getting their own: it is the one filter users reach for while
+# scanning a board, and a second combo would be another stop for keyboard users
+# on every pass.
 FANTASY_POSITION_FILTERS = [
-    ("All Positions", None),
-    ("QB", ("QB",)),
-    ("RB", ("RB",)),
-    ("WR", ("WR",)),
-    ("TE", ("TE",)),
-    ("FLEX (RB, WR, TE)", ("RB", "WR", "TE")),
-    ("K", ("K",)),
-    ("D/ST", ("D/ST",)),
+    ("All Positions", None, False),
+    ("QB", ("QB",), False),
+    ("RB", ("RB",), False),
+    ("WR", ("WR",), False),
+    ("TE", ("TE",), False),
+    ("FLEX (RB, WR, TE)", ("RB", "WR", "TE"), False),
+    ("K", ("K",), False),
+    ("D/ST", ("D/ST",), False),
+    ("Rookies", None, True),
+    ("Rookie QB", ("QB",), True),
+    ("Rookie RB", ("RB",), True),
+    ("Rookie WR", ("WR",), True),
+    ("Rookie TE", ("TE",), True),
 ]
 
 FANTASY_SORTS = ["ESPN Rank", "ADP", "Auction Value", "Projected Points", "Player Name"]
@@ -8948,9 +8958,9 @@ class FantasyCheatsheetDialog(QDialog):
         self.position_combo = QComboBox()
         self.position_combo.setAccessibleName("Position filter")
         self.position_combo.setAccessibleDescription(
-            "Show only players at the selected fantasy position")
-        for label, positions in FANTASY_POSITION_FILTERS:
-            self.position_combo.addItem(label, positions)
+            "Show only players at the selected fantasy position, or only rookies")
+        for label, positions, rookies_only in FANTASY_POSITION_FILTERS:
+            self.position_combo.addItem(label, (positions, rookies_only))
         self.position_combo.currentIndexChanged.connect(lambda _: self._apply_filters())
         position_label.setBuddy(self.position_combo)
         row.addWidget(position_label)
@@ -9029,6 +9039,12 @@ class FantasyCheatsheetDialog(QDialog):
         self.clear_btn.clicked.connect(self._clear_draft)
         row.addWidget(self.clear_btn)
 
+        self.export_btn = QPushButton("&Export to CSV")
+        self.export_btn.setAccessibleDescription(
+            "Save every player on the board to a spreadsheet file")
+        self.export_btn.clicked.connect(self._export_csv)
+        row.addWidget(self.export_btn)
+
         self.refresh_btn = QPushButton("&Reload from ESPN")
         self.refresh_btn.setAccessibleDescription(
             "Download the draft board again. Your drafted marks are kept")
@@ -9044,7 +9060,7 @@ class FantasyCheatsheetDialog(QDialog):
         # (open player details) and to the search box, and an auto-default button
         # would silently steal it and draft whoever happens to be selected.
         for button in (self.toggle_btn, self.details_btn, self.clear_btn,
-                       self.refresh_btn, close_btn):
+                       self.export_btn, self.refresh_btn, close_btn):
             button.setAutoDefault(False)
             button.setDefault(False)
         return row
@@ -9052,7 +9068,8 @@ class FantasyCheatsheetDialog(QDialog):
     def _set_controls_enabled(self, enabled: bool):
         for widget in (self.search_box, self.position_combo, self.team_combo,
                        self.sort_combo, self.scoring_combo, self.hide_drafted_check,
-                       self.toggle_btn, self.details_btn, self.clear_btn):
+                       self.toggle_btn, self.details_btn, self.clear_btn,
+                       self.export_btn):
             widget.setEnabled(enabled)
 
     # ---------------------------------------------------------------- Load
@@ -9172,8 +9189,10 @@ class FantasyCheatsheetDialog(QDialog):
 
     # ---------------------------------------------------- Filter and sort
 
-    def _matches(self, player, query, positions, team):
+    def _matches(self, player, query, positions, team, rookies_only=False):
         if positions and player['position'] not in positions:
+            return False
+        if rookies_only and not player.get('rookie'):
             return False
         if team and player['team'] != team:
             return False
@@ -9212,11 +9231,12 @@ class FantasyCheatsheetDialog(QDialog):
             return
 
         query = self.search_box.text().strip().lower()
-        positions = self.position_combo.currentData()
+        positions, rookies_only = self.position_combo.currentData() or (None, False)
         team = self.team_combo.currentData()
 
         self._filtered = sorted(
-            (p for p in self._players if self._matches(p, query, positions, team)),
+            (p for p in self._players
+             if self._matches(p, query, positions, team, rookies_only)),
             key=self._sort_key(self.sort_combo.currentText()),
         )
 
@@ -9305,6 +9325,83 @@ class FantasyCheatsheetDialog(QDialog):
         self._apply_filters(preserve_row=self.table.current_row_index())
         self.status_label.setText(f"Draft board cleared. {self.status_label.text()}")
 
+    # ------------------------------------------------------------- Export
+
+    CSV_HEADERS = [
+        "PPR Rank", "Standard Rank", "Player", "Position", "Team", "Rookie",
+        "Injury Status", "ADP", "Auction Value",
+        "Projected Points Standard", "Projected Points Half-PPR",
+        "Projected Points PPR", "Drafted",
+    ]
+
+    def csv_rows(self):
+        """Every player on the board, ordered by ESPN's rank for the chosen format.
+
+        Deliberately the whole board rather than the current filter: the export
+        is for taking the data elsewhere, and a spreadsheet can filter itself.
+        Numbers are written unformatted so they arrive as numbers, not text —
+        blanks rather than "N/A", which would make a whole column text in Excel.
+        """
+        def number(value, digits=1):
+            return "" if value is None else f"{value:.{digits}f}"
+
+        players = sorted(self._players, key=self._sort_key("ESPN Rank"))
+        rows = []
+        for p in players:
+            adp = p.get('adp')
+            if adp is not None and not (0 < adp < FANTASY_UNDRAFTED_ADP):
+                adp = None
+            rows.append([
+                p['ppr_rank'] or "",
+                p['standard_rank'] or "",
+                p['name'],
+                p['position'],
+                p['team'],
+                "Yes" if p.get('rookie') else "No",
+                p.get('injury') or "",
+                number(adp),
+                number(p.get('auction') or None, 2),
+                number(self._projected_points(p, "Standard")),
+                number(self._projected_points(p, "Half-PPR")),
+                number(self._projected_points(p, "PPR")),
+                "Yes" if self.is_taken(p) else "No",
+            ])
+        return rows
+
+    def _export_csv(self):
+        if not self._players:
+            return
+        default_name = f"fantasy-cheatsheet-{self._season}.csv"
+        default_dir = os.path.join(os.path.expanduser("~"), "Documents")
+        if not os.path.isdir(default_dir):
+            default_dir = os.path.expanduser("~")
+
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export Draft Board", os.path.join(default_dir, default_name),
+            "CSV files (*.csv);;All files (*)")
+        if not path:
+            return
+        if not os.path.splitext(path)[1]:
+            path += ".csv"
+
+        try:
+            # utf-8-sig: Excel assumes the system codepage without a BOM and
+            # mangles every non-ASCII name in the league.
+            with open(path, "w", encoding="utf-8-sig", newline="") as handle:
+                writer = csv.writer(handle)
+                writer.writerow(self.CSV_HEADERS)
+                writer.writerows(self.csv_rows())
+        except OSError as e:
+            QMessageBox.critical(self, "Export Failed",
+                                 f"Could not write the file:\n{e}")
+            return
+
+        self.status_label.setText(
+            f"Exported {len(self._players)} players to {path}. {self.status_label.text()}")
+        QMessageBox.information(
+            self, "Export Complete",
+            f"Saved {len(self._players)} players to:\n{path}")
+
     # ------------------------------------------------------------ Details
 
     def detail_rows(self, player):
@@ -9315,6 +9412,7 @@ class FantasyCheatsheetDialog(QDialog):
         rows = [
             ["Position", player['position']],
             ["Team", player['team'] if player['team'] != 'FA' else "Free agent"],
+            ["Rookie", "Yes" if player.get('rookie') else "No"],
             ["PPR Rank", rank_text(player['ppr_rank'])],
             ["Standard Rank", rank_text(player['standard_rank'])],
             ["Average Draft Position", self._adp_text(player)],

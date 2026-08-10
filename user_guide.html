@@ -320,7 +320,8 @@
     </p>
     <ul>
       <li><strong>Search</strong> by player name or team abbreviation.</li>
-      <li><strong>Position</strong> narrows the board to one position, or to FLEX (RB, WR and TE together).</li>
+      <li><strong>Position</strong> narrows the board to one position, to FLEX (RB, WR and TE
+        together), to <strong>Rookies</strong>, or to rookies at a single position.</li>
       <li><strong>Team</strong> shows only one NFL team.</li>
       <li><strong>Sort by</strong> rank, ADP, auction value, projected points, or name.</li>
       <li><strong>Scoring</strong> switches between Standard, Half-PPR and PPR, and projected
@@ -333,11 +334,20 @@
         all three scoring formats.</li>
       <li><strong>Reload from ESPN</strong> downloads the board again — worth doing after a
         big injury or trade. Your drafted marks are kept.</li>
+      <li><strong>Export to CSV</strong> saves the board to a spreadsheet file. It always
+        writes every player, not just the ones the filters are showing, with both rank
+        boards, ADP, auction value, the rookie flag, and projected points in all three
+        scoring formats.</li>
     </ul>
     <p>
       Kickers and team defenses show <strong>N/A</strong> for projected points. ESPN's published
       projections for those two positions are unusable, so Scores shows no number rather than a
       wrong one — their rank, ADP and auction value are still accurate.
+    </p>
+    <p>
+      Rookies are worked out from ESPN's own data: a player with no statistics from any earlier
+      season. That catches undrafted rookies as well as drafted ones, but it would also flag a
+      veteran who sat out a whole season, so treat it as a strong hint rather than a guarantee.
     </p>
   </section>
 

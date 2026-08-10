@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Fantasy cheatsheet: rookie filters.** The position filter gains *Rookies*
+  plus *Rookie QB / RB / WR / TE*. Rookies are identified from the fantasy feed
+  itself — a player with no stat line from any earlier season — which also
+  catches undrafted rookies that a draft-list lookup would miss.
+- **Fantasy cheatsheet: export to CSV.** *Export to CSV* saves the whole board,
+  not just what the filters currently show: both rank boards, player, position,
+  team, rookie flag, injury, ADP, auction value, projected points in all three
+  scoring formats, and whether you have marked the player drafted.
+
 ### In Progress
 - **Game Wrap Up Feature**: ESPN text processing and game story extraction (under construction)
   - Core infrastructure implemented, text processing being refined
