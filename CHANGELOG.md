@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### In Progress
+- **Game Wrap Up Feature**: ESPN text processing and game story extraction (under construction)
+  - Core infrastructure implemented, text processing being refined
+  - Game story text placeholders currently under investigation
+
+## [0.9.2] - 2026-08-09
+
 ### Added
 - **Fantasy cheatsheet: rookie filters.** The position filter gains *Rookies*
   plus *Rookie QB / RB / WR / TE*. Rookies are identified from the fantasy feed
@@ -16,11 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   not just what the filters currently show: both rank boards, player, position,
   team, rookie flag, injury, ADP, auction value, projected points in all three
   scoring formats, and whether you have marked the player drafted.
-
-### In Progress
-- **Game Wrap Up Feature**: ESPN text processing and game story extraction (under construction)
-  - Core infrastructure implemented, text processing being refined
-  - Game story text placeholders currently under investigation
 
 ## [0.9.1] - 2026-08-09
 
