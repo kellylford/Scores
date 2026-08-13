@@ -1,0 +1,54 @@
+name: iOS Build Check
+
+# Compiles the iOS app for the simulator and stops there. Nothing is signed,
+# archived, or uploaded — this exists so a code change can be proven to build
+# without going anywhere near App Store Connect or TestFlight.
+#
+# Use `iOS TestFlight / App Store Release` when you actually want a build on a
+# device. This one is safe to run on any commit.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'iOS/**'
+      - '.github/workflows/ios-build-check.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'iOS/**'
+      - '.github/workflows/ios-build-check.yml'
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select latest stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphonesimulator --show-sdk-version
+
+      # A simulator destination needs no signing identity and no secrets, so a
+      # fork or a branch build works without any repository configuration.
+      - name: Build for simulator
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project iOS/SportsScoresApp/SportsScores.xcodeproj \
+            -scheme SportsScores \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            CODE_SIGNING_ALLOWED=NO \
+            clean build

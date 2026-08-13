@@ -39,6 +39,23 @@ Thumbs.db
 # Project specific
 AccessibleNews/
 
+# Xcode / iOS build artifacts
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcworkspace/xcuserdata/
+DerivedData/
+.build/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM
+*.dSYM.zip
+
 # Test and coverage artifacts
 .pytest_cache/
 .coverage

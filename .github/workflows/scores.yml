@@ -14,6 +14,12 @@ on:
     tags: ['v*']
   pull_request:
     branches: [main]
+    # The iOS app lives in the same repo but shares no code with the Windows
+    # build, so an iOS-only PR has nothing to test here. Deliberately NOT set on
+    # the push trigger: filters there apply to `tags: ['v*']` as well, and a
+    # release tag that silently fails to publish is a far worse outcome than an
+    # occasional redundant build.
+    paths-ignore: ['iOS/**']
   workflow_dispatch:
 
 permissions:
