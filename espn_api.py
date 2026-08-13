@@ -984,8 +984,12 @@ def get_scores(league_key, date=None, week=None, seasontype=None, season=None):
         status = comp.get("status", {})
         start_time = None
         game_status = None
+        game_status_name = ""
         if status:
             type_info = status.get("type", {})
+            # The stable identifier, e.g. STATUS_SCHEDULED / STATUS_POSTPONED.
+            # `description` below is display text and varies; this does not.
+            game_status_name = type_info.get("name", "")
             if "shortDetail" in type_info:
                 start_time = type_info["shortDetail"]
             elif "detail" in type_info:
@@ -1038,6 +1042,7 @@ def get_scores(league_key, date=None, week=None, seasontype=None, season=None):
             "name": name,
             "start_time": start_time,
             "status": game_status,
+            "status_name": game_status_name,
             "teams": team_scores,
             "competitions": [comp]  # Include raw competition data for bowl names
         })

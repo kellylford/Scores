@@ -11,6 +11,19 @@ except ImportError:
 
 class GameData:
     """Data model for game information"""
+
+    # Games that never got underway. ESPN still reports a score of "0" for both
+    # sides in every one of these, so the score is noise — the record is the
+    # useful thing to show. STATUS_SUSPENDED is deliberately absent: those were
+    # halted after play began and their partial scores are real.
+    NOT_PLAYED_STATUS_NAMES = {
+        "STATUS_SCHEDULED",
+        "STATUS_POSTPONED",
+        "STATUS_CANCELED",
+        "STATUS_CANCELLED",
+    }
+    NOT_PLAYED_DESCRIPTIONS = {"scheduled", "postponed", "canceled", "cancelled"}
+
     def __init__(self, raw_data: Dict, league: str = None):
         self.raw = raw_data or {}
         self.league = league
@@ -23,7 +36,17 @@ class GameData:
             self.start_time = convert_espn_time_to_local(self.start_time)
             
         self.status = self.raw.get("status", "")
+        self.status_name = self.raw.get("status_name", "")
         self.teams = self.raw.get("teams", [])
+
+    @property
+    def was_never_played(self) -> bool:
+        """True for games with no score worth showing (scheduled, postponed, cancelled)."""
+        if self.status_name:
+            return self.status_name in self.NOT_PLAYED_STATUS_NAMES
+        # Older callers build GameData without status_name; fall back to the
+        # display text ESPN puts in `description`.
+        return bool(self.status) and self.status.lower() in self.NOT_PLAYED_DESCRIPTIONS
 
     def _format_football_time(self, time_str: str) -> str:
         """Format football game times to 'Thu 8/28 8:00PM' style"""
@@ -88,15 +111,16 @@ class GameData:
                 elif t.get("home_away") == "home":
                     home_team = t
             
-            # Scheduled games come back from ESPN with a score of "0" for both
-            # teams, which reads as nine "0 at 0" games in a row on a full slate.
+            # Games that never happened come back from ESPN with a score of "0"
+            # for both teams, which reads as nine "0 at 0" games in a row on a
+            # full slate — and on a postponed game it looks like a real result.
             # Show the season record instead, or just the team name when there
             # isn't one (season openers, leagues ESPN doesn't carry records for).
-            is_scheduled = bool(self.status) and self.status.lower() == "scheduled"
+            never_played = self.was_never_played
 
             def team_display(team: Dict) -> str:
                 abbrev = team.get("name") or team.get("abbreviation", "?")
-                if is_scheduled:
+                if never_played:
                     record = team.get("record", "")
                     return f"{abbrev} ({record})" if record else abbrev
                 score = team.get("score")
