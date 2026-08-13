@@ -16,3 +16,28 @@ updates:
       actions:
         patterns:
           - "*"
+
+  # requirements.txt. Every version is pinned exactly, so nothing moves
+  # unless it moves here.
+  #
+  # Split into two groups rather than one, because they carry very different
+  # risk. The runtime libraries are ordinary upgrades. PyQt6 is the UI
+  # toolkit for an app whose accessibility behaviour — screen reader output,
+  # keyboard navigation, the three table view modes — is verified by hand,
+  # so a Qt bump needs someone to actually drive the app before it lands and
+  # should not ride along in a PR full of routine patches.
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: deps
+    groups:
+      python:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "PyQt6*"
+      pyqt:
+        patterns:
+          - "PyQt6*"
