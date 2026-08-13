@@ -67,8 +67,15 @@ final class FantasyCheatsheetViewModel: ObservableObject {
     var displayedCount: Int { displayedPlayers.count }
 
     /// Team abbreviations present in the pool, sorted, for the team filter menu.
+    /// Team abbreviations present in the pool, for the team filter menu.
+    ///
+    /// "FA" is listed last rather than dropped. Unsigned players are a real slice
+    /// of the board — Tyreek Hill and Keenan Allen are both free agents here —
+    /// and excluding the entry left them reachable only by search.
     var availableTeams: [String] {
-        Set(players.map(\.teamAbbreviation)).subtracting(["", "FA"]).sorted()
+        let all = Set(players.map(\.teamAbbreviation)).subtracting([""])
+        let named = all.subtracting(["FA"]).sorted()
+        return all.contains("FA") ? named + ["FA"] : named
     }
 
     // MARK: - Filtering
@@ -89,23 +96,46 @@ final class FantasyCheatsheetViewModel: ObservableObject {
 
     // MARK: - Sorting
 
+    /// Ordering for the chosen sort, with rank breaking every tie.
+    ///
+    /// Two details matter here. Values are compared at the precision the row
+    /// actually displays, because comparing at full precision orders rows that
+    /// look identical by digits nobody can see. And ties fall back to rank rather
+    /// than being left equal: `sorted(by:)` is not a stable sort in Swift, so
+    /// equal elements may come back in a different order on each rebuild, which
+    /// for a VoiceOver user re-reading the board is genuinely disorienting.
     private func sortComparator(_ a: CheatsheetPlayer, _ b: CheatsheetPlayer) -> Bool {
+        let rankA = a.rank(for: preset) ?? .max
+        let rankB = b.rank(for: preset) ?? .max
+
         switch selectedSort {
         case .rank:
-            return (a.rank(for: preset) ?? .max) < (b.rank(for: preset) ?? .max)
+            return rankA < rankB
         case .adp:
-            return sortableADP(a) < sortableADP(b)
+            let x = sortableADP(a), y = sortableADP(b)
+            return x == y ? rankA < rankB : x < y
         case .auctionValue:
-            return (a.auctionValue ?? 0) > (b.auctionValue ?? 0)          // higher $ first
+            // Higher dollar value first; rounded to the whole dollars shown.
+            let x = (a.auctionValue ?? 0).rounded(), y = (b.auctionValue ?? 0).rounded()
+            return x == y ? rankA < rankB : x > y
         case .projectedPoints:
-            return (a.projectedPoints(for: preset) ?? 0) > (b.projectedPoints(for: preset) ?? 0)
+            let x = sortableProjection(a), y = sortableProjection(b)
+            return x == y ? rankA < rankB : x > y
         }
     }
 
-    /// ADP for sorting: undrafted players sort to the bottom.
+    /// ADP for sorting, at the one decimal the row shows. Players nobody is
+    /// drafting have no ADP at all and sort to the bottom.
     private func sortableADP(_ p: CheatsheetPlayer) -> Double {
-        if let a = p.adp, a > 0, a < 300 { return a }
-        return .greatestFiniteMagnitude
+        guard let a = p.adp, a > 0 else { return .greatestFiniteMagnitude }
+        return (a * 10).rounded() / 10
+    }
+
+    /// Projected points for sorting, at the one decimal the row shows. Kickers
+    /// and defenses carry no projection and sort last.
+    private func sortableProjection(_ p: CheatsheetPlayer) -> Double {
+        guard let v = p.projectedPoints(for: preset) else { return -.greatestFiniteMagnitude }
+        return (v * 10).rounded() / 10
     }
 
     // MARK: - Draft actions

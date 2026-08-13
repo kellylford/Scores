@@ -96,12 +96,22 @@ struct CheatsheetPlayer: Identifiable, Hashable {
     let teamAbbreviation: String
     /// Injury designation ("QUESTIONABLE", "OUT", …). Nil when active/unknown.
     let injuryStatus: String?
-    /// Average draft position. Nil when the player is effectively undrafted.
-    let adp: Double?
+    /// Average draft position, or nil when nobody is actually drafting this
+    /// player. ESPN does not omit the field for them — it hands out a placeholder
+    /// just past the end of a real draft — so the service clears it.
+    var adp: Double?
     /// Average auction dollar value. Nil when none is published.
     let auctionValue: Double?
+    /// ESPN's published overall rank. Kept for cross-referencing ESPN's own site,
+    /// but not what the board shows: it orders a far larger pool — roughly 1,750
+    /// IDP players, 51 punters and the 32 "Team QB" slots — so once those are
+    /// excluded the numbers have large holes in them.
     let pprRank: Int?
     let standardRank: Int?
+    /// Position on this board, 1...N with no gaps, in ESPN's order. Assigned by
+    /// the service once the whole pool is known.
+    var pprBoardRank: Int? = nil
+    var standardBoardRank: Int? = nil
     /// Projected fantasy points EXCLUDING receptions, computed from ESPN's raw
     /// projected stat line (passing/rushing/receiving yards + TDs, turnovers).
     /// Reception points are added per scoring format in `projectedPoints(for:)`.
@@ -117,9 +127,15 @@ struct CheatsheetPlayer: Identifiable, Hashable {
     /// Display name. Team defenses already arrive as "<Team> D/ST" from the feed.
     var displayName: String { fullName }
 
-    /// Published rank for the chosen format. Half-PPR reuses the PPR board
-    /// (ESPN publishes no separate Half-PPR ranks).
+    /// Position on this board for the chosen format. Half-PPR reuses the PPR
+    /// board (ESPN publishes no separate Half-PPR ranks).
     func rank(for preset: ScoringPreset) -> Int? {
+        preset == .standard ? standardBoardRank : pprBoardRank
+    }
+
+    /// ESPN's own published rank for the chosen format, for anyone comparing
+    /// against ESPN directly. Runs well ahead of the board position.
+    func espnRank(for preset: ScoringPreset) -> Int? {
         preset == .standard ? standardRank : pprRank
     }
 
@@ -136,9 +152,9 @@ struct CheatsheetPlayer: Identifiable, Hashable {
         return String(format: "%.1f", pts)
     }
 
-    /// ADP string ("—" when undrafted).
+    /// ADP string ("—" when nobody is drafting this player).
     var adpString: String {
-        guard let adp, adp > 0, adp < 300 else { return "—" }
+        guard let adp, adp > 0 else { return "—" }
         return String(format: "%.1f", adp)
     }
 

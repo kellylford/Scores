@@ -26,9 +26,6 @@ final class FantasyCheatsheetService {
     static let shared = FantasyCheatsheetService()
 
     private let base = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons"
-    /// Only players ranked at or above this position are kept — a generous
-    /// draftable pool (covers deep leagues) while discarding ~10k irrelevant ids.
-    private let maxRank = 500
 
     private let session: URLSession
 
@@ -79,23 +76,96 @@ final class FantasyCheatsheetService {
         }
 
         // Decode + map off the main actor (this call is already non-isolated).
-        let raw = try JSONDecoder().decode([RawFantasyPlayer].self, from: data)
-        let mapped = raw.compactMap { Self.map($0, maxRank: maxRank) }
+        // The season travels through userInfo because each player's `stats` array
+        // holds a projected set for the prior season as well as this one, and
+        // the decoder has to know which it is looking for.
+        let decoder = JSONDecoder()
+        decoder.userInfo[.fantasySeason] = season
+        let raw = try decoder.decode([RawFantasyPlayer].self, from: data)
+        var mapped = raw.compactMap { Self.map($0) }
+        Self.blankPlaceholderADP(&mapped)
+        Self.assignBoardRanks(&mapped)
         return mapped.sorted { ($0.pprRank ?? Int.max) < ($1.pprRank ?? Int.max) }
+    }
+
+    // MARK: - Post-processing over the whole pool
+
+    /// Clear the placeholder ADP ESPN gives players nobody is actually drafting.
+    ///
+    /// ESPN does not omit `averageDraftPosition` for undrafted players — it hands
+    /// out a value just past the end of a real draft, jittered by a fraction. In
+    /// the 2026 pool that is ~170, shared by 826 of 1,026 players, while genuine
+    /// ADPs stop around 168. Left alone it reads as a real draft position, and
+    /// because the jitter is in the third decimal it also defeats sorting: rows
+    /// that all display "170.0" order by noise the user cannot see.
+    ///
+    /// The placeholder is found rather than hard-coded, since it tracks the size
+    /// of the draft ESPN samples and would drift between seasons.
+    static func blankPlaceholderADP(_ players: inout [CheatsheetPlayer]) {
+        var counts: [Int: Int] = [:]
+        for player in players {
+            if let adp = player.adp, adp > 0 {
+                counts[Int(adp.rounded()), default: 0] += 1
+            }
+        }
+        var placeholder = 0
+        var hits = 0
+        for (value, count) in counts where count > hits {
+            placeholder = value
+            hits = count
+        }
+        // A real ADP is never shared by a large slice of the pool; a placeholder is.
+        guard hits >= max(20, players.count / 20) else { return }
+        let threshold = Double(placeholder - 1)
+        for index in players.indices {
+            if let adp = players[index].adp, adp >= threshold {
+                players[index].adp = nil
+            }
+        }
+    }
+
+    /// Number the board densely from 1, keeping ESPN's ordering.
+    ///
+    /// ESPN's published rank orders a much larger pool than a fantasy board: it
+    /// interleaves ~1,750 IDP players, 51 punters and the 32 "Team QB" slots that
+    /// only a few league formats use. Shown raw it reads as a broken sequence —
+    /// the 2026 board covers ranks 1 to 2565 with 1,539 holes, running 36 -> 69
+    /// near the top and 519 -> 978 further down.
+    static func assignBoardRanks(_ players: inout [CheatsheetPlayer]) {
+        var pprOrder: [(index: Int, rank: Int)] = []
+        var standardOrder: [(index: Int, rank: Int)] = []
+        for index in players.indices {
+            if let rank = players[index].pprRank { pprOrder.append((index, rank)) }
+            if let rank = players[index].standardRank { standardOrder.append((index, rank)) }
+        }
+        pprOrder.sort { $0.rank < $1.rank }
+        standardOrder.sort { $0.rank < $1.rank }
+        for (position, entry) in pprOrder.enumerated() {
+            players[entry.index].pprBoardRank = position + 1
+        }
+        for (position, entry) in standardOrder.enumerated() {
+            players[entry.index].standardBoardRank = position + 1
+        }
     }
 
     // MARK: - Mapping
 
-    private static func map(_ raw: RawFantasyPlayer, maxRank: Int) -> CheatsheetPlayer? {
+    private static func map(_ raw: RawFantasyPlayer) -> CheatsheetPlayer? {
         guard let posId = raw.defaultPositionId,
               let position = FantasyPosition.from(positionId: posId) else { return nil }
+        // ESPN keeps ranking players it has flagged inactive — retirees like
+        // Matthew Slater. All of them are owned in 0.0% of leagues.
+        if raw.active == false { return nil }
 
         let pprRank = raw.rank(for: "PPR")
         let stdRank = raw.rank(for: "STANDARD")
-        // Keep only players inside the draftable pool.
-        guard let best = [pprRank, stdRank].compactMap({ $0 }).min(), best <= maxRank else {
-            return nil
-        }
+        // Whether ESPN publishes a rank at all is ESPN's own answer to "is this
+        // player fantasy-relevant". There is deliberately no rank cutoff: ESPN's
+        // overall rank does not order draft relevance — Ricky Pearsall sits at
+        // 1507 and Tyreek Hill at 1899, both rostered in real leagues — so any
+        // cap silently hides players people are drafting. The unranked remainder
+        // of the feed is owned in 0.0% of leagues.
+        guard [pprRank, stdRank].contains(where: { $0 != nil }) else { return nil }
 
         let proTeamId = raw.proTeamId ?? 0
         let isDST = position == .dst
@@ -142,6 +212,7 @@ private struct RawFantasyPlayer: Decodable {
     let defaultPositionId: Int?
     let proTeamId: Int?
     let injuryStatus: String?
+    let active: Bool?
     let ownership: Ownership?
     let draftRanksByRankType: [String: DraftRank]?
 
@@ -163,6 +234,7 @@ private struct RawFantasyPlayer: Decodable {
         let statSourceId: Int?
         let statSplitTypeId: Int?
         let scoringPeriodId: Int?
+        let seasonId: Int?
         let stats: [String: Double]?
     }
 
@@ -172,7 +244,7 @@ private struct RawFantasyPlayer: Decodable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, fullName, defaultPositionId, proTeamId, injuryStatus, ownership, draftRanksByRankType, stats
+        case id, fullName, defaultPositionId, proTeamId, injuryStatus, active, ownership, draftRanksByRankType, stats
     }
 
     init(from decoder: Decoder) throws {
@@ -182,6 +254,7 @@ private struct RawFantasyPlayer: Decodable {
         defaultPositionId = try c.decodeIfPresent(Int.self, forKey: .defaultPositionId)
         proTeamId = try c.decodeIfPresent(Int.self, forKey: .proTeamId)
         injuryStatus = try c.decodeIfPresent(String.self, forKey: .injuryStatus)
+        active = try c.decodeIfPresent(Bool.self, forKey: .active)
         ownership = try c.decodeIfPresent(Ownership.self, forKey: .ownership)
         draftRanksByRankType = try c.decodeIfPresent([String: DraftRank].self, forKey: .draftRanksByRankType)
 
@@ -189,22 +262,32 @@ private struct RawFantasyPlayer: Decodable {
         // season-split / period-0 set with a non-empty stat dict. ESPN's own
         // `appliedTotal` is unreliable, so we compute from the raw stats.
         // The decoded array is local and released when init returns.
+        //
+        // The seasonId match is not optional. A player's `stats` array carries a
+        // projected full-season set for BOTH the upcoming and the prior season,
+        // in no stable order, so taking the first match reads last year's
+        // projections for a slice of the pool.
+        let season = decoder.userInfo[.fantasySeason] as? Int
         var base: Double?
         var rec: Double = 0
         if let sets = try? c.decodeIfPresent([StatSet].self, forKey: .stats) {
             for set in sets where set.statSourceId == 1
                 && set.statSplitTypeId == 0
-                && set.scoringPeriodId == 0 {
+                && set.scoringPeriodId == 0
+                && (season == nil || set.seasonId == season) {
                 guard let st = set.stats, !st.isEmpty else { continue }
                 func v(_ k: String) -> Double { st[k] ?? 0 }
                 rec = v("53")                       // receptions
                 base = v("3") * 0.04                // passing yards (1 pt / 25)
                      + v("4") * 4                   // passing TD
+                     + v("19") * 2                  // two-point conversion passed
                      - v("20") * 2                  // interception thrown
                      + v("24") * 0.1                // rushing yards (1 pt / 10)
                      + v("25") * 6                  // rushing TD
+                     + v("26") * 2                  // two-point conversion rushed
                      + v("42") * 0.1                // receiving yards (1 pt / 10)
                      + v("43") * 6                  // receiving TD
+                     + v("44") * 2                  // two-point conversion caught
                      - v("72") * 2                  // fumbles lost
                 break
             }
@@ -212,4 +295,10 @@ private struct RawFantasyPlayer: Decodable {
         projectedPointsBase = base
         projectedReceptions = rec
     }
+}
+
+extension CodingUserInfoKey {
+    /// The season the caller wants projections for. Carried through the decoder
+    /// because each player's stat array holds more than one season's worth.
+    static let fantasySeason = CodingUserInfoKey(rawValue: "fantasySeason")!
 }

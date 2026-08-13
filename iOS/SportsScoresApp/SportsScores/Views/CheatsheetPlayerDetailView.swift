@@ -122,8 +122,13 @@ struct CheatsheetPlayerDetailView: View {
         valueTable(
             title: "Draft Values",
             rows: [
-                ("PPR Rank", player.pprRank.map { "#\($0)" } ?? "—"),
-                ("Standard Rank", player.standardRank.map { "#\($0)" } ?? "—"),
+                ("PPR Rank", player.pprBoardRank.map { "#\($0)" } ?? "—"),
+                ("Standard Rank", player.standardBoardRank.map { "#\($0)" } ?? "—"),
+                // ESPN's own numbering, for anyone comparing against their site.
+                // It counts defensive players, punters and Team QB slots that
+                // this board leaves out, so it runs well ahead of the position.
+                ("ESPN overall rank, PPR", player.pprRank.map { "#\($0)" } ?? "—"),
+                ("ESPN overall rank, Standard", player.standardRank.map { "#\($0)" } ?? "—"),
                 ("ADP", player.adpString),
                 ("Auction Value", player.auctionString),
             ]
