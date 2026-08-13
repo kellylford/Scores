@@ -9154,11 +9154,20 @@ class FantasyCheatsheetDialog(QDialog):
     # ------------------------------------------------------- Value helpers
 
     def _rank(self, player):
-        """ESPN's consensus rank for the current format.
+        """Position on this board for the current format: 1, 2, 3 with no gaps.
 
-        ESPN publishes PPR and Standard boards only, so Half-PPR reuses the PPR one.
+        ESPN publishes PPR and Standard boards only, so Half-PPR reuses the PPR
+        one. The number shown is a dense position rather than ESPN's published
+        rank, which orders a pool full of players this board excludes and so
+        arrives full of holes — see `_assign_board_ranks`.
         """
-        return player['standard_rank'] if self.scoring == 'Standard' else player['ppr_rank']
+        key = 'standard_board_rank' if self.scoring == 'Standard' else 'ppr_board_rank'
+        return player.get(key)
+
+    def _espn_rank(self, player):
+        """ESPN's published overall rank, for cross-referencing their site."""
+        key = 'standard_rank' if self.scoring == 'Standard' else 'ppr_rank'
+        return player.get(key)
 
     def _projected_points(self, player, scoring=None):
         """Projected season points in the given format, or None when unscored."""
@@ -9360,6 +9369,7 @@ class FantasyCheatsheetDialog(QDialog):
         "Injury Status", "ADP", "Auction Value",
         "Projected Points Standard", "Projected Points Half-PPR",
         "Projected Points PPR", "Drafted",
+        "ESPN Overall PPR Rank", "ESPN Overall Standard Rank",
     ]
 
     def csv_rows(self):
@@ -9378,8 +9388,8 @@ class FantasyCheatsheetDialog(QDialog):
         for p in players:
             adp = p.get('adp') or None
             rows.append([
-                p['ppr_rank'] or "",
-                p['standard_rank'] or "",
+                p.get('ppr_board_rank') or "",
+                p.get('standard_board_rank') or "",
                 p['name'],
                 p['position'],
                 p['team'],
@@ -9391,6 +9401,8 @@ class FantasyCheatsheetDialog(QDialog):
                 number(self._projected_points(p, "Half-PPR")),
                 number(self._projected_points(p, "PPR")),
                 "Yes" if self.is_taken(p) else "No",
+                p.get('ppr_rank') or "",
+                p.get('standard_rank') or "",
             ])
         return rows
 
@@ -9439,8 +9451,13 @@ class FantasyCheatsheetDialog(QDialog):
             ["Position", player['position']],
             ["Team", player['team'] if player['team'] != 'FA' else "Free agent"],
             ["Rookie", "Yes" if player.get('rookie') else "No"],
-            ["PPR Rank", rank_text(player['ppr_rank'])],
-            ["Standard Rank", rank_text(player['standard_rank'])],
+            ["PPR Rank", rank_text(player.get('ppr_board_rank'))],
+            ["Standard Rank", rank_text(player.get('standard_board_rank'))],
+            # ESPN's own numbering, for anyone comparing against their site. It
+            # counts defensive players and Team QB slots this board leaves out,
+            # so it runs well ahead of the board position.
+            ["ESPN overall rank, PPR", rank_text(player.get('ppr_rank'))],
+            ["ESPN overall rank, Standard", rank_text(player.get('standard_rank'))],
             ["Average Draft Position", self._adp_text(player)],
             ["Auction Value", self._auction_text(player)],
         ]

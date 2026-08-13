@@ -4905,6 +4905,28 @@ def _blank_placeholder_adp(players):
             player["adp"] = None
 
 
+def _assign_board_ranks(players):
+    """Number the board densely from 1, keeping ESPN's ordering.
+
+    ESPN's published rank orders a much larger pool than a fantasy board: it
+    interleaves ~1,750 IDP players, 51 punters and the 32 'Team QB' slots that
+    only a few league formats use. Shown raw it reads as a broken sequence — the
+    2026 board covers ranks 1 to 2565 with 1,539 holes and 251 jumps, running
+    36 -> 69 near the top and 519 -> 978 further down.
+
+    The dense number preserves ESPN's order exactly while answering the question
+    a draft board is actually asked: how many players are ahead of this one. The
+    published rank is kept alongside for anyone cross-referencing ESPN.
+    """
+    for source, target in (("ppr_rank", "ppr_board_rank"),
+                           ("standard_rank", "standard_board_rank")):
+        ranked = sorted((p for p in players if p.get(source)), key=lambda p: p[source])
+        for position, player in enumerate(ranked, start=1):
+            player[target] = position
+        for player in players:
+            player.setdefault(target, None)
+
+
 def _load_fantasy_season(season, max_rank):
     """Fetch and map one season's draft board. Returns [] when unavailable."""
     url = f"{FANTASY_BASE}/{season}/players?view=kona_player_info&scoringPeriodId=0"
@@ -4925,6 +4947,7 @@ def _load_fantasy_season(season, max_rank):
     players = [p for p in (_map_fantasy_player(r, season, max_rank) for r in raw_players) if p]
     del raw_players  # release the ~38 MB payload before returning
     _blank_placeholder_adp(players)
+    _assign_board_ranks(players)
     players.sort(key=lambda p: p["ppr_rank"] or p["standard_rank"] or 9999)
     return players
 

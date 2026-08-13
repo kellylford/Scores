@@ -12,6 +12,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Core infrastructure implemented, text processing being refined
   - Game story text placeholders currently under investigation
 
+## [0.9.4] - 2026-08-13
+
+### Fixed
+- **Fantasy cheatsheet: the Rank column skipped numbers.** It showed ESPN's
+  published rank, which orders a far larger pool than a fantasy board — roughly
+  1,750 defensive players, 51 punters and the 32 "Team QB" slots. Sorted by
+  rank, the board ran 1 to 2565 with 1,539 gaps in it, jumping 36 to 69 near the
+  top and 519 to 978 further down. The column now counts the board itself: 1, 2,
+  3 with nothing missing, in exactly the order ESPN puts them. ESPN's own number
+  is still shown on the player details screen and in the CSV export, for anyone
+  cross-referencing their site.
+
 ## [0.9.3] - 2026-08-10
 
 ### Fixed

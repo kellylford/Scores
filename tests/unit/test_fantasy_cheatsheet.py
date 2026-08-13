@@ -257,6 +257,52 @@ class TestCheatsheetLoad:
         assert [p["name"] for p in board["players"]] == [
             "Jahmyr Gibbs", "Ricky Pearsall", "Tyreek Hill"]
 
+    def test_board_ranks_are_dense(self):
+        # ESPN's published rank orders a far larger pool — IDP players, punters,
+        # the 32 Team QB slots — so raw it runs 1..2565 with 1,539 holes and
+        # jumps like 36 -> 69. The board numbers itself 1, 2, 3 with no gaps
+        # while keeping ESPN's order and their published rank.
+        feed = [
+            raw_player(id=1, fullName="First", draftRanksByRankType={"PPR": {"rank": 36}}),
+            raw_player(id=2, fullName="Second", draftRanksByRankType={"PPR": {"rank": 69}}),
+            raw_player(id=3, fullName="Third", draftRanksByRankType={"PPR": {"rank": 978}}),
+        ]
+        with patch.object(espn_api, "requests") as fake_requests:
+            fake_requests.get.return_value.status_code = 200
+            fake_requests.get.return_value.json.return_value = feed
+            players = espn_api.get_fantasy_cheatsheet(season=2026)["players"]
+
+        assert [p["ppr_board_rank"] for p in players] == [1, 2, 3]
+        assert [p["ppr_rank"] for p in players] == [36, 69, 978]
+
+    def test_board_ranks_are_numbered_per_format(self):
+        # A player can sit higher on one board than the other, so the two dense
+        # numberings are computed independently.
+        feed = [
+            raw_player(id=1, fullName="PPR favourite",
+                       draftRanksByRankType={"PPR": {"rank": 10}, "STANDARD": {"rank": 90}}),
+            raw_player(id=2, fullName="Standard favourite",
+                       draftRanksByRankType={"PPR": {"rank": 20}, "STANDARD": {"rank": 30}}),
+        ]
+        with patch.object(espn_api, "requests") as fake_requests:
+            fake_requests.get.return_value.status_code = 200
+            fake_requests.get.return_value.json.return_value = feed
+            by_name = {p["name"]: p for p in
+                       espn_api.get_fantasy_cheatsheet(season=2026)["players"]}
+
+        assert by_name["PPR favourite"]["ppr_board_rank"] == 1
+        assert by_name["PPR favourite"]["standard_board_rank"] == 2
+        assert by_name["Standard favourite"]["standard_board_rank"] == 1
+
+    def test_a_player_ranked_in_one_format_only(self):
+        feed = [raw_player(id=1, draftRanksByRankType={"PPR": {"rank": 5}})]
+        with patch.object(espn_api, "requests") as fake_requests:
+            fake_requests.get.return_value.status_code = 200
+            fake_requests.get.return_value.json.return_value = feed
+            player = espn_api.get_fantasy_cheatsheet(season=2026)["players"][0]
+        assert player["ppr_board_rank"] == 1
+        assert player["standard_board_rank"] is None
+
     def test_placeholder_adp_is_cleared(self):
         # ESPN gives undrafted players an ADP just past the end of a real draft
         # rather than omitting it. Left in place it reads as a real draft slot,
