@@ -88,20 +88,27 @@ class GameData:
                 elif t.get("home_away") == "home":
                     home_team = t
             
+            # Scheduled games come back from ESPN with a score of "0" for both
+            # teams, which reads as nine "0 at 0" games in a row on a full slate.
+            # Show the season record instead, or just the team name when there
+            # isn't one (season openers, leagues ESPN doesn't carry records for).
+            is_scheduled = bool(self.status) and self.status.lower() == "scheduled"
+
+            def team_display(team: Dict) -> str:
+                abbrev = team.get("name") or team.get("abbreviation", "?")
+                if is_scheduled:
+                    record = team.get("record", "")
+                    return f"{abbrev} ({record})" if record else abbrev
+                score = team.get("score")
+                return f"{abbrev}{' ' + score if score else ''}"
+
             # Build display with proper away @ home ordering
-            display_parts = []
             if away_team and home_team:
                 # Standard case: we have both home and away identified
-                for team in [away_team, home_team]:
-                    abbrev = team.get("name") or team.get("abbreviation", "?")
-                    score = team.get("score")
-                    display_parts.append(f"{abbrev}{' ' + score if score else ''}")
+                display_parts = [team_display(t) for t in (away_team, home_team)]
             else:
                 # Fallback: home_away not available, use teams as-is
-                for t in self.teams:
-                    abbrev = t.get("name") or t.get("abbreviation", "?")
-                    score = t.get("score")
-                    display_parts.append(f"{abbrev}{' ' + score if score else ''}")
+                display_parts = [team_display(t) for t in self.teams]
             
             parts.append(" at ".join(display_parts))
         else:

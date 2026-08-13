@@ -1010,11 +1010,25 @@ def get_scores(league_key, date=None, week=None, seasontype=None, season=None):
                 team_name = team.get("displayName", team.get("name", team.get("abbreviation", "Unknown")))
             else:
                 team_name = team.get("name", team.get("abbreviation", "Unknown"))
-            
+
+            # Overall record, so scheduled games have something to show instead of
+            # ESPN's pre-game "0" scores. Matched on type rather than taken from
+            # records[0] — the order of that list isn't guaranteed. A "0-0" record
+            # (season opener, preseason) carries no information, so it's dropped
+            # here and the team name stands alone.
+            record_summary = ""
+            for rec in competitor.get("records", []):
+                if rec.get("type") == "total":
+                    summary = rec.get("summary", "")
+                    if summary and summary != "0-0":
+                        record_summary = summary
+                    break
+
             team_info = {
                 "name": team_name,
                 "abbreviation": team.get("abbreviation", ""),
                 "score": score,
+                "record": record_summary,
                 "home_away": home_away
             }
             team_scores.append(team_info)
