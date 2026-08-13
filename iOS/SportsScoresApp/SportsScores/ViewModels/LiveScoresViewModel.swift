@@ -68,9 +68,11 @@ class LiveScoresViewModel: ObservableObject {
             // Restrict every sport to today — no special football exemption.
             let relevantGames = games.filter { $0.date >= startOfToday && $0.date < endOfToday }
 
-            let liveGamesForSport      = relevantGames.filter { $0.status.isLive }
-            let completedGamesForSport = relevantGames.filter { $0.status.isCompleted }
-            let upcomingGamesForSport  = relevantGames.filter { !$0.status.isLive && !$0.status.isCompleted }
+            // Suspended games are halted, not over — they belong with the live ones.
+            let liveGamesForSport      = relevantGames.filter { $0.status.isLive || $0.status.isSuspended }
+            let completedGamesForSport = relevantGames.filter { $0.status.isCompleted && !$0.status.isSuspended }
+            let upcomingGamesForSport  = relevantGames.filter { !$0.status.isLive && !$0.status.isCompleted
+                                                                && !$0.status.isSuspended }
 
             if !liveGamesForSport.isEmpty     { live.append(SportGames(sport: sport, games: liveGamesForSport)) }
             if !completedGamesForSport.isEmpty { completed.append(SportGames(sport: sport, games: completedGamesForSport)) }

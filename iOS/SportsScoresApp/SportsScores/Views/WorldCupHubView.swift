@@ -382,6 +382,7 @@ struct WorldCupHubView: View {
         if game.status.isLive           { return game.status.displayText }
         if game.status.isPostponed      { return abbreviated ? "PPD" : "Postponed" }
         if game.status.isCancelled      { return abbreviated ? "Cxl" : "Cancelled" }
+        if game.status.isSuspended      { return abbreviated ? "Susp" : "Suspended" }
         if game.status.isCompleted      { return "Final" }
         return game.displayTime
     }

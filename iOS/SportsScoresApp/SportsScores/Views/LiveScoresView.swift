@@ -245,7 +245,8 @@ struct LiveScoresView: View {
     private func liveGameRow(_ game: Game) -> [String] {
         let away = game.awayTeam.abbreviation + (game.awayTeam.score.map { " \($0)" } ?? "")
         let home = game.homeTeam.abbreviation + (game.homeTeam.score.map { " \($0)" } ?? "")
-        let status = game.status.isLive ? game.status.displayText : (game.status.isCompleted ? "Final" : game.displayTime)
+        let status = game.status.isLive ? game.status.displayText
+            : (game.status.isSuspended ? "Susp" : (game.status.isCompleted ? "Final" : game.displayTime))
         return [away, home, status]
     }
 
@@ -259,7 +260,8 @@ struct LiveScoresView: View {
             if let sit = game.situation, let t = sit.displayText, !t.isEmpty {
                 statusParts.append(t)
             }
-        } else if game.status.isCompleted { statusParts.append("Final") }
+        } else if game.status.isSuspended { statusParts.append("Suspended") }
+        else if game.status.isCompleted { statusParts.append("Final") }
         else { statusParts.append(game.displayTime) }
         return [away, home, statusParts.joined(separator: ", ")]
     }
@@ -325,7 +327,8 @@ struct LiveScoresView: View {
     private func liveQuickText(_ game: Game) -> String {
         let away = game.awayTeam.abbreviation + (game.awayTeam.score.map { " \($0)" } ?? "")
         let home = game.homeTeam.abbreviation + (game.homeTeam.score.map { " \($0)" } ?? "")
-        let status = game.status.isLive ? game.status.displayText : (game.status.isCompleted ? "Final" : game.displayTime)
+        let status = game.status.isLive ? game.status.displayText
+            : (game.status.isSuspended ? "Suspended" : (game.status.isCompleted ? "Final" : game.displayTime))
         return "\(away) @ \(home) \u{2014} \(status)"
     }
 
@@ -339,7 +342,8 @@ struct LiveScoresView: View {
             if let sit = game.situation, let t = sit.displayText, !t.isEmpty {
                 statusParts.append(t)
             }
-        } else if game.status.isCompleted { statusParts.append("Final") }
+        } else if game.status.isSuspended { statusParts.append("Suspended") }
+        else if game.status.isCompleted { statusParts.append("Final") }
         else { statusParts.append(game.displayTime) }
         var label = "\(away) at \(home), \(statusParts.joined(separator: ", "))"
         if game.shouldShowBroadcastInfo, let broadcast = game.broadcasts.first, !broadcast.isEmpty {
@@ -453,6 +457,10 @@ struct CompactGameRow: View {
                         .foregroundColor(.red)
                         .font(.caption)
                         .fontWeight(.semibold)
+                } else if game.status.isSuspended {
+                    Text(game.status.detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Suspended" : game.status.detail)
+                        .font(.caption)
+                        .foregroundColor(.orange)
                 } else if game.status.isCompleted {
                     Text("Final")
                         .font(.caption)
@@ -532,8 +540,14 @@ struct CompactGameRow: View {
 
         // Status field — section headings communicate live/final, omit to avoid redundancy
         var statusParts: [String] = []
-        if !game.status.isLive && !game.status.isCompleted {
+        if !game.status.isLive && !game.status.isCompleted && !game.status.isSuspended {
             statusParts.append(game.displayTime)
+        }
+        // Suspended rows sit under the Live heading, which does not convey that play
+        // is halted, so this one is always spoken.
+        if game.status.isSuspended {
+            let detail = game.status.detail.trimmingCharacters(in: .whitespacesAndNewlines)
+            statusParts.append(detail.isEmpty ? "Suspended" : detail)
         }
         if isLive {
             // For live games: inning first for baseball, then situation.

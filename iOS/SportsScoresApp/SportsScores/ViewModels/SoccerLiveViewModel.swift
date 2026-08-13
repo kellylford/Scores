@@ -58,9 +58,11 @@ class SoccerLiveViewModel: ObservableObject {
 
         for (league, games) in results {
             let todaysGames = games.filter { $0.date >= startOfToday && $0.date < endOfToday }
-            let liveG      = todaysGames.filter { $0.status.isLive }
-            let completedG = todaysGames.filter { $0.status.isCompleted }
-            let upcomingG  = todaysGames.filter { !$0.status.isLive && !$0.status.isCompleted }
+            // Suspended matches are halted, not over — they belong with the live ones.
+            let liveG      = todaysGames.filter { $0.status.isLive || $0.status.isSuspended }
+            let completedG = todaysGames.filter { $0.status.isCompleted && !$0.status.isSuspended }
+            let upcomingG  = todaysGames.filter { !$0.status.isLive && !$0.status.isCompleted
+                                                  && !$0.status.isSuspended }
 
             if !liveG.isEmpty      { live.append(LeagueGames(sport: league, games: liveG)) }
             if !completedG.isEmpty { completed.append(LeagueGames(sport: league, games: completedG)) }

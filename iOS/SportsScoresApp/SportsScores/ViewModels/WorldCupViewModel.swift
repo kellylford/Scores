@@ -239,9 +239,11 @@ final class WorldCupViewModel: ObservableObject {
 
     // MARK: - Game grouping helpers (used by Scores tab)
 
-    var inProgressGames: [Game]  { games.filter { $0.status.isLive } }
+    /// Suspended matches group with the live ones — halted, not abandoned.
+    var inProgressGames: [Game]  { games.filter { $0.status.isLive || $0.status.isSuspended } }
     var upcomingGames: [Game]    { games.filter { !$0.status.isLive && !$0.status.isCompleted
-                                                  && !$0.status.isPostponed && !$0.status.isCancelled } }
-    var completedGames: [Game]   { games.filter { $0.status.isCompleted } }
+                                                  && !$0.status.isPostponed && !$0.status.isCancelled
+                                                  && !$0.status.isSuspended } }
+    var completedGames: [Game]   { games.filter { $0.status.isCompleted && !$0.status.isSuspended } }
     var postponedGames: [Game]   { games.filter { $0.status.isPostponed || $0.status.isCancelled } }
 }

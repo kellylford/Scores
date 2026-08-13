@@ -107,18 +107,21 @@ class ScoresViewModel: ObservableObject {
 
     // MARK: - Sectioned game lists
 
-    var inProgressGames: [Game] { games.filter { $0.status.isLive } }
+    /// Suspended games sit here rather than with the postponed ones: they are
+    /// unfinished, not abandoned, and their partial score is worth reading.
+    var inProgressGames: [Game] { games.filter { $0.status.isLive || $0.status.isSuspended } }
     var upcomingGames:   [Game] {
         games
             .filter {
                 !$0.status.isLive &&
                 !$0.status.isCompleted &&
                 !$0.status.isPostponed &&
-                !$0.status.isCancelled
+                !$0.status.isCancelled &&
+                !$0.status.isSuspended
             }
             .sorted { $0.date < $1.date }
     }
-    var completedGames:  [Game] { games.filter { $0.status.isCompleted && !$0.status.isPostponed && !$0.status.isCancelled } }
+    var completedGames:  [Game] { games.filter { $0.status.isCompleted && !$0.status.isPostponed && !$0.status.isCancelled && !$0.status.isSuspended } }
     /// Games that were postponed, cancelled, or otherwise did not take place.
     var postponedGames:  [Game] { games.filter { $0.status.isPostponed || $0.status.isCancelled } }
 

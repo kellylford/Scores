@@ -495,6 +495,7 @@ struct ScoresView: View {
         if game.status.isLive { status = game.status.displayText }
         else if game.status.isPostponed { status = "PPD" }
         else if game.status.isCancelled { status = "Cxl" }
+        else if game.status.isSuspended { status = "Susp" }
         else if game.status.isCompleted { status = "Final" }
         else { status = game.displayTime }
         return [away, home, status]
@@ -512,6 +513,7 @@ struct ScoresView: View {
             }
         } else if game.status.isPostponed { statusParts.append("Postponed") }
         else if game.status.isCancelled { statusParts.append("Cancelled") }
+        else if game.status.isSuspended { statusParts.append("Suspended") }
         else if game.status.isCompleted { statusParts.append("Final") }
         else { statusParts.append(game.displayTime) }
         return [away, home, statusParts.joined(separator: ", ")]
@@ -567,6 +569,7 @@ struct ScoresView: View {
             status = parts.joined(separator: " · ")
         } else if game.status.isPostponed { status = "PPD" }
         else if game.status.isCancelled { status = "Cancelled" }
+        else if game.status.isSuspended { status = "Suspended" }
         else if game.status.isCompleted { status = "Final" }
         else { status = game.displayTime }
         var line = "\(away) @ \(home) — \(status)"
@@ -585,6 +588,7 @@ struct ScoresView: View {
             status = parts.joined(separator: ", ")
         } else if game.status.isPostponed { status = "Postponed" }
         else if game.status.isCancelled { status = "Cancelled" }
+        else if game.status.isSuspended { status = "Suspended" }
         else if game.status.isCompleted { status = "Final" }
         else { status = game.displayTime }
         var label = "\(away) at \(home), \(status)"
@@ -752,6 +756,10 @@ struct GameRow: View {
             Text(game.status.detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Cancelled" : game.status.detail)
                 .font(.caption)
                 .foregroundColor(.orange)
+        } else if game.status.isSuspended {
+            Text(game.status.detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Suspended" : game.status.detail)
+                .font(.caption)
+                .foregroundColor(.orange)
         } else if game.status.isCompleted {
             Text("Final")
                 .font(.caption)
@@ -780,17 +788,16 @@ struct GameRow: View {
         if game.status.isPostponed {
             if sectionContext != .postponed { statusParts.append("Postponed") }
         } else if game.status.isCancelled {
-            let statusDetail = game.status.detail.trimmingCharacters(in: .whitespacesAndNewlines)
-            let isSuspended: Bool
-            if let n = game.status.name {
-                isSuspended = n == "STATUS_SUSPENDED"
-            } else {
-                isSuspended = statusDetail.lowercased() == "suspended"
-            }
-            let suppressInSection = sectionContext == .postponed && !isSuspended
-            if !suppressInSection {
+            // The "Postponed / Cancelled" heading already says it; don't repeat.
+            if sectionContext != .postponed {
+                let statusDetail = game.status.detail.trimmingCharacters(in: .whitespacesAndNewlines)
                 statusParts.append(statusDetail.isEmpty ? "Cancelled" : statusDetail)
             }
+        } else if game.status.isSuspended {
+            // Always spoken: suspended rows sit under "In Progress", which does not
+            // convey that play is halted.
+            let statusDetail = game.status.detail.trimmingCharacters(in: .whitespacesAndNewlines)
+            statusParts.append(statusDetail.isEmpty ? "Suspended" : statusDetail)
         } else if game.status.isCompleted {
             if !suppressFinal { statusParts.append("Final") }
         } else if game.status.isLive {

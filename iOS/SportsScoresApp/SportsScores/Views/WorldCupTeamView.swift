@@ -286,6 +286,7 @@ struct WorldCupTeamView: View {
         if game.status.isLive       { return game.status.displayText }
         if game.status.isPostponed  { return short ? "PPD" : "Postponed" }
         if game.status.isCancelled  { return short ? "Cxl" : "Cancelled" }
+        if game.status.isSuspended  { return short ? "Susp" : "Suspended" }
         if game.status.isCompleted  { return "Final" }
         return game.displayTime
     }

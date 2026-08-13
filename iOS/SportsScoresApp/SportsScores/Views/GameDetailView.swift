@@ -126,6 +126,9 @@ struct GameDetailView: View {
             } else if game.status.isCancelled {
                 Text(game.status.detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Cancelled" : game.status.detail)
                     .font(.headline).foregroundColor(.orange)
+            } else if game.status.isSuspended {
+                Text(game.status.detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Suspended" : game.status.detail)
+                    .font(.headline).foregroundColor(.orange)
             } else if game.status.isCompleted {
                 Text("Final").font(.headline).foregroundColor(.secondary)
             } else {

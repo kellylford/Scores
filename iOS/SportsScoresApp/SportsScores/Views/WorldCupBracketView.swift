@@ -160,10 +160,11 @@ struct WorldCupBracketView: View {
     private func matchList(games: [Game]) -> some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) {
-                let live      = games.filter { $0.status.isLive }
+                let live      = games.filter { $0.status.isLive || $0.status.isSuspended }
                 let upcoming  = games.filter { !$0.status.isLive && !$0.status.isCompleted
-                                                && !$0.status.isPostponed && !$0.status.isCancelled }
-                let completed = games.filter { $0.status.isCompleted }
+                                                && !$0.status.isPostponed && !$0.status.isCancelled
+                                                && !$0.status.isSuspended }
+                let completed = games.filter { $0.status.isCompleted && !$0.status.isSuspended }
                 let other     = games.filter { $0.status.isPostponed || $0.status.isCancelled }
 
                 matchSection(title: "In Progress", games: live)
@@ -309,6 +310,7 @@ struct WorldCupBracketView: View {
         if game.status.isLive            { status = game.status.displayText }
         else if game.status.isPostponed  { status = "PPD" }
         else if game.status.isCancelled  { status = "Cxl" }
+        else if game.status.isSuspended  { status = "Susp" }
         else if game.status.isCompleted  { status = "Final" }
         else                             { status = game.displayTime }
         return [away, home, status]
@@ -353,6 +355,7 @@ struct WorldCupBracketView: View {
         if game.status.isLive           { return game.status.displayText }
         if game.status.isPostponed      { return abbreviated ? "PPD" : "Postponed" }
         if game.status.isCancelled      { return abbreviated ? "Cxl" : "Cancelled" }
+        if game.status.isSuspended      { return abbreviated ? "Susp" : "Suspended" }
         if game.status.isCompleted      { return "Final" }
         return game.displayTime
     }

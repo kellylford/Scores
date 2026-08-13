@@ -134,15 +134,24 @@ struct Game: Identifiable, Codable {
             return detail.lowercased() == "postponed"
         }
 
-        /// True when the game was cancelled/suspended and will not be played.
-        /// STATUS_SUSPENDED is included because games suspended and called official
-        /// also have no valid final score to display.
+        /// True when the game was cancelled and will not be played.
         var isCancelled: Bool {
             if let n = name {
-                return n == "STATUS_CANCELED" || n == "STATUS_CANCELLED" || n == "STATUS_SUSPENDED"
+                return n == "STATUS_CANCELED" || n == "STATUS_CANCELLED"
             }
             let d = detail.lowercased()
-            return d == "canceled" || d == "cancelled" || d == "suspended"
+            return d == "canceled" || d == "cancelled"
+        }
+
+        /// True when play began and was halted, to be resumed later — a game
+        /// suspended in the sixth at 3-2 really does stand at 3-2, so the partial
+        /// score is shown rather than replaced by the status word. A game shortened
+        /// by weather and called official is STATUS_FINAL ("Final/5"), not this.
+        /// Matches the Windows side, where GameData.NOT_PLAYED_STATUS_NAMES
+        /// deliberately excludes suspended.
+        var isSuspended: Bool {
+            if let n = name { return n == "STATUS_SUSPENDED" }
+            return detail.lowercased() == "suspended"
         }
     }
     

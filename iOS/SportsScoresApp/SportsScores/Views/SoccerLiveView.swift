@@ -191,7 +191,8 @@ struct SoccerLiveView: View {
     private func soccerGameRow(_ game: Game) -> [String] {
         let away = game.awayTeam.abbreviation + (game.awayTeam.score.map { " \($0)" } ?? "")
         let home = game.homeTeam.abbreviation + (game.homeTeam.score.map { " \($0)" } ?? "")
-        let status = game.status.isLive ? game.status.displayText : (game.status.isCompleted ? "Final" : game.displayTime)
+        let status = game.status.isLive ? game.status.displayText
+            : (game.status.isSuspended ? "Susp" : (game.status.isCompleted ? "Final" : game.displayTime))
         return [away, home, status]
     }
 
@@ -256,7 +257,8 @@ struct SoccerLiveView: View {
     private func soccerQuickText(_ game: Game) -> String {
         let away = game.awayTeam.abbreviation + (game.awayTeam.score.map { " \($0)" } ?? "")
         let home = game.homeTeam.abbreviation + (game.homeTeam.score.map { " \($0)" } ?? "")
-        let status = game.status.isLive ? game.status.displayText : (game.status.isCompleted ? "Final" : game.displayTime)
+        let status = game.status.isLive ? game.status.displayText
+            : (game.status.isSuspended ? "Suspended" : (game.status.isCompleted ? "Final" : game.displayTime))
         return "\(away) @ \(home) \u{2014} \(status)"
     }
 
