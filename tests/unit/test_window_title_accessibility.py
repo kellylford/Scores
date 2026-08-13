@@ -15,7 +15,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 try:
-    from PyQt6.QtWidgets import QApplication
+    from PyQt6.QtWidgets import QApplication, QWidget
     from PyQt6.QtCore import Qt
     PyQt6_available = True
 except ImportError:
@@ -43,11 +43,35 @@ class TestWindowTitleAccessibility(unittest.TestCase):
         self.mock_app = Mock()
         self.mock_app.base_title = "Sports Scores"
         self.mock_app.current_context = []
-        
+
         # Import the actual update_window_title method
         from scores import SportsScoresApp
         self.app_class = SportsScoresApp
-        
+
+        # Real QWidgets handed out as view parents; held so Qt doesn't collect
+        # them out from under a live child view.
+        self._parents = []
+
+    def tearDown(self):
+        """Release the parent widgets created for this test"""
+        for parent in self._parents:
+            parent.deleteLater()
+        self._parents.clear()
+
+    def make_parent_app(self, **attrs):
+        """A stand-in for the main app, usable as a real view parent.
+
+        The views subclass QWidget, and Qt's C++ constructor rejects a Mock
+        outright — it needs an actual QWidget. So the parent is real and only
+        the app API the views reach for is mocked onto it.
+        """
+        parent = QWidget()
+        parent.update_window_title = Mock()
+        for name, value in attrs.items():
+            setattr(parent, name, value)
+        self._parents.append(parent)
+        return parent
+
     def test_update_window_title_base_case(self):
         """Test window title update with no context (home view)"""
         # Create mock app with setWindowTitle method
@@ -146,11 +170,9 @@ class TestWindowTitleAccessibility(unittest.TestCase):
         mock_api_service.get_leagues.return_value = ['MLB', 'NFL', 'NBA']
         
         from scores import HomeView
-        
-        # Create mock parent app
-        mock_parent = Mock()
-        mock_parent.update_window_title = Mock()
-        
+
+        mock_parent = self.make_parent_app()
+
         # Create HomeView and call on_show
         home_view = HomeView(mock_parent)
         home_view.setup_ui()
@@ -162,11 +184,9 @@ class TestWindowTitleAccessibility(unittest.TestCase):
     def test_league_view_title_update(self):
         """Test that LeagueView correctly updates window title with league context"""
         from scores import LeagueView
-        
-        # Create mock parent app
-        mock_parent = Mock()
-        mock_parent.update_window_title = Mock()
-        
+
+        mock_parent = self.make_parent_app()
+
         # Create LeagueView with specific league
         with patch('scores.ApiService') as mock_api:
             mock_api.get_scores.return_value = []
@@ -181,11 +201,9 @@ class TestWindowTitleAccessibility(unittest.TestCase):
     def test_live_scores_view_title_update(self):
         """Test that LiveScoresView correctly updates window title"""
         from scores import LiveScoresView
-        
-        # Create mock parent app
-        mock_parent = Mock()
-        mock_parent.update_window_title = Mock()
-        
+
+        mock_parent = self.make_parent_app()
+
         # Create LiveScoresView and call on_show
         live_scores_view = LiveScoresView(mock_parent)
         live_scores_view.on_show()
@@ -196,12 +214,9 @@ class TestWindowTitleAccessibility(unittest.TestCase):
     def test_game_details_view_title_update(self):
         """Test that GameDetailsView correctly updates window title with game context"""
         from scores import GameDetailsView
-        
-        # Create mock parent app
-        mock_parent = Mock()
-        mock_parent.config = {}
-        mock_parent.update_window_title = Mock()
-        
+
+        mock_parent = self.make_parent_app(config={})
+
         # Create GameDetailsView with specific league and game
         with patch('scores.ApiService') as mock_api:
             mock_api.get_game_details.return_value = {}
@@ -254,7 +269,13 @@ class TestWindowTitleAccessibility(unittest.TestCase):
             # 1. Most specific information first (for screen readers)
             # 2. Clear hierarchy of context
             # 3. Consistent base application name
-            self.assertTrue(expected_title.endswith(" - Sports Scores"))
+            #
+            # The context-free home view is the one case with no separator —
+            # its title is the bare base name, not "... - Sports Scores".
+            if context:
+                self.assertTrue(expected_title.endswith(" - Sports Scores"))
+            else:
+                self.assertEqual(expected_title, "Sports Scores")
             if context and len(context) > 1:
                 # Multiple contexts should be comma-separated with most general first
                 context_part = expected_title.replace(" - Sports Scores", "")
