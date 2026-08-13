@@ -8,6 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Current version: see `VERSION` file. Distributed as a standalone `Scores.exe` (~40MB) via GitHub releases.
 
+A companion **iOS app** (SwiftUI, VoiceOver-first) lives in `iOS/SportsScoresApp/`. It shares no code with the Windows app — only the ESPN endpoints and the accessibility conventions — so the two evolve in parallel and features are ported by hand in both directions. See `### iOS App` below.
+
 ## Commands
 
 **Run from source:**
@@ -82,6 +84,16 @@ pytest tests/
 - `installer/scores.iss` — Inno Setup script. Per-user install into `%LocalAppData%\Programs\Scores`, no elevation, so the in-app updater can install without a UAC prompt.
 - `.github/workflows/scores.yml` — Tests, builds, signs (Azure Artifact Signing over GitHub OIDC), packages the installer and publishes the release on a `v*` tag.
 - `docs/INSTALLER.md` — How the installer, updater and signing fit together, plus the release checklist.
+
+### iOS App
+
+Lives entirely in `iOS/SportsScoresApp/` (Xcode project, SwiftUI). Nothing in the Python app reads from it and nothing in it reads from the Python app — `pytest` and `build.py` ignore the directory completely.
+
+- `SportsScores/Services/ESPNAPIService.swift` — the iOS equivalent of `espn_api.py`. When you fix an ESPN data quirk on one platform, check whether the other needs the same fix; this has been the main source of drift.
+- `.github/workflows/ios-build-check.yml` — simulator-only compile, runs on `main` for changes under `iOS/**`. No signing, no secrets.
+- `.github/workflows/ios-release.yml` — manual dispatch only; archives on a macOS runner and uploads to TestFlight. Needs the five App Store Connect secrets listed in `.github/workflows/README-ios-release.md`.
+
+The iOS app previously lived on a separate `iOS` branch that also carried a stale copy of the Windows app. That branch is retired; its history is preserved at the `ios-branch-archive` tag.
 
 ## Key Patterns
 
