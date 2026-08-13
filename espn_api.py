@@ -4796,9 +4796,9 @@ def _is_fantasy_rookie(raw, season):
     second Justin Jefferson. But every player's `stats` array holds the prior
     season alongside the projected one, and a rookie has no prior season to hold.
 
-    Checked against the full 2026 draft class: of 34 players flagged on a
-    368-player board, 32 were drafted that year and the other two were undrafted
-    rookies, which this correctly catches and a draft-list join would miss.
+    Checked against the full 2026 draft class: of the players flagged on a
+    368-player board, all but two were drafted that year, and those two were
+    undrafted rookies — which this catches and a draft-list join would miss.
 
     A veteran who missed an entire season would also be flagged, so this is a
     strong signal rather than a certainty.
@@ -4810,10 +4810,19 @@ def _is_fantasy_rookie(raw, season):
     return not any(s < season for s in seasons)
 
 
-def _map_fantasy_player(raw, season, max_rank):
-    """Map one raw feed player to a cheatsheet row, or None if not draftable."""
+def _map_fantasy_player(raw, season, max_rank=None):
+    """Map one raw feed player to a cheatsheet row, or None if not draftable.
+
+    Draftability is decided by whether ESPN publishes a draft rank for the
+    player, which is ESPN's own answer to the question. `max_rank` additionally
+    caps the pool and defaults to no cap.
+    """
     position = FANTASY_POSITIONS.get(raw.get("defaultPositionId"))
     if not position:
+        return None
+    # ESPN keeps ranking players it has flagged inactive — retirees like Matthew
+    # Slater still carry a rank. All 142 of them are owned in 0.0% of leagues.
+    if raw.get("active") is False:
         return None
 
     ranks = raw.get("draftRanksByRankType") or {}
@@ -4825,7 +4834,11 @@ def _map_fantasy_player(raw, season, max_rank):
     ppr_rank = rank_for("PPR")
     standard_rank = rank_for("STANDARD")
     best_rank = min([r for r in (ppr_rank, standard_rank) if r], default=None)
-    if best_rank is None or best_rank > max_rank:
+    # An unranked player is one ESPN does not consider fantasy-relevant: every
+    # one of them is owned in 0.0% of leagues — retirees and camp bodies.
+    if best_rank is None:
+        return None
+    if max_rank is not None and best_rank > max_rank:
         return None
 
     pro_team_id = raw.get("proTeamId") or 0
@@ -4865,6 +4878,33 @@ def _normalize_fantasy_injury(status):
     return " ".join(part.capitalize() for part in str(status).split("_"))
 
 
+def _blank_placeholder_adp(players):
+    """Clear the placeholder ADP ESPN gives players nobody is actually drafting.
+
+    ESPN does not omit `averageDraftPosition` for undrafted players — it hands
+    out a value just past the end of a real draft, jittered by a fraction. In the
+    2026 pool that is ~170, shared by 788 of 1,168 players, while genuine ADPs
+    stop around 168. Left alone it reads as a real draft position, and because
+    the jitter is in the third decimal it also defeats sorting: rows that all
+    display "170.0" order by invisible noise rather than by the rank tiebreak.
+
+    The placeholder is found rather than hard-coded, since it tracks the size of
+    the draft ESPN samples and would drift between seasons.
+    """
+    from collections import Counter
+    counts = Counter(round(p["adp"]) for p in players if p.get("adp"))
+    if not counts:
+        return
+    value, hits = counts.most_common(1)[0]
+    # A real ADP is never shared by a large slice of the pool; a placeholder is.
+    if hits < max(20, 0.05 * len(players)):
+        return
+    threshold = value - 1
+    for player in players:
+        if player.get("adp") and player["adp"] >= threshold:
+            player["adp"] = None
+
+
 def _load_fantasy_season(season, max_rank):
     """Fetch and map one season's draft board. Returns [] when unavailable."""
     url = f"{FANTASY_BASE}/{season}/players?view=kona_player_info&scoringPeriodId=0"
@@ -4884,11 +4924,12 @@ def _load_fantasy_season(season, max_rank):
         return []
     players = [p for p in (_map_fantasy_player(r, season, max_rank) for r in raw_players) if p]
     del raw_players  # release the ~38 MB payload before returning
+    _blank_placeholder_adp(players)
     players.sort(key=lambda p: p["ppr_rank"] or p["standard_rank"] or 9999)
     return players
 
 
-def get_fantasy_cheatsheet(season=None, max_rank=800):
+def get_fantasy_cheatsheet(season=None, max_rank=None):
     """Return the fantasy draft board: {'season': int, 'players': [...]}.
 
     Defaults to the current calendar year, which is the season ESPN publishes
@@ -4897,10 +4938,12 @@ def get_fantasy_cheatsheet(season=None, max_rank=800):
     404 — falls back to the prior season so the board is never empty. A network
     or server failure propagates instead, so the caller can say so.
 
-    `max_rank` caps the pool at ESPN's consensus rank. That rank is overall, and
-    ESPN interleaves IDP players into it, so 800 yields roughly 370 fantasy rows
-    — every team defense and kicker plus a deeper skill-position pool than any
-    league drafts — while discarding ~11k irrelevant ids.
+    Every fantasy-position player ESPN ranks is included: about 1,170 of the
+    ~11.5k ids in the feed. There is deliberately no rank cutoff. ESPN's overall
+    rank is not an ordering of draft relevance — Ricky Pearsall sits at 1507 and
+    Tyreek Hill at 1899, both rostered in real leagues — so any cap silently
+    hides players people are drafting. `max_rank` still exists for callers that
+    want a smaller pool, and defaults to no cap.
     """
     from datetime import datetime
     season = int(season or datetime.now().year)

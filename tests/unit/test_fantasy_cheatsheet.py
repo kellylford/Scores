@@ -109,9 +109,29 @@ class TestMapping:
         # 9 is a defensive end: ranked in ESPN's overall board, not draftable here.
         assert espn_api._map_fantasy_player(raw_player(defaultPositionId=9), 2026, 800) is None
 
-    def test_drops_players_outside_the_pool(self):
+    def test_drops_players_outside_an_explicit_cap(self):
         deep = raw_player(draftRanksByRankType={"PPR": {"rank": 900}, "STANDARD": {"rank": 950}})
         assert espn_api._map_fantasy_player(deep, 2026, 800) is None
+
+    def test_no_cap_by_default(self):
+        # ESPN's overall rank is not an ordering of draft relevance: Ricky
+        # Pearsall sits at 1507 and Tyreek Hill at 1899, both rostered in real
+        # leagues. Any cutoff silently hides players people are drafting.
+        deep = raw_player(fullName="Ricky Pearsall",
+                          draftRanksByRankType={"PPR": {"rank": 1507}})
+        row = espn_api._map_fantasy_player(deep, 2026)
+        assert row is not None
+        assert row["ppr_rank"] == 1507
+
+    def test_inactive_players_are_dropped(self):
+        # ESPN keeps ranking retirees; all of them are owned in 0.0% of leagues.
+        retired = raw_player(fullName="Matthew Slater", active=False)
+        assert espn_api._map_fantasy_player(retired, 2026) is None
+
+    def test_a_player_without_an_active_flag_is_kept(self):
+        player = raw_player()
+        player.pop("active", None)
+        assert espn_api._map_fantasy_player(player, 2026) is not None
 
     def test_keeps_a_player_ranked_in_either_format(self):
         # Ranked deep in PPR but early in Standard — a Standard league still drafts them.
@@ -217,6 +237,61 @@ class TestCheatsheetLoad:
             board = espn_api.get_fantasy_cheatsheet(season=2026)
         assert board["season"] == 2025
         assert len(board["players"]) == 60
+
+    def test_deeply_ranked_players_survive_the_whole_pipeline(self):
+        # The regression this guards: a rank cutoff reintroduced anywhere between
+        # the feed and the board would silently hide Ricky Pearsall (rank 1507,
+        # rostered in a third of ESPN leagues) all over again. The other tests
+        # call _map_fantasy_player directly and would not notice.
+        feed = [
+            raw_player(id=1, fullName="Jahmyr Gibbs", draftRanksByRankType={"PPR": {"rank": 1}}),
+            raw_player(id=2, fullName="Ricky Pearsall",
+                       draftRanksByRankType={"PPR": {"rank": 1507}}),
+            raw_player(id=3, fullName="Tyreek Hill",
+                       draftRanksByRankType={"PPR": {"rank": 1899}}),
+        ]
+        with patch.object(espn_api, "requests") as fake_requests:
+            fake_requests.get.return_value.status_code = 200
+            fake_requests.get.return_value.json.return_value = feed
+            board = espn_api.get_fantasy_cheatsheet(season=2026)
+        assert [p["name"] for p in board["players"]] == [
+            "Jahmyr Gibbs", "Ricky Pearsall", "Tyreek Hill"]
+
+    def test_placeholder_adp_is_cleared(self):
+        # ESPN gives undrafted players an ADP just past the end of a real draft
+        # rather than omitting it. Left in place it reads as a real draft slot,
+        # and the sub-decimal jitter defeats the rank tiebreak when sorting.
+        feed = [raw_player(id=n, fullName=f"Real {n}",
+                           draftRanksByRankType={"PPR": {"rank": n}},
+                           ownership={"averageDraftPosition": float(n),
+                                      "auctionValueAverage": 1.0})
+                for n in range(1, 11)]
+        feed += [raw_player(id=100 + n, fullName=f"Undrafted {n}",
+                            draftRanksByRankType={"PPR": {"rank": 500 + n}},
+                            ownership={"averageDraftPosition": 170.0 + n / 100.0,
+                                       "auctionValueAverage": 0.0})
+                 for n in range(60)]
+        with patch.object(espn_api, "requests") as fake_requests:
+            fake_requests.get.return_value.status_code = 200
+            fake_requests.get.return_value.json.return_value = feed
+            board = espn_api.get_fantasy_cheatsheet(season=2026)
+
+        by_name = {p["name"]: p for p in board["players"]}
+        assert by_name["Real 5"]["adp"] == pytest.approx(5.0)
+        assert all(by_name[f"Undrafted {n}"]["adp"] is None for n in range(60))
+
+    def test_a_pool_with_no_placeholder_is_left_alone(self):
+        # Nothing is shared by a large slice of the pool, so nothing is stripped.
+        feed = [raw_player(id=n, fullName=f"P{n}",
+                           draftRanksByRankType={"PPR": {"rank": n}},
+                           ownership={"averageDraftPosition": float(n) * 3,
+                                      "auctionValueAverage": 1.0})
+                for n in range(1, 61)]
+        with patch.object(espn_api, "requests") as fake_requests:
+            fake_requests.get.return_value.status_code = 200
+            fake_requests.get.return_value.json.return_value = feed
+            board = espn_api.get_fantasy_cheatsheet(season=2026)
+        assert all(p["adp"] is not None for p in board["players"])
 
     def test_server_failure_propagates(self):
         # Both the season and the fallback fail: the dialog must say the feed is

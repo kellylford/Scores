@@ -1730,6 +1730,11 @@ class LeagueView(BaseView):
                 self.parent_app.update_window_title(["Fantasy Cheatsheet", "NFL"])
             dialog = FantasyCheatsheetDialog(self)
             dialog.exec()
+            # Parented to this view, so Qt would otherwise keep it alive for the
+            # life of the session. Each corpse holds a table of ~9,000 cells plus
+            # two full list views — about 8 MB per open, and a draft-day user
+            # opens this board many times.
+            dialog.deleteLater()
         finally:
             if self.parent_app:
                 self.parent_app.update_window_title(["NFL"])
@@ -8798,8 +8803,9 @@ FANTASY_SORTS = ["ESPN Rank", "ADP", "Auction Value", "Projected Points", "Playe
 # readers say something meaningful in all three view modes.
 FANTASY_NO_VALUE = "N/A"
 
-# ESPN parks undrafted players at an ADP of 300+ instead of omitting the field.
-FANTASY_UNDRAFTED_ADP = 300
+# Undrafted players arrive with adp already cleared to None — ESPN's placeholder
+# value is stripped in espn_api, where the whole pool is visible and the
+# placeholder can be identified rather than guessed at.
 
 
 class CheatsheetTable(AccessibleTable):
@@ -8942,14 +8948,16 @@ class FantasyCheatsheetDialog(QDialog):
         self.search_box.setAccessibleDescription(
             "Type part of a player name or team abbreviation to narrow the board")
         self.search_box.setPlaceholderText("Player or team")
-        # Debounced: each rebuild reconstructs ~3,000 table cells and 700 list
-        # items, and doing that per keystroke lags typing and floods the screen
-        # reader with selection changes.
-        self._search_timer = QTimer(self)
-        self._search_timer.setSingleShot(True)
-        self._search_timer.setInterval(200)
-        self._search_timer.timeout.connect(self._apply_filters)
-        self.search_box.textChanged.connect(lambda _: self._search_timer.start())
+        # Every filter control is debounced through one timer. A rebuild is ~100 ms
+        # on the full board, and each of these fires per keystroke: typing in the
+        # search box, and arrowing through a *closed* combo box, which a keyboard
+        # user does constantly. Undebounced, each press stalls the UI thread
+        # before the screen reader gets to speak the new value.
+        self._filter_timer = QTimer(self)
+        self._filter_timer.setSingleShot(True)
+        self._filter_timer.setInterval(200)
+        self._filter_timer.timeout.connect(self._apply_filters)
+        self.search_box.textChanged.connect(lambda _: self._schedule_filters())
         search_label.setBuddy(self.search_box)
         row.addWidget(search_label)
         row.addWidget(self.search_box)
@@ -8961,7 +8969,7 @@ class FantasyCheatsheetDialog(QDialog):
             "Show only players at the selected fantasy position, or only rookies")
         for label, positions, rookies_only in FANTASY_POSITION_FILTERS:
             self.position_combo.addItem(label, (positions, rookies_only))
-        self.position_combo.currentIndexChanged.connect(lambda _: self._apply_filters())
+        self.position_combo.currentIndexChanged.connect(lambda _: self._schedule_filters())
         position_label.setBuddy(self.position_combo)
         row.addWidget(position_label)
         row.addWidget(self.position_combo)
@@ -8975,7 +8983,7 @@ class FantasyCheatsheetDialog(QDialog):
         self.team_combo.setAccessibleDescription(
             "Show only players from the selected NFL team")
         self.team_combo.addItem("All Teams", None)
-        self.team_combo.currentIndexChanged.connect(lambda _: self._apply_filters())
+        self.team_combo.currentIndexChanged.connect(lambda _: self._schedule_filters())
         team_label.setBuddy(self.team_combo)
         row.addWidget(team_label)
         row.addWidget(self.team_combo)
@@ -8991,7 +8999,7 @@ class FantasyCheatsheetDialog(QDialog):
         self.sort_combo.setAccessibleName("Sort order")
         self.sort_combo.setAccessibleDescription("Column the draft board is sorted by")
         self.sort_combo.addItems(FANTASY_SORTS)
-        self.sort_combo.currentIndexChanged.connect(lambda _: self._apply_filters())
+        self.sort_combo.currentIndexChanged.connect(lambda _: self._schedule_filters())
         sort_label.setBuddy(self.sort_combo)
         row.addWidget(sort_label)
         row.addWidget(self.sort_combo)
@@ -9110,8 +9118,14 @@ class FantasyCheatsheetDialog(QDialog):
         self.team_combo.blockSignals(True)
         self.team_combo.clear()
         self.team_combo.addItem("All Teams", None)
-        for team in sorted({p['team'] for p in players if p.get('team') and p['team'] != 'FA'}):
+        teams = {p['team'] for p in players if p.get('team')}
+        for team in sorted(teams - {'FA'}):
             self.team_combo.addItem(team, team)
+        if 'FA' in teams:
+            # Unsigned players are a real slice of the board — Tyreek Hill and
+            # Keenan Allen are both FA here — and were previously reachable only
+            # by accidentally searching "fa".
+            self.team_combo.addItem("Free Agents", 'FA')
         self.team_combo.blockSignals(False)
 
         self._set_controls_enabled(True)
@@ -9156,7 +9170,7 @@ class FantasyCheatsheetDialog(QDialog):
 
     def _adp_text(self, player):
         adp = player.get('adp')
-        return f"{adp:.1f}" if adp and 0 < adp < FANTASY_UNDRAFTED_ADP else FANTASY_NO_VALUE
+        return f"{adp:.1f}" if adp and adp > 0 else FANTASY_NO_VALUE
 
     def _auction_text(self, player):
         value = player.get('auction')
@@ -9203,30 +9217,42 @@ class FantasyCheatsheetDialog(QDialog):
         return True
 
     def _sort_key(self, sort_name):
-        """Comparison key for a sort choice. Rank breaks every tie."""
+        """Comparison key for a sort choice. Rank breaks every tie but the name sort.
+
+        Numeric keys are rounded to the precision the column actually displays.
+        Comparing at full precision means rows showing the same number order by
+        digits the user cannot see, and the rank tiebreak never gets a chance to
+        run — which is how a rank-2534 camp body ends up above a rank-430 starter
+        with both rows reading "169.9".
+        """
         def rank(player):
             return self._rank(player) or 9999
 
         if sort_name == "ADP":
-            # Players ESPN treats as undrafted sort to the bottom, not to the top.
+            # Players ESPN treats as undrafted sort to the bottom, not the top.
             def adp(player):
                 value = player.get('adp')
-                return value if value and 0 < value < FANTASY_UNDRAFTED_ADP else float('inf')
+                return round(value, 1) if value and value > 0 else float('inf')
             return lambda p: (adp(p), rank(p))
         if sort_name == "Auction Value":
-            return lambda p: (-(p.get('auction') or 0), rank(p))
+            return lambda p: (-round(p.get('auction') or 0), rank(p))
         if sort_name == "Projected Points":
             # Kickers and defenses carry no projection, so they sort last.
             def points(player):
                 value = self._projected_points(player)
-                return -value if value is not None else float('inf')
+                return -round(value, 1) if value is not None else float('inf')
             return lambda p: (points(p), rank(p))
         if sort_name == "Player Name":
-            return lambda p: p['name'].lower()
+            return lambda p: (p['name'].lower(), rank(p))
         return lambda p: (rank(p), p['name'].lower())
+
+    def _schedule_filters(self):
+        """Coalesce rapid filter changes into one rebuild."""
+        self._filter_timer.start()
 
     def _apply_filters(self, focus_table: bool = False, preserve_row: int = None,
                        reannounce: bool = False):
+        self._filter_timer.stop()   # an immediate rebuild satisfies a pending one
         if not self._players:
             return
 
@@ -9263,9 +9289,11 @@ class FantasyCheatsheetDialog(QDialog):
         )
 
     def _on_scoring_changed(self, scoring: str):
+        # State updates now, redraw is debounced: arrowing a closed combo emits
+        # this per keypress.
         self.scoring = scoring
         settings.set('fantasy_scoring', scoring)
-        self._apply_filters(preserve_row=self.table.current_row_index())
+        self._schedule_filters()
 
     # -------------------------------------------------------- Draft board
 
@@ -9348,9 +9376,7 @@ class FantasyCheatsheetDialog(QDialog):
         players = sorted(self._players, key=self._sort_key("ESPN Rank"))
         rows = []
         for p in players:
-            adp = p.get('adp')
-            if adp is not None and not (0 < adp < FANTASY_UNDRAFTED_ADP):
-                adp = None
+            adp = p.get('adp') or None
             rows.append([
                 p['ppr_rank'] or "",
                 p['standard_rank'] or "",

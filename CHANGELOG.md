@@ -12,6 +12,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Core infrastructure implemented, text processing being refined
   - Game story text placeholders currently under investigation
 
+## [0.9.3] - 2026-08-10
+
+### Fixed
+- **Fantasy cheatsheet: the board was missing two-thirds of the players ESPN
+  ranks.** The pool was capped at ESPN's overall draft rank, on the assumption
+  that rank tracked draft relevance. It does not — Ricky Pearsall ranks 1507 and
+  is rostered in a third of ESPN leagues, Tyreek Hill ranks 1899 — so the cap
+  was hiding players people actually draft. The board now carries every active
+  fantasy-position player ESPN publishes a rank for: 1,026 rather than 368.
+  Players ESPN ranks nowhere, and players it flags as inactive, are still left
+  out; every one of those is owned in 0.0% of leagues.
+- **Fantasy cheatsheet: ADP no longer invents a draft position.** ESPN gives
+  undrafted players a placeholder ADP just past the end of a real draft rather
+  than omitting it — around 170 this season, shared by 826 of the 1,026 players.
+  It read as a genuine draft slot, and because the placeholder is jittered in
+  the third decimal it also broke the ADP sort: rows all displaying "170.0"
+  ordered by invisible digits, putting deep camp bodies above real starters.
+  Those players now show ADP as N/A and sort to the bottom by rank.
+- **Fantasy cheatsheet: free agents are reachable.** The team filter gained a
+  *Free Agents* entry — 212 players, including Tyreek Hill and Keenan Allen,
+  previously findable only by accident.
+- **Fantasy cheatsheet: filter controls are debounced** and the dialog is
+  released when closed, so repeatedly opening the board no longer grows memory.
+
 ## [0.9.2] - 2026-08-09
 
 ### Added
