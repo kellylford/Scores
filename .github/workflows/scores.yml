@@ -8,17 +8,22 @@ name: Scores
 # QuickMail: per-user installer + in-app updater + Azure Artifact Signing over
 # GitHub OIDC (no signing certificate or long-lived secret stored anywhere).
 
+# The iOS app shares no code with the Windows build, so iOS-only changes have
+# nothing to test or ship here and are filtered out below.
+#
+# paths-ignore sits alongside `tags` in the same push block, which reads as
+# though it should suppress release tags too. It does not: measured on a scratch
+# repo, a commit touching only the ignored path was filtered on the branch push
+# and then ran on a v* tag pointing at that same commit. Tag pushes are not path
+# filtered. Verified rather than assumed, because the failure mode would be a
+# release that silently never publishes.
 on:
   push:
     branches: [main]
     tags: ['v*']
+    paths-ignore: ['iOS/**']
   pull_request:
     branches: [main]
-    # The iOS app lives in the same repo but shares no code with the Windows
-    # build, so an iOS-only PR has nothing to test here. Deliberately NOT set on
-    # the push trigger: filters there apply to `tags: ['v*']` as well, and a
-    # release tag that silently fails to publish is a far worse outcome than an
-    # occasional redundant build.
     paths-ignore: ['iOS/**']
   workflow_dispatch:
 
