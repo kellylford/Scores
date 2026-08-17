@@ -7,9 +7,9 @@ packaging==26.3
 pefile==2024.8.26
 pyinstaller==6.22.0
 pyinstaller-hooks-contrib==2026.6
-PyQt6==6.9.1
-PyQt6-Qt6==6.9.1
-PyQt6_sip==13.10.2
+PyQt6==6.11.0
+PyQt6-Qt6==6.11.1
+PyQt6_sip==13.12.0
 pytz==2026.3.post1
 pywin32-ctypes==0.2.3
 requests==2.34.2
