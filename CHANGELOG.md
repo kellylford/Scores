@@ -37,12 +37,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   win-percentage sort so that teams tied on record land in a deterministic,
   official order.
 
-- **Game lists are ordered chronologically**: live games, then completed, then
-  upcoming. A college football week spans played and unplayed days, so with
-  upcoming first a Saturday's finished games sat below a hundred that had not
-  kicked off and read as missing. Section headers now carry a game count
-  ("Completed, 57 games") so the size of each section is audible before entering
-  it.
+- **Football week views list completed games before upcoming ones.** A week spans
+  played and unplayed days at once, so with upcoming first a Saturday's finished
+  games sat below a hundred that had not kicked off and read as missing entirely.
+  Day-based sports are unchanged and keep the conventional in progress, upcoming,
+  completed order, as does the all-sports Live Scores view. Section headers now
+  carry a game count ("Completed, 57 games") so the size of each section is
+  audible before entering it.
 
 - **College football coverage is changeable from the scores screen**, not only
   from Settings. It edits the same saved preference.

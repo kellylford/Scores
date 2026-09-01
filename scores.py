@@ -1029,40 +1029,7 @@ class LiveScoresView(BaseView):
                 
                 self.live_scores_list.addItem("")
 
-            # Section 2: Completed Games
-            if completed_games:
-                section_header = QListWidgetItem("=== COMPLETED GAMES ===")
-                section_header.setBackground(QColor(220, 220, 220))  # Light gray background
-                self.live_scores_list.addItem(section_header)
-                
-                # Group completed games by league
-                completed_by_league = {}
-                for game in completed_games:
-                    league = game.get('league', 'Unknown')
-                    if league not in completed_by_league:
-                        completed_by_league[league] = []
-                    completed_by_league[league].append(game)
-                
-                for league in sorted(completed_by_league.keys()):
-                    league_item = QListWidgetItem(f"--- {league} ---")
-                    league_item.setBackground(QColor(240, 240, 240))
-                    self.live_scores_list.addItem(league_item)
-                    
-                    for game in completed_by_league[league]:
-                        display_text = self._format_game_display(game)
-                        item = QListWidgetItem(display_text)
-                        # Prepare game data in format expected by _on_game_selected
-                        game_data = game.get('raw_data', game)
-                        if 'game_id' in game and 'id' not in game_data:
-                            game_data = dict(game_data) if isinstance(game_data, dict) else {}
-                            game_data['id'] = game.get('game_id')
-                            game_data['league'] = game.get('league')
-                        item.setData(Qt.ItemDataRole.UserRole, game_data)
-                        self.live_scores_list.addItem(item)
-
-                self.live_scores_list.addItem("")
-
-            # Section 3: Upcoming Games
+            # Section 2: Upcoming Games
             if upcoming_games:
                 section_header = QListWidgetItem("=== UPCOMING GAMES ===")
                 section_header.setBackground(QColor(255, 255, 200))  # Light yellow background
@@ -1093,6 +1060,41 @@ class LiveScoresView(BaseView):
                         item.setData(Qt.ItemDataRole.UserRole, game_data)
                         self.live_scores_list.addItem(item)
                 
+                self.live_scores_list.addItem("")
+
+                self.live_scores_list.addItem("")
+
+            # Section 3: Completed Games
+            if completed_games:
+                section_header = QListWidgetItem("=== COMPLETED GAMES ===")
+                section_header.setBackground(QColor(220, 220, 220))  # Light gray background
+                self.live_scores_list.addItem(section_header)
+                
+                # Group completed games by league
+                completed_by_league = {}
+                for game in completed_games:
+                    league = game.get('league', 'Unknown')
+                    if league not in completed_by_league:
+                        completed_by_league[league] = []
+                    completed_by_league[league].append(game)
+                
+                for league in sorted(completed_by_league.keys()):
+                    league_item = QListWidgetItem(f"--- {league} ---")
+                    league_item.setBackground(QColor(240, 240, 240))
+                    self.live_scores_list.addItem(league_item)
+                    
+                    for game in completed_by_league[league]:
+                        display_text = self._format_game_display(game)
+                        item = QListWidgetItem(display_text)
+                        # Prepare game data in format expected by _on_game_selected
+                        game_data = game.get('raw_data', game)
+                        if 'game_id' in game and 'id' not in game_data:
+                            game_data = dict(game_data) if isinstance(game_data, dict) else {}
+                            game_data['id'] = game.get('game_id')
+                            game_data['league'] = game.get('league')
+                        item.setData(Qt.ItemDataRole.UserRole, game_data)
+                        self.live_scores_list.addItem(item)
+
                 self.live_scores_list.addItem("")
         except Exception as e:
             self._show_api_error(f"Failed to load live scores: {str(e)}")
