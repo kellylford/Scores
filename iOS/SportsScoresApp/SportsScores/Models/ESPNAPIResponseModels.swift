@@ -266,9 +266,9 @@ struct RankingsPoll: Identifiable {
                 trend: r.trend,
                 points: r.points,
                 firstPlaceVotes: r.firstPlaceVotes,
-                teamDisplayName: r.team?.displayName ?? "Unknown",
+                teamDisplayName: r.team?.resolvedDisplayName ?? "Unknown",
                 teamAbbreviation: r.team?.abbreviation ?? "—",
-                recordSummary: r.record?.summary ?? r.team?.record?.summary
+                recordSummary: r.recordSummary ?? r.record?.summary ?? r.team?.record?.summary
             )
         }
     }
@@ -290,6 +290,10 @@ struct RankingsAPIResponse: Codable {
             let trend: String?
             let points: Double?
             let firstPlaceVotes: Int?
+            /// ESPN sends the team's record here, at the top level of the rank
+            /// entry — not nested under `record` or `team.record`, both of which
+            /// it leaves null. Reading only those showed an empty record column.
+            let recordSummary: String?
             let record: APIRecord?
             let team: APITeam?
 
@@ -297,9 +301,31 @@ struct RankingsAPIResponse: Codable {
                 let summary: String?
             }
             struct APITeam: Codable {
+                /// Absent on the rankings endpoint for every polled sport — see
+                /// `resolvedDisplayName`. Kept for any feed that does send it.
                 let displayName: String?
+                /// The school, e.g. "Ohio State".
+                let location: String?
+                /// The mascot, e.g. "Buckeyes".
+                let name: String?
+                /// Usually the school again, e.g. "Ohio State".
+                let nickname: String?
                 let abbreviation: String?
                 let record: APIRecord?
+
+                /// ESPN's rankings feed carries no `displayName` — only the
+                /// school, mascot and nickname separately — so reading it
+                /// directly made every team in every poll read "Unknown".
+                /// Assembled the same way the Windows app does it.
+                var resolvedDisplayName: String {
+                    if let location, let name, !location.isEmpty, !name.isEmpty {
+                        return "\(location) \(name)"
+                    }
+                    for candidate in [location, name, nickname, displayName] {
+                        if let candidate, !candidate.isEmpty { return candidate }
+                    }
+                    return "Unknown"
+                }
             }
         }
     }
