@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **College football was missing most of the games played.** ESPN serves the two
+  Division I halves separately through its `groups=` scoreboard parameter, and
+  the app asked only for FBS (`groups=80`). That is a small fraction of an
+  opening weekend, which is largely FCS: on Saturday 29 August the scoreboard
+  showed 8 games out of the 48 Division I games actually played. Coverage is now
+  a setting on the home page settings dialog — **All Division I (FBS and FCS)**,
+  the new default at around 200 games a week, or **FBS only** at around 100.
+  A team's own schedule always uses the widest coverage, since it is filtered
+  down to that team anyway and FBS-only returned nothing at all for an FCS team.
+  Requests also send `limit=500`; without it ESPN pages the all-Division-I
+  scoreboard off at 200. The same fix landed in the iOS app.
+
 ### In Progress
 - **Game Wrap Up Feature**: ESPN text processing and game story extraction (under construction)
   - Core infrastructure implemented, text processing being refined

@@ -90,6 +90,12 @@ struct ScoresView: View {
                 await viewModel.fetchGames(for: sport)
             }
         }
+        // The college football coverage setting changes which games ESPN returns,
+        // so anything already on screen is stale the moment it is switched.
+        .onChange(of: appSettings.ncaafCoverage) {
+            guard sport == .ncaaf else { return }
+            Task { await viewModel.refresh(for: sport) }
+        }
         // Auto-refresh loop — cancels and restarts whenever the interval changes.
         // Only actually refreshes when on the Scores tab viewing current data.
         .task(id: appSettings.autoRefreshInterval) {

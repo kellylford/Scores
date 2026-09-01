@@ -44,16 +44,78 @@ class ESPNAPIService {
     private func coreLeagueName(for sport: Sport) -> String {
         sport == .nfl ? "nfl" : "college-football"
     }
+
+    // MARK: - College football scoreboard parameters
+
+    /// ESPN's college football scoreboard *doubles* `limit` internally on any
+    /// query that is not a `dates=A-B` range: limit=5 returns 10 events, limit=50
+    /// returns 100. The effective (post-doubling) value must stay at or below
+    /// 1000 — past that the page size collapses to 25, so limit=501 is worse than
+    /// limit=250. 400 clears a 209-game Division I week on range queries while
+    /// leaving the doubled shapes at 800, comfortably inside the ceiling.
+    private static let ncaafScoreboardLimit = 400
+
+    /// Extra scoreboard query parameters that give college football its full slate.
+    /// Empty for every other sport, which ESPN already returns in full.
+    ///
+    /// NCAAF needs both parts. `groups=` picks the division: without it an
+    /// undated scoreboard call collapses to 25 featured games and a `dates=`
+    /// call returns FBS only, so on an FCS-heavy opening weekend most of the
+    /// slate never arrives. `limit=` then lifts the page size far enough to
+    /// hold a whole week (a Division I week runs past 200 games).
+    private func ncaafScoreboardParams(for sport: Sport,
+                                       coverage: NCAAFCoverage?) -> [String] {
+        guard sport == .ncaaf else { return [] }
+        let coverage = coverage ?? NCAAFCoverage.stored
+        return ["groups=\(coverage.espnGroupsID)", "limit=\(Self.ncaafScoreboardLimit)"]
+    }
+
+    /// Refetches an empty college football scoreboard as FBS, returning nil when
+    /// no retry applies or the retry also comes back empty.
+    ///
+    /// ESPN returns *zero* events for a week-indexed postseason query under
+    /// `groups=90` — `seasontype=3&groups=90` is empty where `groups=80` has all
+    /// 46 bowl games — so once ESPN rolls the current week into the postseason,
+    /// the undated scoreboard call would blank out entirely. Since `groups=90`
+    /// is otherwise a strict superset of `groups=80`, an empty all-Division-I
+    /// response is never legitimately better than the FBS one, and retrying
+    /// costs nothing when the slate really is empty.
+    private func ncaafFBSRetry(sport: Sport,
+                               coverage: NCAAFCoverage?,
+                               eventCount: Int,
+                               urlString: String) async -> ScoreboardResponse? {
+        guard sport == .ncaaf, eventCount == 0 else { return nil }
+        guard (coverage ?? NCAAFCoverage.stored) != .fbs else { return nil }
+
+        let fbsURLString = urlString.replacingOccurrences(
+            of: "groups=\(NCAAFCoverage.allDivisionI.espnGroupsID)",
+            with: "groups=\(NCAAFCoverage.fbs.espnGroupsID)")
+        guard let url = URL(string: fbsURLString) else { return nil }
+        guard let (data, response) = try? await session.data(from: url),
+              let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard let retry = try? decoder.decode(ScoreboardResponse.self, from: data),
+              !retry.events.isEmpty else { return nil }
+        return retry
+    }
     
     // MARK: - Fetch Games (non-football, optional date)
 
-    func fetchGames(for sport: Sport, date: Date? = nil) async throws -> [Game] {
-        var urlString = "\(baseURL)/\(sport.apiPath)/scoreboard"
+    func fetchGames(for sport: Sport,
+                    date: Date? = nil,
+                    ncaafCoverage: NCAAFCoverage? = nil) async throws -> [Game] {
+        var params: [String] = []
         if let date = date {
             let fmt = DateFormatter()
             fmt.dateFormat = "yyyyMMdd"
-            urlString += "?dates=\(fmt.string(from: date))"
+            params.append("dates=\(fmt.string(from: date))")
         }
+        params += ncaafScoreboardParams(for: sport, coverage: ncaafCoverage)
+
+        var urlString = "\(baseURL)/\(sport.apiPath)/scoreboard"
+        if !params.isEmpty { urlString += "?" + params.joined(separator: "&") }
         guard let url = URL(string: urlString) else { throw APIError.invalidURL }
 
         let (data, response) = try await session.data(from: url)
@@ -62,7 +124,12 @@ class ESPNAPIService {
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let apiResponse = try decoder.decode(ScoreboardResponse.self, from: data)
+        var apiResponse = try decoder.decode(ScoreboardResponse.self, from: data)
+        if let retry = await ncaafFBSRetry(sport: sport, coverage: ncaafCoverage,
+                                           eventCount: apiResponse.events.count,
+                                           urlString: urlString) {
+            apiResponse = retry
+        }
         let seasonType = apiResponse.season?.type ?? 2
         return try apiResponse.events.map { try Game(from: $0, seasonType: seasonType) }
     }
@@ -88,8 +155,11 @@ class ESPNAPIService {
     /// instead, which during the preseason means the last completed regular
     /// season shows up in place of the games about to be played.  Explicit weeks
     /// go through `fetchFootballWeek` and its date-range query instead.
-    func fetchFootballGames(for sport: Sport) async throws -> FootballScoreboardResult {
-        let urlString = "\(baseURL)/\(sport.apiPath)/scoreboard"
+    func fetchFootballGames(for sport: Sport,
+                            ncaafCoverage: NCAAFCoverage? = nil) async throws -> FootballScoreboardResult {
+        var urlString = "\(baseURL)/\(sport.apiPath)/scoreboard"
+        let params = ncaafScoreboardParams(for: sport, coverage: ncaafCoverage)
+        if !params.isEmpty { urlString += "?" + params.joined(separator: "&") }
         guard let url = URL(string: urlString) else { throw APIError.invalidURL }
 
         let (data, response) = try await session.data(from: url)
@@ -98,7 +168,12 @@ class ESPNAPIService {
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let apiResponse = try decoder.decode(ScoreboardResponse.self, from: data)
+        var apiResponse = try decoder.decode(ScoreboardResponse.self, from: data)
+        if let retry = await ncaafFBSRetry(sport: sport, coverage: ncaafCoverage,
+                                           eventCount: apiResponse.events.count,
+                                           urlString: urlString) {
+            apiResponse = retry
+        }
         let resolvedSeasonType = apiResponse.season?.type ?? 2
         let resolvedSeason = apiResponse.season?.year ?? Calendar.current.component(.year, from: Date())
         let resolvedWeek = apiResponse.week?.number ?? 1
@@ -217,7 +292,8 @@ class ESPNAPIService {
         sport: Sport,
         season: Int,
         seasonType: Int,
-        week: Int
+        week: Int,
+        ncaafCoverage: NCAAFCoverage? = nil
     ) async throws -> FootballScoreboardResult {
         // Step 1 — get the date range for this week (cached after first fetch).
         let weekCacheKey = "\(sport.rawValue)-\(season)-\(seasonType)-\(week)"
@@ -259,7 +335,10 @@ class ESPNAPIService {
         fmt.dateFormat = "yyyyMMdd"
         let startStr = fmt.string(from: weekRange.start)
         let endStr   = fmt.string(from: weekRange.end)
-        let scoreboardURLString = "\(baseURL)/\(sport.apiPath)/scoreboard?dates=\(startStr)-\(endStr)"
+        var scoreboardParams = ["dates=\(startStr)-\(endStr)"]
+        scoreboardParams += ncaafScoreboardParams(for: sport, coverage: ncaafCoverage)
+        let scoreboardURLString =
+            "\(baseURL)/\(sport.apiPath)/scoreboard?" + scoreboardParams.joined(separator: "&")
         guard let scoreboardURL = URL(string: scoreboardURLString) else { throw APIError.invalidURL }
 
         let (data, response) = try await session.data(from: scoreboardURL)
@@ -269,7 +348,12 @@ class ESPNAPIService {
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let apiResponse = try decoder.decode(ScoreboardResponse.self, from: data)
+        var apiResponse = try decoder.decode(ScoreboardResponse.self, from: data)
+        if let retry = await ncaafFBSRetry(sport: sport, coverage: ncaafCoverage,
+                                           eventCount: apiResponse.events.count,
+                                           urlString: scoreboardURLString) {
+            apiResponse = retry
+        }
         let games = try apiResponse.events.map { try Game(from: $0, seasonType: seasonType) }
 
         return FootballScoreboardResult(

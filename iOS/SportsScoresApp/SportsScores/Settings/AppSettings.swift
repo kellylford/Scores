@@ -26,6 +26,7 @@ private enum StorageKeys {
     static let worldCupWomensHubEnabled = "worldCupWomensHubEnabled"
     static let defaultTableViewMode = "defaultTableViewMode"
     static let favoriteTeams = "favoriteTeams"
+    static let ncaafCoverage = "ncaafCoverage"
 }
 
 @MainActor
@@ -163,6 +164,20 @@ final class AppSettings: ObservableObject {
         favoriteTeams = updated
     }
 
+    // MARK: - College Football Coverage
+
+    /// How much of college football the NCAAF scoreboard requests from ESPN.
+    /// Defaults to all of Division I, because the narrower FBS view hides most
+    /// of the games actually played on opening weekend. See `NCAAFCoverage`.
+    @Published var ncaafCoverage: NCAAFCoverage {
+        didSet {
+            UserDefaults.standard.set(
+                ncaafCoverage.rawValue,
+                forKey: StorageKeys.ncaafCoverage
+            )
+        }
+    }
+
     // MARK: - Auto-Refresh Interval
 
     /// Shared refresh cadence used by both ScoresView and LiveScoresView.
@@ -184,6 +199,9 @@ final class AppSettings: ObservableObject {
 
         let rawViewMode = UserDefaults.standard.string(forKey: StorageKeys.defaultTableViewMode) ?? ""
         defaultTableViewMode = ViewMode(rawValue: rawViewMode) ?? .quickList
+
+        let rawCoverage = UserDefaults.standard.string(forKey: StorageKeys.ncaafCoverage) ?? ""
+        ncaafCoverage = NCAAFCoverage(rawValue: rawCoverage) ?? .allDivisionI
 
         let storedInterval = UserDefaults.standard.object(forKey: StorageKeys.autoRefreshInterval) as? Int
         autoRefreshInterval = storedInterval.flatMap { AutoRefreshInterval(rawValue: $0) } ?? .manual

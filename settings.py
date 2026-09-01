@@ -19,6 +19,7 @@ _DEFAULTS = {
     'fantasy_scoring': 'PPR',        # cheatsheet scoring format: Standard/Half-PPR/PPR
     'fantasy_taken': [],             # cheatsheet player ids marked drafted
     'fantasy_taken_season': None,    # season those marks belong to; older ones are dropped
+    'ncaaf_coverage': 'all_d1',      # college football slate: 'all_d1' (FBS+FCS) or 'fbs'
 }
 
 _cache: dict | None = None

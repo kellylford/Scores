@@ -14,6 +14,7 @@ struct SettingsView: View {
         Form {
             teamNameSection
             tableDisplaySection
+            collegeFootballSection
             sportsSection
             stadiumExplorationSection
             userGuideSection
@@ -35,6 +36,28 @@ struct SettingsView: View {
             Text("Table Default")
         } footer: {
             Text(appSettings.defaultTableViewMode.description)
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    // MARK: - College Football Section
+
+    private var collegeFootballSection: some View {
+        Section {
+            Picker("Games shown", selection: $appSettings.ncaafCoverage) {
+                ForEach(NCAAFCoverage.allCases) { coverage in
+                    Text(coverage.settingsLabel).tag(coverage)
+                }
+            }
+            .accessibilityLabel("College football games shown")
+            .accessibilityHint("All Division I shows FBS and FCS together, around 200 games a week, "
+                               + "and is the only setting that shows opening weekend in full. "
+                               + "FBS only shows about 100 games a week.")
+        } header: {
+            Text("College Football")
+        } footer: {
+            Text(appSettings.ncaafCoverage.settingsDescription)
                 .font(.caption)
                 .foregroundColor(.secondary)
         }

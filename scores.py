@@ -254,6 +254,29 @@ class HomeSettingsDialog(QDialog):
         move_layout.addWidget(reset_btn)
         layout.addLayout(move_layout)
 
+        # College football coverage. ESPN serves the two divisions separately, and
+        # asking only for FBS hides most of opening weekend, which is largely FCS.
+        cfb_layout = QHBoxLayout()
+        cfb_layout.addWidget(QLabel("College football games shown:"))
+        self.ncaaf_coverage_combo = QComboBox()
+        self._ncaaf_coverage_options = [
+            ("All Division I (FBS and FCS)", 'all_d1'),
+            ("FBS only", 'fbs'),
+        ]
+        self.ncaaf_coverage_combo.addItems([label for label, _ in self._ncaaf_coverage_options])
+        saved_coverage = settings.get('ncaaf_coverage', 'all_d1')
+        for i, (_, value) in enumerate(self._ncaaf_coverage_options):
+            if value == saved_coverage:
+                self.ncaaf_coverage_combo.setCurrentIndex(i)
+                break
+        self.ncaaf_coverage_combo.setAccessibleName("College football games shown")
+        self.ncaaf_coverage_combo.setAccessibleDescription(
+            "All Division I shows FBS and FCS together, around 200 games a week, and is the only "
+            "setting that shows opening weekend in full. FBS only shows about 100 games a week.")
+        cfb_layout.addWidget(self.ncaaf_coverage_combo)
+        cfb_layout.addStretch()
+        layout.addLayout(cfb_layout)
+
         self.auto_update_check = QCheckBox("Automatically check for updates at startup")
         self.auto_update_check.setAccessibleDescription(
             "When checked, Scores looks for a newer version each time it starts. "
@@ -305,6 +328,8 @@ class HomeSettingsDialog(QDialog):
         settings.set('sport_order', order)
         settings.set('sport_visibility', visibility)
         settings.set('auto_check_updates', self.auto_update_check.isChecked())
+        settings.set('ncaaf_coverage',
+                     self._ncaaf_coverage_options[self.ncaaf_coverage_combo.currentIndex()][1])
         self.accept()
 
 
