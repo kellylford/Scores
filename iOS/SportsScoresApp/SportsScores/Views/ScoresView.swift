@@ -75,6 +75,11 @@ struct ScoresView: View {
                     autoRefreshMenu
                 }
             }
+            if selectedTab == .scores && sport == .ncaaf {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    coverageMenu
+                }
+            }
             if selectedTab == .scores && !viewModel.games.isEmpty {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     ViewModeMenuButton(currentMode: $viewMode)
@@ -129,6 +134,29 @@ struct ScoresView: View {
         .onReceive(NotificationCenter.default.publisher(for: .appReturnedToNewDay)) { _ in
             Task { await viewModel.goToToday(for: sport) }
         }
+    }
+
+    // MARK: - College football coverage menu
+
+    /// Changes how much of the college football slate is shown, without a trip to
+    /// Settings. It edits the same stored preference the Settings picker does, so
+    /// there is one value in play rather than a screen-local override competing
+    /// with a saved one — the `.onChange` below refetches either way.
+    private var coverageMenu: some View {
+        Menu {
+            Picker("College football games shown", selection: $appSettings.ncaafCoverage) {
+                ForEach(NCAAFCoverage.allCases) { coverage in
+                    Text(coverage.settingsLabel).tag(coverage)
+                }
+            }
+            .pickerStyle(.inline)
+        } label: {
+            Label(appSettings.ncaafCoverage.shortLabel, systemImage: "line.3.horizontal.decrease.circle")
+                .labelStyle(.iconOnly)
+        }
+        .accessibilityLabel("College football games shown, currently \(appSettings.ncaafCoverage.settingsLabel)")
+        .accessibilityHint("All Division I shows FBS and FCS together, around 200 games a week. "
+                           + "FBS only shows about 100. Changing this also updates the Settings screen.")
     }
 
     // MARK: - Auto-refresh menu
@@ -430,11 +458,12 @@ struct ScoresView: View {
                 if !viewModel.inProgressGames.isEmpty {
                     gamesTableSection(title: "In Progress", games: viewModel.inProgressGames)
                 }
-                if !viewModel.upcomingGames.isEmpty {
-                    gamesTableSection(title: "Upcoming", games: viewModel.upcomingGames)
-                }
+                // Completed ahead of Upcoming, matching the other two view modes.
                 if !viewModel.completedGames.isEmpty {
                     gamesTableSection(title: "Completed", games: viewModel.completedGames)
+                }
+                if !viewModel.upcomingGames.isEmpty {
+                    gamesTableSection(title: "Upcoming", games: viewModel.upcomingGames)
                 }
                 if !viewModel.postponedGames.isEmpty {
                     gamesTableSection(title: "Postponed / Cancelled", games: viewModel.postponedGames)
@@ -444,11 +473,19 @@ struct ScoresView: View {
         }
     }
 
+    /// "Completed" -> "Completed, 57 games". On a 200-game college football week
+    /// this is what lets a user tell in one flick whether a section is worth
+    /// entering — and confirms the games are there, which is the confusion that
+    /// prompted the section reorder in the first place.
+    private func sectionHeaderText(_ title: String, count: Int) -> String {
+        "\(title), \(count) \(count == 1 ? "game" : "games")"
+    }
+
     private func gamesTableSection(title: String, games: [Game]) -> some View {
         let headers = ["Away", "Home", "Status"]
         let tableRows = games.map { gameAccessibleTableRow($0) }
         return VStack(alignment: .leading, spacing: 0) {
-            Text(title)
+            Text(sectionHeaderText(title, count: games.count))
                 .font(.subheadline.bold())
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 16)
@@ -530,9 +567,13 @@ struct ScoresView: View {
     private var gamesQuickListView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) {
+                // Chronological: what is live, then what has been played, then
+                // what is still to come. A football week straddles today — with
+                // Upcoming first, a Saturday's finals sat below a hundred games
+                // that had not kicked off, and read as missing.
                 gamesQuickSection(title: "In Progress", games: viewModel.inProgressGames)
-                gamesQuickSection(title: "Upcoming", games: viewModel.upcomingGames)
                 gamesQuickSection(title: "Completed", games: viewModel.completedGames)
+                gamesQuickSection(title: "Upcoming", games: viewModel.upcomingGames)
                 gamesQuickSection(title: "Postponed / Cancelled", games: viewModel.postponedGames)
             }
             .padding()
@@ -543,7 +584,7 @@ struct ScoresView: View {
     private func gamesQuickSection(title: String, games: [Game]) -> some View {
         if !games.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
-                Text(title)
+                Text(sectionHeaderText(title, count: games.count))
                     .font(.subheadline.bold())
                     .foregroundColor(.secondary)
                     .accessibilityAddTraits(.isHeader)
@@ -615,7 +656,21 @@ struct ScoresView: View {
                         gameRow(game, context: .inProgress)
                     }
                 } header: {
-                    Text("In Progress")
+                    Text(sectionHeaderText("In Progress", count: viewModel.inProgressGames.count))
+                        .accessibilityAddTraits(.isHeader)
+                }
+            }
+
+            // ── Completed ─────────────────────────────────────────────────
+            // Ahead of Upcoming: a football week spans played and unplayed days,
+            // and burying the finals below them reads as the games missing.
+            if !viewModel.completedGames.isEmpty {
+                Section {
+                    ForEach(viewModel.completedGames) { game in
+                        gameRow(game, context: .completed)
+                    }
+                } header: {
+                    Text(sectionHeaderText("Completed", count: viewModel.completedGames.count))
                         .accessibilityAddTraits(.isHeader)
                 }
             }
@@ -627,19 +682,7 @@ struct ScoresView: View {
                         gameRow(game, context: .upcoming)
                     }
                 } header: {
-                    Text("Upcoming")
-                        .accessibilityAddTraits(.isHeader)
-                }
-            }
-
-            // ── Completed ─────────────────────────────────────────────────
-            if !viewModel.completedGames.isEmpty {
-                Section {
-                    ForEach(viewModel.completedGames) { game in
-                        gameRow(game, context: .completed)
-                    }
-                } header: {
-                    Text("Completed")
+                    Text(sectionHeaderText("Upcoming", count: viewModel.upcomingGames.count))
                         .accessibilityAddTraits(.isHeader)
                 }
             }
@@ -651,7 +694,7 @@ struct ScoresView: View {
                         gameRow(game, context: .postponed)
                     }
                 } header: {
-                    Text("Postponed / Cancelled")
+                    Text(sectionHeaderText("Postponed / Cancelled", count: viewModel.postponedGames.count))
                         .accessibilityAddTraits(.isHeader)
                 }
             }

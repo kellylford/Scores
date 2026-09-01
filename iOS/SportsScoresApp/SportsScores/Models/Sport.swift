@@ -152,6 +152,11 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
     /// (News, Stats) and the historical-season picker.
     var usesCFLSource: Bool { self == .cfl }
 
+    /// True where the standings screen offers a Divisions / Wild Card toggle.
+    /// MLB only — it is the sport whose wild card race MLB publishes officially,
+    /// via `MLBStatsAPIService`.
+    var hasWildCardStandings: Bool { self == .mlb }
+
     /// True for World Cup hub cases.
     var isWorldCup: Bool {
         self == .worldCup || self == .worldCupWomens
@@ -344,6 +349,14 @@ enum NCAAFCoverage: String, CaseIterable, Identifiable {
         switch self {
         case .allDivisionI: return "All Division I (FBS and FCS)"
         case .fbs:          return "FBS only"
+        }
+    }
+
+    /// Compact form for the scores-screen toolbar, where the full label is too wide.
+    var shortLabel: String {
+        switch self {
+        case .allDivisionI: return "All D-I"
+        case .fbs:          return "FBS"
         }
     }
 

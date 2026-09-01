@@ -8,6 +8,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **College basketball was missing most of the games played**, the same ESPN
+  `groups=` omission just fixed for college football and proportionally worse.
+  A Saturday in January returned 21 of 145 men's Division I games and 4 of 122
+  women's. Both now ask for Division I explicitly. Basketball needs no coverage
+  setting the way football does — ESPN has no FBS/FCS-style split below Division
+  I for it — and college hockey needs no change at all, since `groups=` returns
+  nothing there and the plain call is already complete.
+
+### Added
+- **MLB wild card standings.** The standings view could only show divisions, so
+  the playoff race — the thing most people are actually tracking in September —
+  was not visible anywhere. Each league now shows its three division leaders
+  followed by the 12-team wild card race, with the teams holding the three
+  berths marked "Wild card 1/2/3" rather than separated by a drawn line, so a
+  screen reader speaks the playoff cut instead of relying on a visual boundary.
+  On Windows this is two extra tabs, "AL Wild Card" and "NL Wild Card", beside
+  the six division tabs; on iOS it is a Divisions / Wild Card control at the top
+  of the standings screen. Both load only when first opened, so the divisions
+  view is never held up by the extra request.
+
+  The data comes from MLB's own API (`statsapi.mlb.com`), whose
+  `wildCardWithLeaders` request returns the division leaders and the race
+  together with the ranks and games-back already named for the purpose. ESPN can
+  also produce wild card standings, via `type=1` on the standings endpoint the
+  apps already call; that route needs a second request for the leaders. Either
+  source gives the same numbers — the published rank is used rather than a
+  win-percentage sort so that teams tied on record land in a deterministic,
+  official order.
+
+- **Game lists are ordered chronologically**: live games, then completed, then
+  upcoming. A college football week spans played and unplayed days, so with
+  upcoming first a Saturday's finished games sat below a hundred that had not
+  kicked off and read as missing. Section headers now carry a game count
+  ("Completed, 57 games") so the size of each section is audible before entering
+  it.
+
+- **College football coverage is changeable from the scores screen**, not only
+  from Settings. It edits the same saved preference.
+
+### Fixed
 - **College football was missing most of the games played.** ESPN serves the two
   Division I halves separately through its `groups=` scoreboard parameter, and
   the app asked only for FBS (`groups=80`). That is a small fraction of an

@@ -13,11 +13,39 @@ struct StandingsGroup: Identifiable {
     let entries: [StandingsEntry]
 }
 
+/// A team's place in the wild card picture.
+///
+/// `nil` on ordinary division standings. The playoff cut line lives in `status`
+/// rather than being drawn, so VoiceOver speaks who is in.
+struct WildCardStanding {
+    /// "-" for a division leader, otherwise MLB's official wild card rank.
+    let position: String
+    /// "AL East leader", "Wild card 1", or "" for teams outside the spots.
+    let status: String
+    /// Games back of the last wild card spot ("+8.5", "-", "0.5").
+    let gamesBack: String
+
+    /// Status as words. A bare "-" is not spoken at all at the default
+    /// punctuation level in either VoiceOver or NVDA, so a team outside the
+    /// spots would read as silence — indistinguishable from a cell that failed
+    /// to populate. Every surface uses this rather than a dash.
+    var spokenStatus: String {
+        status.isEmpty ? "Not in a playoff spot" : status
+    }
+
+    /// Position as words, for the same reason: leaders carry "-", not a number.
+    var positionText: String {
+        position == "-" ? "Division leader" : position
+    }
+}
+
 struct StandingsEntry: Identifiable {
     let id = UUID()
     let rank: Int
     let team: TeamInfo
     let stats: StandingsStats
+    /// Set only on wild card standings; nil for division/conference groups.
+    var wildCard: WildCardStanding? = nil
     
     struct TeamInfo {
         let id: String
@@ -87,6 +115,13 @@ struct StandingsEntry: Identifiable {
     
     // For quick list display
     var quickListText: String {
+        if let wc = wildCard {
+            // Leaders have no rank, so lead with the team rather than a bare "-".
+            let lead = wc.position == "-" ? "" : "\(wc.position). "
+            return "\(lead)\(team.abbreviation), \(stats.wins)-\(stats.losses), "
+                + "\(stats.displayWinPercent), WCGB: \(wc.gamesBack), \(stats.streak), "
+                + "\(wc.spokenStatus)"
+        }
         var text = "\(team.abbreviation), \(stats.wins)-\(stats.losses), \(stats.displayWinPercent), GB: \(stats.gamesBack)"
         if let l10 = stats.lastTenRecord { text += ", L10: \(l10)" }
         return text
@@ -94,6 +129,12 @@ struct StandingsEntry: Identifiable {
 
     // For full list display
     var fullListText: String {
+        if let wc = wildCard {
+            return "Position: \(wc.positionText); Team: \(team.displayName); Wins: \(stats.wins); "
+                + "Losses: \(stats.losses); Win%: \(stats.displayWinPercent); "
+                + "Wild card games back: \(wc.gamesBack); Streak: \(stats.streak); "
+                + "Record: \(stats.record); Status: \(wc.spokenStatus)"
+        }
         var text = "Rank: \(rank); Team: \(team.displayName); Wins: \(stats.wins); Losses: \(stats.losses); Win%: \(stats.displayWinPercent); Games Back: \(stats.gamesBack); Streak: \(stats.streak); Record: \(stats.record)"
         if let l10 = stats.lastTenRecord { text += "; Last 10: \(l10)" }
         return text
@@ -109,6 +150,7 @@ extension StandingsEntry {
             apiEntry.stats.first(where: { $0.name == name })
         }
         let t = apiEntry.team
+        self.wildCard = nil
         self.rank = Int(stat("rank")?.value ?? 0)
         self.team = TeamInfo(
             id: t.id, name: t.name, abbreviation: t.abbreviation,

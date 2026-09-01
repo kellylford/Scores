@@ -856,6 +856,45 @@ class StandingsTable(AccessibleTable):
         current_item.setWhatsThis(accessibility_text)
 
 
+class WildCardTable(StandingsTable):
+    """MLB wild card race: division leaders first, then the ranked race.
+
+    Two things differ from a division table. Row order is MLB's official
+    `wildCardRank` rather than a re-sort by win percentage, so the published
+    tiebreakers survive; and the playoff cut line lives in a Status column
+    ("Wild card 1", "AL East leader") instead of a drawn separator, so a screen
+    reader speaks who is in rather than relying on a line nobody can hear.
+    """
+
+    WILDCARD_HEADERS = ["Pos", "Team", "W", "L", "PCT", "WCGB", "Streak", "Status"]
+
+    def __init__(self, parent=None, division_name: str = ""):
+        super().__init__(parent=parent, division_name=division_name)
+        # StandingsTable set up the division headers; swap in the wild card set.
+        self.setRowCount(0)
+        self.setColumnCount(0)
+        self.setup_columns(self.WILDCARD_HEADERS, stretch_column=1)
+
+    def set_expanded_view(self, expanded: bool):
+        """No expanded variant — the wild card columns are the whole story."""
+        return
+
+    def _build_basic_row(self, position: int, team: Dict[str, Any]) -> List[str]:
+        return [
+            str(team.get("wc_position") or position),
+            team.get("team_name") or team.get("name", ""),
+            str(team.get("wins", "")),
+            str(team.get("losses", "")),
+            str(team.get("win_percentage", "")),
+            str(team.get("games_back", "")),
+            team.get("streak") or "-",
+            team.get("wc_status") or "-",
+        ]
+
+    def _build_expanded_row(self, position: int, team: Dict[str, Any]) -> List[str]:
+        return self._build_basic_row(position, team)
+
+
 class LeadersTable(AccessibleTable):
     """Specialized table for displaying statistical leaders"""
     

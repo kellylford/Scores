@@ -48,27 +48,44 @@ NCAAF_COVERAGE_GROUPS = {
 NCAAF_SCOREBOARD_LIMIT = 400
 
 
-def ncaaf_scoreboard_params(league_key, coverage=None):
-    """Extra scoreboard query parameters that give NCAAF its full slate.
+# ESPN's "NCAA Division I" group for college basketball. Unlike football there is
+# no FBS/FCS-style split to choose between — 52 is the root, 50 is Division I and
+# 51 is everything that is not — so this needs no user setting, just the
+# parameter. Without it a day returns roughly a seventh of the slate: 145 men's
+# games become 21, and 122 women's become 4.
+NCAAB_GROUP = "50"
+
+# Basketball does not double `limit` the way college football does, and honours
+# it exactly, so this is a straight ceiling on a day's games.
+NCAAB_SCOREBOARD_LIMIT = 400
+
+def college_scoreboard_params(league_key, coverage=None):
+    """Extra scoreboard query parameters that give a college league its full slate.
 
     Returns [] for every other league, which ESPN already returns in full.
 
-    College football needs both parts. `groups=` picks the division: leave it
-    off and an undated scoreboard call collapses to 25 featured games, while a
-    `dates=` call returns FBS only — so on an FCS-heavy opening weekend most of
-    the slate never arrives. `limit=` then lifts the page size far enough to
-    hold a whole week (a Division I week runs past 200 games).
+    `groups=` picks the division. Leave it off and a college football scoreboard
+    collapses to 25 featured games when undated and to FBS-only when dated, and
+    college basketball returns only a handful of featured games. `limit=` then
+    lifts the page size far enough to hold the result.
 
-    `coverage` overrides the user's setting; callers that filter the response
-    down to one team pass "all_d1" so the net is as wide as possible.
+    `coverage` overrides the user's football setting; callers that filter the
+    response down to one team pass "all_d1" so the net is as wide as possible.
+    It has no meaning for basketball, which has only the one division.
     """
-    if league_key != "NCAAF":
-        return []
-    if coverage is None:
-        import settings
-        coverage = settings.get('ncaaf_coverage', 'all_d1')
-    group = NCAAF_COVERAGE_GROUPS.get(coverage, NCAAF_COVERAGE_GROUPS['all_d1'])
-    return [f"groups={group}", f"limit={NCAAF_SCOREBOARD_LIMIT}"]
+    if league_key == "NCAAF":
+        if coverage is None:
+            import settings
+            coverage = settings.get('ncaaf_coverage', 'all_d1')
+        group = NCAAF_COVERAGE_GROUPS.get(coverage, NCAAF_COVERAGE_GROUPS['all_d1'])
+        return [f"groups={group}", f"limit={NCAAF_SCOREBOARD_LIMIT}"]
+    if league_key in ("NCAAM", "NCAAWB"):
+        return [f"groups={NCAAB_GROUP}", f"limit={NCAAB_SCOREBOARD_LIMIT}"]
+    return []
+
+
+# Kept as the old name so nothing that imported it breaks.
+ncaaf_scoreboard_params = college_scoreboard_params
 
 
 def ncaaf_needs_fbs_retry(league_key, events, coverage=None):
@@ -96,6 +113,130 @@ def _swap_to_fbs(url):
     return url.replace(f"groups={NCAAF_COVERAGE_GROUPS['all_d1']}",
                        f"groups={NCAAF_COVERAGE_GROUPS['fbs']}")
 
+# MLB's own API, the only source for the official wild card race. ESPN's
+# standings feed carries no wild card grouping at all, and deriving one from win
+# percentage would get MLB's tiebreakers wrong — statsapi publishes the official
+# `wildCardRank` and `wildCardGamesBack` directly.
+MLB_STATS_BASE = "https://statsapi.mlb.com/api/v1"
+MLB_LEAGUE_IDS = {"AL": 103, "NL": 104}
+
+# Number of wild card berths per league.
+MLB_WILDCARD_SPOTS = 3
+
+
+def _short_division_name(full_name):
+    """'American League East' -> 'AL East', matching the division tab labels."""
+    return (full_name or "").replace("American League", "AL").replace("National League", "NL")
+
+
+def _mlb_wildcard_team(record, status, position, games_back):
+    """Normalise one statsapi teamRecord into the dict the standings table wants."""
+    team = record.get("team", {}) or {}
+    league_rec = record.get("leagueRecord", {}) or {}
+    wins = league_rec.get("wins", 0)
+    losses = league_rec.get("losses", 0)
+    return {
+        "team_name": team.get("name", "Unknown"),
+        "team_id": str(team.get("id", "")),
+        "abbreviation": team.get("abbreviation", ""),
+        "wins": wins,
+        "losses": losses,
+        "win_percentage": league_rec.get("pct", "0.000"),
+        "games_back": games_back,
+        "streak": (record.get("streak") or {}).get("streakCode", ""),
+        "division": _short_division_name((team.get("division") or {}).get("name", "")),
+        "wc_position": position,
+        "wc_status": status,
+        "clinched": bool(record.get("clinched")),
+    }
+
+
+def get_mlb_wildcard_standings():
+    """Current MLB wild card picture, as {"AL": [...], "NL": [...]}.
+
+    Each league's list is in display order: the three division leaders first
+    (already holding a playoff spot), then the 12-team wild card race ordered by
+    MLB's official `wildCardRank`. The top three of that race hold the wild card
+    berths; each team carries a `wc_status` saying which of those it is, so the
+    playoff cut line is spoken rather than drawn.
+
+    Returns {} on any failure, which the caller renders as "unavailable".
+    """
+    try:
+        resp = requests.get(
+            f"{MLB_STATS_BASE}/standings",
+            params={
+                "leagueId": "103,104",
+                "standingsTypes": "wildCardWithLeaders",
+                "hydrate": "team",
+            },
+            timeout=15,
+        )
+        if resp.status_code != 200:
+            return {}
+        records = resp.json().get("records", [])
+    except Exception as e:
+        print(f"[WARNING] MLB wild card standings unavailable: {e}")
+        return {}
+
+    leaders = {"AL": [], "NL": []}
+    race = {"AL": [], "NL": []}
+    id_to_key = {v: k for k, v in MLB_LEAGUE_IDS.items()}
+
+    for record in records:
+        key = id_to_key.get((record.get("league") or {}).get("id"))
+        if not key:
+            continue
+        kind = record.get("standingsType")
+        for team_record in record.get("teamRecords", []):
+            if kind == "divisionLeaders":
+                division = _short_division_name(
+                    ((team_record.get("team") or {}).get("division") or {}).get("name", ""))
+                leaders[key].append(_mlb_wildcard_team(
+                    team_record,
+                    status=f"{division} leader" if division else "Division leader",
+                    position="-",
+                    games_back="-",
+                ))
+            elif kind == "wildCard":
+                try:
+                    rank = int(team_record.get("wildCardRank") or 0)
+                except (TypeError, ValueError):
+                    rank = 0
+                race[key].append((rank, team_record))
+
+    result = {}
+    for key in ("AL", "NL"):
+        # Division leaders sort by record; the race keeps MLB's official rank.
+        ordered_leaders = sorted(
+            leaders[key],
+            key=lambda t: (_safe_float(t.get("win_percentage")), t.get("wins", 0)),
+            reverse=True,
+        )
+        ordered_race = []
+        for rank, team_record in sorted(race[key], key=lambda pair: pair[0]):
+            if rank and rank <= MLB_WILDCARD_SPOTS:
+                status = f"Wild card {rank}"
+            else:
+                status = ""
+            ordered_race.append(_mlb_wildcard_team(
+                team_record,
+                status=status,
+                position=str(rank) if rank else "-",
+                games_back=team_record.get("wildCardGamesBack", "-"),
+            ))
+        if ordered_leaders or ordered_race:
+            result[key] = ordered_leaders + ordered_race
+    return result
+
+
+def _safe_float(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return -1.0
+
+
 def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season=None):
     """Get a team's complete schedule using the dedicated team schedule endpoint"""
     from datetime import datetime, timedelta
@@ -109,7 +250,12 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
     is_historical_season = season is not None and season != current_year
     
     # Use dedicated team schedule endpoints for major sports
-    if league_key in ["MLB", "NFL", "NBA", "NHL", "NCAAF", "NCAAH", "NCAAWH"]:
+    # NCAAM/NCAAWB use the dedicated endpoint too. They used to fall through to
+    # the 60-day scoreboard range below, which returned nothing at all without a
+    # `groups=` filter and, once one was added, truncated at the limit — 400
+    # events covering 12 days of the 61 asked for. The per-team endpoint has no
+    # such ceiling and needs no division filter.
+    if league_key in ["MLB", "NFL", "NBA", "NHL", "NCAAF", "NCAAH", "NCAAWH", "NCAAM", "NCAAWB"]:
         base_url = f"{BASE_URL}/{league_path}/teams/{team_id}/schedule"
         
         # For NBA, NHL, MLB, and NCAA Hockey, we need to fetch all season types separately and combine
@@ -205,7 +351,7 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
         # widest coverage regardless of the user's setting, because the response
         # is filtered down to one team anyway and FBS-only would return nothing
         # at all for an FCS team.
-        extra = ncaaf_scoreboard_params(league_key, coverage="all_d1")
+        extra = college_scoreboard_params(league_key, coverage="all_d1")
         if extra:
             url += "&" + "&".join(extra)
 
@@ -473,7 +619,7 @@ def get_live_scores_all_sports():
             # Use scoreboard endpoint for better live game detection, especially for NCAAF
             url = f"{BASE_URL}/{league_path}/scoreboard"
 
-            extra = ncaaf_scoreboard_params(league_key)
+            extra = college_scoreboard_params(league_key)
             if extra:
                 url += "?" + "&".join(extra)
 
@@ -1031,7 +1177,7 @@ def get_scores(league_key, date=None, week=None, seasontype=None, season=None):
     # Add seasontype parameter (2=regular season, 3=postseason)
     if seasontype is not None:
         params.append(f"seasontype={seasontype}")
-    params += ncaaf_scoreboard_params(league_key)
+    params += college_scoreboard_params(league_key)
     if params:
         url += "?" + "&".join(params)
 
