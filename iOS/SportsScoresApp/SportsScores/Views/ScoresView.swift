@@ -450,23 +450,42 @@ struct ScoresView: View {
         }
     }
 
+    // MARK: - Section ordering
+
+    /// One section list, used by all three view modes so they cannot drift apart.
+    private struct GameSection: Identifiable {
+        let id: String
+        let title: String
+        let games: [Game]
+        let context: GameSectionContext
+    }
+
+    /// Day-based sports keep the conventional order: what is on now, what is on
+    /// next, then what finished. A football *week* is different — it spans played
+    /// and unplayed days at once, so with Upcoming first a Saturday's finals sit
+    /// below a hundred games that have not kicked off and read as missing.
+    private var completedBeforeUpcoming: Bool { sport.usesWeekNavigation }
+
+    private var orderedSections: [GameSection] {
+        let inProgress = GameSection(id: "inProgress", title: "In Progress",
+                                     games: viewModel.inProgressGames, context: .inProgress)
+        let upcoming = GameSection(id: "upcoming", title: "Upcoming",
+                                   games: viewModel.upcomingGames, context: .upcoming)
+        let completed = GameSection(id: "completed", title: "Completed",
+                                    games: viewModel.completedGames, context: .completed)
+        let postponed = GameSection(id: "postponed", title: "Postponed / Cancelled",
+                                    games: viewModel.postponedGames, context: .postponed)
+        let middle = completedBeforeUpcoming ? [completed, upcoming] : [upcoming, completed]
+        return ([inProgress] + middle + [postponed]).filter { !$0.games.isEmpty }
+    }
+
     // MARK: - Table view mode
 
     private var gamesTableView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) {
-                if !viewModel.inProgressGames.isEmpty {
-                    gamesTableSection(title: "In Progress", games: viewModel.inProgressGames)
-                }
-                // Completed ahead of Upcoming, matching the other two view modes.
-                if !viewModel.completedGames.isEmpty {
-                    gamesTableSection(title: "Completed", games: viewModel.completedGames)
-                }
-                if !viewModel.upcomingGames.isEmpty {
-                    gamesTableSection(title: "Upcoming", games: viewModel.upcomingGames)
-                }
-                if !viewModel.postponedGames.isEmpty {
-                    gamesTableSection(title: "Postponed / Cancelled", games: viewModel.postponedGames)
+                ForEach(orderedSections) { section in
+                    gamesTableSection(title: section.title, games: section.games)
                 }
             }
             .padding(.vertical)
@@ -567,14 +586,9 @@ struct ScoresView: View {
     private var gamesQuickListView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) {
-                // Chronological: what is live, then what has been played, then
-                // what is still to come. A football week straddles today — with
-                // Upcoming first, a Saturday's finals sat below a hundred games
-                // that had not kicked off, and read as missing.
-                gamesQuickSection(title: "In Progress", games: viewModel.inProgressGames)
-                gamesQuickSection(title: "Completed", games: viewModel.completedGames)
-                gamesQuickSection(title: "Upcoming", games: viewModel.upcomingGames)
-                gamesQuickSection(title: "Postponed / Cancelled", games: viewModel.postponedGames)
+                ForEach(orderedSections) { section in
+                    gamesQuickSection(title: section.title, games: section.games)
+                }
             }
             .padding()
         }
@@ -649,52 +663,13 @@ struct ScoresView: View {
 
     private var gamesList: some View {
         List {
-            // ── In Progress ───────────────────────────────────────────────
-            if !viewModel.inProgressGames.isEmpty {
+            ForEach(orderedSections) { section in
                 Section {
-                    ForEach(viewModel.inProgressGames) { game in
-                        gameRow(game, context: .inProgress)
+                    ForEach(section.games) { game in
+                        gameRow(game, context: section.context)
                     }
                 } header: {
-                    Text(sectionHeaderText("In Progress", count: viewModel.inProgressGames.count))
-                        .accessibilityAddTraits(.isHeader)
-                }
-            }
-
-            // ── Completed ─────────────────────────────────────────────────
-            // Ahead of Upcoming: a football week spans played and unplayed days,
-            // and burying the finals below them reads as the games missing.
-            if !viewModel.completedGames.isEmpty {
-                Section {
-                    ForEach(viewModel.completedGames) { game in
-                        gameRow(game, context: .completed)
-                    }
-                } header: {
-                    Text(sectionHeaderText("Completed", count: viewModel.completedGames.count))
-                        .accessibilityAddTraits(.isHeader)
-                }
-            }
-
-            // ── Upcoming ──────────────────────────────────────────────────
-            if !viewModel.upcomingGames.isEmpty {
-                Section {
-                    ForEach(viewModel.upcomingGames) { game in
-                        gameRow(game, context: .upcoming)
-                    }
-                } header: {
-                    Text(sectionHeaderText("Upcoming", count: viewModel.upcomingGames.count))
-                        .accessibilityAddTraits(.isHeader)
-                }
-            }
-
-            // ── Postponed / Cancelled ──────────────────────────────────────
-            if !viewModel.postponedGames.isEmpty {
-                Section {
-                    ForEach(viewModel.postponedGames) { game in
-                        gameRow(game, context: .postponed)
-                    }
-                } header: {
-                    Text(sectionHeaderText("Postponed / Cancelled", count: viewModel.postponedGames.count))
+                    Text(sectionHeaderText(section.title, count: section.games.count))
                         .accessibilityAddTraits(.isHeader)
                 }
             }

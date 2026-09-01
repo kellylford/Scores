@@ -147,24 +147,24 @@ struct LiveScoresView: View {
                     .padding(.horizontal)
                 }
                 
-                // Completed Games Section
-                if !viewModel.completedGames.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        sectionHeader(title: "COMPLETED", count: totalCount(viewModel.completedGames))
-                        
-                        ForEach(viewModel.completedGames) { sportGames in
-                            sportSection(sportGames: sportGames, isLive: false)
-                        }
-                    }
-                    .padding(.horizontal)
-                }
-                
                 // Upcoming Games Section
                 if !viewModel.upcomingGames.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
                         sectionHeader(title: "UPCOMING", count: totalCount(viewModel.upcomingGames))
                         
                         ForEach(viewModel.upcomingGames) { sportGames in
+                            sportSection(sportGames: sportGames, isLive: false)
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+                
+                // Completed Games Section
+                if !viewModel.completedGames.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        sectionHeader(title: "COMPLETED", count: totalCount(viewModel.completedGames))
+                        
+                        ForEach(viewModel.completedGames) { sportGames in
                             sportSection(sportGames: sportGames, isLive: false)
                         }
                     }
