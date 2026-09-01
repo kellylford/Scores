@@ -81,6 +81,32 @@ therefore retry an **empty** NCAAF response as `groups=80`; since `groups=90` is
 otherwise a strict superset, an empty all-Division-I response is never
 legitimately better than the FBS one.
 
+#### College basketball needs `groups=50`
+
+The same omission, with a larger proportional loss. Measured for Sat 2026-01-17:
+
+| Query | Games |
+|---|---|
+| `mens-college-basketball?dates=20260117` | 21 |
+| `mens-college-basketball?dates=20260117&groups=50` | **145** |
+| `womens-college-basketball?dates=20260117` | 4 |
+| `womens-college-basketball?dates=20260117&groups=50` | **122** |
+
+Basketball is simpler than football in three ways, so it needs no user setting:
+
+- The hierarchy has no FBS/FCS-style split — 52 is the root, **50 is NCAA
+  Division I**, 51 is "Non-NCAA Division I". 50 is the only sensible choice.
+- `limit` is **not** doubled and is honoured exactly (`limit=5` returns 5), and
+  `limit=501` does not collapse the page. The apps send 400.
+- The postseason quirk does **not** apply: `seasontype=3&groups=50` returns the
+  same 52 games as the ungrouped call.
+
+#### College hockey needs neither
+
+`groups=` returns **0 games** for `mens-college-hockey` and
+`womens-college-hockey` at any value, and the plain call already carries the
+full slate (26 and 20 on 2026-01-17). Do not add the parameter there.
+
 #### Group ids
 
 | id | Meaning |

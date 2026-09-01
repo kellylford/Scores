@@ -55,19 +55,39 @@ class ESPNAPIService {
     /// leaving the doubled shapes at 800, comfortably inside the ceiling.
     private static let ncaafScoreboardLimit = 400
 
-    /// Extra scoreboard query parameters that give college football its full slate.
+    /// ESPN's "NCAA Division I" group for college basketball. Unlike football
+    /// there is no FBS/FCS-style split to choose between — 52 is the root, 50 is
+    /// Division I and 51 is everything that is not — so this needs no user
+    /// setting, just the parameter. Without it a day returns roughly a seventh of
+    /// the slate (145 men's games become 21, 122 women's become 4).
+    private static let collegeBasketballGroupID = "50"
+
+    /// Basketball does not double `limit` the way college football does, and
+    /// honours it exactly, so this is a straight ceiling on a day's games.
+    private static let collegeBasketballLimit = 400
+
+    /// Extra scoreboard query parameters that give a college sport its full slate.
     /// Empty for every other sport, which ESPN already returns in full.
     ///
-    /// NCAAF needs both parts. `groups=` picks the division: without it an
-    /// undated scoreboard call collapses to 25 featured games and a `dates=`
-    /// call returns FBS only, so on an FCS-heavy opening weekend most of the
-    /// slate never arrives. `limit=` then lifts the page size far enough to
-    /// hold a whole week (a Division I week runs past 200 games).
-    private func ncaafScoreboardParams(for sport: Sport,
-                                       coverage: NCAAFCoverage?) -> [String] {
-        guard sport == .ncaaf else { return [] }
-        let coverage = coverage ?? NCAAFCoverage.stored
-        return ["groups=\(coverage.espnGroupsID)", "limit=\(Self.ncaafScoreboardLimit)"]
+    /// `groups=` picks the division. Without it college football collapses to 25
+    /// featured games when undated and to FBS-only when dated, and college
+    /// basketball returns only a handful of featured games. `limit=` then lifts
+    /// the page size far enough to hold the result.
+    ///
+    /// College hockey needs neither: `groups=` returns nothing there and the
+    /// plain call already carries the full slate.
+    private func collegeScoreboardParams(for sport: Sport,
+                                         coverage: NCAAFCoverage?) -> [String] {
+        switch sport {
+        case .ncaaf:
+            let coverage = coverage ?? NCAAFCoverage.stored
+            return ["groups=\(coverage.espnGroupsID)", "limit=\(Self.ncaafScoreboardLimit)"]
+        case .ncaam, .ncaawb:
+            return ["groups=\(Self.collegeBasketballGroupID)",
+                    "limit=\(Self.collegeBasketballLimit)"]
+        default:
+            return []
+        }
     }
 
     /// Refetches an empty college football scoreboard as FBS, returning nil when
@@ -112,7 +132,7 @@ class ESPNAPIService {
             fmt.dateFormat = "yyyyMMdd"
             params.append("dates=\(fmt.string(from: date))")
         }
-        params += ncaafScoreboardParams(for: sport, coverage: ncaafCoverage)
+        params += collegeScoreboardParams(for: sport, coverage: ncaafCoverage)
 
         var urlString = "\(baseURL)/\(sport.apiPath)/scoreboard"
         if !params.isEmpty { urlString += "?" + params.joined(separator: "&") }
@@ -158,7 +178,7 @@ class ESPNAPIService {
     func fetchFootballGames(for sport: Sport,
                             ncaafCoverage: NCAAFCoverage? = nil) async throws -> FootballScoreboardResult {
         var urlString = "\(baseURL)/\(sport.apiPath)/scoreboard"
-        let params = ncaafScoreboardParams(for: sport, coverage: ncaafCoverage)
+        let params = collegeScoreboardParams(for: sport, coverage: ncaafCoverage)
         if !params.isEmpty { urlString += "?" + params.joined(separator: "&") }
         guard let url = URL(string: urlString) else { throw APIError.invalidURL }
 
@@ -336,7 +356,7 @@ class ESPNAPIService {
         let startStr = fmt.string(from: weekRange.start)
         let endStr   = fmt.string(from: weekRange.end)
         var scoreboardParams = ["dates=\(startStr)-\(endStr)"]
-        scoreboardParams += ncaafScoreboardParams(for: sport, coverage: ncaafCoverage)
+        scoreboardParams += collegeScoreboardParams(for: sport, coverage: ncaafCoverage)
         let scoreboardURLString =
             "\(baseURL)/\(sport.apiPath)/scoreboard?" + scoreboardParams.joined(separator: "&")
         guard let scoreboardURL = URL(string: scoreboardURLString) else { throw APIError.invalidURL }

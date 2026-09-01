@@ -352,6 +352,14 @@ enum NCAAFCoverage: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Compact form for the scores-screen toolbar, where the full label is too wide.
+    var shortLabel: String {
+        switch self {
+        case .allDivisionI: return "All D-I"
+        case .fbs:          return "FBS"
+        }
+    }
+
     var settingsDescription: String {
         switch self {
         case .fbs:

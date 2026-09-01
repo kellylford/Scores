@@ -48,27 +48,50 @@ NCAAF_COVERAGE_GROUPS = {
 NCAAF_SCOREBOARD_LIMIT = 400
 
 
-def ncaaf_scoreboard_params(league_key, coverage=None):
-    """Extra scoreboard query parameters that give NCAAF its full slate.
+# ESPN's "NCAA Division I" group for college basketball. Unlike football there is
+# no FBS/FCS-style split to choose between — 52 is the root, 50 is Division I and
+# 51 is everything that is not — so this needs no user setting, just the
+# parameter. Without it a day returns roughly a seventh of the slate: 145 men's
+# games become 21, and 122 women's become 4.
+NCAAB_GROUP = "50"
+
+# Basketball does not double `limit` the way college football does, and honours
+# it exactly, so this is a straight ceiling on a day's games.
+NCAAB_SCOREBOARD_LIMIT = 400
+
+# The leagues that need a `groups=` filter at all. College hockey deliberately is
+# not here: `groups=` returns nothing for it, and the plain call already carries
+# the full slate.
+COLLEGE_GROUP_LEAGUES = ("NCAAF", "NCAAM", "NCAAWB")
+
+
+def college_scoreboard_params(league_key, coverage=None):
+    """Extra scoreboard query parameters that give a college league its full slate.
 
     Returns [] for every other league, which ESPN already returns in full.
 
-    College football needs both parts. `groups=` picks the division: leave it
-    off and an undated scoreboard call collapses to 25 featured games, while a
-    `dates=` call returns FBS only — so on an FCS-heavy opening weekend most of
-    the slate never arrives. `limit=` then lifts the page size far enough to
-    hold a whole week (a Division I week runs past 200 games).
+    `groups=` picks the division. Leave it off and a college football scoreboard
+    collapses to 25 featured games when undated and to FBS-only when dated, and
+    college basketball returns only a handful of featured games. `limit=` then
+    lifts the page size far enough to hold the result.
 
-    `coverage` overrides the user's setting; callers that filter the response
-    down to one team pass "all_d1" so the net is as wide as possible.
+    `coverage` overrides the user's football setting; callers that filter the
+    response down to one team pass "all_d1" so the net is as wide as possible.
+    It has no meaning for basketball, which has only the one division.
     """
-    if league_key != "NCAAF":
-        return []
-    if coverage is None:
-        import settings
-        coverage = settings.get('ncaaf_coverage', 'all_d1')
-    group = NCAAF_COVERAGE_GROUPS.get(coverage, NCAAF_COVERAGE_GROUPS['all_d1'])
-    return [f"groups={group}", f"limit={NCAAF_SCOREBOARD_LIMIT}"]
+    if league_key == "NCAAF":
+        if coverage is None:
+            import settings
+            coverage = settings.get('ncaaf_coverage', 'all_d1')
+        group = NCAAF_COVERAGE_GROUPS.get(coverage, NCAAF_COVERAGE_GROUPS['all_d1'])
+        return [f"groups={group}", f"limit={NCAAF_SCOREBOARD_LIMIT}"]
+    if league_key in ("NCAAM", "NCAAWB"):
+        return [f"groups={NCAAB_GROUP}", f"limit={NCAAB_SCOREBOARD_LIMIT}"]
+    return []
+
+
+# Kept as the old name so nothing that imported it breaks.
+ncaaf_scoreboard_params = college_scoreboard_params
 
 
 def ncaaf_needs_fbs_retry(league_key, events, coverage=None):
@@ -329,7 +352,7 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
         # widest coverage regardless of the user's setting, because the response
         # is filtered down to one team anyway and FBS-only would return nothing
         # at all for an FCS team.
-        extra = ncaaf_scoreboard_params(league_key, coverage="all_d1")
+        extra = college_scoreboard_params(league_key, coverage="all_d1")
         if extra:
             url += "&" + "&".join(extra)
 
@@ -597,7 +620,7 @@ def get_live_scores_all_sports():
             # Use scoreboard endpoint for better live game detection, especially for NCAAF
             url = f"{BASE_URL}/{league_path}/scoreboard"
 
-            extra = ncaaf_scoreboard_params(league_key)
+            extra = college_scoreboard_params(league_key)
             if extra:
                 url += "?" + "&".join(extra)
 
@@ -1155,7 +1178,7 @@ def get_scores(league_key, date=None, week=None, seasontype=None, season=None):
     # Add seasontype parameter (2=regular season, 3=postseason)
     if seasontype is not None:
         params.append(f"seasontype={seasontype}")
-    params += ncaaf_scoreboard_params(league_key)
+    params += college_scoreboard_params(league_key)
     if params:
         url += "?" + "&".join(params)
 

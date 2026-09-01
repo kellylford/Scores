@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **College basketball was missing most of the games played**, the same ESPN
+  `groups=` omission just fixed for college football and proportionally worse.
+  A Saturday in January returned 21 of 145 men's Division I games and 4 of 122
+  women's. Both now ask for Division I explicitly. Basketball needs no coverage
+  setting the way football does — ESPN has no FBS/FCS-style split below Division
+  I for it — and college hockey needs no change at all, since `groups=` returns
+  nothing there and the plain call is already complete.
+
 ### Added
 - **MLB wild card standings.** The standings view could only show divisions, so
   the playoff race — the thing most people are actually tracking in September —
