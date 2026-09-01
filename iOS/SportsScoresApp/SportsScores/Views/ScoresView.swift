@@ -460,12 +460,10 @@ struct ScoresView: View {
         let context: GameSectionContext
     }
 
-    /// Day-based sports keep the conventional order: what is on now, what is on
-    /// next, then what finished. A football *week* is different — it spans played
-    /// and unplayed days at once, so with Upcoming first a Saturday's finals sit
-    /// below a hundred games that have not kicked off and read as missing.
-    private var completedBeforeUpcoming: Bool { sport.usesWeekNavigation }
-
+    /// One order for every sport: what is on now, what is on next, then what
+    /// finished. Football weeks span played and unplayed days at once, so a
+    /// Saturday's finals do sit below games that have not kicked off — the game
+    /// count in each section header is what makes them findable.
     private var orderedSections: [GameSection] {
         let inProgress = GameSection(id: "inProgress", title: "In Progress",
                                      games: viewModel.inProgressGames, context: .inProgress)
@@ -475,8 +473,7 @@ struct ScoresView: View {
                                     games: viewModel.completedGames, context: .completed)
         let postponed = GameSection(id: "postponed", title: "Postponed / Cancelled",
                                     games: viewModel.postponedGames, context: .postponed)
-        let middle = completedBeforeUpcoming ? [completed, upcoming] : [upcoming, completed]
-        return ([inProgress] + middle + [postponed]).filter { !$0.games.isEmpty }
+        return [inProgress, upcoming, completed, postponed].filter { !$0.games.isEmpty }
     }
 
     // MARK: - Table view mode
