@@ -403,6 +403,126 @@ class ESPNAPIService {
         return nil
     }
 
+    // MARK: - MLB Wild Card Standings
+
+    /// ESPN's standings endpoint takes a `type=` parameter selecting which table
+    /// it returns. `type=1` is the wild card view: the 12 non-division-leaders
+    /// per league, with `playoffSeed` as the wild card rank and `gamesBehind` as
+    /// games back of the last spot. The three teams present in the default
+    /// standings but absent from `type=1` are exactly the division leaders.
+    private static let mlbWildCardStandingsType = 1
+
+    /// Number of wild card berths per league.
+    private static let mlbWildCardSpots = 3
+
+    /// The current wild card picture as two groups, "AL Wild Card" and
+    /// "NL Wild Card".
+    ///
+    /// Each group is in display order: the three division leaders first (already
+    /// holding a playoff spot), then the race in ESPN's published seed order,
+    /// the top three of which hold the berths.
+    func fetchMLBWildCardStandings() async throws -> [StandingsGroup] {
+        let base = "\(standingsBaseURL)/\(Sport.mlb.apiPath)/standings"
+        guard let raceURL = URL(string: "\(base)?type=\(Self.mlbWildCardStandingsType)"),
+              let overallURL = URL(string: base) else { throw APIError.invalidURL }
+
+        async let raceData = standingsPayload(from: raceURL)
+        async let overallData = standingsPayload(from: overallURL)
+        let (race, overall) = try await (raceData, overallData)
+
+        return race.children.compactMap { raceLeague -> StandingsGroup? in
+            let entries = raceLeague.standings.entries
+            guard !entries.isEmpty else { return nil }
+
+            let raceIDs = Set(entries.map(\.team.id))
+            let leaders = overall.children
+                .first { $0.name == raceLeague.name }?
+                .standings.entries
+                .filter { !raceIDs.contains($0.team.id) } ?? []
+
+            let orderedLeaders = leaders
+                .sorted { Self.mlbStatValue($0, "winPercent") > Self.mlbStatValue($1, "winPercent") }
+                .map { entry -> StandingsEntry in
+                    let division = DivisionMapper.division(for: .mlb,
+                                                           abbreviation: entry.team.abbreviation)
+                    return Self.mlbWildCardEntry(
+                        entry,
+                        position: "-",
+                        status: division.map { "\($0) leader" } ?? "Division leader",
+                        gamesBack: "-")
+                }
+
+            let orderedRace = entries
+                .sorted { Self.mlbStatValue($0, "playoffSeed", default: 99)
+                        < Self.mlbStatValue($1, "playoffSeed", default: 99) }
+                .map { entry -> StandingsEntry in
+                    let rank = Int(Self.mlbStatValue(entry, "playoffSeed"))
+                    let status = (rank > 0 && rank <= Self.mlbWildCardSpots)
+                        ? "Wild card \(rank)" : ""
+                    return Self.mlbWildCardEntry(
+                        entry,
+                        position: rank > 0 ? "\(rank)" : "-",
+                        status: status,
+                        gamesBack: Self.mlbStat(entry, "gamesBehind") ?? "-")
+                }
+
+            let label = raceLeague.name.hasPrefix("American") ? "AL Wild Card" : "NL Wild Card"
+            return StandingsGroup(name: label, entries: orderedLeaders + orderedRace)
+        }
+    }
+
+    private func standingsPayload(from url: URL) async throws -> APIStandingsResponse {
+        let (data, response) = try await session.data(from: url)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw APIError.invalidResponse
+        }
+        return try JSONDecoder().decode(APIStandingsResponse.self, from: data)
+    }
+
+    private typealias MLBStandingsEntry = APIStandingsGroup.APIStandings.APIStandingsEntry
+
+    private static func mlbStat(_ entry: MLBStandingsEntry, _ name: String) -> String? {
+        entry.stats.first { $0.name == name }?.displayValue
+    }
+
+    private static func mlbStatValue(_ entry: MLBStandingsEntry, _ name: String,
+                                     default fallback: Double = 0) -> Double {
+        entry.stats.first { $0.name == name }?.value ?? fallback
+    }
+
+    /// Builds a standings row from an ESPN entry, overriding games-back with the
+    /// wild card figure — the shared initialiser prefers `divisionGamesBehind`,
+    /// which is a different race entirely.
+    private static func mlbWildCardEntry(_ entry: MLBStandingsEntry,
+                                         position: String,
+                                         status: String,
+                                         gamesBack: String) -> StandingsEntry {
+        var built = StandingsEntry(fromAPIEntry: entry)
+        built.wildCard = WildCardStanding(position: position, status: status,
+                                          gamesBack: gamesBack)
+        built.stats = StandingsEntry.StandingsStats(
+            wins: built.stats.wins,
+            losses: built.stats.losses,
+            winPercent: built.stats.winPercent,
+            gamesBack: gamesBack,
+            streak: built.stats.streak,
+            record: "\(built.stats.wins)-\(built.stats.losses)",
+            pointsFor: built.stats.pointsFor,
+            pointsAgainst: built.stats.pointsAgainst,
+            ties: built.stats.ties,
+            otLosses: built.stats.otLosses,
+            nhlPoints: built.stats.nhlPoints,
+            avgPointsFor: built.stats.avgPointsFor,
+            avgPointsAgainst: built.stats.avgPointsAgainst,
+            homeRecord: built.stats.homeRecord,
+            roadRecord: built.stats.roadRecord,
+            lastTenRecord: built.stats.lastTenRecord,
+            divisionRecord: built.stats.divisionRecord,
+            playoffSeed: built.stats.playoffSeed,
+            differential: built.stats.differential)
+        return built
+    }
+
     // MARK: - World Cup Group Standings
 
     func fetchWorldCupStandings(for sport: Sport) async throws -> [WorldCupGroup] {

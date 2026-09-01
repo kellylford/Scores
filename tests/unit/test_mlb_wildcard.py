@@ -1,9 +1,13 @@
 """Tests for the MLB wild card standings (espn_api.get_mlb_wildcard_standings).
 
-The statsapi response is faked rather than fetched. These cover the parts where
-a wrong answer misrepresents the playoff picture: which teams are shown as
-already in, the order of the race, and the fact that MLB's published
-`wildCardRank` is preserved rather than re-derived from win percentage.
+ESPN's responses are faked rather than fetched. These cover the parts where a
+wrong answer misrepresents the playoff picture: which teams are shown as already
+in, the order of the race, and the fact that ESPN's published `playoffSeed` is
+preserved rather than re-derived from win percentage.
+
+The source is ESPN's standings endpoint with `type=1`, which returns the 12
+non-division-leaders per league. The three teams present in the default
+standings but absent from that list are the division leaders.
 """
 
 import os
@@ -17,58 +21,45 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 import espn_api  # noqa: E402
 
 
-def team_record(name, abbr, wins, losses, pct, division,
-                wc_rank=None, wc_gb="-", streak="W1"):
+def entry(team_id, name, abbr, wins, losses, pct, seed=None, gb="-", streak="W1"):
+    stats = [
+        {"name": "wins", "value": wins, "displayValue": str(wins)},
+        {"name": "losses", "value": losses, "displayValue": str(losses)},
+        {"name": "winPercent", "value": pct, "displayValue": f"{pct:.3f}".lstrip("0")},
+        {"name": "streak", "value": 1, "displayValue": streak},
+        {"name": "gamesBehind", "value": 0.0, "displayValue": gb},
+        # divisionGamesBehind is a *different* race; it must never be shown here.
+        {"name": "divisionGamesBehind", "value": 99.0, "displayValue": "99.0"},
+    ]
+    if seed is not None:
+        stats.append({"name": "playoffSeed", "value": seed, "displayValue": str(seed)})
     return {
-        "team": {
-            "id": abs(hash(name)) % 1000,
-            "name": name,
-            "teamName": name.split()[-1],
-            "abbreviation": abbr,
-            "division": {"name": division},
-        },
-        "leagueRecord": {"wins": wins, "losses": losses, "pct": pct},
-        "streak": {"streakCode": streak},
-        "wildCardRank": wc_rank,
-        "wildCardGamesBack": wc_gb,
+        "team": {"id": str(team_id), "displayName": name, "abbreviation": abbr},
+        "stats": stats,
     }
 
 
-# One league's worth of statsapi's `wildCardWithLeaders` shape: a wildCard record
-# holding the race, plus one divisionLeaders record per division.
-AL_RESPONSE = {
-    "records": [
-        {
-            "standingsType": "wildCard",
-            "league": {"id": 103},
-            "teamRecords": [
-                # Deliberately out of rank order, and with a tie on win
-                # percentage between ranks 2 and 3, so the test fails if the
-                # code re-sorts by record instead of honouring wildCardRank.
-                team_record("Boston Red Sox", "BOS", 75, 63, ".543", "American League East",
-                            wc_rank="3", wc_gb="0.5"),
-                team_record("New York Yankees", "NYY", 78, 60, ".565", "American League East",
-                            wc_rank="1", wc_gb="+8.5"),
-                team_record("Seattle Mariners", "SEA", 75, 63, ".543", "American League West",
-                            wc_rank="2", wc_gb="-"),
-                team_record("Detroit Tigers", "DET", 63, 74, ".460", "American League Central",
-                            wc_rank="4", wc_gb="6.0"),
-            ],
-        },
-        {
-            "standingsType": "divisionLeaders",
-            "league": {"id": 103},
-            "teamRecords": [team_record("Tampa Bay Rays", "TB", 82, 55, ".599",
-                                        "American League East")],
-        },
-        {
-            "standingsType": "divisionLeaders",
-            "league": {"id": 103},
-            "teamRecords": [team_record("Houston Astros", "HOU", 70, 68, ".507",
-                                        "American League West")],
-        },
-    ]
-}
+# Three leaders + four in the race. Ranks 2 and 3 are tied on win percentage and
+# listed out of order, so the test fails if the code re-sorts by record.
+RACE = [
+    entry(1, "Boston Red Sox", "BOS", 75, 63, 0.543, seed=3, gb="0.5"),
+    entry(2, "New York Yankees", "NYY", 78, 60, 0.565, seed=1, gb="+8.5"),
+    entry(3, "Seattle Mariners", "SEA", 75, 63, 0.543, seed=2, gb="-"),
+    entry(4, "Detroit Tigers", "DET", 63, 74, 0.460, seed=4, gb="6.0"),
+]
+LEADERS = [
+    entry(10, "Tampa Bay Rays", "TB", 82, 55, 0.599),
+    entry(11, "Houston Astros", "HOU", 70, 68, 0.507),
+    entry(12, "Chicago White Sox", "CHW", 72, 65, 0.526),
+]
+
+
+def league(name, entries):
+    return {"name": name, "standings": {"entries": entries}}
+
+
+RACE_PAYLOAD = {"children": [league("American League", RACE)]}
+OVERALL_PAYLOAD = {"children": [league("American League", RACE + LEADERS)]}
 
 
 class FakeResponse:
@@ -80,24 +71,30 @@ class FakeResponse:
         return self._payload
 
 
-def fetch(payload, status_code=200):
-    with patch("espn_api.requests.get", return_value=FakeResponse(payload, status_code)):
+def fetch(race=RACE_PAYLOAD, overall=OVERALL_PAYLOAD, status_code=200):
+    """The code issues the type=1 request first, then the default one."""
+    responses = [FakeResponse(race, status_code), FakeResponse(overall, status_code)]
+    with patch("espn_api.requests.get", side_effect=responses):
         return espn_api.get_mlb_wildcard_standings()
 
 
-def test_division_leaders_come_first_and_are_labelled():
-    al = fetch(AL_RESPONSE)["AL"]
+def test_division_leaders_are_whoever_the_wildcard_table_omits():
+    al = fetch()["AL"]
     leaders = [t for t in al if t["wc_position"] == "-"]
 
-    assert [t["team_name"] for t in leaders] == ["Tampa Bay Rays", "Houston Astros"]
-    assert al[:2] == leaders, "leaders must sort ahead of the race"
-    assert leaders[0]["wc_status"] == "AL East leader"
-    assert leaders[1]["wc_status"] == "AL West leader"
+    # Sorted by record, best first.
+    assert [t["team_name"] for t in leaders] == [
+        "Tampa Bay Rays", "Chicago White Sox", "Houston Astros",
+    ]
+    assert al[:3] == leaders, "leaders must sort ahead of the race"
+    assert [t["wc_status"] for t in leaders] == [
+        "AL East leader", "AL Central leader", "AL West leader",
+    ]
 
 
-def test_race_keeps_mlb_rank_not_win_percentage():
-    """Ranks 2 and 3 are tied on record; MLB's order must survive."""
-    race = [t for t in fetch(AL_RESPONSE)["AL"] if t["wc_position"] != "-"]
+def test_race_keeps_espn_seed_not_win_percentage():
+    """Seeds 2 and 3 are tied on record; ESPN's order must survive."""
+    race = [t for t in fetch()["AL"] if t["wc_position"] != "-"]
 
     assert [t["wc_position"] for t in race] == ["1", "2", "3", "4"]
     assert [t["team_name"] for t in race] == [
@@ -106,24 +103,26 @@ def test_race_keeps_mlb_rank_not_win_percentage():
 
 
 def test_only_the_top_three_are_marked_as_holding_a_spot():
-    race = [t for t in fetch(AL_RESPONSE)["AL"] if t["wc_position"] != "-"]
+    race = [t for t in fetch()["AL"] if t["wc_position"] != "-"]
 
     assert [t["wc_status"] for t in race[:3]] == ["Wild card 1", "Wild card 2", "Wild card 3"]
     assert race[3]["wc_status"] == "", "4th place must not read as being in"
 
 
-def test_wildcard_games_back_is_used_not_division_games_back():
-    race = {t["team_name"]: t for t in fetch(AL_RESPONSE)["AL"] if t["wc_position"] != "-"}
+def test_games_back_is_the_wildcard_race_not_the_division_race():
+    al = fetch()["AL"]
+    race = {t["team_name"]: t for t in al if t["wc_position"] != "-"}
 
     assert race["New York Yankees"]["games_back"] == "+8.5"
     assert race["Seattle Mariners"]["games_back"] == "-"
+    # divisionGamesBehind is 99.0 in every fixture row; it must never leak through.
+    assert all(t["games_back"] != "99.0" for t in al)
     # Division leaders have no wild card deficit to show.
-    leaders = [t for t in fetch(AL_RESPONSE)["AL"] if t["wc_position"] == "-"]
-    assert all(t["games_back"] == "-" for t in leaders)
+    assert all(t["games_back"] == "-" for t in al if t["wc_position"] == "-")
 
 
 def test_row_carries_the_fields_the_standings_table_reads():
-    row = fetch(AL_RESPONSE)["AL"][0]
+    row = fetch()["AL"][0]
 
     for key in ("team_name", "wins", "losses", "win_percentage", "games_back",
                 "streak", "division", "wc_position", "wc_status"):
@@ -133,19 +132,19 @@ def test_row_carries_the_fields_the_standings_table_reads():
     assert row["streak"] == "W1"
 
 
-def test_league_with_no_records_is_omitted():
-    result = fetch(AL_RESPONSE)
+def test_league_with_no_race_entries_is_omitted():
+    result = fetch()
     assert "AL" in result
     assert "NL" not in result, "an empty league should not produce an empty tab"
 
 
 @pytest.mark.parametrize("payload,status", [
-    ({"records": []}, 200),
+    ({"children": []}, 200),
     ({}, 200),
-    ({"records": []}, 500),
+    ({"children": []}, 500),
 ])
 def test_failures_return_empty_rather_than_raising(payload, status):
-    assert fetch(payload, status) == {}
+    assert fetch(race=payload, overall=payload, status_code=status) == {}
 
 
 def test_network_error_returns_empty():
@@ -153,6 +152,9 @@ def test_network_error_returns_empty():
         assert espn_api.get_mlb_wildcard_standings() == {}
 
 
-def test_unknown_league_id_is_ignored():
-    payload = {"records": [dict(AL_RESPONSE["records"][0], league={"id": 999})]}
-    assert fetch(payload) == {}
+def test_missing_leaders_still_produces_the_race():
+    """If the default standings call returns nothing usable, show the race alone
+    rather than dropping the tab entirely."""
+    al = fetch(overall={"children": [league("American League", [])]})["AL"]
+    assert len(al) == 4
+    assert all(t["wc_position"] != "-" for t in al)

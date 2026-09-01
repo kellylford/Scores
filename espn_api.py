@@ -113,128 +113,135 @@ def _swap_to_fbs(url):
     return url.replace(f"groups={NCAAF_COVERAGE_GROUPS['all_d1']}",
                        f"groups={NCAAF_COVERAGE_GROUPS['fbs']}")
 
-# MLB's own API, the only source for the official wild card race. ESPN's
-# standings feed carries no wild card grouping at all, and deriving one from win
-# percentage would get MLB's tiebreakers wrong — statsapi publishes the official
-# `wildCardRank` and `wildCardGamesBack` directly.
-MLB_STATS_BASE = "https://statsapi.mlb.com/api/v1"
-MLB_LEAGUE_IDS = {"AL": 103, "NL": 104}
+# ESPN's standings endpoint takes a `type=` parameter that selects which table
+# it returns. type=1 is the wild card view: the 12 non-division-leaders per
+# league, with `playoffSeed` as the wild card rank and `gamesBehind` as games
+# back of the last spot. The three teams present in the default (type=0)
+# standings but absent from type=1 are exactly the division leaders.
+MLB_STANDINGS_URL = "https://site.api.espn.com/apis/v2/sports/baseball/mlb/standings"
+MLB_STANDINGS_TYPE_WILDCARD = 1
 
 # Number of wild card berths per league.
 MLB_WILDCARD_SPOTS = 3
 
 
-def _short_division_name(full_name):
-    """'American League East' -> 'AL East', matching the division tab labels."""
-    return (full_name or "").replace("American League", "AL").replace("National League", "NL")
+def _mlb_stat(entry, name, default=""):
+    """Display value of a named stat on an ESPN standings entry."""
+    for stat in entry.get("stats", []):
+        if stat.get("name") == name:
+            return stat.get("displayValue", default)
+    return default
 
 
-def _mlb_wildcard_team(record, status, position, games_back):
-    """Normalise one statsapi teamRecord into the dict the standings table wants."""
-    team = record.get("team", {}) or {}
-    league_rec = record.get("leagueRecord", {}) or {}
-    wins = league_rec.get("wins", 0)
-    losses = league_rec.get("losses", 0)
+def _mlb_stat_value(entry, name, default=0.0):
+    for stat in entry.get("stats", []):
+        if stat.get("name") == name:
+            try:
+                return float(stat.get("value", default))
+            except (TypeError, ValueError):
+                return default
+    return default
+
+
+def _mlb_wildcard_team(entry, status, position, games_back):
+    """Normalise one ESPN standings entry into the dict the standings table wants."""
+    team = entry.get("team", {}) or {}
+    abbreviation = team.get("abbreviation", "")
+    league_name = "American" if abbreviation in _MLB_AL_ABBREVIATIONS else "National"
     return {
-        "team_name": team.get("name", "Unknown"),
+        "team_name": team.get("displayName", "Unknown"),
         "team_id": str(team.get("id", "")),
-        "abbreviation": team.get("abbreviation", ""),
-        "wins": wins,
-        "losses": losses,
-        "win_percentage": league_rec.get("pct", "0.000"),
+        "abbreviation": abbreviation,
+        "wins": int(_mlb_stat_value(entry, "wins")),
+        "losses": int(_mlb_stat_value(entry, "losses")),
+        "win_percentage": _mlb_stat(entry, "winPercent", "0.000"),
         "games_back": games_back,
-        "streak": (record.get("streak") or {}).get("streakCode", ""),
-        "division": _short_division_name((team.get("division") or {}).get("name", "")),
+        "streak": _mlb_stat(entry, "streak", "-"),
+        "division": _get_team_division(abbreviation, league_name),
         "wc_position": position,
         "wc_status": status,
-        "clinched": bool(record.get("clinched")),
     }
+
+
+_MLB_AL_ABBREVIATIONS = {
+    "BAL", "BOS", "NYY", "TB", "TOR", "CHW", "CLE", "DET", "KC", "MIN",
+    "HOU", "LAA", "OAK", "ATH", "SEA", "TEX",
+}
 
 
 def get_mlb_wildcard_standings():
     """Current MLB wild card picture, as {"AL": [...], "NL": [...]}.
 
     Each league's list is in display order: the three division leaders first
-    (already holding a playoff spot), then the 12-team wild card race ordered by
-    MLB's official `wildCardRank`. The top three of that race hold the wild card
+    (already holding a playoff spot), then the 12-team wild card race in ESPN's
+    published `playoffSeed` order. The top three of that race hold the wild card
     berths; each team carries a `wc_status` saying which of those it is, so the
     playoff cut line is spoken rather than drawn.
 
     Returns {} on any failure, which the caller renders as "unavailable".
     """
     try:
-        resp = requests.get(
-            f"{MLB_STATS_BASE}/standings",
-            params={
-                "leagueId": "103,104",
-                "standingsTypes": "wildCardWithLeaders",
-                "hydrate": "team",
-            },
+        race_resp = requests.get(
+            MLB_STANDINGS_URL,
+            params={"type": MLB_STANDINGS_TYPE_WILDCARD},
             timeout=15,
         )
-        if resp.status_code != 200:
+        overall_resp = requests.get(MLB_STANDINGS_URL, timeout=15)
+        if race_resp.status_code != 200 or overall_resp.status_code != 200:
             return {}
-        records = resp.json().get("records", [])
+        race_leagues = race_resp.json().get("children", [])
+        overall_leagues = overall_resp.json().get("children", [])
     except Exception as e:
         print(f"[WARNING] MLB wild card standings unavailable: {e}")
         return {}
 
-    leaders = {"AL": [], "NL": []}
-    race = {"AL": [], "NL": []}
-    id_to_key = {v: k for k, v in MLB_LEAGUE_IDS.items()}
-
-    for record in records:
-        key = id_to_key.get((record.get("league") or {}).get("id"))
-        if not key:
-            continue
-        kind = record.get("standingsType")
-        for team_record in record.get("teamRecords", []):
-            if kind == "divisionLeaders":
-                division = _short_division_name(
-                    ((team_record.get("team") or {}).get("division") or {}).get("name", ""))
-                leaders[key].append(_mlb_wildcard_team(
-                    team_record,
-                    status=f"{division} leader" if division else "Division leader",
-                    position="-",
-                    games_back="-",
-                ))
-            elif kind == "wildCard":
-                try:
-                    rank = int(team_record.get("wildCardRank") or 0)
-                except (TypeError, ValueError):
-                    rank = 0
-                race[key].append((rank, team_record))
+    overall_by_league = {
+        lg.get("name", ""): (lg.get("standings", {}) or {}).get("entries", [])
+        for lg in overall_leagues
+    }
 
     result = {}
-    for key in ("AL", "NL"):
-        # Division leaders sort by record; the race keeps MLB's official rank.
-        ordered_leaders = sorted(
-            leaders[key],
-            key=lambda t: (_safe_float(t.get("win_percentage")), t.get("wins", 0)),
-            reverse=True,
-        )
+    for league in race_leagues:
+        league_name = league.get("name", "")
+        key = "AL" if league_name.startswith("American") else "NL"
+        race_entries = (league.get("standings", {}) or {}).get("entries", [])
+        if not race_entries:
+            continue
+
+        # Division leaders are whoever the wild card table leaves out.
+        race_ids = {e.get("team", {}).get("id") for e in race_entries}
+        leaders = [e for e in overall_by_league.get(league_name, [])
+                   if e.get("team", {}).get("id") not in race_ids]
+
+        ordered_leaders = []
+        for entry in sorted(leaders,
+                            key=lambda e: _mlb_stat_value(e, "winPercent"),
+                            reverse=True):
+            division = _get_team_division(
+                entry.get("team", {}).get("abbreviation", ""),
+                "American" if key == "AL" else "National")
+            ordered_leaders.append(_mlb_wildcard_team(
+                entry,
+                status=f"{division} leader" if division else "Division leader",
+                position="-",
+                games_back="-",
+            ))
+
         ordered_race = []
-        for rank, team_record in sorted(race[key], key=lambda pair: pair[0]):
-            if rank and rank <= MLB_WILDCARD_SPOTS:
-                status = f"Wild card {rank}"
-            else:
-                status = ""
+        for entry in sorted(race_entries,
+                            key=lambda e: _mlb_stat_value(e, "playoffSeed", 99)):
+            rank = int(_mlb_stat_value(entry, "playoffSeed"))
+            status = f"Wild card {rank}" if 0 < rank <= MLB_WILDCARD_SPOTS else ""
             ordered_race.append(_mlb_wildcard_team(
-                team_record,
+                entry,
                 status=status,
                 position=str(rank) if rank else "-",
-                games_back=team_record.get("wildCardGamesBack", "-"),
+                games_back=_mlb_stat(entry, "gamesBehind", "-"),
             ))
+
         if ordered_leaders or ordered_race:
             result[key] = ordered_leaders + ordered_race
     return result
-
-
-def _safe_float(value):
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return -1.0
 
 
 def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season=None):

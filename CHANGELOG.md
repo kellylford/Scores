@@ -28,14 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of the standings screen. Both load only when first opened, so the divisions
   view is never held up by the extra request.
 
-  The data comes from MLB's own API (`statsapi.mlb.com`), whose
-  `wildCardWithLeaders` request returns the division leaders and the race
-  together with the ranks and games-back already named for the purpose. ESPN can
-  also produce wild card standings, via `type=1` on the standings endpoint the
-  apps already call; that route needs a second request for the leaders. Either
-  source gives the same numbers — the published rank is used rather than a
-  win-percentage sort so that teams tied on record land in a deterministic,
-  official order.
+  The data comes from ESPN's standings endpoint the apps already call, with
+  `type=1`, which returns the wild card table directly. Division leaders are the
+  three teams it omits. ESPN's published seed is used rather than a
+  win-percentage sort, so teams tied on record land in a deterministic, official
+  order — four pairs are tied as of this writing.
 
 - **Football week views list completed games before upcoming ones.** A week spans
   played and unplayed days at once, so with upcoming first a Saturday's finished
