@@ -24,8 +24,39 @@ https://site.api.espn.com/apis/site/v2/sports
 
 ### 1. Scoreboard
 **Endpoint:** `/{league_path}/scoreboard`
-**Optional Parameters:** `?dates=YYYYMMDD`
+**Optional Parameters:** `?dates=YYYYMMDD`, `?groups=` and `?limit=` (college football — see below)
 **Purpose:** Get current or historical scores for a league
+
+#### College football: `groups=` and `limit=` are mandatory
+
+An unqualified college-football scoreboard call does **not** return the full
+slate, and it fails silently in two different ways:
+
+- **No `groups=`, no `dates=`** — ESPN truncates the response to its 25-game
+  featured set. `limit=` alone does not lift this.
+- **No `groups=`, with `dates=`** — you get FBS only.
+
+`groups=` selects the division: `80` is FBS (I-A), `90` is all of Division I,
+FBS plus FCS. The gap is largest on opening weekend, which is mostly FCS —
+Saturday 29 August 2026 returned 8 games under `groups=80` and 48 under
+`groups=90`.
+
+`limit=` must also be sent, and **must not exceed 500**. ESPN does not clamp a
+larger value: it rejects the request and serves the same 25-game default, so
+`limit=1000` is strictly worse than sending no limit at all. Without any limit,
+an all-Division-I week pages off at 200 of its ~207 games.
+
+Measured for week 1 of the 2026 season:
+
+| Query | Games |
+|---|---|
+| *(no parameters)* | 25 |
+| `groups=80&limit=500` | 99 |
+| `groups=90&limit=500` | 209 |
+| `groups=90&limit=1000` | 25 |
+
+Both apps expose this as a user setting (`ncaaf_coverage` on Windows,
+`NCAAFCoverage` on iOS), defaulting to all of Division I.
 
 #### Response Structure
 ```json
@@ -264,6 +295,8 @@ Venue, weather, attendance, and officials information.
 - Quarter-by-quarter scoring
 - Extensive statistical categories
 - Injury reports are crucial for fantasy/betting
+- NCAAF scoreboard calls must carry `groups=` and `limit=` or most of the slate
+  is silently dropped — see "College football" under Scoreboard above
 
 ### Basketball (NBA/WNBA/NCAAM)
 - Real-time scoring updates

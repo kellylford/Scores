@@ -44,16 +44,44 @@ class ESPNAPIService {
     private func coreLeagueName(for sport: Sport) -> String {
         sport == .nfl ? "nfl" : "college-football"
     }
+
+    // MARK: - College football scoreboard parameters
+
+    /// ESPN caps `limit` at 500 on the scoreboard. Larger values are not merely
+    /// clamped — the request is rejected and ESPN serves its 25-game featured
+    /// default instead, which is the very truncation this parameter exists to lift.
+    private static let ncaafScoreboardLimit = 500
+
+    /// Extra scoreboard query parameters that give college football its full slate.
+    /// Empty for every other sport, which ESPN already returns in full.
+    ///
+    /// NCAAF needs both parts. `groups=` picks the division: without it an
+    /// undated scoreboard call collapses to 25 featured games and a `dates=`
+    /// call returns FBS only, so on an FCS-heavy opening weekend most of the
+    /// slate never arrives. `limit=` then lifts the page size far enough to
+    /// hold a whole week (a Division I week runs past 200 games).
+    private func ncaafScoreboardParams(for sport: Sport,
+                                       coverage: NCAAFCoverage?) -> [String] {
+        guard sport == .ncaaf else { return [] }
+        let coverage = coverage ?? NCAAFCoverage.stored
+        return ["groups=\(coverage.espnGroupsID)", "limit=\(Self.ncaafScoreboardLimit)"]
+    }
     
     // MARK: - Fetch Games (non-football, optional date)
 
-    func fetchGames(for sport: Sport, date: Date? = nil) async throws -> [Game] {
-        var urlString = "\(baseURL)/\(sport.apiPath)/scoreboard"
+    func fetchGames(for sport: Sport,
+                    date: Date? = nil,
+                    ncaafCoverage: NCAAFCoverage? = nil) async throws -> [Game] {
+        var params: [String] = []
         if let date = date {
             let fmt = DateFormatter()
             fmt.dateFormat = "yyyyMMdd"
-            urlString += "?dates=\(fmt.string(from: date))"
+            params.append("dates=\(fmt.string(from: date))")
         }
+        params += ncaafScoreboardParams(for: sport, coverage: ncaafCoverage)
+
+        var urlString = "\(baseURL)/\(sport.apiPath)/scoreboard"
+        if !params.isEmpty { urlString += "?" + params.joined(separator: "&") }
         guard let url = URL(string: urlString) else { throw APIError.invalidURL }
 
         let (data, response) = try await session.data(from: url)
@@ -88,8 +116,11 @@ class ESPNAPIService {
     /// instead, which during the preseason means the last completed regular
     /// season shows up in place of the games about to be played.  Explicit weeks
     /// go through `fetchFootballWeek` and its date-range query instead.
-    func fetchFootballGames(for sport: Sport) async throws -> FootballScoreboardResult {
-        let urlString = "\(baseURL)/\(sport.apiPath)/scoreboard"
+    func fetchFootballGames(for sport: Sport,
+                            ncaafCoverage: NCAAFCoverage? = nil) async throws -> FootballScoreboardResult {
+        var urlString = "\(baseURL)/\(sport.apiPath)/scoreboard"
+        let params = ncaafScoreboardParams(for: sport, coverage: ncaafCoverage)
+        if !params.isEmpty { urlString += "?" + params.joined(separator: "&") }
         guard let url = URL(string: urlString) else { throw APIError.invalidURL }
 
         let (data, response) = try await session.data(from: url)
@@ -217,7 +248,8 @@ class ESPNAPIService {
         sport: Sport,
         season: Int,
         seasonType: Int,
-        week: Int
+        week: Int,
+        ncaafCoverage: NCAAFCoverage? = nil
     ) async throws -> FootballScoreboardResult {
         // Step 1 — get the date range for this week (cached after first fetch).
         let weekCacheKey = "\(sport.rawValue)-\(season)-\(seasonType)-\(week)"
@@ -259,7 +291,10 @@ class ESPNAPIService {
         fmt.dateFormat = "yyyyMMdd"
         let startStr = fmt.string(from: weekRange.start)
         let endStr   = fmt.string(from: weekRange.end)
-        let scoreboardURLString = "\(baseURL)/\(sport.apiPath)/scoreboard?dates=\(startStr)-\(endStr)"
+        var scoreboardParams = ["dates=\(startStr)-\(endStr)"]
+        scoreboardParams += ncaafScoreboardParams(for: sport, coverage: ncaafCoverage)
+        let scoreboardURLString =
+            "\(baseURL)/\(sport.apiPath)/scoreboard?" + scoreboardParams.joined(separator: "&")
         guard let scoreboardURL = URL(string: scoreboardURLString) else { throw APIError.invalidURL }
 
         let (data, response) = try await session.data(from: scoreboardURL)

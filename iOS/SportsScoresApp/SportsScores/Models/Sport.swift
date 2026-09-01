@@ -312,3 +312,55 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
         }
     }
 }
+
+// MARK: - College Football Coverage
+
+/// How much of college football the scoreboard should ask ESPN for.
+///
+/// ESPN's `groups=` scoreboard parameter is what decides this, and leaving it
+/// off is *not* the same as asking for everything: an unqualified
+/// college-football scoreboard call is truncated to ESPN's 25-game featured
+/// set, and a `dates=` call returns FBS only. Both cases silently drop most of
+/// the slate — on FCS-heavy opening weekends they drop the large majority of it.
+enum NCAAFCoverage: String, CaseIterable, Identifiable {
+    /// Division I FBS only (`groups=80`) — matches the Windows app.
+    case fbs
+    /// All of Division I, FBS plus FCS (`groups=90`).
+    case allDivisionI
+
+    var id: String { rawValue }
+
+    /// The value to send as ESPN's `groups=` scoreboard parameter.
+    var espnGroupsID: String {
+        switch self {
+        case .fbs:          return "80"
+        case .allDivisionI: return "90"
+        }
+    }
+
+    var settingsLabel: String {
+        switch self {
+        case .fbs:          return "FBS only"
+        case .allDivisionI: return "All Division I"
+        }
+    }
+
+    var settingsDescription: String {
+        switch self {
+        case .fbs:
+            return "Football Bowl Subdivision only — the roughly 100 games a week most college football coverage means."
+        case .allDivisionI:
+            return "FBS and FCS together — around 200 games a week, and the only way to see most of opening weekend, which is largely FCS."
+        }
+    }
+}
+
+extension NCAAFCoverage {
+    /// The user's saved preference, read straight from `UserDefaults` so the
+    /// non-isolated API service can see it without a hop to the main actor.
+    /// `AppSettings.ncaafCoverage` writes the same key.
+    static var stored: NCAAFCoverage {
+        let raw = UserDefaults.standard.string(forKey: "ncaafCoverage") ?? ""
+        return NCAAFCoverage(rawValue: raw) ?? .allDivisionI
+    }
+}

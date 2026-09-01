@@ -181,6 +181,13 @@ struct UserGuideView: View {
                         .padding(.top, 8)
                     Text("Sets the default view mode for all tables (standings, rosters, box scores, stats). You can always override it per screen.")
 
+                    Text("**College Football**")
+                        .fontWeight(.semibold)
+                        .padding(.top, 8)
+                    Text("Chooses how much of the college football slate the scoreboard shows:")
+                    BulletPoint("**All Division I** — FBS and FCS together, around 200 games a week. Opening weekend is mostly FCS, so this is the only setting that shows it in full.")
+                    BulletPoint("**FBS only** — the roughly 100 games a week that most college football coverage means.")
+
                     Text("**Home Page Sports**")
                         .fontWeight(.semibold)
                         .padding(.top, 8)

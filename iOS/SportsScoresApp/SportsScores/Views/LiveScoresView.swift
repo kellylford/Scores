@@ -94,6 +94,10 @@ struct LiveScoresView: View {
             await viewModel.fetchAllGames()
             if appSettings.golfHubEnabled { await golfVM.fetch() }
         }
+        // Switching college football coverage changes the NCAAF slate ESPN returns.
+        .onChange(of: appSettings.ncaafCoverage) {
+            Task { await viewModel.refresh() }
+        }
         .task(id: appSettings.autoRefreshInterval) {
             while !Task.isCancelled {
                 let secs = appSettings.autoRefreshInterval.rawValue

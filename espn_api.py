@@ -32,6 +32,41 @@ LEAGUES = {
     "WWC2027":    "soccer/fifa.wwc",
 }
 
+# ESPN's `groups=` scoreboard parameter, per college football coverage setting.
+# 80 is the Football Bowl Subdivision; 90 is all of Division I, FBS plus FCS.
+NCAAF_COVERAGE_GROUPS = {
+    "fbs": "80",
+    "all_d1": "90",
+}
+
+# ESPN caps `limit` at 500 on the scoreboard. Larger values are not clamped —
+# the request is rejected and ESPN serves its 25-game featured default instead,
+# which is the very truncation the parameter exists to lift.
+NCAAF_SCOREBOARD_LIMIT = 500
+
+
+def ncaaf_scoreboard_params(league_key, coverage=None):
+    """Extra scoreboard query parameters that give NCAAF its full slate.
+
+    Returns [] for every other league, which ESPN already returns in full.
+
+    College football needs both parts. `groups=` picks the division: leave it
+    off and an undated scoreboard call collapses to 25 featured games, while a
+    `dates=` call returns FBS only — so on an FCS-heavy opening weekend most of
+    the slate never arrives. `limit=` then lifts the page size far enough to
+    hold a whole week (a Division I week runs past 200 games).
+
+    `coverage` overrides the user's setting; callers that filter the response
+    down to one team pass "all_d1" so the net is as wide as possible.
+    """
+    if league_key != "NCAAF":
+        return []
+    if coverage is None:
+        import settings
+        coverage = settings.get('ncaaf_coverage', 'all_d1')
+    group = NCAAF_COVERAGE_GROUPS.get(coverage, NCAAF_COVERAGE_GROUPS['all_d1'])
+    return [f"groups={group}", f"limit={NCAAF_SCOREBOARD_LIMIT}"]
+
 def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season=None):
     """Get a team's complete schedule using the dedicated team schedule endpoint"""
     from datetime import datetime, timedelta
@@ -134,11 +169,17 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
         start_str = start_date.strftime("%Y%m%d")
         end_str = end_date.strftime("%Y%m%d")
         url = f"{BASE_URL}/{league_path}/scoreboard?dates={start_str}-{end_str}"
-        
-        # Add groups=80 for NCAAF to get complete Division 1 coverage
-        if league_key == "NCAAF":
-            url += "&groups=80"
-            
+
+        # Unreachable for NCAAF today — it is handled by the dedicated
+        # /teams/{id}/schedule endpoint above, which needs no division filter and
+        # already works for FCS teams. Kept as a guard in case that ever changes:
+        # widest coverage regardless of the user's setting, because the response
+        # is filtered down to one team anyway and FBS-only would return nothing
+        # at all for an FCS team.
+        extra = ncaaf_scoreboard_params(league_key, coverage="all_d1")
+        if extra:
+            url += "&" + "&".join(extra)
+
         return parse_schedule_from_api(url, team_id, datetime.now(), season)
     
     # NCAAF fallback: if current year has no games, try previous year with seasontype=2
@@ -402,11 +443,11 @@ def get_live_scores_all_sports():
                 
             # Use scoreboard endpoint for better live game detection, especially for NCAAF
             url = f"{BASE_URL}/{league_path}/scoreboard"
-            
-            # Add NCAAF-specific parameters for complete Division 1 coverage
-            if league_key == "NCAAF":
-                url += "?groups=80"
-                
+
+            extra = ncaaf_scoreboard_params(league_key)
+            if extra:
+                url += "?" + "&".join(extra)
+
             resp = requests.get(url)
             if resp.status_code != 200:
                 continue
@@ -956,9 +997,7 @@ def get_scores(league_key, date=None, week=None, seasontype=None, season=None):
     # Add seasontype parameter (2=regular season, 3=postseason)
     if seasontype is not None:
         params.append(f"seasontype={seasontype}")
-    # Add groups=80 for NCAAF to get complete Division 1 coverage
-    if league_key == "NCAAF":
-        params.append("groups=80")
+    params += ncaaf_scoreboard_params(league_key)
     if params:
         url += "?" + "&".join(params)
 
