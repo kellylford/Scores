@@ -13,11 +13,26 @@ struct StandingsGroup: Identifiable {
     let entries: [StandingsEntry]
 }
 
+/// A team's place in the wild card picture.
+///
+/// `nil` on ordinary division standings. The playoff cut line lives in `status`
+/// rather than being drawn, so VoiceOver speaks who is in.
+struct WildCardStanding {
+    /// "-" for a division leader, otherwise MLB's official wild card rank.
+    let position: String
+    /// "AL East leader", "Wild card 1", or "" for teams outside the spots.
+    let status: String
+    /// Games back of the last wild card spot ("+8.5", "-", "0.5").
+    let gamesBack: String
+}
+
 struct StandingsEntry: Identifiable {
     let id = UUID()
     let rank: Int
     let team: TeamInfo
     let stats: StandingsStats
+    /// Set only on wild card standings; nil for division/conference groups.
+    var wildCard: WildCardStanding? = nil
     
     struct TeamInfo {
         let id: String
@@ -109,6 +124,7 @@ extension StandingsEntry {
             apiEntry.stats.first(where: { $0.name == name })
         }
         let t = apiEntry.team
+        self.wildCard = nil
         self.rank = Int(stat("rank")?.value ?? 0)
         self.team = TeamInfo(
             id: t.id, name: t.name, abbreviation: t.abbreviation,

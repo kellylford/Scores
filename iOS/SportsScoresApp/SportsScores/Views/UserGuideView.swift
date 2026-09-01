@@ -54,7 +54,7 @@ struct UserGuideView: View {
                         .padding(.top, 8)
                     Text("Five tabs appear along the bottom of each sport screen:")
                     BulletPoint("**Scores** — games for the selected date, grouped by status")
-                    BulletPoint("**Standings** — division or conference table")
+                    BulletPoint("**Standings** — division or conference table. For MLB, a Divisions / Wild Card control at the top switches to the playoff picture: each league's three division leaders, then the wild card race in MLB's official order, with the teams currently holding a spot marked \"Wild card 1, 2, 3\".")
                     BulletPoint("**News** — recent headlines")
                     BulletPoint("**Stats** — league statistical leaders")
                     BulletPoint("**Polls** — AP and Coaches rankings; college sports only, when available")

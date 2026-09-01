@@ -59,7 +59,7 @@ from services.venue_service import venue_service
 from models.game import GameData
 from models.news import NewsData
 from models.standings import StandingsData
-from accessible_table import AccessibleTable, StandingsTable, LeadersTable, BoxscoreTable, InjuryTable
+from accessible_table import AccessibleTable, StandingsTable, WildCardTable, LeadersTable, BoxscoreTable, InjuryTable
 
 # Text processing utilities
 try:
@@ -6804,7 +6804,71 @@ class GameDetailsView(BaseView):
             # For all other keys, use BaseView's handling
             super().keyPressEvent(event)
 
-class StandingsDetailDialog(QDialog):
+class WildCardTabsMixin:
+    """Adds the MLB wild card tabs to a standings dialog that shows division tabs.
+
+    The two tabs sit after the six division ones and are filled the first time a
+    user opens one, so the divisions people usually want are never held up by a
+    second network call. Requires `self.tab_widget` and `self.league`.
+    """
+
+    WILDCARD_TABS = (("AL", "AL Wild Card"), ("NL", "NL Wild Card"))
+
+    def _build_wildcard_tabs(self):
+        self._wildcard_tabs = {}
+        if self.league != "MLB" or not self.tab_widget:
+            return
+        for league_key, label in self.WILDCARD_TABS:
+            placeholder = QWidget()
+            placeholder_layout = QVBoxLayout()
+            loading = QLabel("Loading wild card standings...")
+            loading.setAccessibleName(f"{label} loading")
+            placeholder_layout.addWidget(loading)
+            placeholder.setLayout(placeholder_layout)
+            index = self.tab_widget.addTab(placeholder, label)
+            self._wildcard_tabs[index] = [league_key, label, False]
+        self.tab_widget.currentChanged.connect(self._on_standings_tab_changed)
+
+    def _on_standings_tab_changed(self, index: int):
+        """Fill a wild card tab the first time the user opens it."""
+        entry = getattr(self, "_wildcard_tabs", {}).get(index)
+        if not entry or entry[2]:
+            return
+        league_key, label, _ = entry
+        entry[2] = True
+
+        cache = DataCache()
+        wildcard = cache.get_mlb_wildcard()
+        if wildcard is None:
+            wildcard = ApiService.get_mlb_wildcard_standings()
+            if wildcard:
+                cache.set_mlb_wildcard(wildcard)
+
+        container = self.tab_widget.widget(index)
+        container_layout = container.layout()
+        while container_layout.count():
+            item = container_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+
+        teams = (wildcard or {}).get(league_key) or []
+        if not teams:
+            # Leave the tab loaded-but-empty rather than retrying on every visit;
+            # reopening the dialog gets a fresh attempt.
+            message = QLabel("Wild card standings are unavailable right now.")
+            message.setAccessibleName(f"{label} unavailable")
+            container_layout.addWidget(message)
+            return
+
+        table = WildCardTable(parent=self, division_name=label)
+        table.populate_standings(teams, set_focus=True)
+        container_layout.addWidget(table)
+        container.table = table  # type: ignore[attr-defined]
+        table.setFocus()
+
+
+class StandingsDetailDialog(WildCardTabsMixin, QDialog):
     """Dialog for displaying team standings from game details with keyboard navigation"""
     
     def __init__(self, standings_data: List, league: str, parent=None):
@@ -6865,6 +6929,9 @@ class StandingsDetailDialog(QDialog):
             if teams:
                 tab = self._create_division_table(name, teams)
                 self.tab_widget.addTab(tab, name)
+
+        self._build_wildcard_tabs()
+
         layout.addWidget(self.tab_widget)
         if self.tab_widget.count():
             first = self.tab_widget.widget(0)
@@ -8158,6 +8225,19 @@ class DataCache:
         """Cache standings data"""
         key = f"standings_{league}"
         self.standings_cache[key] = (data, time.time())
+
+    def get_mlb_wildcard(self):
+        """Get cached MLB wild card standings, or None when stale/absent."""
+        entry = self.standings_cache.get("mlb_wildcard")
+        if entry:
+            data, timestamp = entry
+            if time.time() - timestamp < self.cache_timeout:
+                return data
+        return None
+
+    def set_mlb_wildcard(self, data):
+        """Cache MLB wild card standings."""
+        self.standings_cache["mlb_wildcard"] = (data, time.time())
     
     def get_schedule(self, team_id: str):
         """Get cached schedule data"""
@@ -8174,7 +8254,7 @@ class DataCache:
         self.schedule_cache[key] = (data, time.time())
 
 
-class StandingsDialog(QDialog):
+class StandingsDialog(WildCardTabsMixin, QDialog):
     """Dialog for displaying team standings (invoked from league view)"""
     
     def __init__(self, standings_data: List, league: str, parent=None):
@@ -8281,6 +8361,9 @@ class StandingsDialog(QDialog):
             if teams:
                 tab = self._create_division_table(name, teams)
                 self.tab_widget.addTab(tab, name)
+
+        self._build_wildcard_tabs()
+
         layout.addWidget(self.tab_widget)
         if self.tab_widget.count():
             first = self.tab_widget.widget(0)

@@ -326,6 +326,35 @@ Venue, weather, attendance, and officials information.
 
 ## Sport-Specific Considerations
 
+### Baseball (MLB) — wild card comes from MLB, not ESPN
+
+ESPN's standings feed (`apis/v2/.../baseball/mlb/standings`) returns only the two
+leagues, which the apps sub-divide into divisions themselves. There is **no wild
+card grouping in it at all**, and the `type=` parameter does not add one —
+`type=0`, `type=1`, `type=2` and no parameter all return the same AL/NL shape.
+
+The wild card race therefore comes from MLB's own API:
+
+```
+https://statsapi.mlb.com/api/v1/standings
+  ?leagueId=103,104&standingsTypes=wildCardWithLeaders&hydrate=team
+```
+
+- `103` = American League, `104` = National League.
+- `wildCardWithLeaders` returns one `wildCard` record per league (the 12
+  non-division-leaders) plus one `divisionLeaders` record per division.
+- Each team carries `wildCardRank` and `wildCardGamesBack`, which encode MLB's
+  official tiebreakers. **Do not re-sort by win percentage** — teams tie on
+  record regularly and the published order is the correct one.
+- `hydrate=team` is required for usable names: without it the team object is
+  just `{id, name}` with `name` being the club name ("Orioles"). With it you get
+  the full name ("Baltimore Orioles"), `abbreviation` and the division name.
+- `standingsTypes` also offers `divisionLeaders`, `byDivision`, `byLeague`,
+  `postseason` and others — `GET /api/v1/standingsTypes` lists them.
+
+Division ids: 200 AL West, 201 AL East, 202 AL Central, 203 NL West,
+204 NL East, 205 NL Central.
+
 ### Baseball (MLB)
 - Inning-by-inning scoring in boxscore
 - Pitching statistics are prominent

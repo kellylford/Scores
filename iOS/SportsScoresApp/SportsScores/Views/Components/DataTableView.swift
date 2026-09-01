@@ -152,15 +152,24 @@ struct DataTableView: View {
 struct StandingsTableView: View {
     let standingsGroups: [StandingsGroup]
     let sport: Sport
+    /// Wild card groups swap GB for wild-card GB and add the Status column that
+    /// carries the playoff cut line.
+    var isWildCard: Bool = false
     @State private var viewMode: ViewMode = .quickList
     @State private var showExpanded = false
     @EnvironmentObject private var appSettings: AppSettings
 
     // MARK: Column definitions
 
-    private var basicHeaders: [String] { ["Team", "W", "L", "PCT", "GB", "Streak"] }
+    private var basicHeaders: [String] {
+        isWildCard
+            ? ["Pos", "Team", "W", "L", "PCT", "WCGB", "Streak", "Status"]
+            : ["Team", "W", "L", "PCT", "GB", "Streak"]
+    }
 
     private var expandedHeaders: [String] {
+        // The wild card columns are the whole story; there is no wider variant.
+        if isWildCard { return basicHeaders }
         switch sport {
         case .mlb:  return ["Team", "W", "L", "PCT", "GB", "R", "RA", "Diff", "Home", "Road", "L10"]
         case .nfl:  return ["Team", "W", "L", "T", "PCT", "PF", "PA", "Diff", "Div", "Seed"]
@@ -174,6 +183,12 @@ struct StandingsTableView: View {
 
     private func rowData(for entry: StandingsEntry) -> [String] {
         let s = entry.stats
+        if let wc = entry.wildCard, isWildCard {
+            return [wc.position, entry.team.abbreviation,
+                    "\(s.wins)", "\(s.losses)",
+                    s.displayWinPercent, wc.gamesBack, s.streak,
+                    wc.status.isEmpty ? "-" : wc.status]
+        }
         if !showExpanded {
             return [entry.team.abbreviation,
                     "\(s.wins)", "\(s.losses)",
@@ -219,7 +234,11 @@ struct StandingsTableView: View {
     /// according to the user's team name setting.
     private func accessibleRowData(for entry: StandingsEntry) -> [String] {
         var cols = rowData(for: entry)
-        if !cols.isEmpty { cols[0] = entry.team.voiceOverName(for: appSettings.teamNamePreference) }
+        // Wild card rows lead with the position, so the team name is column 1.
+        let nameColumn = (isWildCard && entry.wildCard != nil) ? 1 : 0
+        if cols.count > nameColumn {
+            cols[nameColumn] = entry.team.voiceOverName(for: appSettings.teamNamePreference)
+        }
         return cols
     }
 
@@ -227,6 +246,12 @@ struct StandingsTableView: View {
     private func quickListAccessibilityLabel(for entry: StandingsEntry) -> String {
         let teamName = entry.team.voiceOverName(for: appSettings.teamNamePreference)
         let s = entry.stats
+        if let wc = entry.wildCard, isWildCard {
+            var label = "\(teamName), \(s.wins)-\(s.losses), \(s.displayWinPercent), "
+                + "wild card games back: \(wc.gamesBack)"
+            if !wc.status.isEmpty { label += ", \(wc.status)" }
+            return label
+        }
         var label = "\(teamName), \(s.wins)-\(s.losses), \(s.displayWinPercent), GB: \(s.gamesBack)"
         if let l10 = s.lastTenRecord { label += ", last 10: \(l10)" }
         return label
@@ -236,6 +261,12 @@ struct StandingsTableView: View {
     private func fullListAccessibilityLabel(for entry: StandingsEntry) -> String {
         let teamName = entry.team.voiceOverName(for: appSettings.teamNamePreference)
         let s = entry.stats
+        if let wc = entry.wildCard, isWildCard {
+            return "Position: \(wc.position); Team: \(teamName); Wins: \(s.wins); "
+                + "Losses: \(s.losses); Win%: \(s.displayWinPercent); "
+                + "Wild card games back: \(wc.gamesBack); Streak: \(s.streak); "
+                + "Status: \(wc.status.isEmpty ? "not in a playoff spot" : wc.status)"
+        }
         var label = "Rank: \(entry.rank); Team: \(teamName); Wins: \(s.wins); Losses: \(s.losses); Win%: \(s.displayWinPercent); Games Back: \(s.gamesBack); Streak: \(s.streak); Record: \(s.record)"
         if let l10 = s.lastTenRecord { label += "; Last 10: \(l10)" }
         return label

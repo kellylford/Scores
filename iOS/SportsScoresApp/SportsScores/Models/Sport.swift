@@ -152,6 +152,11 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
     /// (News, Stats) and the historical-season picker.
     var usesCFLSource: Bool { self == .cfl }
 
+    /// True where the standings screen offers a Divisions / Wild Card toggle.
+    /// MLB only — it is the sport whose wild card race MLB publishes officially,
+    /// via `MLBStatsAPIService`.
+    var hasWildCardStandings: Bool { self == .mlb }
+
     /// True for World Cup hub cases.
     var isWorldCup: Bool {
         self == .worldCup || self == .worldCupWomens

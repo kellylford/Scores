@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **MLB wild card standings.** The standings view could only show divisions, so
+  the playoff race — the thing most people are actually tracking in September —
+  was not visible anywhere. Each league now shows its three division leaders
+  followed by the 12-team wild card race, with the teams holding the three
+  berths marked "Wild card 1/2/3" rather than separated by a drawn line, so a
+  screen reader speaks the playoff cut instead of relying on a visual boundary.
+  On Windows this is two extra tabs, "AL Wild Card" and "NL Wild Card", beside
+  the six division tabs; on iOS it is a Divisions / Wild Card control at the top
+  of the standings screen. Both load only when first opened, so the divisions
+  view is never held up by the extra request.
+
+  The data comes from MLB's own API (`statsapi.mlb.com`) rather than ESPN, whose
+  standings feed carries no wild card grouping at all. That matters for
+  correctness: MLB publishes the official `wildCardRank` and
+  `wildCardGamesBack`, so its tiebreakers are preserved rather than approximated
+  by re-sorting on win percentage, which gets ties wrong.
+
 ### Fixed
 - **College football was missing most of the games played.** ESPN serves the two
   Division I halves separately through its `groups=` scoreboard parameter, and
