@@ -50,6 +50,10 @@ struct SettingsView: View {
                     Text(coverage.settingsLabel).tag(coverage)
                 }
             }
+            .accessibilityLabel("College football games shown")
+            .accessibilityHint("All Division I shows FBS and FCS together, around 200 games a week, "
+                               + "and is the only setting that shows opening weekend in full. "
+                               + "FBS only shows about 100 games a week.")
         } header: {
             Text("College Football")
         } footer: {

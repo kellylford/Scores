@@ -39,10 +39,13 @@ NCAAF_COVERAGE_GROUPS = {
     "all_d1": "90",
 }
 
-# ESPN caps `limit` at 500 on the scoreboard. Larger values are not clamped —
-# the request is rejected and ESPN serves its 25-game featured default instead,
-# which is the very truncation the parameter exists to lift.
-NCAAF_SCOREBOARD_LIMIT = 500
+# ESPN's college football scoreboard *doubles* `limit` internally on any query
+# that is not a `dates=A-B` range: limit=5 returns 10 events, limit=50 returns
+# 100. The effective (post-doubling) value must stay at or below 1000 — past
+# that the page size collapses to 25, so limit=501 is worse than limit=250.
+# 400 clears a 209-game Division I week on range queries while leaving the
+# doubled shapes at 800, comfortably inside the ceiling.
+NCAAF_SCOREBOARD_LIMIT = 400
 
 
 def ncaaf_scoreboard_params(league_key, coverage=None):
@@ -66,6 +69,32 @@ def ncaaf_scoreboard_params(league_key, coverage=None):
         coverage = settings.get('ncaaf_coverage', 'all_d1')
     group = NCAAF_COVERAGE_GROUPS.get(coverage, NCAAF_COVERAGE_GROUPS['all_d1'])
     return [f"groups={group}", f"limit={NCAAF_SCOREBOARD_LIMIT}"]
+
+
+def ncaaf_needs_fbs_retry(league_key, events, coverage=None):
+    """True when an empty NCAAF response should be retried as FBS.
+
+    ESPN returns *zero* events for a week-indexed postseason query under
+    `groups=90` — `seasontype=3&groups=90` is empty where `groups=80` has all 46
+    bowl games. That would blank the Bowls & Playoffs view, and the main
+    scoreboard too once ESPN rolls the current week into the postseason.
+
+    Since groups=90 is otherwise a strict superset of groups=80, an empty
+    all-Division-I response is never legitimately better than the FBS one, so
+    retrying costs nothing when the slate really is empty.
+    """
+    if league_key != "NCAAF" or events:
+        return False
+    if coverage is None:
+        import settings
+        coverage = settings.get('ncaaf_coverage', 'all_d1')
+    return coverage != 'fbs'
+
+
+def _swap_to_fbs(url):
+    """Rewrite an NCAAF scoreboard URL to ask for FBS instead of all Division I."""
+    return url.replace(f"groups={NCAAF_COVERAGE_GROUPS['all_d1']}",
+                       f"groups={NCAAF_COVERAGE_GROUPS['fbs']}")
 
 def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season=None):
     """Get a team's complete schedule using the dedicated team schedule endpoint"""
@@ -454,7 +483,12 @@ def get_live_scores_all_sports():
                 
             data = resp.json()
             events = data.get("events", [])
-            
+
+            if ncaaf_needs_fbs_retry(league_key, events):
+                retry = requests.get(_swap_to_fbs(url))
+                if retry.status_code == 200:
+                    events = retry.json().get("events", [])
+
             for event in events:
                 # Extract competition data (scoreboard endpoint structure)
                 competitions = event.get("competitions", [])
@@ -1006,6 +1040,13 @@ def get_scores(league_key, date=None, week=None, seasontype=None, season=None):
         return []
     data = resp.json()
     events = data.get("events", [])
+
+    if ncaaf_needs_fbs_retry(league_key, events):
+        retry = requests.get(_swap_to_fbs(url))
+        if retry.status_code == 200:
+            data = retry.json()
+            events = data.get("events", [])
+
     scores = []
 
     for event in events:

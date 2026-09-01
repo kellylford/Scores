@@ -322,11 +322,13 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
 /// college-football scoreboard call is truncated to ESPN's 25-game featured
 /// set, and a `dates=` call returns FBS only. Both cases silently drop most of
 /// the slate — on FCS-heavy opening weekends they drop the large majority of it.
+/// Cases are declared default-first: `allCases` drives the Settings picker, and
+/// the Windows combo and the user guide both list All Division I first.
 enum NCAAFCoverage: String, CaseIterable, Identifiable {
-    /// Division I FBS only (`groups=80`) — matches the Windows app.
-    case fbs
     /// All of Division I, FBS plus FCS (`groups=90`).
     case allDivisionI
+    /// Division I FBS only (`groups=80`).
+    case fbs
 
     var id: String { rawValue }
 
@@ -340,8 +342,8 @@ enum NCAAFCoverage: String, CaseIterable, Identifiable {
 
     var settingsLabel: String {
         switch self {
+        case .allDivisionI: return "All Division I (FBS and FCS)"
         case .fbs:          return "FBS only"
-        case .allDivisionI: return "All Division I"
         }
     }
 

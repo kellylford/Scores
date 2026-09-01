@@ -47,10 +47,13 @@ class ESPNAPIService {
 
     // MARK: - College football scoreboard parameters
 
-    /// ESPN caps `limit` at 500 on the scoreboard. Larger values are not merely
-    /// clamped — the request is rejected and ESPN serves its 25-game featured
-    /// default instead, which is the very truncation this parameter exists to lift.
-    private static let ncaafScoreboardLimit = 500
+    /// ESPN's college football scoreboard *doubles* `limit` internally on any
+    /// query that is not a `dates=A-B` range: limit=5 returns 10 events, limit=50
+    /// returns 100. The effective (post-doubling) value must stay at or below
+    /// 1000 — past that the page size collapses to 25, so limit=501 is worse than
+    /// limit=250. 400 clears a 209-game Division I week on range queries while
+    /// leaving the doubled shapes at 800, comfortably inside the ceiling.
+    private static let ncaafScoreboardLimit = 400
 
     /// Extra scoreboard query parameters that give college football its full slate.
     /// Empty for every other sport, which ESPN already returns in full.
@@ -65,6 +68,37 @@ class ESPNAPIService {
         guard sport == .ncaaf else { return [] }
         let coverage = coverage ?? NCAAFCoverage.stored
         return ["groups=\(coverage.espnGroupsID)", "limit=\(Self.ncaafScoreboardLimit)"]
+    }
+
+    /// Refetches an empty college football scoreboard as FBS, returning nil when
+    /// no retry applies or the retry also comes back empty.
+    ///
+    /// ESPN returns *zero* events for a week-indexed postseason query under
+    /// `groups=90` — `seasontype=3&groups=90` is empty where `groups=80` has all
+    /// 46 bowl games — so once ESPN rolls the current week into the postseason,
+    /// the undated scoreboard call would blank out entirely. Since `groups=90`
+    /// is otherwise a strict superset of `groups=80`, an empty all-Division-I
+    /// response is never legitimately better than the FBS one, and retrying
+    /// costs nothing when the slate really is empty.
+    private func ncaafFBSRetry(sport: Sport,
+                               coverage: NCAAFCoverage?,
+                               eventCount: Int,
+                               urlString: String) async -> ScoreboardResponse? {
+        guard sport == .ncaaf, eventCount == 0 else { return nil }
+        guard (coverage ?? NCAAFCoverage.stored) != .fbs else { return nil }
+
+        let fbsURLString = urlString.replacingOccurrences(
+            of: "groups=\(NCAAFCoverage.allDivisionI.espnGroupsID)",
+            with: "groups=\(NCAAFCoverage.fbs.espnGroupsID)")
+        guard let url = URL(string: fbsURLString) else { return nil }
+        guard let (data, response) = try? await session.data(from: url),
+              let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard let retry = try? decoder.decode(ScoreboardResponse.self, from: data),
+              !retry.events.isEmpty else { return nil }
+        return retry
     }
     
     // MARK: - Fetch Games (non-football, optional date)
@@ -90,7 +124,12 @@ class ESPNAPIService {
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let apiResponse = try decoder.decode(ScoreboardResponse.self, from: data)
+        var apiResponse = try decoder.decode(ScoreboardResponse.self, from: data)
+        if let retry = await ncaafFBSRetry(sport: sport, coverage: ncaafCoverage,
+                                           eventCount: apiResponse.events.count,
+                                           urlString: urlString) {
+            apiResponse = retry
+        }
         let seasonType = apiResponse.season?.type ?? 2
         return try apiResponse.events.map { try Game(from: $0, seasonType: seasonType) }
     }
@@ -129,7 +168,12 @@ class ESPNAPIService {
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let apiResponse = try decoder.decode(ScoreboardResponse.self, from: data)
+        var apiResponse = try decoder.decode(ScoreboardResponse.self, from: data)
+        if let retry = await ncaafFBSRetry(sport: sport, coverage: ncaafCoverage,
+                                           eventCount: apiResponse.events.count,
+                                           urlString: urlString) {
+            apiResponse = retry
+        }
         let resolvedSeasonType = apiResponse.season?.type ?? 2
         let resolvedSeason = apiResponse.season?.year ?? Calendar.current.component(.year, from: Date())
         let resolvedWeek = apiResponse.week?.number ?? 1
@@ -304,7 +348,12 @@ class ESPNAPIService {
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let apiResponse = try decoder.decode(ScoreboardResponse.self, from: data)
+        var apiResponse = try decoder.decode(ScoreboardResponse.self, from: data)
+        if let retry = await ncaafFBSRetry(sport: sport, coverage: ncaafCoverage,
+                                           eventCount: apiResponse.events.count,
+                                           urlString: scoreboardURLString) {
+            apiResponse = retry
+        }
         let games = try apiResponse.events.map { try Game(from: $0, seasonType: seasonType) }
 
         return FootballScoreboardResult(

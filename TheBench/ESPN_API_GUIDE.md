@@ -41,22 +41,62 @@ FBS plus FCS. The gap is largest on opening weekend, which is mostly FCS —
 Saturday 29 August 2026 returned 8 games under `groups=80` and 48 under
 `groups=90`.
 
-`limit=` must also be sent, and **must not exceed 500**. ESPN does not clamp a
-larger value: it rejects the request and serves the same 25-game default, so
-`limit=1000` is strictly worse than sending no limit at all. Without any limit,
-an all-Division-I week pages off at 200 of its ~207 games.
+`limit=` must also be sent, and its behaviour is genuinely strange. On any
+query that is **not** a `dates=A-B` range, the college football scoreboard
+*doubles* the limit internally — `limit=5` returns 10 events, `limit=50` returns
+100. The **effective** (post-doubling) value must stay at or below **1000**.
+Past that the page size collapses to 25, so `limit=501` on an undated query
+(501 x 2 = 1002) is worse than `limit=250`. Note this is a page-size collapse,
+not a rejection: the response is still HTTP 200 and `groups=`/`dates=` are still
+applied, you just get 25 rows. Without any limit at all, ESPN's default of 100
+doubles to 200, clipping an all-Division-I week at 200 of its 209 games.
+
+Both apps send `limit=400`: on range queries that clears a 209-game Division I
+week, and on doubled shapes it lands at 800, well inside the ceiling.
 
 Measured for week 1 of the 2026 season:
 
 | Query | Games |
 |---|---|
 | *(no parameters)* | 25 |
-| `groups=80&limit=500` | 99 |
-| `groups=90&limit=500` | 209 |
-| `groups=90&limit=1000` | 25 |
+| `groups=90` *(no limit)* | 200 |
+| `groups=80&limit=400` | 99 |
+| `groups=90&limit=400` | 209 |
+| `groups=90&limit=501` | 25 |
 
-Both apps expose this as a user setting (`ncaaf_coverage` on Windows,
+#### Postseason returns nothing under `groups=90`
+
+A **week-indexed** postseason query is empty unless you ask for FBS:
+
+| Query | Games |
+|---|---|
+| `seasontype=3` | 46 |
+| `seasontype=3&groups=80&limit=400` | 46 |
+| `seasontype=3&groups=90&limit=400` | **0** |
+
+Bowl games are all FBS, so there is nothing for `groups=90` to add, but ESPN
+returns an empty set rather than the FBS slate. Date-range queries are not
+affected (`dates=20251215-20260120&groups=90` returns the bowls). Both apps
+therefore retry an **empty** NCAAF response as `groups=80`; since `groups=90` is
+otherwise a strict superset, an empty all-Division-I response is never
+legitimately better than the FBS one.
+
+#### Group ids
+
+| id | Meaning |
+|---|---|
+| 80 | FBS |
+| 81 | FCS |
+| 90 | NCAA Division I (80 + 81 exactly) |
+| 35 | Division II/III |
+| 99 | All NCAA football (456 games in week 1) |
+
+Both apps expose 80 vs 90 as a user setting (`ncaaf_coverage` on Windows,
 `NCAAFCoverage` on iOS), defaulting to all of Division I.
+
+**Do not send `groups=` to the NFL** — `football/nfl?groups=80` returns 0 games.
+An NFL week is at most 16 games, under the 25-game default, so it needs neither
+parameter.
 
 #### Response Structure
 ```json

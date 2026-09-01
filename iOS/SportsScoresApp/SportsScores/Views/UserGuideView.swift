@@ -185,7 +185,7 @@ struct UserGuideView: View {
                         .fontWeight(.semibold)
                         .padding(.top, 8)
                     Text("Chooses how much of the college football slate the scoreboard shows:")
-                    BulletPoint("**All Division I** — FBS and FCS together, around 200 games a week. Opening weekend is mostly FCS, so this is the only setting that shows it in full.")
+                    BulletPoint("**All Division I** (the default) — FBS and FCS together, around 200 games a week. Opening weekend is mostly FCS, so this is the only setting that shows it in full.")
                     BulletPoint("**FBS only** — the roughly 100 games a week that most college football coverage means.")
 
                     Text("**Home Page Sports**")
