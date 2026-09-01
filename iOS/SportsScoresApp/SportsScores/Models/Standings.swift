@@ -43,7 +43,7 @@ struct StandingsEntry: Identifiable {
     let id = UUID()
     let rank: Int
     let team: TeamInfo
-    let stats: StandingsStats
+    var stats: StandingsStats
     /// Set only on wild card standings; nil for division/conference groups.
     var wildCard: WildCardStanding? = nil
     

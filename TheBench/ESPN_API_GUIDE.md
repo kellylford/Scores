@@ -382,41 +382,29 @@ is easy to miss — the difference is inside `children[].standings.name`:
 `type=1` is a genuine wild card table: `playoffSeed` is the wild card rank 1-12
 and `gamesBehind` is games back of the last spot, matching MLB's own numbers
 exactly. It also carries `magicNumberWildcard`, `wildCardPercent` and
-`clincher`, which statsapi does not expose as cleanly. It works for past seasons
-too. It returns only the 12 non-leaders, so division leaders still come from
-`type=0`.
+`clincher`. It works for past seasons too, and returns only the 12 non-leaders,
+so division leaders still come from `type=0`.
 
-**The apps use MLB's API instead**, because `wildCardWithLeaders` returns the
-leaders and the race in a single request with the fields already named for the
-purpose. That is a convenience choice, not a capability one — `type=1` would
-work, and is the option to reach for if the second host ever becomes a problem.
+**The apps use `type=1`.** Division leaders are not in it — but the three teams
+present in the default standings and absent from `type=1` are exactly the
+division leaders, so one extra call to the endpoint the app already uses covers
+them, with no second host involved.
 
-The MLB endpoint:
+Two things to watch when parsing it:
 
-```
-https://statsapi.mlb.com/api/v1/standings
-  ?leagueId=103,104&standingsTypes=wildCardWithLeaders&hydrate=team
-```
+- Use `gamesBehind`, **not** `divisionGamesBehind`. Both are present and they are
+  different races; the shared standings parser prefers the division one.
+- Sort on `playoffSeed`, not win percentage. Teams tie on record constantly (four
+  pairs are tied right now) and a naive sort leaves those ties in arbitrary
+  order; the published seed is deterministic and official.
 
-- `103` = American League, `104` = National League.
-- `wildCardWithLeaders` returns one `wildCard` record per league (the 12
-  non-division-leaders) plus one `divisionLeaders` record per division.
-- Each team carries `wildCardRank` and `wildCardGamesBack`. **Do not re-sort by
-  win percentage.** Across the 2022-2026 seasons the published rank never
-  actually contradicts a win-percentage sort — but teams tie on record
-  constantly (four pairs are tied right now), and a naive sort leaves those ties
-  in arbitrary order. Keeping the published rank makes the order deterministic
-  and correct without reimplementing the tiebreakers.
-- Each `wildCard` record also carries a `division` field (201 for the AL, 205
-  for the NL). It is meaningless — do not key on it.
-- `hydrate=team` is required for usable names: without it the team object is
-  just `{id, name}` with `name` being the club name ("Orioles"). With it you get
-  the full name ("Baltimore Orioles"), `abbreviation` and the division name.
-- `standingsTypes` also offers `divisionLeaders`, `byDivision`, `byLeague`,
-  `postseason` and others — `GET /api/v1/standingsTypes` lists them.
+`type=1` also carries `magicNumberWildcard`, `wildCardPercent`, `playoffPercent`
+and `clincher`, none of which the app shows yet. It works for past seasons too.
 
-Division ids: 200 AL West, 201 AL East, 202 AL Central, 203 NL West,
-204 NL East, 205 NL Central.
+MLB's own API (`statsapi.mlb.com`) can serve the same thing via
+`standingsTypes=wildCardWithLeaders`, which returns leaders and race in a single
+request. The app used that first and moved off it to avoid depending on a second
+host for one screen.
 
 ### Baseball (MLB)
 - Inning-by-inning scoring in boxscore

@@ -75,7 +75,7 @@ class StandingsViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         do {
-            wildCardGroups = try await MLBStatsAPIService.shared.fetchWildCardStandings()
+            wildCardGroups = try await apiService.fetchMLBWildCardStandings()
         } catch {
             errorMessage = "Failed to load wild card standings: \(error.localizedDescription)"
         }

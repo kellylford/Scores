@@ -94,7 +94,6 @@
 		ABE86BFE5705A55FA2190FA3 /* FantasyCheatsheetViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FC891E2C7550475309817F2 /* FantasyCheatsheetViewModel.swift */; };
 		AD2514C8D08879F4B4B46D8F /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B5D54CA4176A888905B0A8B /* SettingsView.swift */; };
 		B0A1FBA873B32E84234F9AE7 /* GolfLeagueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85D2E94CC351E76325953CA5 /* GolfLeagueView.swift */; };
-		B0F50398490439BE012DDAC1 /* MLBStatsAPIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C8A96EF1D9652D97CC9CD7D /* MLBStatsAPIService.swift */; };
 		B1098B418D22102B3F23481C /* RaceTrackTourView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 302423DD50CC2EE1ACEB231F /* RaceTrackTourView.swift */; };
 		B4010B138E30A62510C01960 /* ScoresViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDEC309880AB2ADBB9696E41 /* ScoresViewModel.swift */; };
 		B49424A188C213E59DF44F28 /* NewsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE41AFE532E985B250D0D3BE /* NewsView.swift */; };
@@ -185,7 +184,6 @@
 		6963D1A97994CF4846D3B0D5 /* GolfHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GolfHubView.swift; sourceTree = "<group>"; };
 		6A5FA8D25FA311C971D8333B /* SoccerHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoccerHubView.swift; sourceTree = "<group>"; };
 		6C11307240F1FBAB30B5A2E8 /* WorldCupViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldCupViewModel.swift; sourceTree = "<group>"; };
-		6C8A96EF1D9652D97CC9CD7D /* MLBStatsAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLBStatsAPIService.swift; sourceTree = "<group>"; };
 		6E9DF43ABE1EF51B3B8B7384 /* TransactionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionListView.swift; sourceTree = "<group>"; };
 		730BF6E5A4FF66C7DF52BCC2 /* PlaysView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaysView.swift; sourceTree = "<group>"; };
 		76DFF8CC361EFFC3BC72D8A0 /* TeamInfoTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamInfoTabView.swift; sourceTree = "<group>"; };
@@ -298,7 +296,6 @@
 				21AFFA6521B030C9D6A32C28 /* ESPNAPIService.swift */,
 				0BDABE6B0F7E1B4B9FFD1A3C /* FantasyCheatsheetService.swift */,
 				403903D8B1E6F2AE0AC92E30 /* FieldAudioEngine.swift */,
-				6C8A96EF1D9652D97CC9CD7D /* MLBStatsAPIService.swift */,
 				F659A5D114F5225EE0FE626D /* PitchAudioEngine.swift */,
 				EE89454CB0F7EC17F5781490 /* ScheduleCacheStore.swift */,
 				943651E22D239C3E7FEF0132 /* TeamStatsStore.swift */,
@@ -576,7 +573,6 @@
 				5818155580D3069662CD0A80 /* HomeViewModel.swift in Sources */,
 				E12FF86C82FDE425DE041439 /* LiveScoresView.swift in Sources */,
 				B54A3C6BF8F49A420AE8B5A6 /* LiveScoresViewModel.swift in Sources */,
-				B0F50398490439BE012DDAC1 /* MLBStatsAPIService.swift in Sources */,
 				C64061F39E9C72D852DCECC2 /* NFLDraftView.swift in Sources */,
 				5A6EF48AA7A31E15504E39C6 /* NFLDraftViewModel.swift in Sources */,
 				148D279BE802BAA35FF18C92 /* News.swift in Sources */,
