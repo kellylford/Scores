@@ -7,42 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-- **College basketball was missing most of the games played**, the same ESPN
-  `groups=` omission just fixed for college football and proportionally worse.
-  A Saturday in January returned 21 of 145 men's Division I games and 4 of 122
-  women's. Both now ask for Division I explicitly. Basketball needs no coverage
-  setting the way football does — ESPN has no FBS/FCS-style split below Division
-  I for it — and college hockey needs no change at all, since `groups=` returns
-  nothing there and the plain call is already complete.
+### In Progress
+- **Game Wrap Up Feature**: ESPN text processing and game story extraction (under construction)
+  - Core infrastructure implemented, text processing being refined
+  - Game story text placeholders currently under investigation
+
+## [0.9.5] - 2026-09-01
 
 ### Added
 - **MLB wild card standings.** The standings view could only show divisions, so
   the playoff race — the thing most people are actually tracking in September —
-  was not visible anywhere. Each league now shows its three division leaders
+  was not visible anywhere. Two tabs, "AL Wild Card" and "NL Wild Card", now sit
+  beside the six division tabs. Each shows its league's three division leaders
   followed by the 12-team wild card race, with the teams holding the three
-  berths marked "Wild card 1/2/3" rather than separated by a drawn line, so a
-  screen reader speaks the playoff cut instead of relying on a visual boundary.
-  On Windows this is two extra tabs, "AL Wild Card" and "NL Wild Card", beside
-  the six division tabs; on iOS it is a Divisions / Wild Card control at the top
-  of the standings screen. Both load only when first opened, so the divisions
-  view is never held up by the extra request.
+  berths marked "Wild card 1/2/3" in a Status column rather than separated by a
+  drawn line, so a screen reader speaks the playoff cut instead of relying on a
+  visual boundary nobody can hear. The tabs load the first time they are opened,
+  so the divisions view is never held up by the extra request.
 
-  The data comes from ESPN's standings endpoint the apps already call, with
+  The data comes from ESPN's standings endpoint the app already calls, with
   `type=1`, which returns the wild card table directly. Division leaders are the
   three teams it omits. ESPN's published seed is used rather than a
   win-percentage sort, so teams tied on record land in a deterministic, official
   order — four pairs are tied as of this writing.
-
-- **Game list section headers carry a count** — "Completed, 57 games" — so the
-  size of a section is audible before entering it. This matters most on a
-  college football week, which now runs past 200 games: finished games sit below
-  the upcoming ones, and the count is what makes them findable. Section order is
-  in progress, upcoming, completed, uniformly across every sport and all three
-  view modes.
-
-- **College football coverage is changeable from the scores screen**, not only
-  from Settings. It edits the same saved preference.
 
 ### Fixed
 - **College football was missing most of the games played.** ESPN serves the two
@@ -54,13 +41,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the new default at around 200 games a week, or **FBS only** at around 100.
   A team's own schedule always uses the widest coverage, since it is filtered
   down to that team anyway and FBS-only returned nothing at all for an FCS team.
-  Requests also send `limit=500`; without it ESPN pages the all-Division-I
-  scoreboard off at 200. The same fix landed in the iOS app.
 
-### In Progress
-- **Game Wrap Up Feature**: ESPN text processing and game story extraction (under construction)
-  - Core infrastructure implemented, text processing being refined
-  - Game story text placeholders currently under investigation
+  Requests also send `limit=400`. ESPN doubles that internally on undated
+  queries and collapses the page to 25 games past an effective 1000, so a larger
+  limit is worse than none; 400 clears a full Division I week either way.
+  A week-indexed postseason query returns nothing at all under `groups=90`, so
+  an empty college football response is retried as FBS — without that, the Bowls
+  and Playoffs view came back empty.
+
+- **College basketball was missing most of the games played**, the same ESPN
+  `groups=` omission and proportionally worse. A Saturday in January returned 21
+  of 145 men's Division I games and 4 of 122 women's. Both now ask for Division I
+  explicitly. Basketball needs no coverage setting the way football does — ESPN
+  has no FBS/FCS-style split below Division I for it — and college hockey needs
+  no change at all, since `groups=` returns nothing there and the plain call is
+  already complete.
+
+- **College basketball team schedules were nearly empty.** They fell through to
+  a 60-day scoreboard range that returned nothing without a division filter and,
+  once one was added, stopped at the page limit — 400 games covering 12 days of
+  the 61 requested. They now use the dedicated per-team endpoint, like every
+  other league.
 
 ## [0.9.4] - 2026-08-13
 

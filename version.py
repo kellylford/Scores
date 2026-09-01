@@ -9,4 +9,4 @@ the whole PyQt6 UI.
 When releasing: bump here, in the VERSION file, and add docs/release-notes-v<x.y.z>.md.
 """
 
-__version__ = "0.9.4"
+__version__ = "0.9.5"
