@@ -96,16 +96,22 @@ Basketball is simpler than football in three ways, so it needs no user setting:
 
 - The hierarchy has no FBS/FCS-style split — 52 is the root, **50 is NCAA
   Division I**, 51 is "Non-NCAA Division I". 50 is the only sensible choice.
-- `limit` is **not** doubled and is honoured exactly (`limit=5` returns 5), and
-  `limit=501` does not collapse the page. The apps send 400.
+- An **explicit** `limit` is honoured exactly and is not doubled (`limit=5`
+  returns 5, where college football would return 10). ESPN's *default* limit is
+  doubled the same way, so a range query with no limit clips at 200. There is
+  still a ceiling: `limit=1001` collapses the page to 25, the same effective
+  1000 as football, just undoubled. The apps send 400.
 - The postseason quirk does **not** apply: `seasontype=3&groups=50` returns the
   same 52 games as the ungrouped call.
 
 #### College hockey needs neither
 
-`groups=` returns **0 games** for `mens-college-hockey` and
-`womens-college-hockey` at any value, and the plain call already carries the
-full slate (26 and 20 on 2026-01-17). Do not add the parameter there.
+The plain call already carries the full slate (26 men's and 20 women's on
+2026-01-17), so do not add the parameter. Hockey's group tree is numbered
+differently from the other sports — **51** is the root ("NCAA Mens Hockey"), so
+`groups=51` merely reproduces the ungrouped call, while `groups=50` (Division I
+elsewhere) does not exist for hockey and returns **0 games**. Narrower ids are
+conferences: 52 is Hockey East, 59 is Independent.
 
 #### Group ids
 
@@ -116,6 +122,13 @@ full slate (26 and 20 on 2026-01-17). Do not add the parameter there.
 | 90 | NCAA Division I (80 + 81 exactly) |
 | 35 | Division II/III |
 | 99 | All NCAA football (456 games in week 1) |
+
+#### Team schedules do not use the scoreboard
+
+For any college league, prefer `/{league_path}/teams/{id}/schedule`. The 60-day
+scoreboard date-range fallback truncates at the `limit` — for basketball,
+`dates=20251218-20260216&groups=50&limit=400` returns exactly 400 events
+covering 12 days of the 61 requested, silently and with HTTP 200.
 
 Both apps expose 80 vs 90 as a user setting (`ncaaf_coverage` on Windows,
 `NCAAFCoverage` on iOS), defaulting to all of Division I.
@@ -352,14 +365,33 @@ Venue, weather, attendance, and officials information.
 
 ## Sport-Specific Considerations
 
-### Baseball (MLB) — wild card comes from MLB, not ESPN
+### Baseball (MLB) — standings `type=` selects the view
 
-ESPN's standings feed (`apis/v2/.../baseball/mlb/standings`) returns only the two
-leagues, which the apps sub-divide into divisions themselves. There is **no wild
-card grouping in it at all**, and the `type=` parameter does not add one —
-`type=0`, `type=1`, `type=2` and no parameter all return the same AL/NL shape.
+`apis/v2/.../baseball/mlb/standings` accepts a `type=` parameter that changes
+which standings it returns. The two children are always the AL and NL, so this
+is easy to miss — the difference is inside `children[].standings.name`:
 
-The wild card race therefore comes from MLB's own API:
+| `type=` | `standings.name` | Entries per league |
+|---|---|---|
+| none / 0 | `overall` | 15 |
+| **1** | **`wildcard`** | **12** |
+| 2 | `expanded` | 15 |
+| 3 | `division` | 15 |
+| 4 / 5 | `month` / `asOf` | 0 |
+
+`type=1` is a genuine wild card table: `playoffSeed` is the wild card rank 1-12
+and `gamesBehind` is games back of the last spot, matching MLB's own numbers
+exactly. It also carries `magicNumberWildcard`, `wildCardPercent` and
+`clincher`, which statsapi does not expose as cleanly. It works for past seasons
+too. It returns only the 12 non-leaders, so division leaders still come from
+`type=0`.
+
+**The apps use MLB's API instead**, because `wildCardWithLeaders` returns the
+leaders and the race in a single request with the fields already named for the
+purpose. That is a convenience choice, not a capability one — `type=1` would
+work, and is the option to reach for if the second host ever becomes a problem.
+
+The MLB endpoint:
 
 ```
 https://statsapi.mlb.com/api/v1/standings
@@ -369,9 +401,14 @@ https://statsapi.mlb.com/api/v1/standings
 - `103` = American League, `104` = National League.
 - `wildCardWithLeaders` returns one `wildCard` record per league (the 12
   non-division-leaders) plus one `divisionLeaders` record per division.
-- Each team carries `wildCardRank` and `wildCardGamesBack`, which encode MLB's
-  official tiebreakers. **Do not re-sort by win percentage** — teams tie on
-  record regularly and the published order is the correct one.
+- Each team carries `wildCardRank` and `wildCardGamesBack`. **Do not re-sort by
+  win percentage.** Across the 2022-2026 seasons the published rank never
+  actually contradicts a win-percentage sort — but teams tie on record
+  constantly (four pairs are tied right now), and a naive sort leaves those ties
+  in arbitrary order. Keeping the published rank makes the order deterministic
+  and correct without reimplementing the tiebreakers.
+- Each `wildCard` record also carries a `division` field (201 for the AL, 205
+  for the NL). It is meaningless — do not key on it.
 - `hydrate=team` is required for usable names: without it the team object is
   just `{id, name}` with `name` being the club name ("Orioles"). With it you get
   the full name ("Baltimore Orioles"), `abbreviation` and the division name.

@@ -149,8 +149,10 @@ struct ScoresView: View {
                     Text(coverage.settingsLabel).tag(coverage)
                 }
             }
+            .pickerStyle(.inline)
         } label: {
             Label(appSettings.ncaafCoverage.shortLabel, systemImage: "line.3.horizontal.decrease.circle")
+                .labelStyle(.iconOnly)
         }
         .accessibilityLabel("College football games shown, currently \(appSettings.ncaafCoverage.settingsLabel)")
         .accessibilityHint("All Division I shows FBS and FCS together, around 200 games a week. "
@@ -456,11 +458,12 @@ struct ScoresView: View {
                 if !viewModel.inProgressGames.isEmpty {
                     gamesTableSection(title: "In Progress", games: viewModel.inProgressGames)
                 }
-                if !viewModel.upcomingGames.isEmpty {
-                    gamesTableSection(title: "Upcoming", games: viewModel.upcomingGames)
-                }
+                // Completed ahead of Upcoming, matching the other two view modes.
                 if !viewModel.completedGames.isEmpty {
                     gamesTableSection(title: "Completed", games: viewModel.completedGames)
+                }
+                if !viewModel.upcomingGames.isEmpty {
+                    gamesTableSection(title: "Upcoming", games: viewModel.upcomingGames)
                 }
                 if !viewModel.postponedGames.isEmpty {
                     gamesTableSection(title: "Postponed / Cancelled", games: viewModel.postponedGames)
@@ -470,11 +473,19 @@ struct ScoresView: View {
         }
     }
 
+    /// "Completed" -> "Completed, 57 games". On a 200-game college football week
+    /// this is what lets a user tell in one flick whether a section is worth
+    /// entering — and confirms the games are there, which is the confusion that
+    /// prompted the section reorder in the first place.
+    private func sectionHeaderText(_ title: String, count: Int) -> String {
+        "\(title), \(count) \(count == 1 ? "game" : "games")"
+    }
+
     private func gamesTableSection(title: String, games: [Game]) -> some View {
         let headers = ["Away", "Home", "Status"]
         let tableRows = games.map { gameAccessibleTableRow($0) }
         return VStack(alignment: .leading, spacing: 0) {
-            Text(title)
+            Text(sectionHeaderText(title, count: games.count))
                 .font(.subheadline.bold())
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 16)
@@ -573,7 +584,7 @@ struct ScoresView: View {
     private func gamesQuickSection(title: String, games: [Game]) -> some View {
         if !games.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
-                Text(title)
+                Text(sectionHeaderText(title, count: games.count))
                     .font(.subheadline.bold())
                     .foregroundColor(.secondary)
                     .accessibilityAddTraits(.isHeader)
@@ -645,7 +656,7 @@ struct ScoresView: View {
                         gameRow(game, context: .inProgress)
                     }
                 } header: {
-                    Text("In Progress")
+                    Text(sectionHeaderText("In Progress", count: viewModel.inProgressGames.count))
                         .accessibilityAddTraits(.isHeader)
                 }
             }
@@ -659,7 +670,7 @@ struct ScoresView: View {
                         gameRow(game, context: .completed)
                     }
                 } header: {
-                    Text("Completed")
+                    Text(sectionHeaderText("Completed", count: viewModel.completedGames.count))
                         .accessibilityAddTraits(.isHeader)
                 }
             }
@@ -671,7 +682,7 @@ struct ScoresView: View {
                         gameRow(game, context: .upcoming)
                     }
                 } header: {
-                    Text("Upcoming")
+                    Text(sectionHeaderText("Upcoming", count: viewModel.upcomingGames.count))
                         .accessibilityAddTraits(.isHeader)
                 }
             }
@@ -683,7 +694,7 @@ struct ScoresView: View {
                         gameRow(game, context: .postponed)
                     }
                 } header: {
-                    Text("Postponed / Cancelled")
+                    Text(sectionHeaderText("Postponed / Cancelled", count: viewModel.postponedGames.count))
                         .accessibilityAddTraits(.isHeader)
                 }
             }

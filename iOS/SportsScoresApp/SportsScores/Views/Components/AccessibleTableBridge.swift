@@ -85,6 +85,13 @@ final class AccessibleDataTableView: UIView,
     var columnHeaders: [String] = [] { didSet { rebuild() } }
     var dataRows: [[String]] = [] { didSet { rebuild() } }
 
+    /// Which column holds the row's identity, used as its accessibility row
+    /// header. Normally 0, but wild card standings lead with a position number,
+    /// so the team name — the thing that gives a cell its context — sits at 1.
+    var rowHeaderColumn: Int = 0 {
+        didSet { if oldValue != rowHeaderColumn { setNeedsLayout() } }
+    }
+
     // MARK: Private state
     private var headerElements: [DataTableCellElement] = []
     private var rowElements: [[DataTableCellElement]] = []
@@ -125,6 +132,7 @@ final class AccessibleDataTableView: UIView,
         // Column 0 (Team / Stat name) gets 40% of width; rest split equally.
         let totalW = max(1, bounds.width)
         let totalH = max(1, bounds.height)
+        // The row-header column carries the team name, so it gets the width.
         let col0W = totalW * 0.40
         let otherColW = ncols > 1 ? (totalW - col0W) / CGFloat(ncols - 1) : 0
         let rowH = totalH / CGFloat(nrows + 1)  // +1 for header
@@ -216,7 +224,8 @@ final class AccessibleDataTableView: UIView,
         let rows = rowElements  // local snapshot
         let dataRow = row - 1
         guard dataRow < rows.count, !rows[dataRow].isEmpty else { return nil }
-        return [rows[dataRow][0]]  // column-0 cell is the row header
+        let headerCol = min(rowHeaderColumn, rows[dataRow].count - 1)
+        return [rows[dataRow][headerCol]]
     }
 
     @objc func accessibilityDataTableCellElement(forRow row: Int, column: Int)
@@ -264,6 +273,8 @@ final class AccessibleDataTableView: UIView,
 struct AccessibleDataTable: UIViewRepresentable {
     let headers: [String]
     let rows: [[String]]
+    /// Column holding each row's identity; see `AccessibleDataTableView.rowHeaderColumn`.
+    var rowHeaderColumn: Int = 0
 
     func makeUIView(context: Context) -> AccessibleDataTableView {
         AccessibleDataTableView()
@@ -271,6 +282,7 @@ struct AccessibleDataTable: UIViewRepresentable {
 
     func updateUIView(_ uiView: AccessibleDataTableView, context: Context) {
         // Guard against redundant rebuilds
+        uiView.rowHeaderColumn = rowHeaderColumn
         guard uiView.columnHeaders != headers || uiView.dataRows != rows else {
             return
         }

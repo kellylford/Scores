@@ -181,13 +181,18 @@ struct StandingsTableView: View {
 
     private var activeHeaders: [String] { showExpanded ? expandedHeaders : basicHeaders }
 
+    /// Column holding the team name. Wild card rows lead with a position, so the
+    /// team sits at 1 there; everywhere else it is column 0. Drives both the
+    /// flexible-width column and the accessibility row header.
+    private var teamColumn: Int { isWildCard ? 1 : 0 }
+
     private func rowData(for entry: StandingsEntry) -> [String] {
         let s = entry.stats
         if let wc = entry.wildCard, isWildCard {
             return [wc.position, entry.team.abbreviation,
                     "\(s.wins)", "\(s.losses)",
                     s.displayWinPercent, wc.gamesBack, s.streak,
-                    wc.status.isEmpty ? "-" : wc.status]
+                    wc.spokenStatus]
         }
         if !showExpanded {
             return [entry.team.abbreviation,
@@ -247,10 +252,10 @@ struct StandingsTableView: View {
         let teamName = entry.team.voiceOverName(for: appSettings.teamNamePreference)
         let s = entry.stats
         if let wc = entry.wildCard, isWildCard {
-            var label = "\(teamName), \(s.wins)-\(s.losses), \(s.displayWinPercent), "
-                + "wild card games back: \(wc.gamesBack)"
-            if !wc.status.isEmpty { label += ", \(wc.status)" }
-            return label
+            let lead = wc.position == "-" ? "" : "\(wc.position). "
+            return "\(lead)\(teamName), \(s.wins)-\(s.losses), "
+                + "\(s.displayWinPercent), wild card games back: \(wc.gamesBack), "
+                + "\(s.streak), \(wc.spokenStatus)"
         }
         var label = "\(teamName), \(s.wins)-\(s.losses), \(s.displayWinPercent), GB: \(s.gamesBack)"
         if let l10 = s.lastTenRecord { label += ", last 10: \(l10)" }
@@ -262,10 +267,10 @@ struct StandingsTableView: View {
         let teamName = entry.team.voiceOverName(for: appSettings.teamNamePreference)
         let s = entry.stats
         if let wc = entry.wildCard, isWildCard {
-            return "Position: \(wc.position); Team: \(teamName); Wins: \(s.wins); "
+            return "Position: \(wc.positionText); Team: \(teamName); Wins: \(s.wins); "
                 + "Losses: \(s.losses); Win%: \(s.displayWinPercent); "
                 + "Wild card games back: \(wc.gamesBack); Streak: \(s.streak); "
-                + "Status: \(wc.status.isEmpty ? "not in a playoff spot" : wc.status)"
+                + "Status: \(wc.spokenStatus)"
         }
         var label = "Rank: \(entry.rank); Team: \(teamName); Wins: \(s.wins); Losses: \(s.losses); Win%: \(s.displayWinPercent); Games Back: \(s.gamesBack); Streak: \(s.streak); Record: \(s.record)"
         if let l10 = s.lastTenRecord { label += "; Last 10: \(l10)" }
@@ -287,8 +292,10 @@ struct StandingsTableView: View {
                         Section {
                             switch viewMode {
                             case .table:
-                                // Horizontal scroll only in expanded mode
-                                if showExpanded {
+                                // Wild card is 8 columns including a wordy Status,
+                                // so it needs the horizontal scroll that expanded
+                                // mode gets — it does not fit a phone otherwise.
+                                if showExpanded || isWildCard {
                                     ScrollView(.horizontal, showsIndicators: true) {
                                         standingsTableSection(for: group)
                                     }
@@ -315,7 +322,9 @@ struct StandingsTableView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
-                if viewMode == .table {
+                // Wild card has one column set, so Expand would announce a
+                // state change and do nothing.
+                if viewMode == .table && !isWildCard {
                     Button {
                         withAnimation { showExpanded.toggle() }
                     } label: {
@@ -336,14 +345,17 @@ struct StandingsTableView: View {
         VStack(spacing: 0) {
             // Header row — derived from activeHeaders
             HStack(spacing: 0) {
-                Text(activeHeaders[0])     // "Team" — flexible width
-                    .font(.caption.bold())
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 8)
-                ForEach(activeHeaders.dropFirst(), id: \.self) { col in
-                    Text(col)
-                        .font(.caption.bold())
-                        .frame(width: 44)
+                ForEach(Array(activeHeaders.enumerated()), id: \.offset) { idx, col in
+                    if idx == teamColumn {
+                        Text(col)
+                            .font(.caption.bold())
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 8)
+                    } else {
+                        Text(col)
+                            .font(.caption.bold())
+                            .frame(width: isWildCard ? 60 : 44)
+                    }
                 }
             }
             .padding(.vertical, 6)
@@ -382,7 +394,8 @@ struct StandingsTableView: View {
         .overlay(
             AccessibleDataTable(
                 headers: activeHeaders,
-                rows: group.entries.map { accessibleRowData(for: $0) }
+                rows: group.entries.map { accessibleRowData(for: $0) },
+                rowHeaderColumn: teamColumn
             )
             .allowsHitTesting(false)
         )

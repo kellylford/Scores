@@ -1029,7 +1029,40 @@ class LiveScoresView(BaseView):
                 
                 self.live_scores_list.addItem("")
 
-            # Section 2: Upcoming Games
+            # Section 2: Completed Games
+            if completed_games:
+                section_header = QListWidgetItem("=== COMPLETED GAMES ===")
+                section_header.setBackground(QColor(220, 220, 220))  # Light gray background
+                self.live_scores_list.addItem(section_header)
+                
+                # Group completed games by league
+                completed_by_league = {}
+                for game in completed_games:
+                    league = game.get('league', 'Unknown')
+                    if league not in completed_by_league:
+                        completed_by_league[league] = []
+                    completed_by_league[league].append(game)
+                
+                for league in sorted(completed_by_league.keys()):
+                    league_item = QListWidgetItem(f"--- {league} ---")
+                    league_item.setBackground(QColor(240, 240, 240))
+                    self.live_scores_list.addItem(league_item)
+                    
+                    for game in completed_by_league[league]:
+                        display_text = self._format_game_display(game)
+                        item = QListWidgetItem(display_text)
+                        # Prepare game data in format expected by _on_game_selected
+                        game_data = game.get('raw_data', game)
+                        if 'game_id' in game and 'id' not in game_data:
+                            game_data = dict(game_data) if isinstance(game_data, dict) else {}
+                            game_data['id'] = game.get('game_id')
+                            game_data['league'] = game.get('league')
+                        item.setData(Qt.ItemDataRole.UserRole, game_data)
+                        self.live_scores_list.addItem(item)
+
+                self.live_scores_list.addItem("")
+
+            # Section 3: Upcoming Games
             if upcoming_games:
                 section_header = QListWidgetItem("=== UPCOMING GAMES ===")
                 section_header.setBackground(QColor(255, 255, 200))  # Light yellow background
@@ -1061,38 +1094,6 @@ class LiveScoresView(BaseView):
                         self.live_scores_list.addItem(item)
                 
                 self.live_scores_list.addItem("")
-
-            # Section 3: Completed Games
-            if completed_games:
-                section_header = QListWidgetItem("=== COMPLETED GAMES ===")
-                section_header.setBackground(QColor(220, 220, 220))  # Light gray background
-                self.live_scores_list.addItem(section_header)
-                
-                # Group completed games by league
-                completed_by_league = {}
-                for game in completed_games:
-                    league = game.get('league', 'Unknown')
-                    if league not in completed_by_league:
-                        completed_by_league[league] = []
-                    completed_by_league[league].append(game)
-                
-                for league in sorted(completed_by_league.keys()):
-                    league_item = QListWidgetItem(f"--- {league} ---")
-                    league_item.setBackground(QColor(240, 240, 240))
-                    self.live_scores_list.addItem(league_item)
-                    
-                    for game in completed_by_league[league]:
-                        display_text = self._format_game_display(game)
-                        item = QListWidgetItem(display_text)
-                        # Prepare game data in format expected by _on_game_selected
-                        game_data = game.get('raw_data', game)
-                        if 'game_id' in game and 'id' not in game_data:
-                            game_data = dict(game_data) if isinstance(game_data, dict) else {}
-                            game_data['id'] = game.get('game_id')
-                            game_data['league'] = game.get('league')
-                        item.setData(Qt.ItemDataRole.UserRole, game_data)
-                        self.live_scores_list.addItem(item)
-                        
         except Exception as e:
             self._show_api_error(f"Failed to load live scores: {str(e)}")
     
@@ -6804,6 +6805,24 @@ class GameDetailsView(BaseView):
             # For all other keys, use BaseView's handling
             super().keyPressEvent(event)
 
+class MLBWildCardLoader(QThread):
+    """Background fetch of the MLB wild card standings.
+
+    Threaded for the same reason every other loader in this file is: the fetch
+    runs from a `currentChanged` slot, and a synchronous call there freezes the
+    event loop — which with a screen reader attached means silence, no UIA
+    events, and no way to arrow back off the tab.
+    """
+    data_loaded = pyqtSignal(dict)
+    error_occurred = pyqtSignal(str)
+
+    def run(self):
+        try:
+            self.data_loaded.emit(ApiService.get_mlb_wildcard_standings() or {})
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+
+
 class WildCardTabsMixin:
     """Adds the MLB wild card tabs to a standings dialog that shows division tabs.
 
@@ -6816,33 +6835,68 @@ class WildCardTabsMixin:
 
     def _build_wildcard_tabs(self):
         self._wildcard_tabs = {}
+        self._wildcard_loader = None
         if self.league != "MLB" or not self.tab_widget:
             return
         for league_key, label in self.WILDCARD_TABS:
             placeholder = QWidget()
             placeholder_layout = QVBoxLayout()
-            loading = QLabel("Loading wild card standings...")
-            loading.setAccessibleName(f"{label} loading")
-            placeholder_layout.addWidget(loading)
+            # A focusable list rather than a bare QLabel: an unfocusable label is
+            # not in the tab order and fires no live-region event, so a screen
+            # reader user would hear the tab name and then nothing at all.
+            status = QListWidget()
+            status.addItem("Loading wild card standings...")
+            status.setAccessibleName(f"{label} status")
+            placeholder_layout.addWidget(status)
             placeholder.setLayout(placeholder_layout)
             index = self.tab_widget.addTab(placeholder, label)
             self._wildcard_tabs[index] = [league_key, label, False]
         self.tab_widget.currentChanged.connect(self._on_standings_tab_changed)
 
     def _on_standings_tab_changed(self, index: int):
-        """Fill a wild card tab the first time the user opens it."""
+        """Kick off the wild card fetch the first time a user opens the tab.
+
+        Wrapped end to end: an exception escaping a Qt slot invoked from C++
+        calls qFatal(), which aborts the process rather than logging anything.
+        """
+        try:
+            entry = getattr(self, "_wildcard_tabs", {}).get(index)
+            if not entry or entry[2]:
+                return
+            league_key, label, _ = entry
+            entry[2] = True
+
+            cache = DataCache()
+            cached = cache.get_mlb_wildcard()
+            if cached is not None:
+                self._populate_wildcard_tab(index, cached)
+                return
+
+            self._announce_wildcard(f"Loading {label} standings")
+            loader = MLBWildCardLoader()
+            loader.data_loaded.connect(
+                lambda data, i=index: self._on_wildcard_loaded(i, data))
+            loader.error_occurred.connect(
+                lambda _msg, i=index: self._on_wildcard_loaded(i, {}))
+            # Held on self so the thread is not garbage collected mid-flight.
+            self._wildcard_loader = loader
+            loader.start()
+        except Exception as e:
+            print(f"[WARNING] Wild card tab failed: {e}")
+
+    def _on_wildcard_loaded(self, index: int, wildcard: dict):
+        try:
+            if wildcard:
+                DataCache().set_mlb_wildcard(wildcard)
+            self._populate_wildcard_tab(index, wildcard)
+        except Exception as e:
+            print(f"[WARNING] Wild card tab failed to populate: {e}")
+
+    def _populate_wildcard_tab(self, index: int, wildcard: dict):
         entry = getattr(self, "_wildcard_tabs", {}).get(index)
-        if not entry or entry[2]:
+        if not entry:
             return
         league_key, label, _ = entry
-        entry[2] = True
-
-        cache = DataCache()
-        wildcard = cache.get_mlb_wildcard()
-        if wildcard is None:
-            wildcard = ApiService.get_mlb_wildcard_standings()
-            if wildcard:
-                cache.set_mlb_wildcard(wildcard)
 
         container = self.tab_widget.widget(index)
         container_layout = container.layout()
@@ -6854,18 +6908,36 @@ class WildCardTabsMixin:
 
         teams = (wildcard or {}).get(league_key) or []
         if not teams:
-            # Leave the tab loaded-but-empty rather than retrying on every visit;
-            # reopening the dialog gets a fresh attempt.
-            message = QLabel("Wild card standings are unavailable right now.")
-            message.setAccessibleName(f"{label} unavailable")
-            container_layout.addWidget(message)
+            # Allow a retry on the next visit rather than leaving the tab dead
+            # for the life of the dialog.
+            entry[2] = False
+            status = QListWidget()
+            status.addItem("Wild card standings are unavailable right now. "
+                           "Leave this tab and return to try again.")
+            status.setAccessibleName(f"{label} unavailable")
+            container_layout.addWidget(status)
+            container.table = None  # type: ignore[attr-defined]
+            self._announce_wildcard(f"{label} standings unavailable")
             return
 
+        # set_focus=False, and no setFocus() here: currentChanged fires for any
+        # tab change including a plain arrow along the tab bar, so grabbing focus
+        # would trap a keyboard user in the table and stop them arrowing on.
         table = WildCardTable(parent=self, division_name=label)
-        table.populate_standings(teams, set_focus=True)
+        table.populate_standings(teams, set_focus=False)
         container_layout.addWidget(table)
         container.table = table  # type: ignore[attr-defined]
-        table.setFocus()
+        self._announce_wildcard(f"{label} standings ready, {len(teams)} teams")
+
+    def _announce_wildcard(self, message: str):
+        helper = getattr(self, "notification_helper", None)
+        if helper is None:
+            helper = getattr(getattr(self, "parent_app", None), "notification_helper", None)
+        if helper is not None:
+            try:
+                helper.announce(message)
+            except Exception:
+                pass
 
 
 class StandingsDetailDialog(WildCardTabsMixin, QDialog):
@@ -6907,8 +6979,12 @@ class StandingsDetailDialog(WildCardTabsMixin, QDialog):
     
     def _build_division_tabs(self, layout: QVBoxLayout):
         self.tab_widget = QTabWidget()
-        self.tab_widget.setAccessibleName("Division Standings")
-        self.tab_widget.setAccessibleDescription("Team standings by division, use arrow keys to navigate between divisions")
+        self.tab_widget.setAccessibleName(
+            "Standings" if self.league == "MLB" else "Division Standings")
+        self.tab_widget.setAccessibleDescription(
+            "Team standings by division, plus AL and NL wild card, use arrow keys to move between tabs"
+            if self.league == "MLB"
+            else "Team standings by division, use arrow keys to navigate between divisions")
         
         if self.league == "MLB":
             division_order = ["AL East", "AL Central", "AL West", "NL East", "NL Central", "NL West", "League"]
@@ -8339,8 +8415,12 @@ class StandingsDialog(WildCardTabsMixin, QDialog):
     
     def _build_division_tabs(self, layout: QVBoxLayout):
         self.tab_widget = QTabWidget()
-        self.tab_widget.setAccessibleName("Division Standings")
-        self.tab_widget.setAccessibleDescription("Team standings by division, use arrow keys to navigate between divisions")
+        self.tab_widget.setAccessibleName(
+            "Standings" if self.league == "MLB" else "Division Standings")
+        self.tab_widget.setAccessibleDescription(
+            "Team standings by division, plus AL and NL wild card, use arrow keys to move between tabs"
+            if self.league == "MLB"
+            else "Team standings by division, use arrow keys to navigate between divisions")
         
         if self.league == "MLB":
             division_order = ["AL East", "AL Central", "AL West", "NL East", "NL Central", "NL West", "League"]

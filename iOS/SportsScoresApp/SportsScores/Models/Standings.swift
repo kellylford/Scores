@@ -24,6 +24,19 @@ struct WildCardStanding {
     let status: String
     /// Games back of the last wild card spot ("+8.5", "-", "0.5").
     let gamesBack: String
+
+    /// Status as words. A bare "-" is not spoken at all at the default
+    /// punctuation level in either VoiceOver or NVDA, so a team outside the
+    /// spots would read as silence — indistinguishable from a cell that failed
+    /// to populate. Every surface uses this rather than a dash.
+    var spokenStatus: String {
+        status.isEmpty ? "Not in a playoff spot" : status
+    }
+
+    /// Position as words, for the same reason: leaders carry "-", not a number.
+    var positionText: String {
+        position == "-" ? "Division leader" : position
+    }
 }
 
 struct StandingsEntry: Identifiable {
@@ -102,6 +115,13 @@ struct StandingsEntry: Identifiable {
     
     // For quick list display
     var quickListText: String {
+        if let wc = wildCard {
+            // Leaders have no rank, so lead with the team rather than a bare "-".
+            let lead = wc.position == "-" ? "" : "\(wc.position). "
+            return "\(lead)\(team.abbreviation), \(stats.wins)-\(stats.losses), "
+                + "\(stats.displayWinPercent), WCGB: \(wc.gamesBack), \(stats.streak), "
+                + "\(wc.spokenStatus)"
+        }
         var text = "\(team.abbreviation), \(stats.wins)-\(stats.losses), \(stats.displayWinPercent), GB: \(stats.gamesBack)"
         if let l10 = stats.lastTenRecord { text += ", L10: \(l10)" }
         return text
@@ -109,6 +129,12 @@ struct StandingsEntry: Identifiable {
 
     // For full list display
     var fullListText: String {
+        if let wc = wildCard {
+            return "Position: \(wc.positionText); Team: \(team.displayName); Wins: \(stats.wins); "
+                + "Losses: \(stats.losses); Win%: \(stats.displayWinPercent); "
+                + "Wild card games back: \(wc.gamesBack); Streak: \(stats.streak); "
+                + "Record: \(stats.record); Status: \(wc.spokenStatus)"
+        }
         var text = "Rank: \(rank); Team: \(team.displayName); Wins: \(stats.wins); Losses: \(stats.losses); Win%: \(stats.displayWinPercent); Games Back: \(stats.gamesBack); Streak: \(stats.streak); Record: \(stats.record)"
         if let l10 = stats.lastTenRecord { text += "; Last 10: \(l10)" }
         return text

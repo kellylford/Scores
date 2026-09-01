@@ -23,6 +23,7 @@ struct StandingsView: View {
         }
         // Fetch the wild card race the first time it is asked for, not on load.
         .onChange(of: viewModel.mode) {
+            viewModel.modeChanged()
             Task { await viewModel.loadWildCardIfNeeded(for: sport) }
         }
         .refreshable {
@@ -47,7 +48,9 @@ struct StandingsView: View {
     @ViewBuilder
     private var content: some View {
         if viewModel.isLoading {
-            ProgressView("Loading standings...")
+            ProgressView(viewModel.mode == .wildCard
+                         ? "Loading wild card standings..."
+                         : "Loading standings...")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let error = viewModel.errorMessage {
             ErrorStateView(message: error) {

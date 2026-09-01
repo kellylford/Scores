@@ -59,12 +59,6 @@ NCAAB_GROUP = "50"
 # it exactly, so this is a straight ceiling on a day's games.
 NCAAB_SCOREBOARD_LIMIT = 400
 
-# The leagues that need a `groups=` filter at all. College hockey deliberately is
-# not here: `groups=` returns nothing for it, and the plain call already carries
-# the full slate.
-COLLEGE_GROUP_LEAGUES = ("NCAAF", "NCAAM", "NCAAWB")
-
-
 def college_scoreboard_params(league_key, coverage=None):
     """Extra scoreboard query parameters that give a college league its full slate.
 
@@ -256,7 +250,12 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
     is_historical_season = season is not None and season != current_year
     
     # Use dedicated team schedule endpoints for major sports
-    if league_key in ["MLB", "NFL", "NBA", "NHL", "NCAAF", "NCAAH", "NCAAWH"]:
+    # NCAAM/NCAAWB use the dedicated endpoint too. They used to fall through to
+    # the 60-day scoreboard range below, which returned nothing at all without a
+    # `groups=` filter and, once one was added, truncated at the limit — 400
+    # events covering 12 days of the 61 asked for. The per-team endpoint has no
+    # such ceiling and needs no division filter.
+    if league_key in ["MLB", "NFL", "NBA", "NHL", "NCAAF", "NCAAH", "NCAAWH", "NCAAM", "NCAAWB"]:
         base_url = f"{BASE_URL}/{league_path}/teams/{team_id}/schedule"
         
         # For NBA, NHL, MLB, and NCAA Hockey, we need to fetch all season types separately and combine

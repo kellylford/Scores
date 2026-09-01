@@ -28,11 +28,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of the standings screen. Both load only when first opened, so the divisions
   view is never held up by the extra request.
 
-  The data comes from MLB's own API (`statsapi.mlb.com`) rather than ESPN, whose
-  standings feed carries no wild card grouping at all. That matters for
-  correctness: MLB publishes the official `wildCardRank` and
-  `wildCardGamesBack`, so its tiebreakers are preserved rather than approximated
-  by re-sorting on win percentage, which gets ties wrong.
+  The data comes from MLB's own API (`statsapi.mlb.com`), whose
+  `wildCardWithLeaders` request returns the division leaders and the race
+  together with the ranks and games-back already named for the purpose. ESPN can
+  also produce wild card standings, via `type=1` on the standings endpoint the
+  apps already call; that route needs a second request for the leaders. Either
+  source gives the same numbers — the published rank is used rather than a
+  win-percentage sort so that teams tied on record land in a deterministic,
+  official order.
+
+- **Game lists are ordered chronologically**: live games, then completed, then
+  upcoming. A college football week spans played and unplayed days, so with
+  upcoming first a Saturday's finished games sat below a hundred that had not
+  kicked off and read as missing. Section headers now carry a game count
+  ("Completed, 57 games") so the size of each section is audible before entering
+  it.
+
+- **College football coverage is changeable from the scores screen**, not only
+  from Settings. It edits the same saved preference.
 
 ### Fixed
 - **College football was missing most of the games played.** ESPN serves the two
