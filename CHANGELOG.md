@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### In Progress
+- **Game Wrap Up Feature**: ESPN text processing and game story extraction (under construction)
+  - Core infrastructure implemented, text processing being refined
+  - Game story text placeholders currently under investigation
+
+## [0.9.6] - 2026-09-20
+
 ### Fixed
 - **NHL and the other winter sports were stuck on last season.** Team schedules
   asked ESPN for season 2026 — the 2025-26 season — because the season year was
@@ -18,14 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   previous year through January and February. The season picker follows, so it
   now leads with "2026-27 Season" instead of topping out at 2025-26, and NBA
   standings track the current season instead of the one frozen into the URL.
-  The same fix is in the iOS app, where the WNBA is also no longer treated as a
-  year+1 sport — ESPN keys the WNBA to the calendar year it is played in, so its
-  seasons had been labelled a year behind.
-
-### In Progress
-- **Game Wrap Up Feature**: ESPN text processing and game story extraction (under construction)
-  - Core infrastructure implemented, text processing being refined
-  - Game story text placeholders currently under investigation
 
 ## [0.9.5] - 2026-09-01
 
