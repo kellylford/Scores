@@ -100,19 +100,19 @@ struct TeamScheduleView: View {
     private var yearPicker: some View {
         Menu {
             ForEach(viewModel.availableYears, id: \.self) { year in
-                Button("\(year)") {
+                Button(viewModel.seasonLabel(year)) {
                     Task { await viewModel.changeYear(year) }
                 }
             }
         } label: {
             HStack(spacing: 2) {
-                Text("\(viewModel.selectedYear)")
+                Text(viewModel.seasonLabel(viewModel.selectedYear))
                     .font(.subheadline.bold())
                 Image(systemName: "chevron.down")
                     .font(.caption)
             }
         }
-        .accessibilityLabel("Season year, currently \(viewModel.selectedYear)")
+        .accessibilityLabel("Season, currently \(viewModel.seasonLabel(viewModel.selectedYear))")
     }
 
     // MARK: - Table view mode

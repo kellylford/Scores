@@ -193,10 +193,13 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
         }
     }
 
-    /// True for sports where the season year uses year+1 (NBA, WNBA, NHL and NCAA basketball/hockey).
+    /// True for sports where the ESPN season year is the year the season ends
+    /// in (NBA, NHL and NCAA basketball/hockey): `season=2027` is the 2026-27
+    /// season. The WNBA is not one of them — ESPN keys its season to the
+    /// calendar year it is played in.
     var usesNextYearFormat: Bool {
         switch self {
-        case .nba, .wnba, .nhl, .ncaam, .ncaawb, .ncaah, .ncaawh: return true
+        case .nba, .nhl, .ncaam, .ncaawb, .ncaah, .ncaawh: return true
         default: return false
         }
     }
@@ -224,10 +227,38 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
         }
     }
 
+    /// The ESPN `season=` year for the season that contains `date`.
+    ///
+    /// ESPN labels the winter sports by the year the season *ends* in — the
+    /// 2026-27 NHL season is `season=2027` — and rolls the year over once the
+    /// previous season is finished rather than when the first game is played
+    /// (the 2026-27 schedule was published in July 2026).
+    func seasonYear(containing date: Date) -> Int {
+        let cal   = Calendar.current
+        let year  = cal.component(.year,  from: date)
+        let month = cal.component(.month, from: date)
+
+        switch self {
+        case .nhl, .nba, .ncaam, .ncaawb, .ncaah, .ncaawh:
+            // Previous season is over by June; the new schedule lands in July.
+            return month >= 7 ? year + 1 : year
+        case .nfl, .ncaaf:
+            // Seasons end with the Super Bowl / bowls in January-February, so
+            // those two months still belong to the previous season year.
+            return month < 3 ? year - 1 : year
+        default:
+            return year
+        }
+    }
+
+    /// The ESPN `season=` year for the season in progress right now.
+    var currentSeasonYear: Int {
+        seasonYear(containing: Date())
+    }
+
     /// All season years available for display in the season picker, newest first.
     var availableSeasonYears: [Int] {
-        let currentYear = Calendar.current.component(.year, from: Date())
-        return Array((earliestSeason...currentYear).reversed())
+        return Array((earliestSeason...currentSeasonYear).reversed())
     }
 
     /// Human-readable season label for the given API year.
@@ -235,11 +266,6 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
     /// - For year+1 sports (NBA, NHL, NCAAM, …):  2023 → "2022-23"
     /// - For single-year sports (MLB, NFL, WNBA): 2023 → "2023"
     func seasonDisplayName(year: Int) -> String {
-        // WNBA runs within a single calendar year even though usesNextYearFormat = true
-        // for the ESPN API convention. Show as plain year to avoid "2025-26" confusion.
-        if self == .wnba {
-            return String(year - 1)
-        }
         if usesNextYearFormat {
             let shortYear = String(year).suffix(2)
             return "\(year - 1)-\(shortYear)"
@@ -260,9 +286,8 @@ enum Sport: String, CaseIterable, Identifiable, Codable {
             // Regular season opens ~late March / early April
             comps.year = year; comps.month = 4; comps.day = 1
         case .wnba:
-            // WNBA opens ~mid May (API year = year, not year+1 for display)
-            // When the user picks display year N, API year = N+1; we show May of N.
-            comps.year = year - 1; comps.month = 5; comps.day = 14
+            // WNBA opens ~mid May of its own calendar year
+            comps.year = year; comps.month = 5; comps.day = 14
         case .nba, .ncaam:
             // Season starts ~mid October of the prior calendar year
             comps.year = year - 1; comps.month = 10; comps.day = 18
