@@ -12,6 +12,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Core infrastructure implemented, text processing being refined
   - Game story text placeholders currently under investigation
 
+## [0.9.6] - 2026-09-20
+
+### Fixed
+- **NHL and the other winter sports were stuck on last season.** Team schedules
+  asked ESPN for season 2026 — the 2025-26 season — because the season year was
+  hardcoded rather than worked out from the date, so in September 2026 the NHL
+  schedule showed the season that had already finished. The season year is now
+  derived per sport: the winter sports (NHL, NBA, NCAA basketball and hockey)
+  use the year their season ends in and roll over in July, once the previous
+  season is done and the new schedule has been published; football stays on the
+  previous year through January and February. The season picker follows, so it
+  now leads with "2026-27 Season" instead of topping out at 2025-26, and NBA
+  standings track the current season instead of the one frozen into the URL.
+
 ## [0.9.5] - 2026-09-01
 
 ### Added

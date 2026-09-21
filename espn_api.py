@@ -243,6 +243,34 @@ def get_mlb_wildcard_standings():
             result[key] = ordered_leaders + ordered_race
     return result
 
+# Leagues whose ESPN season year is the year the season ends in: season=2027
+# means the 2026-27 season. WNBA is deliberately not in this list — its ESPN
+# season year is the calendar year it is played in.
+YEAR_PLUS_ONE_LEAGUES = ("NBA", "NHL", "NCAAM", "NCAAWB", "NCAAH", "NCAAWH")
+
+def get_current_season_year(league_key):
+    """The ESPN season year for the season that is current right now.
+
+    ESPN labels the winter sports by the year the season *ends* in, so the
+    2026-27 NHL season is season=2027, and it rolls the year over as soon as
+    the previous season is finished rather than when the first game is played
+    (the 2026-27 schedule was already published in July 2026). Football keeps
+    the year the season starts in, so January and February still belong to the
+    previous season year.
+    """
+    from datetime import datetime
+    now = datetime.now()
+    year, month = now.year, now.month
+
+    if league_key in YEAR_PLUS_ONE_LEAGUES:
+        # Previous season is over by June; the new schedule lands in July.
+        return year + 1 if month >= 7 else year
+    if league_key in ("NFL", "NCAAF"):
+        # Season ends with the Super Bowl / bowl games in January-February.
+        return year - 1 if month < 3 else year
+    # MLB, WNBA and everything else run inside a single calendar year.
+    return year
+
 
 def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season=None):
     """Get a team's complete schedule using the dedicated team schedule endpoint"""
@@ -252,9 +280,9 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
     if not league_path:
         return []
     
-    # Determine if we're viewing a historical season (not current year)
-    current_year = datetime.now().year
-    is_historical_season = season is not None and season != current_year
+    # Determine if we're viewing a historical season (not the current one)
+    current_season = get_current_season_year(league_key)
+    is_historical_season = season is not None and season != current_season
     
     # Use dedicated team schedule endpoints for major sports
     # NCAAM/NCAAWB use the dedicated endpoint too. They used to fall through to
@@ -267,11 +295,9 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
         
         # For NBA, NHL, MLB, and NCAA Hockey, we need to fetch all season types separately and combine
         if league_key in ["NBA", "NHL", "MLB", "NCAAH", "NCAAWH"]:
-            # Determine season year based on league
-            if league_key == "MLB":
-                season_year = season if season else 2025  # MLB uses calendar year
-            else:
-                season_year = season if season else 2026  # NBA/NHL/NCAA Hockey use year+1 (2026 = 2025-26 season)
+            # MLB uses the calendar year; NBA/NHL/NCAA hockey use year+1
+            # (season=2027 is the 2026-27 season).
+            season_year = season if season else get_current_season_year(league_key)
             
             all_events = []
             
@@ -299,8 +325,8 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
             
         # For other sports, use specific seasontype or default behavior
         elif league_key == "NFL":
-            # NFL: Use specified season or default to 2025 regular season (seasontype=2)
-            season_year = season if season else 2025
+            # NFL: Use specified season or the current one, regular season (seasontype=2)
+            season_year = season if season else get_current_season_year(league_key)
             url = f"{base_url}?season={season_year}&seasontype=2"
             resp = requests.get(url)
             if resp.status_code != 200:
@@ -308,9 +334,8 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
             data = resp.json()
             events = data.get('events', [])
         elif league_key == "NCAAF":
-            # NCAAF: Use specified season or current year with seasontype=2 for regular season
-            from datetime import datetime
-            season_year = season if season else datetime.now().year
+            # NCAAF: Use specified season or current season with seasontype=2 for regular season
+            season_year = season if season else get_current_season_year(league_key)
             url = f"{base_url}?season={season_year}&seasontype=2"
             resp = requests.get(url)
             if resp.status_code != 200:
@@ -318,8 +343,8 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
             data = resp.json()
             events = data.get('events', [])
         elif league_key in ["NCAAM", "NCAAWB"]:
-            # NCAA Basketball: Use year+1 format like NBA (2026 = 2025-26 season)
-            season_year = season if season else 2026
+            # NCAA Basketball: Use year+1 format like NBA (2027 = 2026-27 season)
+            season_year = season if season else get_current_season_year(league_key)
             all_events = []
             
             # Fetch all season types: 1=Preseason, 2=Regular Season, 3=Postseason
@@ -364,6 +389,13 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
 
         return parse_schedule_from_api(url, team_id, datetime.now(), season)
     
+    # Offseason fallback: ESPN publishes a new season's schedule some weeks
+    # after the previous one ends, so in that gap the current season year comes
+    # back empty. Fall back to the season that just finished.
+    if not events and season is None:
+        return get_team_schedule(league_key, team_id, days_ahead, days_behind,
+                                 season=current_season - 1)
+
     # NCAAF fallback: if current year has no games, try previous year with seasontype=2
     if league_key == "NCAAF" and len(events) == 0:
         from datetime import datetime
@@ -1109,36 +1141,37 @@ def get_leagues():
     return list(LEAGUES.keys())
 
 def get_available_seasons(league_key):
-    """Get available seasons for a league
+    """Get available seasons for a league, newest first.
+    
+    Each entry is (espn_season_year, display_label). The newest entry is the
+    season currently in progress, so NHL in September 2026 leads with
+    (2027, "2026-27 Season").
     
     Based on ESPN API historical data availability:
     - MLB: Comprehensive data from 2001 onward
     - NFL: Comprehensive data from 2001 onward  
-    - NBA: Comprehensive data from 2000 onward
+    - NBA/NHL: Comprehensive data from 2000-01 onward
     - NCAAF: Comprehensive data from 2005 onward
+    - NCAA hockey: Comprehensive data from 2012-13 onward
     """
-    from datetime import datetime
-    current_year = datetime.now().year
+    current_season = get_current_season_year(league_key)
     
-    if league_key == "NFL":
-        # NFL seasons typically go from year to year+1 (2024 season = 2024-2025)
-        # ESPN has comprehensive data from 2001 onward
-        return [(year, f"{year} Season") for year in range(current_year, 2000, -1)]
-    elif league_key == "NBA":
-        # NBA seasons are year+1 format (2025-26 season = 2026)
-        # ESPN has comprehensive data from 2000-01 season onward
-        return [(year, f"{year-1}-{str(year)[2:]} Season") for year in range(current_year + 1, 2000, -1)]
+    if league_key in YEAR_PLUS_ONE_LEAGUES:
+        # Season year is the year the season ends in: 2027 = the 2026-27 season
+        earliest = 2012 if league_key in ("NCAAH", "NCAAWH") else 2001
+        return [(year, f"{year-1}-{str(year)[2:]} Season")
+                for year in range(current_season, earliest - 1, -1)]
     elif league_key == "NCAAF":
         # NCAAF seasons are by year
         # ESPN has comprehensive data from 2005 onward
-        return [(year, f"{year} Season") for year in range(current_year, 2004, -1)]
-    elif league_key == "MLB":
-        # MLB seasons are by year  
+        return [(year, f"{year} Season") for year in range(current_season, 2004, -1)]
+    elif league_key in ("NFL", "MLB"):
+        # Seasons are by the year they start in
         # ESPN has comprehensive data from 2001 onward
-        return [(year, f"{year} Season") for year in range(current_year, 2000, -1)]
+        return [(year, f"{year} Season") for year in range(current_season, 2000, -1)]
     else:
         # For other leagues, return last 10 years as a reasonable default
-        return [(year, f"{year} Season") for year in range(current_year, current_year - 10, -1)]
+        return [(year, f"{year} Season") for year in range(current_season, current_season - 10, -1)]
 
 def get_scores(league_key, date=None, week=None, seasontype=None, season=None):
     league_path = LEAGUES.get(league_key)
@@ -2189,8 +2222,10 @@ def _get_nfl_standings_fast():
 def _get_nba_standings_fast():
     """Fast NBA standings using dedicated endpoint"""
     try:
-        # Use 2025-26 season (season=2026) for fresh standings with all teams at 0-0
-        url = "https://site.api.espn.com/apis/v2/sports/basketball/nba/standings?season=2026"
+        # Pin the request to the current season so the standings roll over with
+        # it instead of staying on whatever season was current when this shipped
+        season = get_current_season_year("NBA")
+        url = f"https://site.api.espn.com/apis/v2/sports/basketball/nba/standings?season={season}"
         resp = requests.get(url)
         
         if resp.status_code != 200:

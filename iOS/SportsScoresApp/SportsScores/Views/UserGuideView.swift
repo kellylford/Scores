@@ -295,7 +295,7 @@ struct UserGuideView: View {
                 GuideSection(icon: "antenna.radiowaves.left.and.right", title: "Data", color: .cyan) {
                     Text("All data comes from ESPN's public API.")
                     BulletPoint("**MLB Spring Training** runs February–March. The app defaults to spring training games during that window")
-                    BulletPoint("**NBA and WNBA** season years follow the second year — the 2025–26 season shows as 2026")
+                    BulletPoint("**NBA, NHL and college basketball/hockey** seasons are shown as the two years they span, e.g. 2026–27. The WNBA plays inside one calendar year, so it shows a single year")
                     BulletPoint("**NCAA Hockey** data is sometimes incomplete — box scores or play-by-play may be missing for some games")
                     BulletPoint("Game times are shown in your device's local time zone")
                 }

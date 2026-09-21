@@ -30,32 +30,17 @@ class TeamScheduleViewModel: ObservableObject {
     }
 
     /// Returns the season year to request from ESPN for a given sport.
-    /// MLB spring training runs Feb–March; during that window request the
-    /// current year (spring data) rather than last year's completed season.
-    /// For sports where ESPN uses year+1 (NBA, WNBA) adjust accordingly.
-    /// Football seasons (NFL, NCAAF) run Aug/Sep through the Super Bowl/bowls
-    /// in Jan/Feb. Only Jan–Feb still belong to the prior season year;
-    /// from March onward we default to the upcoming season (schedule is
-    /// typically released in spring).
+    /// See `Sport.seasonYear(containing:)` for the per-sport conventions —
+    /// notably the winter sports, where the 2026-27 season is `season=2027`
+    /// and ESPN turns the year over in the summer, not in October.
     static func defaultSeasonYear(for sport: Sport) -> Int {
-        let cal = Calendar.current
-        let now = Date()
-        let year = cal.component(.year, from: now)
-        let month = cal.component(.month, from: now)
+        sport.currentSeasonYear
+    }
 
-        if sport.usesNextYearFormat {
-            // NBA/WNBA 2025-26 season → pass 2026
-            return month >= 10 ? year + 1 : year
-        }
-
-        // Football seasons end with the Super Bowl/bowls in January–February.
-        // Only those two months still belong to the prior season year.
-        if sport.isFootball && month < 3 {
-            return year - 1
-        }
-
-        // For all other sports the season year matches the calendar year.
-        return year
+    /// Human-readable label for a season year — "2026-27" for the NHL's
+    /// `season=2027`, plain "2026" for MLB and the WNBA.
+    func seasonLabel(_ year: Int) -> String {
+        sport.seasonDisplayName(year: year)
     }
 
     /// Season types to fetch for a given sport and year.
@@ -89,8 +74,18 @@ class TeamScheduleViewModel: ObservableObject {
             }
         }
 
+        // ESPN publishes a new season's schedule some weeks after the previous
+        // one ends, so in that gap the current season year comes back empty.
+        // Fall back to the season that just finished rather than showing
+        // nothing at all.
+        if allGames.isEmpty && selectedYear == Self.defaultSeasonYear(for: sport) {
+            selectedYear -= 1
+            await fetchSchedule()
+            return
+        }
+
         if allGames.isEmpty {
-            errorMessage = "No schedule data available for \(selectedYear)."
+            errorMessage = "No schedule data available for \(sport.seasonDisplayName(year: selectedYear))."
         }
         games = allGames.sorted { $0.date < $1.date }
         isLoading = false

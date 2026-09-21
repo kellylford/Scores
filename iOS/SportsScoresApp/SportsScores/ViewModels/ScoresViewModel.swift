@@ -154,16 +154,9 @@ class ScoresViewModel: ObservableObject {
     }
 
     /// The logical season display year for the currently visible date for non-football sports.
-    /// Accounts for the year+1 API convention (e.g. NBA Oct 2022 → display year 2023).
+    /// Accounts for the year+1 API convention (e.g. NHL Oct 2026 → display year 2027).
     func displaySeasonYear(for sport: Sport) -> Int {
-        let cal  = Calendar.current
-        let year  = cal.component(.year,  from: currentDate)
-        let month = cal.component(.month, from: currentDate)
-        if sport.usesNextYearFormat {
-            // Season starts ~October; Oct–Dec belong to the next year's season.
-            return month >= 10 ? year + 1 : year
-        }
-        return year
+        sport.seasonYear(containing: currentDate)
     }
 
     // MARK: - Fetch

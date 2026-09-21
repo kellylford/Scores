@@ -732,9 +732,8 @@ class ESPNAPIService {
         let league = sport.apiPath.components(separatedBy: "/").last ?? sport.rawValue.lowercased()
         let sportType = sport.apiPath.components(separatedBy: "/").first ?? "unknown"
 
-        // Get current season year (NBA/WNBA use year+1 format)
-        let currentYear = Calendar.current.component(.year, from: Date())
-        let seasonYear = sport.usesNextYearFormat ? currentYear + 1 : currentYear
+        // Get current season year (the winter sports use the year+1 format)
+        let seasonYear = sport.currentSeasonYear
 
         // Get season types to try (MLB spring training in Feb-March uses type 1)
         let seasonTypes = getSeasonTypes(for: sport)
@@ -814,8 +813,7 @@ class ESPNAPIService {
     func fetchTeamStatRankings(teamId: String, sport: Sport) async throws -> [TeamStatRanking] {
         let league = sport.apiPath.components(separatedBy: "/").last ?? sport.rawValue.lowercased()
         let sportType = sport.apiPath.components(separatedBy: "/").first ?? "unknown"
-        let currentYear = Calendar.current.component(.year, from: Date())
-        let seasonYear = sport.usesNextYearFormat ? currentYear + 1 : currentYear
+        let seasonYear = sport.currentSeasonYear
         let seasonTypes = getSeasonTypes(for: sport)
 
         for season in [seasonYear, seasonYear - 1] {
@@ -1576,19 +1574,8 @@ class ESPNAPIService {
 
     /// Fetches the current season schedule for a team. Returns games sorted by date.
     func fetchTeamHubSchedule(teamId: String, sport: Sport) async throws -> [ScheduleGame] {
-        // Compute current season year (mirrors TeamScheduleViewModel.defaultSeasonYear)
-        let cal = Calendar.current
-        let now = Date()
-        let year = cal.component(.year, from: now)
-        let month = cal.component(.month, from: now)
-        let season: Int
-        if sport.usesNextYearFormat {
-            season = month >= 10 ? year + 1 : year
-        } else if sport.isFootball && month < 3 {
-            season = year - 1
-        } else {
-            season = year
-        }
+        // Season currently in progress — see Sport.seasonYear(containing:)
+        let season = sport.currentSeasonYear
         let seasonTypes: [Int]
         if sport == .mlb {
             seasonTypes = [1, 2, 3]
