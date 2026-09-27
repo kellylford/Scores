@@ -12,6 +12,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Core infrastructure implemented, text processing being refined
   - Game story text placeholders currently under investigation
 
+## [0.9.7] - 2026-09-27
+
+### Fixed
+- **NFL and college football showed "No games found" for every week.** ESPN's
+  scoreboard stopped accepting a date range (`dates=YYYYMMDD-YYYYMMDD`) and now
+  answers one with an error, for every sport. Football weeks were fetched by the
+  week's date range, so every week, current or not, came back empty. Weeks are
+  now requested by week number, season type and season year, which ESPN still
+  honours, and preseason, postseason and bowl weeks all load again.
+- **Team schedules for WNBA, college basketball and soccer, and the venue
+  list,** used the same kind of date range and came back empty too. They now
+  ask for one month at a time.
+
 ## [0.9.6] - 2026-09-20
 
 ### Fixed
