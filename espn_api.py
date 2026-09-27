@@ -272,6 +272,21 @@ def get_current_season_year(league_key):
     return year
 
 
+def scoreboard_months(start, end):
+    """The YYYYMM values covering start..end, for scoreboard dates= queries.
+
+    ESPN's scoreboard accepts a day (YYYYMMDD), a month (YYYYMM) or a year, but
+    stopped accepting YYYYMMDD-YYYYMMDD ranges in September 2026 — every sport
+    now answers a range with 400 "Failed to get events endpoint".
+    """
+    months = []
+    year, month = start.year, start.month
+    while (year, month) <= (end.year, end.month):
+        months.append(f"{year}{month:02d}")
+        year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+    return months
+
+
 def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season=None):
     """Get a team's complete schedule using the dedicated team schedule endpoint"""
     from datetime import datetime, timedelta
@@ -369,14 +384,10 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
             # Use the combined events list
             events = all_events
     else:
-        # For other leagues, fall back to the date range approach
+        # For other leagues, fall back to the scoreboard, filtered to this team
         today = datetime.now()
         start_date = today - timedelta(days=days_behind)
         end_date = today + timedelta(days=days_ahead)
-        start_str = start_date.strftime("%Y%m%d")
-        end_str = end_date.strftime("%Y%m%d")
-        url = f"{BASE_URL}/{league_path}/scoreboard?dates={start_str}-{end_str}"
-
         # Unreachable for NCAAF today — it is handled by the dedicated
         # /teams/{id}/schedule endpoint above, which needs no division filter and
         # already works for FCS teams. Kept as a guard in case that ever changes:
@@ -384,10 +395,23 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
         # is filtered down to one team anyway and FBS-only would return nothing
         # at all for an FCS team.
         extra = college_scoreboard_params(league_key, coverage="all_d1")
-        if extra:
-            url += "&" + "&".join(extra)
+        if league_key != "NCAAF":
+            # A month is far bigger than a day, so lift the page size to the
+            # 1000 ceiling (past it ESPN collapses to 25). College football is
+            # left alone: ESPN doubles its limit, so 400 is already 800.
+            extra = [p for p in extra if not p.startswith("limit=")] + ["limit=1000"]
 
-        return parse_schedule_from_api(url, team_id, datetime.now(), season)
+        # ESPN rejects dates=START-END ranges (400 since September 2026), so
+        # fetch each month the window touches and trim to the window afterwards.
+        schedule = []
+        for month in scoreboard_months(start_date, end_date):
+            params = [f"dates={month}"] + extra
+            url = f"{BASE_URL}/{league_path}/scoreboard?" + "&".join(params)
+            schedule.extend(parse_schedule_from_api(url, team_id, datetime.now(), season))
+        first, last = start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")
+        schedule = [g for g in schedule if first <= g['date'] <= last]
+        schedule.sort(key=lambda g: g['date'])
+        return schedule
     
     # Offseason fallback: ESPN publishes a new season's schedule some weeks
     # after the previous one ends, so in that gap the current season year comes
@@ -1185,31 +1209,22 @@ def get_scores(league_key, date=None, week=None, seasontype=None, season=None):
         # Non-football date navigation
         params.append(f"dates={date.strftime('%Y%m%d')}")
     elif week is not None and league_key in ("NFL", "NCAAF"):
+        params.append(f"week={week}")
         if season is not None:
-            # ESPN ignores season= when week= is also passed (known API quirk).
-            # Resolve the week's date bounds from the season calendar instead and
-            # fetch via dates= — same approach as the iOS app.
+            # ESPN ignores season= when week= is also passed (known API quirk),
+            # but a bare year in dates= does pick the season: dates=2025&week=5
+            # serves the 2025 season's week 5, and dates=2026&week=18 serves the
+            # January 2027 games. This replaced a dates=START-END range built
+            # from the calendar, which ESPN began rejecting with a 400 in
+            # September 2026 — for every sport, not just football.
             #
             # seasontype matters here: week numbers restart within each season
             # type, so week 1 is the Hall of Fame game in preseason and the
             # September opener in the regular season.
-            try:
-                from services.football_calendar import get_week_dates, SEASON_TYPE_REGULAR
-                start_str, end_str = get_week_dates(
-                    league_key, week, season, seasontype or SEASON_TYPE_REGULAR)
-                if start_str and end_str:
-                    params.append(f"dates={start_str}-{end_str}")
-                    # dates= already scopes the request to this week; leaving
-                    # seasontype= on as well makes ESPN drop games in the weeks
-                    # that straddle a season-type boundary.
-                    seasontype = None
-                else:
-                    # Calendar lookup failed; fall back to week= without season
-                    params.append(f"week={week}")
-            except Exception:
-                params.append(f"week={week}")
-        else:
-            params.append(f"week={week}")
+            from services.football_calendar import SEASON_TYPE_REGULAR
+            params.append(f"dates={season}")
+            if seasontype is None:
+                seasontype = SEASON_TYPE_REGULAR
     elif season is not None and league_key in ("NFL", "NCAAF"):
         # Season-only: used for off-season default view (returns current/week-1)
         params.append(f"season={season}")

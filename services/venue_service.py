@@ -6,6 +6,7 @@ import requests
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from services.api_service import ApiService
+from espn_api import scoreboard_months
 
 class VenueService:
     """Service for retrieving and managing venue data"""
@@ -38,16 +39,16 @@ class VenueService:
         today = datetime.now()
         start_date = today - timedelta(days=60)  # Look back 2 months
         end_date = today + timedelta(days=30)   # Look ahead 1 month
-        start_str = start_date.strftime("%Y%m%d")
-        end_str = end_date.strftime("%Y%m%d")
-        
-        url = f"{self.base_url}/{league_path}/scoreboard?dates={start_str}-{end_str}&limit=100"
         
         try:
-            resp = requests.get(url, timeout=3)
-            if resp.status_code == 200:
-                data = resp.json()
-                events = data.get('events', [])
+            # ESPN rejects dates=START-END ranges, so gather month by month.
+            events = []
+            for month in scoreboard_months(start_date, end_date):
+                url = f"{self.base_url}/{league_path}/scoreboard?dates={month}&limit=100"
+                resp = requests.get(url, timeout=3)
+                if resp.status_code == 200:
+                    events.extend(resp.json().get('events', []))
+            if events:
                 
                 for event in events:
                     competitions = event.get('competitions', [])
