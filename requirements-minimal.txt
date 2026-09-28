@@ -1,5 +1,5 @@
 # Minimal requirements for running the Scores application
-PyQt6==6.9.1
+PyQt6==6.11.0
 requests==2.34.2
 pytz==2026.3.post1
 
