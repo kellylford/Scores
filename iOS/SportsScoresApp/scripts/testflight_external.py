@@ -98,16 +98,17 @@ def find_build(app_id, version, number):
 
 
 def set_what_to_test(build_id, text):
+    """Set "What to Test". The API calls the field whatsNew, not whatToTest."""
     existing = call("GET", f"/builds/{build_id}/betaBuildLocalizations")["data"]
     for loc in existing:
         if loc["attributes"]["locale"] == "en-US":
             call("PATCH", f"/betaBuildLocalizations/{loc['id']}", json={"data": {
                 "type": "betaBuildLocalizations", "id": loc["id"],
-                "attributes": {"whatToTest": text}}})
+                "attributes": {"whatsNew": text}}})
             return
     call("POST", "/betaBuildLocalizations", json={"data": {
         "type": "betaBuildLocalizations",
-        "attributes": {"locale": "en-US", "whatToTest": text},
+        "attributes": {"locale": "en-US", "whatsNew": text},
         "relationships": {"build": {"data": {"type": "builds", "id": build_id}}}}})
 
 

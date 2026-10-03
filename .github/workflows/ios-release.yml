@@ -42,9 +42,14 @@ on:
         required: false
         type: boolean
         default: false
+      existing_build:
+        description: "Skip building: send this already-uploaded build number (of the VERSION version) to external testers."
+        required: false
+        type: string
 
 jobs:
   build-upload:
+    if: inputs.existing_build == '' || inputs.existing_build == null
     runs-on: macos-latest
     timeout-minutes: 45
     outputs:
@@ -227,7 +232,11 @@ jobs:
   # and spends most of its time waiting for processing.
   external-testflight:
     needs: build-upload
-    if: github.ref_type == 'tag' || inputs.external
+    # always() so it still runs when build-upload is skipped for existing_build.
+    if: >-
+      always() &&
+      (needs.build-upload.result == 'success' || inputs.existing_build != '') &&
+      (github.ref_type == 'tag' || inputs.external || inputs.existing_build != '')
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -244,9 +253,11 @@ jobs:
           ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
           BUNDLE_ID: com.sportsscores.app
           APP_VERSION: ${{ needs.build-upload.outputs.marketing_version }}
-          BUILD_NUMBER: ${{ needs.build-upload.outputs.build_number }}
+          BUILD_NUMBER: ${{ inputs.existing_build || needs.build-upload.outputs.build_number }}
         run: |
           set -euo pipefail
+          APP_VERSION="${APP_VERSION:-$(tr -d '[:space:]' < VERSION)}"
+          export APP_VERSION
           export ASC_KEY_P8="$(echo "$ASC_KEY_P8_BASE64" | base64 --decode)"
           NOTES="docs/release-notes-v${APP_VERSION}.md"
           [ -f "$NOTES" ] || NOTES="CHANGELOG.md"
