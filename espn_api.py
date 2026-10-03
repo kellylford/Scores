@@ -108,6 +108,50 @@ def ncaaf_needs_fbs_retry(league_key, events, coverage=None):
     return coverage != 'fbs'
 
 
+# The sections of a scores list, in the order they're shown. Matches the iOS
+# app: what is on now, what is on next, what finished, then games that did not
+# take place. ESPN orders a scoreboard by kickoff, which on a college football
+# Saturday interleaves all of these.
+SCORE_SECTIONS = [
+    ("in_progress", "In Progress"),
+    ("upcoming", "Upcoming"),
+    ("completed", "Completed"),
+    ("postponed", "Postponed / Cancelled"),
+]
+_SECTION_RANK = {key: rank for rank, (key, _) in enumerate(SCORE_SECTIONS)}
+
+
+def game_section(game):
+    """Which SCORE_SECTIONS key a get_scores game belongs under.
+
+    Postponed and cancelled are checked by status name before state, because
+    ESPN reports them as "pre" or "post". Suspended games count as in
+    progress: they are unfinished, not abandoned, and the partial score is
+    worth reading.
+    """
+    name = game.get("status_name", "")
+    if name in ("STATUS_POSTPONED", "STATUS_CANCELED", "STATUS_CANCELLED"):
+        return "postponed"
+    if name == "STATUS_SUSPENDED":
+        return "in_progress"
+    state = game.get("state")
+    if state == "in":
+        return "in_progress"
+    if state == "post":
+        return "completed"
+    return "upcoming"
+
+
+def sort_games_by_section(games):
+    """Order games by section, and by start date within each section.
+
+    The sort is stable, so games with the same section and start keep
+    ESPN's order.
+    """
+    return sorted(games, key=lambda g: (_SECTION_RANK[game_section(g)],
+                                        g.get("date") or ""))
+
+
 def _swap_to_fbs(url):
     """Rewrite an NCAAF scoreboard URL to ask for FBS instead of all Division I."""
     return url.replace(f"groups={NCAAF_COVERAGE_GROUPS['all_d1']}",
@@ -1266,11 +1310,13 @@ def get_scores(league_key, date=None, week=None, seasontype=None, season=None):
         start_time = None
         game_status = None
         game_status_name = ""
+        game_state = ""
         if status:
             type_info = status.get("type", {})
             # The stable identifier, e.g. STATUS_SCHEDULED / STATUS_POSTPONED.
             # `description` below is display text and varies; this does not.
             game_status_name = type_info.get("name", "")
+            game_state = type_info.get("state", "")
             if "shortDetail" in type_info:
                 start_time = type_info["shortDetail"]
             elif "detail" in type_info:
@@ -1324,10 +1370,12 @@ def get_scores(league_key, date=None, week=None, seasontype=None, season=None):
             "start_time": start_time,
             "status": game_status,
             "status_name": game_status_name,
+            "state": game_state,
+            "date": event.get("date", ""),
             "teams": team_scores,
             "competitions": [comp]  # Include raw competition data for bowl names
         })
-    return scores
+    return sort_games_by_section(scores)
 
 def get_news(league_key, limit=10):
     """Get news headlines and links for a specific league

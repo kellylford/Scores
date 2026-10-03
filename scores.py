@@ -1466,13 +1466,7 @@ class LeagueView(BaseView):
                 if not scores_data:
                     self.scores_list.addItem("No games found for this week.")
                 else:
-                    for game_raw in scores_data:
-                        game = GameData(game_raw, self.league)
-                        item_text = game.get_display_text()
-                        self.scores_list.addItem(item_text)
-                        list_item = self.scores_list.item(self.scores_list.count()-1)
-                        if list_item:
-                            list_item.setData(Qt.ItemDataRole.UserRole, game_raw.get("id"))
+                    self._add_game_sections(scores_data)
                 if self.news_headlines:
                     self.scores_list.addItem("--- News Headlines ---")
                     news_item = self.scores_list.item(self.scores_list.count()-1)
@@ -1489,13 +1483,7 @@ class LeagueView(BaseView):
                 if not scores_data:
                     self.scores_list.addItem("No games found for this date.")
                 else:
-                    for game_raw in scores_data:
-                        game = GameData(game_raw, self.league)
-                        item_text = game.get_display_text()
-                        self.scores_list.addItem(item_text)
-                        list_item = self.scores_list.item(self.scores_list.count()-1)
-                        if list_item:
-                            list_item.setData(Qt.ItemDataRole.UserRole, game_raw.get("id"))
+                    self._add_game_sections(scores_data)
                 if self.news_headlines:
                     self.scores_list.addItem("--- News Headlines ---")
                     news_item = self.scores_list.item(self.scores_list.count()-1)
@@ -1503,6 +1491,29 @@ class LeagueView(BaseView):
                 self._add_common_sections()
             except Exception as e:
                 self._show_api_error(f"Failed to load scores: {str(e)}")
+
+    def _add_game_sections(self, scores_data):
+        """Add games under In Progress / Upcoming / Completed / Postponed headers.
+
+        get_scores already returns games in section order. Each header is a
+        plain list row with no data, so arrow keys stop on it and the screen
+        reader reads it, but activating it does nothing. The count lets a
+        user tell at a glance whether a section is worth entering.
+        """
+        from espn_api import SCORE_SECTIONS, game_section
+        by_section = {}
+        for game_raw in scores_data:
+            by_section.setdefault(game_section(game_raw), []).append(game_raw)
+        for key, title in SCORE_SECTIONS:
+            games = by_section.get(key)
+            if not games:
+                continue
+            count = len(games)
+            self.scores_list.addItem(f"{title}, {count} {'game' if count == 1 else 'games'}")
+            for game_raw in games:
+                item = QListWidgetItem(GameData(game_raw, self.league).get_display_text())
+                item.setData(Qt.ItemDataRole.UserRole, game_raw.get("id"))
+                self.scores_list.addItem(item)
 
     def _add_common_sections(self):
         if self.league in ["MLB", "NFL", "NBA", "NHL", "NCAAF", "NCAAM", "NCAAWB", "NCAAH", "NCAAWH"]:
