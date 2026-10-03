@@ -126,3 +126,57 @@ class TestCheckForUpdate:
         with patch.object(updater.requests, "get", side_effect=RuntimeError("offline")):
             with pytest.raises(RuntimeError):
                 updater.check_for_update(current_version="0.8.0")
+
+
+URL = "https://github.com/kellylford/Scores/releases/download/v0.9.8/Scores-0.9.8-Setup.exe"
+
+
+class TestInstallerAlreadyOpen:
+    """A second update attempt while the first installer is still open used to
+    fail with "Permission denied": it re-downloaded onto the locked file."""
+
+    def test_not_running_when_never_downloaded(self, tmp_path):
+        with patch.object(updater.tempfile, "gettempdir", return_value=str(tmp_path)):
+            assert updater.installer_running(URL) is False
+
+    def test_not_running_when_file_is_writable(self, tmp_path):
+        (tmp_path / "Scores-0.9.8-Setup.exe").write_bytes(b"x")
+        with patch.object(updater.tempfile, "gettempdir", return_value=str(tmp_path)):
+            assert updater.installer_running(URL) is False
+
+    def test_running_when_file_is_locked(self, tmp_path):
+        (tmp_path / "Scores-0.9.8-Setup.exe").write_bytes(b"x")
+        real_open = open
+
+        def locked(path, mode="r", *a, **k):
+            if str(path).endswith("Setup.exe") and "r" not in mode:
+                raise PermissionError(13, "Permission denied")
+            return real_open(path, mode, *a, **k)
+
+        with patch.object(updater.tempfile, "gettempdir", return_value=str(tmp_path)), \
+                patch("builtins.open", locked):
+            assert updater.installer_running(URL) is True
+
+    def test_download_falls_back_to_a_new_name_when_locked(self, tmp_path):
+        (tmp_path / "Scores-0.9.8-Setup.exe").write_bytes(b"old")
+        real_open = open
+
+        def locked(path, mode="r", *a, **k):
+            if str(path).endswith("Scores-0.9.8-Setup.exe") and "w" in mode:
+                raise PermissionError(13, "Permission denied")
+            return real_open(path, mode, *a, **k)
+
+        class Resp:
+            headers = {"Content-Length": "3"}
+            def raise_for_status(self): pass
+            def iter_content(self, chunk_size): yield b"new"
+
+        with patch.object(updater.tempfile, "gettempdir", return_value=str(tmp_path)), \
+                patch.object(updater.tempfile, "tempdir", str(tmp_path)), \
+                patch.object(updater.requests, "get", return_value=Resp()), \
+                patch("builtins.open", locked):
+            path = updater.download_installer(URL)
+        assert os.path.basename(path) != "Scores-0.9.8-Setup.exe"
+        assert path.endswith(".exe")
+        with open(path, "rb") as f:
+            assert f.read() == b"new"

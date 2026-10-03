@@ -126,6 +126,43 @@ def check_for_update(current_version=None):
     return {"version": best_ver, "url": url, "notes": best.get("body") or ""}
 
 
+def installer_path(url):
+    """Where download_installer saves the installer for `url`."""
+    return os.path.join(tempfile.gettempdir(), os.path.basename(url) or "Scores-Setup.exe")
+
+
+def installer_running(url):
+    """True when the installer for `url` is already downloaded and open.
+
+    Windows locks a running executable, so the file can't be opened for
+    writing. That happens when the first update attempt launched the installer
+    but its window stayed behind others: Scores closed, the user reopened it,
+    and the second download failed on that locked file with "Permission
+    denied".
+    """
+    path = installer_path(url)
+    if not os.path.exists(path):
+        return False
+    try:
+        with open(path, "ab"):
+            return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+
+
+def _open_installer_file(url):
+    """Open the installer's download path, or a fresh name if it is locked."""
+    path = installer_path(url)
+    try:
+        return path, open(path, "wb")
+    except PermissionError:
+        stem, ext = os.path.splitext(os.path.basename(path))
+        fd, path = tempfile.mkstemp(prefix=f"{stem}-", suffix=ext or ".exe")
+        return path, os.fdopen(fd, "wb")
+
+
 def download_installer(url, progress=None, should_cancel=None):
     """Download the installer to a temp file and return its path.
 
@@ -136,10 +173,9 @@ def download_installer(url, progress=None, should_cancel=None):
     resp = requests.get(url, stream=True, timeout=120)
     resp.raise_for_status()
     total = int(resp.headers.get("Content-Length") or 0)
-    name = os.path.basename(url) or "Scores-Setup.exe"
-    path = os.path.join(tempfile.gettempdir(), name)
+    path, f = _open_installer_file(url)
     done = 0
-    with open(path, "wb") as f:
+    with f:
         for chunk in resp.iter_content(chunk_size=65536):
             if should_cancel and should_cancel():
                 f.close()

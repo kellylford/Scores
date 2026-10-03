@@ -12818,6 +12818,15 @@ class SportsScoresApp(QWidget):
                 webbrowser.open(updater.RELEASES_PAGE)
             return
 
+        if updater.installer_running(info['url']):
+            # An earlier attempt already launched it; downloading again would
+            # fail on the locked file.
+            QMessageBox.information(
+                self, "Update Available",
+                f"The Scores {info['version']} installer is already open. "
+                "Switch to it with Alt+Tab to finish the update.")
+            return
+
         relocate = "" if updater.is_installed() else (
             "\n\nThis will install Scores to your user Programs folder; you can "
             "delete the portable copy afterwards.")
