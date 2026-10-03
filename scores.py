@@ -1521,6 +1521,8 @@ class LeagueView(BaseView):
         # Bumped by every load_scores, so a slow load that finishes after a
         # newer one (stepping weeks quickly) is dropped instead of shown.
         self._scores_generation = 0
+        # Dialogs whose data is being fetched by _fetch_then, by title.
+        self._background_fetches = {}
 
         # For football leagues, the season (and, unless one was asked for, the
         # week) comes from ESPN's calendar. That is a network request, so the
@@ -1801,9 +1803,15 @@ class LeagueView(BaseView):
             if self.parent_app:
                 self.parent_app.update_window_title(["Polls", self.league])
             
-            # Get rankings data
-            polls_data = ApiService.get_rankings(self.league)
-            
+            self._fetch_then("Polls", lambda: ApiService.get_rankings(self.league),
+                             self._open_polls_dialog)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to show polls: {str(e)}")
+            if self.parent_app:
+                self.parent_app.update_window_title([self.league])
+
+    def _open_polls_dialog(self, polls_data):
+        try:
             if not polls_data or not polls_data.get('polls'):
                 QMessageBox.information(self, "Polls", 
                                       f"No poll data available for {self.league}.")
@@ -1888,7 +1896,15 @@ class LeagueView(BaseView):
             if self.parent_app:
                 self.parent_app.update_window_title(["Teams", self.league])
             
-            standings_data = ApiService.get_standings(self.league)
+            self._fetch_then("Teams", lambda: ApiService.get_standings(self.league),
+                             self._open_teams_dialog)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to show teams: {str(e)}")
+            if self.parent_app:
+                self.parent_app.update_window_title([self.league])
+
+    def _open_teams_dialog(self, standings_data):
+        try:
             if not standings_data:
                 QMessageBox.information(self, "Teams", 
                                       f"No teams data available for {self.league}.")
@@ -1960,7 +1976,15 @@ class LeagueView(BaseView):
             
             # Convert league to lowercase for venue service
             league_key = self.league.lower()
-            venues_data = venue_service.get_venues_for_league(league_key)
+            self._fetch_then("Venues", lambda: venue_service.get_venues_for_league(league_key),
+                             self._open_venues_dialog)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to show venues: {str(e)}")
+            if self.parent_app:
+                self.parent_app.update_window_title([self.league])
+
+    def _open_venues_dialog(self, venues_data):
+        try:
             if not venues_data:
                 QMessageBox.information(self, "Venues", 
                                       f"No venue data available for {self.league}.")
@@ -1981,6 +2005,49 @@ class LeagueView(BaseView):
             if self.parent_app:
                 self.parent_app.update_window_title([self.league])
     
+    def _fetch_then(self, title, fetch, show):
+        """Run fetch() on a thread, then show(result) here.
+
+        Polls, Teams and Venues used to download before their dialog opened, on
+        the UI thread; Venues alone could freeze the window for 20 seconds. The
+        activated row says "(loading...)" until the dialog opens, and a second
+        Enter while it loads does nothing.
+        """
+        if title in self._background_fetches:
+            return
+        item = self.scores_list.currentItem()
+        original = item.text() if item else None
+        if item:
+            item.setText(f"{original} (loading...)")
+
+        def finish():
+            self._background_fetches.pop(title, None)
+            try:
+                if item is not None and original is not None:
+                    item.setText(original)
+            except RuntimeError:
+                pass  # the list was reloaded meanwhile and the row is gone
+
+        def failed(message):
+            finish()
+            QMessageBox.critical(self, "Error", f"Failed to show {title.lower()}: {message}")
+            if self.parent_app:
+                self.parent_app.update_window_title([self.league])
+
+        def loaded(result):
+            finish()
+            # An exception escaping a slot aborts the app under PyQt6.
+            try:
+                show(result)
+            except Exception as e:
+                failed(str(e))
+
+        loader = CallLoader(fetch)
+        loader.data_loaded.connect(loaded)
+        loader.error_occurred.connect(failed)
+        self._background_fetches[title] = loader
+        _start_detached_thread(loader)
+
     def _show_bowls_and_playoffs(self):
         """Show Bowls & Playoffs view for NCAAF"""
         try:
@@ -2264,34 +2331,18 @@ class GameDetailsView(BaseView):
                 
             team_name = field_data.get("team_name", "Unknown Team")
             team_id = field_data.get("team_id")
-            
-            if not team_id:
-                # Infrastructure solution: Try to find team ID through alternative means
-                team_id = self._find_team_id_alternative(team_name)
-                
-            if not team_id:
-                # Still no team ID - gracefully handle this
-                QMessageBox.information(self, "Team Schedule", 
-                    f"Schedule for {team_name} is temporarily unavailable.\n\n"
-                    "You can access team schedules from the main league standings.")
-                return
-                
-            # Create team data structure for TeamScheduleDialog
-            team_data = {
-                'team_id': team_id,
-                'team_name': team_name,
-                'wins': '',  # TeamScheduleDialog will load this
-                'losses': '',
-                'record': field_data.get('record', '')
-            }
-            
-            try:
-                dlg = TeamScheduleDialog(team_data, field_data.get('league', self.league), self)
-                dlg.exec()
-            except Exception as e:
-                QMessageBox.critical(self, "Error", 
-                    f"Failed to load {team_name} schedule: {str(e)}\n\n"
-                    "You can try accessing the team schedule from the main league standings.")
+
+            if team_id:
+                self._open_team_schedule(team_name, team_id, field_data)
+            else:
+                # No ID in the summary. Looking one up fetches the league's
+                # standings, so do that off the UI thread.
+                loader = CallLoader(lambda: self._find_team_id_alternative(team_name))
+                loader.data_loaded.connect(
+                    lambda found: self._open_team_schedule(team_name, found, field_data))
+                loader.error_occurred.connect(
+                    lambda _e: self._open_team_schedule(team_name, None, field_data))
+                _start_detached_thread(loader)
             return
 
         dlg = QDialog(self)
@@ -2537,6 +2588,32 @@ class GameDetailsView(BaseView):
                     return str(team.get('id', ''))
                     
         return ""
+
+    def _open_team_schedule(self, team_name, team_id, field_data):
+        """Open a team's schedule from game details, once its ID is known."""
+        if not team_id:
+            # Still no team ID - gracefully handle this
+            QMessageBox.information(self, "Team Schedule", 
+                f"Schedule for {team_name} is temporarily unavailable.\n\n"
+                "You can access team schedules from the main league standings.")
+            return
+
+        # Create team data structure for TeamScheduleDialog
+        team_data = {
+            'team_id': team_id,
+            'team_name': team_name,
+            'wins': '',  # TeamScheduleDialog will load this
+            'losses': '',
+            'record': field_data.get('record', '')
+        }
+
+        try:
+            dlg = TeamScheduleDialog(team_data, field_data.get('league', self.league), self)
+            dlg.exec()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", 
+                f"Failed to load {team_name} schedule: {str(e)}\n\n"
+                "You can try accessing the team schedule from the main league standings.")
 
     def _find_team_id_alternative(self, team_name: str) -> str:
         """Alternative method to find team ID when standard extraction fails"""
@@ -7862,6 +7939,22 @@ class GameDetailsLoader(QThread):
             self.error_occurred.emit(self.generation, str(e))
 
 
+class CallLoader(QThread):
+    """Runs one function off the UI thread and emits its result."""
+    data_loaded = pyqtSignal(object)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, fn):
+        super().__init__()
+        self.fn = fn
+
+    def run(self):
+        try:
+            self.data_loaded.emit(self.fn())
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+
+
 class StatisticsLoader(QThread):
     """Loads a league's team or player statistics for StatisticsViewDialog."""
     data_loaded = pyqtSignal(dict)
@@ -12387,12 +12480,37 @@ class BowlsAndPlayoffsDialog(QDialog):
         self.load_bowl_games()
     
     def load_bowl_games(self):
-        """Load bowl games and CFP from ESPN API"""
+        """Start loading bowl games and the CFP (postseason, seasontype=3).
+
+        Fetched on a thread: in the dialog's constructor it froze the window
+        before the dialog appeared.
+        """
+        from services.api_service import ApiService
+        self.bowl_list.clear()
+        self.bowl_list.addItem("Loading bowl games...")
+        self.bowl_list.setCurrentRow(0)
+        loader = CallLoader(lambda: ApiService.get_scores(self.league, seasontype=3))
+        loader.data_loaded.connect(self._on_bowl_games_loaded)
+        loader.error_occurred.connect(self._on_bowl_games_error)
+        _start_detached_thread(loader)
+
+    def _on_bowl_games_error(self, message):
+        self.bowl_list.clear()
+        self.bowl_list.addItem(f"Error loading bowl games: {message}")
+        self.bowl_list.setCurrentRow(0)
+
+    def _on_bowl_games_loaded(self, games_data):
+        had_focus = self.bowl_list.hasFocus()
+        self.bowl_list.clear()
+        self._show_bowl_games(games_data or [])
+        if self.bowl_list.count():
+            self.bowl_list.setCurrentRow(0)
+        if had_focus:
+            self.bowl_list.setFocus()
+
+    def _show_bowl_games(self, games_data):
+        """Fill the list from loaded postseason games. No network access."""
         try:
-            from services.api_service import ApiService
-            # Get postseason games (seasontype=3)
-            games_data = ApiService.get_scores(self.league, seasontype=3)
-            
             if not games_data:
                 self.bowl_list.addItem("No bowl games or playoff games found.")
                 return
@@ -12633,10 +12751,30 @@ class SportsScoresApp(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open standings for {league}: {e}")
 
+    def _fetch_standings_then(self, league: str, title: str, show):
+        """Fetch standings on a thread, then show(data) here.
+
+        Used by the --<sport>-teams / --<sport>-standings startup actions, which
+        fetched on the UI thread before their dialog appeared.
+        """
+        def loaded(data):
+            try:
+                show(data)
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to show {title}: {e}")
+        loader = CallLoader(lambda: ApiService.get_standings(league))
+        loader.data_loaded.connect(loaded)
+        loader.error_occurred.connect(
+            lambda e: QMessageBox.critical(self, "Error", f"Failed to show {title}: {e}"))
+        _start_detached_thread(loader)
+
     def _show_teams_dialog_directly(self, league: str):
         """Show teams dialog directly without being in a league view"""
+        self._fetch_standings_then(
+            league, "teams", lambda data: self._open_teams_dialog_directly(league, data))
+
+    def _open_teams_dialog_directly(self, league: str, standings_data):
         try:
-            standings_data = ApiService.get_standings(league)
             if not standings_data:
                 QMessageBox.information(self, "Teams", 
                                       f"No teams data available for {league}.")
@@ -12653,8 +12791,11 @@ class SportsScoresApp(QWidget):
 
     def _show_standings_dialog_directly(self, league: str):
         """Show standings dialog directly without being in a league view"""
+        self._fetch_standings_then(
+            league, "standings", lambda data: self._open_standings_dialog_directly(league, data))
+
+    def _open_standings_dialog_directly(self, league: str, standings_data):
         try:
-            standings_data = ApiService.get_standings(league)
             if not standings_data:
                 QMessageBox.information(self, "Standings", 
                                       f"No standings data available for {league}.")
