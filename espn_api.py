@@ -876,6 +876,143 @@ def _add_recent_plays(live_games):
         if play and len(play.strip()) > len(game["status"].strip()):
             game["recent_play"] = play
 
+def scoreboard_live_detail(league_key, comp):
+    """Latest-play text for a live game, from its scoreboard entry alone.
+
+    The scoreboard already carries the situation (last play, down and
+    distance, count, runners), so Live Scores doesn't need a full game summary
+    per live game. That was one extra request per game; on a college football
+    Saturday, 50 of them. Returns None when the scoreboard has nothing to add,
+    and the caller shows the status instead.
+    """
+    try:
+        if league_key == "MLB":
+            return extract_baseball_enhanced_display({"competitions": [comp]})
+        if league_key in ("NFL", "NCAAF"):
+            return _football_scoreboard_display(comp)
+        last_play = ((comp.get("situation") or {}).get("lastPlay") or {}).get("text")
+        return last_play or None
+    except Exception as e:
+        print(f"Error building live detail for {league_key}: {e}")
+        return None
+
+
+def _football_scoreboard_display(comp):
+    """Two lines in extract_football_enhanced_display's format, from a
+    scoreboard competition: teams, scores, red zone and last play; then clock,
+    possession and down and distance."""
+    situation = comp.get("situation") or {}
+    if not situation:
+        return None  # halftime, between quarters
+    home = away = None
+    for competitor in comp.get("competitors", []):
+        if competitor.get("homeAway") == "home":
+            home = competitor
+        elif competitor.get("homeAway") == "away":
+            away = competitor
+    if not home or not away:
+        return None
+
+    def name(c):
+        return c.get("team", {}).get("displayName", "")
+
+    possession = situation.get("possession")
+    red_zone = situation.get("isRedZone") and possession
+    away_part = f"{name(away)} {away.get('score', '0')}"
+    home_part = f"{name(home)} {home.get('score', '0')}"
+    if red_zone and possession == away.get("team", {}).get("id"):
+        away_part += " (RZ)"
+    elif red_zone and possession == home.get("team", {}).get("id"):
+        home_part += " (RZ)"
+    line1 = f"{away_part} at {home_part}"
+    last_play = (situation.get("lastPlay") or {}).get("text", "")
+    if last_play:
+        line1 += f" | {last_play[:60] + '...' if len(last_play) > 60 else last_play}"
+
+    parts = []
+    status = comp.get("status", {})
+    clock, period = status.get("displayClock", ""), status.get("period")
+    if clock and period:
+        parts.append(f"{clock} {'Q' + str(period) if period <= 4 else 'OT'}")
+    for c in (home, away):
+        if possession and c.get("team", {}).get("id") == possession:
+            parts.append(f"{c['team'].get('abbreviation', '')} ball")
+    down = situation.get("downDistanceText") or situation.get("shortDownDistanceText")
+    if down:
+        parts.append(down)
+    return f"{line1}\n{' | '.join(parts)}" if parts else line1
+
+
+def golf_total_to_par(competitor):
+    """A golfer's total to par, including the round in progress.
+
+    ESPN's competitor `score` leaves out the current round while it is being
+    played: a golfer at +1, -4 and -8 through 12 holes of round 3 shows -3, not
+    -11, so mid-round leaderboards were wrong. Each linescore's displayValue is
+    that round's score to par ("-8", "+1", "E", or "-" if not started), so the
+    total is their sum. Falls back to `score` when no round has a value, and
+    keeps a non-numeric `score` (CUT, WD, DQ) as it is.
+    """
+    score = str(competitor.get("score", "")).strip()
+    if score and score not in ("E", "e") and not score.lstrip("+-").isdigit():
+        return score
+    total, counted = 0, False
+    for line in competitor.get("linescores", []):
+        value = str(line.get("displayValue", "")).strip()
+        if value in ("E", "e"):
+            counted = True
+        elif value[:1] in "+-" and value[1:].isdigit():
+            total += int(value)
+            counted = True
+    if not counted:
+        return score
+    return "E" if total == 0 else f"{total:+d}"
+
+
+GOLF_TOURS = ("PGA", "LPGA")
+GOLF_TOUR_NAMES = {"PGA": "PGA Tour", "LPGA": "LPGA Tour"}
+
+
+def get_live_golf_tournament(tour_key, leaders=3):
+    """The tour's tournament if it is in progress, else None.
+
+    Golf scoreboards list golfers, not two teams, so they can't go through the
+    team-game path: that read every tournament as "Unknown at Unknown". Returns
+    {tour, tour_name, name, status, leaders: [(position, name, score)]}, with
+    tied scores sharing a "T" position the way a leaderboard shows them.
+    """
+    league_path = LEAGUES.get(tour_key)
+    if not league_path:
+        return None
+    resp = _http_get(f"{BASE_URL}/{league_path}/scoreboard")
+    if resp.status_code != 200:
+        return None
+    for event in resp.json().get("events", []):
+        comp = (event.get("competitions") or [{}])[0]
+        status = comp.get("status", {}).get("type", {})
+        if status.get("state") != "in":
+            continue
+        players = sorted(comp.get("competitors", []), key=lambda c: c.get("order", 999))
+        scores = [golf_total_to_par(p) for p in players]
+        top = []
+        for i, player in enumerate(players[:leaders]):
+            score = scores[i]
+            first = scores.index(score) + 1
+            tied = scores.count(score) > 1
+            athlete = player.get("athlete", {})
+            top.append((f"T{first}" if tied else str(first),
+                        athlete.get("displayName") or athlete.get("fullName", ""),
+                        score))
+        return {
+            "tour": tour_key,
+            "tour_name": GOLF_TOUR_NAMES.get(tour_key, tour_key),
+            "name": event.get("name", ""),
+            "status": status.get("detail", "In Progress"),
+            "leaders": top,
+        }
+    return None
+
+
 def extract_football_enhanced_display(game_details):
     """Extract enhanced football display with hybrid format (down/distance + drive stats + redzone)"""
     try:
@@ -4954,7 +5091,7 @@ def get_golf_leaderboard(tour_key):
                 "position": competitor.get("order", 0),
                 "name": athlete.get("displayName") or athlete.get("fullName", ""),
                 "country": athlete.get("flag", {}).get("alt", ""),
-                "total_score": competitor.get("score", "E"),
+                "total_score": golf_total_to_par(competitor) or "E",
                 "rounds": rounds,
             })
         players.sort(key=lambda p: p["position"])

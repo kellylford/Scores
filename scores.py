@@ -925,6 +925,14 @@ class LiveScoresView(BaseView):
     def _on_game_selected(self, item):
         """Handle game selection - open game details"""
         game_data = item.data(Qt.ItemDataRole.UserRole)
+        if isinstance(game_data, dict) and game_data.get("golf_tour"):
+            tour = game_data["golf_tour"]
+            if self.parent_app:
+                self.parent_app.update_window_title([game_data.get("tour_name", tour)])
+            GolfTournamentDialog(tour, self).exec()
+            if self.parent_app:
+                self.parent_app.update_window_title(["Live Scores"])
+            return
         if game_data and isinstance(game_data, dict):
             game_id = game_data.get("id")
             league = game_data.get("league")
@@ -945,7 +953,7 @@ class LiveScoresView(BaseView):
             return
         if self.live_scores_list.count() == 0:
             self.live_scores_list.addItem("Loading live scores...")
-        loader = LiveScoresLoader(self._get_today_games_all_sports)
+        loader = LiveScoresLoader(self._fetch_live_scores)
         loader.data_loaded.connect(self._on_live_scores_loaded)
         loader.error_occurred.connect(self._on_live_scores_error)
         self._loader = loader
@@ -955,22 +963,22 @@ class LiveScoresView(BaseView):
         self._show_api_error(f"Failed to load live scores: {message}")
         self._pending_old_scores = {}
 
-    def _on_live_scores_loaded(self, live_games: list, current_date_games: list):
+    def _on_live_scores_loaded(self, live_games: list, current_date_games: list, golf: list):
         """Show freshly loaded games, keeping the user's place in the list."""
         # An exception escaping a slot aborts the app under PyQt6.
         try:
-            self._show_loaded_live_scores(live_games, current_date_games)
+            self._show_loaded_live_scores(live_games, current_date_games, golf)
         except Exception as e:
             self._show_api_error(f"Failed to load live scores: {e}")
         self._pending_old_scores = {}
 
-    def _show_loaded_live_scores(self, live_games, current_date_games):
+    def _show_loaded_live_scores(self, live_games, current_date_games, golf=()):
         current = self.live_scores_list.currentItem()
         current_data = current.data(Qt.ItemDataRole.UserRole) if current else None
         selected_id = current_data.get("id") if isinstance(current_data, dict) else None
         selected_row = self.live_scores_list.currentRow()
 
-        self._render_live_scores(live_games, current_date_games)
+        self._render_live_scores(live_games, current_date_games, golf)
 
         restored = False
         if selected_id:
@@ -985,7 +993,7 @@ class LiveScoresView(BaseView):
 
         self._check_monitored_scores(self._pending_old_scores)
 
-    def _render_live_scores(self, live_games, current_date_games):
+    def _render_live_scores(self, live_games, current_date_games, golf=()):
         """Fill the list from already-fetched games. No network access."""
         from datetime import datetime
 
@@ -1014,7 +1022,22 @@ class LiveScoresView(BaseView):
             # Sort upcoming games by start time (closest first)
             upcoming_games.sort(key=lambda g: g.get('start_time', ''))
             
-            total_games = len(live_games) + len(upcoming_games) + len(completed_games)
+            if golf:
+                section_header = QListWidgetItem("=== GOLF LIVE ===")
+                section_header.setBackground(QColor(200, 255, 200))
+                self.live_scores_list.addItem(section_header)
+                for t in golf:
+                    leaders = "; ".join(f"{pos}. {name}, {score}" for pos, name, score in t["leaders"])
+                    text = f"{t['tour_name']}: {t['name']}, {t['status']}"
+                    if leaders:
+                        text += f". Leaders: {leaders}"
+                    item = QListWidgetItem(text)
+                    item.setData(Qt.ItemDataRole.UserRole,
+                                 {"golf_tour": t["tour"], "tour_name": t["tour_name"]})
+                    self.live_scores_list.addItem(item)
+                self.live_scores_list.addItem("")
+
+            total_games = len(live_games) + len(upcoming_games) + len(completed_games) + len(golf)
             if total_games == 0:
                 self.live_scores_list.addItem(f"No games on {today.strftime('%B %d, %Y')}.")
                 return
@@ -1231,18 +1254,66 @@ class LiveScoresView(BaseView):
         self.layout.addWidget(error_label)
     
     @staticmethod
-    def _get_today_games_all_sports():
-        """Get all games for the current date from all sports.
+    def _fetch_live_scores():
+        """Everything Live Scores shows: (live games, today's games, golf).
 
+        Works the way the iOS app does: one scoreboard request per league for
+        today, all in parallel, with live games and their latest plays read
+        from those same scoreboards. It used to fetch every scoreboard twice
+        and a full game summary per live game on top, 85 requests and over a
+        minute on a busy Saturday. Golf tournaments come from their own
+        scoreboards, since they list golfers rather than two teams.
+
+        Runs on the LiveScoresLoader thread, so it must not touch widgets.
+        """
+        import espn_api
+        from concurrent.futures import ThreadPoolExecutor
+
+        def golf(tour):
+            try:
+                return espn_api.get_live_golf_tournament(tour)
+            except Exception as e:
+                print(f"Error fetching {tour} tournament: {e}")
+                return None
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            golf_future = list(pool.map(golf, espn_api.GOLF_TOURS))
+            today_games = LiveScoresView._get_today_games_all_sports()
+
+        live_games = []
+        for game in today_games:
+            if game.get('state') != 'live':
+                continue
+            raw = game['raw_data']
+            comp = (raw.get('competitions') or [{}])[0]
+            status = raw.get('start_time') or raw.get('status') or "In Progress"
+            live_games.append({
+                "id": game['game_id'],
+                "name": raw.get('name', game.get('name', '')),
+                "league": game['league'],
+                "status": status,
+                "teams": [{"name": t.get("name", ""), "score": str(t.get("score", ""))}
+                          for t in raw.get('teams', [])],
+                "recent_play": espn_api.scoreboard_live_detail(game['league'], comp) or status,
+            })
+        return live_games, today_games, [g for g in golf_future if g]
+
+    @staticmethod
+    def _get_today_games_all_sports():
+        """Get all games for the current date from every team sport.
+
+        Golf is left out: its scoreboards list golfers, which read here as
+        "Unknown at Unknown". _fetch_live_scores fetches it separately.
         Runs on the LiveScoresLoader thread, so it must not touch widgets.
         """
         from models.game import GameData
         from datetime import datetime
+        from espn_api import GOLF_TOURS
 
         all_games = []
         today = datetime.now().date()
 
-        leagues = list(ApiService.get_leagues())
+        leagues = [lg for lg in ApiService.get_leagues() if lg not in GOLF_TOURS]
 
         def fetch(league):
             try:
@@ -1251,7 +1322,7 @@ class LiveScoresView(BaseView):
                 print(f"Error fetching {league} games: {e}")
                 return []
 
-        # One scoreboard per league, fetched in parallel like the live games.
+        # One scoreboard per league, all in parallel.
         from concurrent.futures import ThreadPoolExecutor
         from espn_api import LIVE_FETCH_WORKERS
         with ThreadPoolExecutor(max_workers=LIVE_FETCH_WORKERS) as pool:
@@ -7685,18 +7756,16 @@ def _start_detached_thread(thread: QThread):
 
 class LiveScoresLoader(QThread):
     """Fetches everything Live Scores - All Sports shows, off the UI thread."""
-    data_loaded = pyqtSignal(list, list)  # live games, all of today's games
+    data_loaded = pyqtSignal(list, list, list)  # live games, today's games, golf
     error_occurred = pyqtSignal(str)
 
-    def __init__(self, fetch_today_games):
+    def __init__(self, fetch):
         super().__init__()
-        self.fetch_today_games = fetch_today_games
+        self.fetch = fetch
 
     def run(self):
         try:
-            live_games = ApiService.get_live_scores_all_sports() or []
-            today_games = self.fetch_today_games()
-            self.data_loaded.emit(live_games, today_games)
+            self.data_loaded.emit(*self.fetch())
         except Exception as e:
             self.error_occurred.emit(str(e))
 
