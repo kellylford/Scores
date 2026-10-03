@@ -45,9 +45,12 @@ def token():
         headers={"kid": os.environ["ASC_KEY_ID"], "typ": "JWT"})
 
 
-def call(method, path, **kwargs):
+def call(method, path, ok=(), **kwargs):
+    """One API request. Status codes in `ok` return {} instead of failing."""
     resp = requests.request(method, API + path, timeout=60,
                             headers={"Authorization": f"Bearer {token()}"}, **kwargs)
+    if resp.status_code in ok:
+        return {}
     if resp.status_code >= 400:
         sys.exit(f"::error::{method} {path} failed ({resp.status_code}): {resp.text}")
     return resp.json() if resp.content else {}
@@ -82,8 +85,10 @@ def main():
         a = p["attributes"]
         if a.get("profileType") != "IOS_APP_STORE" or a.get("profileState") != "ACTIVE":
             continue
+        # Profiles Xcode manages for automatic signing are listed under the
+        # bundle id but answer 404 when opened; they aren't for manual use.
         cert_ids = {c["id"] for c in
-                    call("GET", f"/profiles/{p['id']}/certificates")["data"]}
+                    call("GET", f"/profiles/{p['id']}/certificates", ok=(404,)).get("data", [])}
         if cert["id"] in cert_ids:
             chosen = p
             break
