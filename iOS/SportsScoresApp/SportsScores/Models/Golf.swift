@@ -75,13 +75,18 @@ struct GolfCompetitor: Identifiable {
     let country: String
     let overallScore: String    // "-12", "E", "+5", "CUT", "WD", "DQ"
     let rounds: [GolfRound]
+    /// First position of a group of golfers on the same score, shown as "T3".
+    /// ESPN's `order` ranks tied golfers 3, 4, 5 arbitrarily.
+    var tiedPosition: Int? = nil
 
     var isCut: Bool    { overallScore == "CUT" }
     var isWithdrawn: Bool { overallScore == "WD" || overallScore == "DQ" }
     var isActive: Bool { !isCut && !isWithdrawn }
 
     var positionDisplay: String {
-        isCut || isWithdrawn ? overallScore : "\(position)"
+        if isCut || isWithdrawn { return overallScore }
+        if let tied = tiedPosition { return "T\(tied)" }
+        return "\(position)"
     }
 
     // MARK: Table row helpers
@@ -215,9 +220,20 @@ struct GolfTournament: Identifiable {
         let competition = api.competitions.first
         broadcasts = competition?.broadcasts?.flatMap(\.names) ?? []
 
-        competitors = (competition?.competitors ?? [])
+        var ranked = (competition?.competitors ?? [])
             .sorted { $0.order < $1.order }
             .map { GolfCompetitor(from: $0) }
+        // Golfers on the same score share the first position among them ("T1").
+        let active = ranked.filter(\.isActive)
+        let counts = Dictionary(grouping: active, by: \.overallScore).mapValues(\.count)
+        var firstPosition: [String: Int] = [:]
+        for i in ranked.indices where ranked[i].isActive {
+            let score = ranked[i].overallScore
+            let first = firstPosition[score] ?? ranked[i].position
+            firstPosition[score] = first
+            if (counts[score] ?? 0) > 1 { ranked[i].tiedPosition = first }
+        }
+        competitors = ranked
     }
 }
 
@@ -230,7 +246,8 @@ extension GolfCompetitor {
         playerName = api.athlete.fullName
         shortName = api.athlete.shortName ?? api.athlete.fullName
         country = api.athlete.flag?.alt ?? ""
-        overallScore = api.score ?? "E"
+        overallScore = GolfCompetitor.totalToPar(
+            score: api.score, roundScores: (api.linescores ?? []).map(\.displayValue))
 
         rounds = (api.linescores ?? []).map { ls in
             let strokes = ls.value.map { Int($0) } ?? 0
@@ -248,6 +265,36 @@ extension GolfCompetitor {
                 holes: holes
             )
         }
+    }
+}
+
+extension GolfCompetitor {
+    /// A golfer's total to par, including the round in progress.
+    ///
+    /// ESPN's `score` leaves out the round being played: a golfer at +1, -4
+    /// and -8 through 12 holes of round 3 shows -3, not -11. Each round's
+    /// displayValue is that round to par ("-8", "+1", "E", or "-" if not
+    /// started), so the total is their sum. CUT, WD and DQ are kept as they
+    /// are. Matches golf_total_to_par in the Windows app's espn_api.py.
+    static func totalToPar(score: String?, roundScores: [String?]) -> String {
+        let raw = (score ?? "").trimmingCharacters(in: .whitespaces)
+        if !raw.isEmpty && raw.uppercased() != "E" && Int(raw) == nil {
+            return raw  // CUT, WD, DQ
+        }
+        var total = 0
+        var counted = false
+        for case let value? in roundScores {
+            let v = value.trimmingCharacters(in: .whitespaces)
+            if v.uppercased() == "E" {
+                counted = true
+            } else if v.count > 1, let n = Int(v) {
+                total += n
+                counted = true
+            }
+        }
+        guard counted else { return raw.isEmpty ? "E" : raw }
+        if total == 0 { return "E" }
+        return total > 0 ? "+\(total)" : "\(total)"
     }
 }
 
