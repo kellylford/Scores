@@ -12,6 +12,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Core infrastructure implemented, text processing being refined
   - Game story text placeholders currently under investigation
 
+## [0.9.9] - 2026-10-03
+
+The first release of the Windows and iOS apps together: one version, one tag.
+
+### Fixed
+- **Windows: game details, Polls, Teams, Venues and Bowls & Playoffs froze the
+  window while they downloaded.** All now load in the background. Opening a
+  team's schedule from a game, and the `--<sport>-teams` / `--<sport>-standings`
+  startup actions, do too.
+- **Windows: pitch sounds blocked the keyboard while they played.** They now
+  play on their own thread, in order.
+- **Windows: a second update attempt failed with "Permission denied"** when the
+  first attempt's installer was still open. Scores now says the installer is
+  already open.
+- **Windows: changing the TeamHub season or World Cup phase quickly** could show
+  results for the one just left.
+- **Windows: Game Wrap Up fetched a college football game** whatever the sport.
+- **iOS: golf totals left out the round in progress**, and tied golfers showed
+  as 1 and 2 instead of T1.
+
+### Changed
+- **A `v*` tag now releases both apps.** The iOS app takes its version from
+  `VERSION` and uploads to TestFlight from the same tag as the Windows release,
+  with the commit count as its build number.
+
 ## [0.9.8] - 2026-10-03
 
 ### Changed

@@ -71,13 +71,28 @@ To upload without a release:
    ~5–15 min), after which you can add it to a TestFlight group or submit it for App
    Store review. The `.ipa` is also saved as a run artifact.
 
+## External testers
+
+On a release tag, a second job (`external-testflight`) sends the build to external
+TestFlight testers through the App Store Connect API
+(`iOS/SportsScoresApp/scripts/testflight_external.py`). It:
+
+1. Waits for Apple to finish processing the upload, which usually takes 10–30 minutes.
+2. Sets **What to Test** from the iPhone sections of `docs/release-notes-v<version>.md`.
+3. Adds the build to every external group, or only those named in `EXTERNAL_GROUPS`.
+4. Submits the build for Beta App Review.
+
+Apple reviews the first build of each version, typically within a day; testers
+get it once it's approved. A manual run does this only when **external** is ticked.
+The API key needs the App Manager or Admin role to manage TestFlight groups.
+
 ## Notes
 
 - **Signing is automatic:** the ASC API key lets `xcodebuild` create/download the App
   Store provisioning profile; the imported `.p12` provides the distribution identity.
-- **This uploads to App Store Connect but does not auto-submit for review.** The build
-  lands in TestFlight/Processing; releasing to testers or the App Store is a separate,
-  manual step in App Store Connect.
+- **App Store submission stays manual.** Release tags send the build to TestFlight
+  testers (see *External testers*), but submitting a version for App Store review is
+  done in App Store Connect.
 - The workflow sets the build and marketing numbers for that run only; it does
   **not** commit them back. `MARKETING_VERSION` in `iOS/SportsScoresApp/project.yml`
   and `project.pbxproj` is kept equal to `VERSION` by hand at release time, and

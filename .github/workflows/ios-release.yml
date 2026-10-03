@@ -37,11 +37,19 @@ on:
         description: "Marketing version override. Leave blank to use the VERSION file, as a release does."
         required: false
         type: string
+      external:
+        description: "Also send the build to external TestFlight testers (release tags always do)."
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build-upload:
     runs-on: macos-latest
     timeout-minutes: 45
+    outputs:
+      marketing_version: ${{ steps.version.outputs.marketing_version }}
+      build_number: ${{ steps.version.outputs.build_number }}
 
     steps:
       - name: Checkout
@@ -77,6 +85,7 @@ jobs:
           echo "Build machine is on released macOS. Proceeding."
 
       - name: Set version and build number
+        id: version
         env:
           INPUT_BUILD_NUMBER: ${{ inputs.build_number }}
           INPUT_MARKETING_VERSION: ${{ inputs.marketing_version }}
@@ -94,6 +103,8 @@ jobs:
           # higher build number with nothing to remember or bump by hand.
           BUILD_NUMBER="${INPUT_BUILD_NUMBER:-$(git rev-list --count HEAD)}"
           echo "Marketing version $MARKETING_VERSION, build $BUILD_NUMBER"
+          echo "marketing_version=$MARKETING_VERSION" >> "$GITHUB_OUTPUT"
+          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
           PBX=iOS/SportsScoresApp/SportsScores.xcodeproj/project.pbxproj
           sed -i '' "s/CURRENT_PROJECT_VERSION = [0-9][0-9]*;/CURRENT_PROJECT_VERSION = ${BUILD_NUMBER};/g" "$PBX"
           sed -i '' "s/MARKETING_VERSION = [0-9][0-9.]*;/MARKETING_VERSION = ${MARKETING_VERSION};/g" "$PBX"
@@ -188,3 +199,35 @@ jobs:
           name: SportsScores-ipa
           path: ${{ runner.temp }}/export/*.ipa
           if-no-files-found: ignore
+
+  # External testers need more than the upload: Apple must finish processing it,
+  # the build needs "What to Test" text, and it has to be added to the external
+  # groups and submitted for Beta App Review. testflight_external.py does all of
+  # that through the App Store Connect API. Runs on Linux: it only calls the API,
+  # and spends most of its time waiting for processing.
+  external-testflight:
+    needs: build-upload
+    if: github.ref_type == 'tag' || inputs.external
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install API client dependencies
+        run: pip install "pyjwt[crypto]" requests
+
+      - name: Send to external testers
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          BUNDLE_ID: com.sportsscores.app
+          APP_VERSION: ${{ needs.build-upload.outputs.marketing_version }}
+          BUILD_NUMBER: ${{ needs.build-upload.outputs.build_number }}
+        run: |
+          set -euo pipefail
+          export ASC_KEY_P8="$(echo "$ASC_KEY_P8_BASE64" | base64 --decode)"
+          NOTES="docs/release-notes-v${APP_VERSION}.md"
+          [ -f "$NOTES" ] || NOTES="CHANGELOG.md"
+          RELEASE_NOTES="$NOTES" python iOS/SportsScoresApp/scripts/testflight_external.py

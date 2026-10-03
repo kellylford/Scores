@@ -12,4 +12,4 @@ VERSION file and in the iOS project's MARKETING_VERSION, and add
 docs/release-notes-v<x.y.z>.md. tests/unit/test_version_sync.py checks they agree.
 """
 
-__version__ = "0.9.8"
+__version__ = "0.9.9"
