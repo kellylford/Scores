@@ -2165,6 +2165,8 @@ class GameDetailsView(BaseView):
         self.original_game_data = original_game_data  # Store original game data with team IDs
         self.config = parent.config if parent else {}
         self.raw_game_data = None  # Store raw data for drill-down access
+        self.current_raw_details = None  # the game summary, once loaded
+        self._details_generation = 0  # newest load_game_details; older results are dropped
         
         # Initialize audio pitch mapper
         self.audio_mapper = None
@@ -2355,15 +2357,15 @@ class GameDetailsView(BaseView):
         def custom_keyPressEvent(event):
             if event.key() == Qt.Key.Key_F5:
                 # Refresh the dialog by reloading the data
-                try:
-                    dlg.accept()  # Close current dialog
-                    # Reload and reshow
-                    raw_details = ApiService.get_game_details(self.league, self.game_id)
-                    updated_field_data = raw_details.get(field_name)
-                    if updated_field_data:
-                        self._show_detail_dialog(field_name, updated_field_data)
-                except Exception as e:
-                    QMessageBox.critical(self, "Refresh Error", f"Failed to refresh {field_name}: {str(e)}")
+                # Close, reload in the background, and reshow when it lands.
+                dlg.accept()
+                loader = GameDetailsLoader(0, self.league, self.game_id)
+                loader.data_loaded.connect(
+                    lambda _gen, raw, _details: self._reshow_detail_dialog(field_name, raw))
+                loader.error_occurred.connect(
+                    lambda _gen, e: QMessageBox.critical(
+                        self, "Refresh Error", f"Failed to refresh {field_name}: {e}"))
+                _start_detached_thread(loader)
                 return
             elif event.key() == Qt.Key.Key_Escape:
                 # Escape closes the dialog
@@ -2451,16 +2453,36 @@ class GameDetailsView(BaseView):
         dlg.exec()
     
     def load_game_details(self):
-        """Load detailed game information"""
+        """Start loading detailed game information.
+
+        The summary is fetched on a GameDetailsLoader thread; hockey also
+        scrapes the espn.com game page. Fetched here it froze the window on
+        every game opened and every refresh.
+        """
+        self._details_generation += 1
         self.details_list.clear()
-        
+        self.details_list.addItem("Loading game details...")
+        self.details_list.setCurrentRow(0)
+        loader = GameDetailsLoader(self._details_generation, self.league, self.game_id)
+        loader.data_loaded.connect(self._on_game_details_loaded)
+        loader.error_occurred.connect(self._on_game_details_error)
+        _start_detached_thread(loader)
+
+    def _on_game_details_error(self, generation: int, message: str):
+        if generation == self._details_generation:
+            self._show_api_error(f"Failed to load game details: {message}")
+
+    def _on_game_details_loaded(self, generation: int, raw_details: dict, details: dict):
+        if generation != self._details_generation:
+            return
+        had_focus = self.details_list.hasFocus()
+        self.details_list.clear()
+
+        # An exception escaping a slot aborts the app under PyQt6.
         try:
-            raw_details = ApiService.get_game_details(self.league, self.game_id)
-            details = ApiService.extract_meaningful_game_info(raw_details)
-            
             # Store raw details for export functionality
             self.current_raw_details = raw_details
-            
+
             # Display basic game information
             self._add_basic_game_info(details)
             
@@ -2469,10 +2491,16 @@ class GameDetailsView(BaseView):
             
             # Add Game Wrap Up option at the end
             self._add_game_wrap_up_option()
-            
+
         except Exception as e:
             self._show_api_error(f"Failed to load game details: {str(e)}")
-    
+            return
+        # The list was showing "Loading game details..."; land on the first
+        # row so a screen reader announces what replaced it.
+        self.details_list.setCurrentRow(0)
+        if had_focus:
+            self.details_list.setFocus()
+
     def _get_team_id_from_original_data(self, team_name: str) -> str:
         """Get team ID from original game data (infrastructure-level solution)"""
         if not self.original_game_data:
@@ -2866,6 +2894,15 @@ class GameDetailsView(BaseView):
             return len(value) > 0 if isinstance(value, list) else bool(value.get("articles"))
         return False
     
+    def _reshow_detail_dialog(self, field_name, raw_details):
+        """Reopen a detail dialog with freshly loaded data (F5 inside it)."""
+        try:
+            updated_field_data = raw_details.get(field_name)
+            if updated_field_data:
+                self._show_detail_dialog(field_name, updated_field_data)
+        except Exception as e:
+            QMessageBox.critical(self, "Refresh Error", f"Failed to refresh {field_name}: {e}")
+
     def refresh(self):
         """Refresh the game details"""
         self.load_game_details()
@@ -7801,6 +7838,26 @@ class LeagueScoresLoader(QThread):
             except Exception:
                 news = []
             self.data_loaded.emit(self.generation, calendar, scores, news)
+        except Exception as e:
+            self.error_occurred.emit(self.generation, str(e))
+
+
+class GameDetailsLoader(QThread):
+    """Fetches a game's summary and the details shown from it."""
+    data_loaded = pyqtSignal(int, dict, dict)  # generation, raw summary, details
+    error_occurred = pyqtSignal(int, str)
+
+    def __init__(self, generation, league, game_id):
+        super().__init__()
+        self.generation = generation
+        self.league = league
+        self.game_id = game_id
+
+    def run(self):
+        try:
+            raw = ApiService.get_game_details(self.league, self.game_id) or {}
+            details = ApiService.extract_meaningful_game_info(raw) or {}
+            self.data_loaded.emit(self.generation, raw, details)
         except Exception as e:
             self.error_occurred.emit(self.generation, str(e))
 
