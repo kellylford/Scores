@@ -54,16 +54,23 @@ def call(method, path, ok=(), **kwargs):
 def what_to_test(path):
     """Release notes as plain text, within TestFlight's limit.
 
-    The notes cover both apps. When they have iPhone sections ("### iPhone:
-    ..."), testers get the opening paragraph and those; otherwise all of it.
+    The notes cover both apps, but TestFlight testers only have the iPhone one,
+    so they get just the title and the iPhone sections ("### iPhone: ..."), with
+    the "iPhone:" prefix dropped. The opening paragraph and every other section
+    are left out, since they describe Windows or both apps. Notes with no iPhone
+    sections fall back to a generic line rather than Windows changes.
     """
     with open(path, encoding="utf-8") as f:
         text = f.read()
     text = text.split("\n---", 1)[0]                     # drop the platforms footer
     intro, *sections = re.split(r"\n(?=### )", text)
-    iphone = [s for s in sections if re.match(r"### (iPhone|iOS)", s)]
+    title = intro.strip().splitlines()[0] if intro.strip() else ""
+    iphone = [re.sub(r"^### (iPhone|iOS):?\s*(\w)", lambda m: "### " + m.group(2).upper(), s)
+              for s in sections if re.match(r"### (iPhone|iOS)", s)]
     if iphone:
-        text = "\n".join([intro] + iphone)
+        text = "\n".join([title, ""] + iphone)
+    else:
+        text = f"{title}\n\nGeneral fixes and improvements. Please try the app as usual."
     text = re.sub(r"^#+\s*", "", text, flags=re.M)        # headings
     text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)          # bold
     text = re.sub(r"`([^`]*)`", r"\1", text)              # code
