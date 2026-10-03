@@ -6,7 +6,10 @@ against the newest GitHub release, and the release workflow refuses to build a
 it in its own module means the updater can read the version without importing
 the whole PyQt6 UI.
 
-When releasing: bump here, in the VERSION file, and add docs/release-notes-v<x.y.z>.md.
+One version covers both apps: a v<x.y.z> tag releases Windows and uploads the
+iOS app to TestFlight at the same version. When releasing: bump here, in the
+VERSION file and in the iOS project's MARKETING_VERSION, and add
+docs/release-notes-v<x.y.z>.md. tests/unit/test_version_sync.py checks they agree.
 """
 
 __version__ = "0.9.8"

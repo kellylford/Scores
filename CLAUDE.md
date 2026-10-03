@@ -50,7 +50,7 @@ pytest tests/
 
 - `main.py` — CLI argument parser; passes sport selection into the main window
 - `scores.py` — The entire UI (9,700+ lines): `QApplication`, main window, all dialogs, all views, refresh logic, keyboard handling
-- `version.py` — The version string, single source of truth. The app, the in-app updater and the release workflow all read it; bump it together with the `VERSION` file.
+- `version.py` — The version string, single source of truth. The app, the in-app updater and the release workflows all read it; bump it together with the `VERSION` file and the iOS `MARKETING_VERSION`.
 
 ### Data Layer
 
@@ -91,7 +91,9 @@ Lives entirely in `iOS/SportsScoresApp/` (Xcode project, SwiftUI). Nothing in th
 
 - `SportsScores/Services/ESPNAPIService.swift` — the iOS equivalent of `espn_api.py`. When you fix an ESPN data quirk on one platform, check whether the other needs the same fix; this has been the main source of drift.
 - `.github/workflows/ios-build-check.yml` — simulator-only compile, runs on `main` for changes under `iOS/**`. No signing, no secrets.
-- `.github/workflows/ios-release.yml` — manual dispatch only; archives on a macOS runner and uploads to TestFlight. Needs the five App Store Connect secrets listed in `.github/workflows/README-ios-release.md`.
+- `.github/workflows/ios-release.yml` — runs on the same `v*` tags as the Windows release (and by manual dispatch); archives on a macOS runner and uploads to TestFlight. Needs the five App Store Connect secrets listed in `.github/workflows/README-ios-release.md`.
+
+Both apps share one version: `VERSION` drives the Windows build and the iOS marketing version, and one `v*` tag releases both. The iOS build number is the commit count. Keep `MARKETING_VERSION` in `iOS/SportsScoresApp/project.yml` and `project.pbxproj` equal to `VERSION`; `tests/unit/test_version_sync.py` enforces it.
 
 The iOS app previously lived on a separate `iOS` branch that also carried a stale copy of the Windows app. That branch is retired; its history is preserved at the `ios-branch-archive` tag.
 

@@ -125,8 +125,11 @@ main and pull requests are unaffected — they never sign.
 
 ## Cutting a release
 
-1. Bump the version in **`version.py`** and **`VERSION`** (the workflow refuses to
-   build a tag that disagrees with either).
+1. Bump the version in **`version.py`**, **`VERSION`**, and the iOS project's
+   `MARKETING_VERSION` (in `iOS/SportsScoresApp/project.yml` and
+   `SportsScores.xcodeproj/project.pbxproj`). Both release workflows refuse a tag
+   that disagrees with `VERSION`, and `tests/unit/test_version_sync.py` fails if
+   any of the four drift.
 2. Write `docs/release-notes-v<version>.md` — it becomes the release body, and a
    missing file fails the build early.
 3. Update `CHANGELOG.md`.
@@ -136,8 +139,11 @@ main and pull requests are unaffected — they never sign.
    git tag -a v0.9.0 -m "Release v0.9.0" && git push origin main v0.9.0
    ```
 
-The workflow tests, builds both targets, signs, packages the installer, signs it,
-and publishes the release with both assets attached. The installer asset must stay
+The tag releases both apps. `scores.yml` tests, builds both Windows targets,
+signs, packages the installer, signs it, and publishes the release with both
+assets attached. `ios-release.yml` archives the iOS app at the same version and
+uploads it to TestFlight, with the commit count as its build number (see
+`.github/workflows/README-ios-release.md`). The installer asset must stay
 on every release: the in-app updater looks for a name ending in `Setup.exe`.
 
 To rehearse without releasing, run the workflow manually

@@ -48,16 +48,25 @@ code. (This used to require a dance between `main` and a separate `iOS` branch �
 that branch is gone, archived at the `ios-branch-archive` tag.) From the CLI:
 
 ```bash
-gh workflow run ios-release.yml --ref main -f build_number=31
+gh workflow run ios-release.yml --ref main
 ```
 
 ## Running it
 
+**Normally you don't.** Since 0.9.8 the Windows and iOS apps share one version.
+Pushing a `v<x.y.z>` tag runs this workflow alongside the Windows release, so the
+same tag that publishes `Scores.exe` uploads the iOS build. The marketing version
+comes from the `VERSION` file, and the run fails if the tag doesn't match it.
+The build number is the commit count (`git rev-list --count HEAD`). It only ever
+grows, so every release commit gets a new, higher build with nothing to bump.
+
+To upload without a release:
+
 1. **Actions** tab → **iOS TestFlight / App Store Release** → **Run workflow**.
-2. Set the branch to **`iOS`**.
-3. **Build number**: the next unused build for the current marketing version. The
-   project is at version **0.8**, build **30**, so use **31** or higher.
-4. **Marketing version**: leave blank to keep `0.8`.
+2. Set the branch to **`main`**.
+3. **Build number**: leave blank for the commit count. Set it only to re-upload a
+   commit that already has a build on App Store Connect.
+4. **Marketing version**: leave blank to use `VERSION`.
 5. Run. On success the build appears in App Store Connect / TestFlight (Processing for
    ~5–15 min), after which you can add it to a TestFlight group or submit it for App
    Store review. The `.ipa` is also saved as a run artifact.
@@ -69,9 +78,11 @@ gh workflow run ios-release.yml --ref main -f build_number=31
 - **This uploads to App Store Connect but does not auto-submit for review.** The build
   lands in TestFlight/Processing; releasing to testers or the App Store is a separate,
   manual step in App Store Connect.
-- The workflow sets the build/marketing number for that run only — it does **not**
-  commit the change back. Bump `CURRENT_PROJECT_VERSION` / `MARKETING_VERSION` in
-  `iOS/SportsScoresApp/project.yml` (and regenerate) when you want the repo default to move.
+- The workflow sets the build and marketing numbers for that run only; it does
+  **not** commit them back. `MARKETING_VERSION` in `iOS/SportsScoresApp/project.yml`
+  and `project.pbxproj` is kept equal to `VERSION` by hand at release time, and
+  `tests/unit/test_version_sync.py` fails if it drifts. `CURRENT_PROJECT_VERSION` in
+  the repo is only used for local Xcode builds.
 - **App:** "Sports Scores Fast", bundle id `com.sportsscores.app`, team `P887QF74N8`.
 - **Cost:** free for public repos; a private repo bills macOS runner minutes at 10×
   (a build is a few minutes, so cents per run).

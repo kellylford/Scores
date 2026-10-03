@@ -6,8 +6,13 @@ name: iOS TestFlight / App Store Release
 # when archiving on a beta-OS Mac (which is why this exists — local archives from a
 # beta macOS get rejected for the public App Store).
 #
-# Trigger it manually: Actions tab -> "iOS TestFlight / App Store Release" ->
-# Run workflow -> pick `main`.
+# One release for both apps: pushing a v* tag runs this alongside the Windows
+# release (scores.yml), so the tag that publishes Scores.exe also uploads the
+# same version to TestFlight. The marketing version comes from the VERSION file,
+# the same single source the Windows app uses, and the tag must match it.
+#
+# It can also be run by hand: Actions tab -> "iOS TestFlight / App Store
+# Release" -> Run workflow -> pick `main`. Both inputs are optional there.
 #
 # Required repo secrets (Settings -> Secrets and variables -> Actions).
 # See .github/workflows/README-ios-release.md for how to produce each value.
@@ -20,14 +25,16 @@ name: iOS TestFlight / App Store Release
 # No app secrets are needed — the app talks to public ESPN / MLB APIs only.
 
 on:
+  push:
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       build_number:
-        description: "Build number (CURRENT_PROJECT_VERSION), e.g. 31. Must be unused on App Store Connect for this marketing version."
-        required: true
+        description: "Build number override. Leave blank to use the commit count, which only ever grows. Set it to re-upload a commit that already has a build."
+        required: false
         type: string
       marketing_version:
-        description: "Marketing version override (leave blank to keep the project value, currently 0.8)."
+        description: "Marketing version override. Leave blank to use the VERSION file, as a release does."
         required: false
         type: string
 
@@ -39,6 +46,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # full history: the build number is the commit count
 
       - name: Select latest stable Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -69,15 +78,25 @@ jobs:
 
       - name: Set version and build number
         env:
-          BUILD_NUMBER: ${{ inputs.build_number }}
-          MARKETING_VERSION: ${{ inputs.marketing_version }}
+          INPUT_BUILD_NUMBER: ${{ inputs.build_number }}
+          INPUT_MARKETING_VERSION: ${{ inputs.marketing_version }}
         run: |
           set -euo pipefail
+          APP_VERSION="$(tr -d '[:space:]' < VERSION)"
+          # Same guard as the Windows release: a tag that doesn't match VERSION
+          # would ship a build whose version disagrees with Scores.exe.
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$GITHUB_REF_NAME" != "v$APP_VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match VERSION ($APP_VERSION)."
+            exit 1
+          fi
+          MARKETING_VERSION="${INPUT_MARKETING_VERSION:-$APP_VERSION}"
+          # The commit count only grows, so each release commit gets a new,
+          # higher build number with nothing to remember or bump by hand.
+          BUILD_NUMBER="${INPUT_BUILD_NUMBER:-$(git rev-list --count HEAD)}"
+          echo "Marketing version $MARKETING_VERSION, build $BUILD_NUMBER"
           PBX=iOS/SportsScoresApp/SportsScores.xcodeproj/project.pbxproj
           sed -i '' "s/CURRENT_PROJECT_VERSION = [0-9][0-9]*;/CURRENT_PROJECT_VERSION = ${BUILD_NUMBER};/g" "$PBX"
-          if [ -n "${MARKETING_VERSION:-}" ]; then
-            sed -i '' "s/MARKETING_VERSION = [0-9][0-9.]*;/MARKETING_VERSION = ${MARKETING_VERSION};/g" "$PBX"
-          fi
+          sed -i '' "s/MARKETING_VERSION = [0-9][0-9.]*;/MARKETING_VERSION = ${MARKETING_VERSION};/g" "$PBX"
           echo "=== resulting versions ==="
           grep -E 'MARKETING_VERSION|CURRENT_PROJECT_VERSION' "$PBX" | sort -u
 
