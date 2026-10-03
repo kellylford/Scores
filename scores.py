@@ -5240,30 +5240,11 @@ class GameDetailsView(BaseView):
     def _generate_and_display_game_wrap_up(self, raw_game_data):
         """Generate comprehensive game wrap-up HTML and open in browser"""
         try:
-            # Get game ID to fetch fresh data
-            game_id = None
-            header = raw_game_data.get('header', {})
-            competitions = header.get('competitions', [])
-            if competitions:
-                game_id = competitions[0].get('id')
-            
-            # If we have a game ID, fetch fresh data directly from ESPN
-            fresh_data = None
-            if game_id:
-                try:
-                    import requests
-                    url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/summary?event={game_id}"
-                    response = requests.get(url, timeout=10)
-                    if response.status_code == 200:
-                        fresh_data = response.json()
-                except Exception as e:
-                    print(f"Could not fetch fresh data: {e}")
-            
-            # Use fresh data if available, otherwise fall back to processed data
-            data_to_use = fresh_data if fresh_data else raw_game_data
-            
-            # Generate HTML content
-            html_content = self._generate_game_wrap_up_html(data_to_use)
+            # raw_game_data is the game's full summary, fetched for the right
+            # league when the game opened. This used to fetch it again, on the
+            # UI thread, from a hard-coded college football URL whatever the
+            # sport, so every other league got nothing or the wrong game.
+            html_content = self._generate_game_wrap_up_html(raw_game_data)
             
             # Create temporary HTML file
             import tempfile
