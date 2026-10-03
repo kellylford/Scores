@@ -12,6 +12,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Core infrastructure implemented, text processing being refined
   - Game story text placeholders currently under investigation
 
+## [0.9.8] - 2026-10-03
+
+### Changed
+- **Scores are grouped by game status.** A league's scores list showed games in
+  ESPN's kickoff order, which on a college football Saturday mixed finals, live
+  games and evening kickoffs. Games are now grouped as on iOS: In Progress
+  (suspended games included), Upcoming, Completed, then Postponed / Cancelled.
+  Each group opens with a header row giving its count ("Upcoming, 42 games").
+  The arrow keys stop on the headers, and activating one does nothing.
+
 ## [0.9.7] - 2026-09-27
 
 ### Fixed
