@@ -8141,12 +8141,20 @@ class TeamHubDialog(QDialog):
         loading_item = QListWidgetItem("Loading schedule...")
         self.schedule_list.addItem(loading_item)
         season = self.season_combo.currentData() if self.season_combo.count() else None
+        # Changing season while a schedule loads starts another load. Only the
+        # newest may touch the list: an older one finishing last would show the
+        # season just left, and its progress text would land on a deleted row.
+        self._schedule_generation = getattr(self, '_schedule_generation', 0) + 1
+        gen = self._schedule_generation
+        current = lambda: gen == self._schedule_generation
         loader = TeamScheduleLoader(self.team_id, self.team_name, self.league, season)
-        loader.data_loaded.connect(self._on_schedule_loaded)
-        loader.error_occurred.connect(lambda e: self._show_list_error(self.schedule_list, e))
-        loader.loading_progress.connect(lambda msg: loading_item.setText(msg))
+        loader.data_loaded.connect(
+            lambda data, name, league: current() and self._on_schedule_loaded(data, name, league))
+        loader.error_occurred.connect(
+            lambda e: current() and self._show_list_error(self.schedule_list, e))
+        loader.loading_progress.connect(lambda msg: current() and loading_item.setText(msg))
         self._loaders.append(loader)
-        loader.start()
+        _start_detached_thread(loader)
 
     def _on_schedule_loaded(self, schedule_data: List[Dict], team_name: str, league: str):
         self.schedule_list.clear()
@@ -10666,6 +10674,7 @@ class WorldCupDialog(QDialog):
         pid, start, end = data
         if pid == "1":
             # Group Stage — show group standings widget
+            self._bracket_generation = getattr(self, '_bracket_generation', 0) + 1
             self.bracket_stack.setCurrentIndex(0)
             if self.current_groups:
                 self._rebuild_groups_widget(
@@ -10674,13 +10683,18 @@ class WorldCupDialog(QDialog):
             self.bracket_stack.setCurrentIndex(1)
             self.bracket_list.clear()
             self.bracket_list.addItem(f"Loading {self.phase_combo.itemText(index)} matches…")
+            # Only the newest phase's load may fill the list; an older one
+            # finishing last would show the phase just left.
+            self._bracket_generation = getattr(self, '_bracket_generation', 0) + 1
+            gen = self._bracket_generation
+            current = lambda: gen == self._bracket_generation
             loader = WorldCupBracketLoader(self.league_key, start, end)
             loader.data_loaded.connect(
-                lambda games: self._populate_game_list(self.bracket_list, games))
+                lambda games: current() and self._populate_game_list(self.bracket_list, games))
             loader.error_occurred.connect(
-                lambda e: self._list_error(self.bracket_list, e))
+                lambda e: current() and self._list_error(self.bracket_list, e))
             self._loaders.append(loader)
-            loader.start()
+            _start_detached_thread(loader)
 
     # ─────────────── Item activation ───────────────
 
