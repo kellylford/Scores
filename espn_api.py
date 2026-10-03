@@ -1,6 +1,18 @@
-import requests
 import json
+import requests
 from timezone_utils import convert_espn_time_to_local
+
+# Every ESPN request gets a timeout. requests has none by default, so one
+# stalled response would block its caller forever; several screens fetch on
+# the UI thread, where that is a frozen window. Callers that need longer pass
+# their own timeout=.
+DEFAULT_TIMEOUT = 15
+
+
+def _http_get(url, **kwargs):
+    kwargs.setdefault("timeout", DEFAULT_TIMEOUT)
+    return requests.get(url, **kwargs)
+
 
 BASE_URL = "https://site.api.espn.com/apis/site/v2/sports"
 
@@ -225,12 +237,12 @@ def get_mlb_wildcard_standings():
     Returns {} on any failure, which the caller renders as "unavailable".
     """
     try:
-        race_resp = requests.get(
+        race_resp = _http_get(
             MLB_STANDINGS_URL,
             params={"type": MLB_STANDINGS_TYPE_WILDCARD},
             timeout=15,
         )
-        overall_resp = requests.get(MLB_STANDINGS_URL, timeout=15)
+        overall_resp = _http_get(MLB_STANDINGS_URL, timeout=15)
         if race_resp.status_code != 200 or overall_resp.status_code != 200:
             return {}
         race_leagues = race_resp.json().get("children", [])
@@ -364,7 +376,7 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
             for season_type in [1, 2, 3]:
                 try:
                     type_url = f"{base_url}?season={season_year}&seasontype={season_type}"
-                    resp = requests.get(type_url)
+                    resp = _http_get(type_url)
                     if resp.status_code == 200:
                         data = resp.json()
                         events = data.get('events', [])
@@ -387,7 +399,7 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
             # NFL: Use specified season or the current one, regular season (seasontype=2)
             season_year = season if season else get_current_season_year(league_key)
             url = f"{base_url}?season={season_year}&seasontype=2"
-            resp = requests.get(url)
+            resp = _http_get(url)
             if resp.status_code != 200:
                 return []
             data = resp.json()
@@ -396,7 +408,7 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
             # NCAAF: Use specified season or current season with seasontype=2 for regular season
             season_year = season if season else get_current_season_year(league_key)
             url = f"{base_url}?season={season_year}&seasontype=2"
-            resp = requests.get(url)
+            resp = _http_get(url)
             if resp.status_code != 200:
                 return []
             data = resp.json()
@@ -410,7 +422,7 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
             for season_type in [1, 2, 3]:
                 try:
                     type_url = f"{base_url}?season={season_year}&seasontype={season_type}"
-                    resp = requests.get(type_url)
+                    resp = _http_get(type_url)
                     if resp.status_code == 200:
                         data = resp.json()
                         events = data.get('events', [])
@@ -470,7 +482,7 @@ def get_team_schedule(league_key, team_id, days_ahead=30, days_behind=30, season
         previous_year = datetime.now().year - 1
         fallback_url = f"{BASE_URL}/{league_path}/teams/{team_id}/schedule?season={previous_year}&seasontype=2"
         try:
-            fallback_resp = requests.get(fallback_url)
+            fallback_resp = _http_get(fallback_url)
             if fallback_resp.status_code == 200:
                 fallback_data = fallback_resp.json()
                 events = fallback_data.get('events', [])
@@ -619,7 +631,7 @@ def parse_schedule_from_api(url, team_id, today, season=None):
     schedule = []
     
     try:
-        resp = requests.get(url)
+        resp = _http_get(url)
         if resp.status_code == 200:
             data = resp.json()
             events = data.get("events", [])
@@ -712,36 +724,52 @@ def parse_schedule_from_api(url, team_id, today, season=None):
         print(f"Error fetching schedule from {url}: {e}")
     
     return schedule
+def _current_scoreboard_events(league_key):
+    """Events on a league's current scoreboard; [] when it can't be fetched."""
+    try:
+        league_path = LEAGUES.get(league_key)
+        if not league_path:
+            return []
+
+        # Use scoreboard endpoint for better live game detection, especially for NCAAF
+        url = f"{BASE_URL}/{league_path}/scoreboard"
+
+        extra = college_scoreboard_params(league_key)
+        if extra:
+            url += "?" + "&".join(extra)
+
+        resp = _http_get(url)
+        if resp.status_code != 200:
+            return []
+        events = resp.json().get("events", [])
+
+        if ncaaf_needs_fbs_retry(league_key, events):
+            retry = _http_get(_swap_to_fbs(url))
+            if retry.status_code == 200:
+                events = retry.json().get("events", [])
+        return events
+    except Exception as e:
+        print(f"Error fetching live scores for {league_key}: {e}")
+        return []
+
+
+# Requests in flight at once when Live Scores fetches every league. ESPN can
+# take a second or more per request; one after another, 25 leagues plus a
+# summary per live game was over a minute.
+LIVE_FETCH_WORKERS = 8
+
+
 def get_live_scores_all_sports():
     """Get all live games from all supported sports using hybrid approach for speed and detail"""
+    from concurrent.futures import ThreadPoolExecutor
+
     live_games = []
-    
-    for league_key in LEAGUES.keys():
+    league_keys = list(LEAGUES.keys())
+    with ThreadPoolExecutor(max_workers=LIVE_FETCH_WORKERS) as pool:
+        scoreboards = list(pool.map(_current_scoreboard_events, league_keys))
+
+    for league_key, events in zip(league_keys, scoreboards):
         try:
-            # Use the appropriate endpoint for each league
-            league_path = LEAGUES.get(league_key)
-            if not league_path:
-                continue
-                
-            # Use scoreboard endpoint for better live game detection, especially for NCAAF
-            url = f"{BASE_URL}/{league_path}/scoreboard"
-
-            extra = college_scoreboard_params(league_key)
-            if extra:
-                url += "?" + "&".join(extra)
-
-            resp = requests.get(url)
-            if resp.status_code != 200:
-                continue
-                
-            data = resp.json()
-            events = data.get("events", [])
-
-            if ncaaf_needs_fbs_retry(league_key, events):
-                retry = requests.get(_swap_to_fbs(url))
-                if retry.status_code == 200:
-                    events = retry.json().get("events", [])
-
             for event in events:
                 # Extract competition data (scoreboard endpoint structure)
                 competitions = event.get("competitions", [])
@@ -802,27 +830,15 @@ def get_live_scores_all_sports():
                     # Extract basic status information
                     status_text = type_info.get("shortDetail", type_info.get("detail", "In Progress"))
                     
-                    # Now get detailed play information for live games only
-                    recent_play = status_text  # Default fallback
-                    try:
-                        # This is the key: only call detailed API for confirmed live games
-                        game_details = get_game_details(league_key, game_id)
-                        detailed_play = extract_recent_play(game_details, league_key)
-                        if detailed_play and len(detailed_play.strip()) > len(status_text.strip()):
-                            # Use detailed play if it's more informative than basic status
-                            recent_play = detailed_play
-                    except Exception as e:
-                        # If detailed call fails, continue with basic status
-                        print(f"Failed to get details for {game_name}: {e}")
-                        pass
-                    
+                    # recent_play starts as the status and is upgraded from the
+                    # game summary below, once every league's live games are known.
                     game = {
                         "id": game_id,
                         "name": game_name,
                         "league": league_key,
                         "status": status_text,
                         "teams": teams,
-                        "recent_play": recent_play
+                        "recent_play": status_text
                     }
                     
                     live_games.append(game)
@@ -831,8 +847,34 @@ def get_live_scores_all_sports():
             # Continue with other leagues if one fails
             print(f"Error fetching live scores for {league_key}: {e}")
             continue
-    
+
+    _add_recent_plays(live_games)
     return live_games
+
+
+def _add_recent_plays(live_games):
+    """Replace each live game's recent_play with the latest play, if longer.
+
+    Needs one full game summary per game, so they are fetched in parallel. A
+    failed fetch leaves the status text in place.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    def latest_play(game):
+        try:
+            details = get_game_details(game["league"], game["id"])
+            return extract_recent_play(details, game["league"])
+        except Exception as e:
+            print(f"Failed to get details for {game['name']}: {e}")
+            return None
+
+    if not live_games:
+        return
+    with ThreadPoolExecutor(max_workers=LIVE_FETCH_WORKERS) as pool:
+        plays = list(pool.map(latest_play, live_games))
+    for game, play in zip(live_games, plays):
+        if play and len(play.strip()) > len(game["status"].strip()):
+            game["recent_play"] = play
 
 def extract_football_enhanced_display(game_details):
     """Extract enhanced football display with hybrid format (down/distance + drive stats + redzone)"""
@@ -1081,7 +1123,7 @@ def extract_recent_play(game_details, league=None):
             try:
                 # Get fresh situation data from scoreboard
                 scoreboard_url = f"https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard"
-                response = requests.get(scoreboard_url)
+                response = _http_get(scoreboard_url)
                 if response.status_code == 200:
                     scoreboard_data = response.json()
                     
@@ -1280,14 +1322,14 @@ def get_scores(league_key, date=None, week=None, seasontype=None, season=None):
     if params:
         url += "?" + "&".join(params)
 
-    resp = requests.get(url)
+    resp = _http_get(url)
     if resp.status_code != 200:
         return []
     data = resp.json()
     events = data.get("events", [])
 
     if ncaaf_needs_fbs_retry(league_key, events):
-        retry = requests.get(_swap_to_fbs(url))
+        retry = _http_get(_swap_to_fbs(url))
         if retry.status_code == 200:
             data = retry.json()
             events = data.get("events", [])
@@ -1389,7 +1431,7 @@ def get_news(league_key, limit=10):
         return []
     url = f"{BASE_URL}/{league_path}/news"
     params = {'limit': limit} if limit > 6 else {}
-    resp = requests.get(url, params=params)
+    resp = _http_get(url, params=params)
     if resp.status_code != 200:
         return []
     data = resp.json()
@@ -1427,7 +1469,7 @@ def get_game_details(league_key, game_id):
     if not league_path:
         return {}
     url = f"{BASE_URL}/{league_path}/summary?event={game_id}"
-    resp = requests.get(url)
+    resp = _http_get(url)
     if resp.status_code != 200:
         return {}
     details = resp.json()
@@ -1459,7 +1501,7 @@ def _fetch_web_gamepackage_plays(league_path, game_id):
     }
 
     try:
-        resp = requests.get(page_url, headers=headers, timeout=20)
+        resp = _http_get(page_url, headers=headers, timeout=20)
         if resp.status_code != 200:
             return []
 
@@ -1988,7 +2030,7 @@ def get_rankings(league_key):
     
     try:
         url = f"{BASE_URL}/{league_path}/rankings"
-        resp = requests.get(url)
+        resp = _http_get(url)
         
         if resp.status_code != 200:
             return {'polls': []}
@@ -2030,7 +2072,7 @@ def _get_mlb_standings_fast():
     try:
         # Use the fast dedicated standings endpoint
         url = "https://site.api.espn.com/apis/v2/sports/baseball/mlb/standings"
-        resp = requests.get(url)
+        resp = _http_get(url)
         
         if resp.status_code != 200:
             return []
@@ -2165,7 +2207,7 @@ def _get_nfl_standings_fast():
     """Fast NFL standings using dedicated endpoint"""
     try:
         url = "https://site.api.espn.com/apis/v2/sports/football/nfl/standings"
-        resp = requests.get(url)
+        resp = _http_get(url)
         
         if resp.status_code != 200:
             return []
@@ -2289,7 +2331,7 @@ def _get_nba_standings_fast():
         # it instead of staying on whatever season was current when this shipped
         season = get_current_season_year("NBA")
         url = f"https://site.api.espn.com/apis/v2/sports/basketball/nba/standings?season={season}"
-        resp = requests.get(url)
+        resp = _http_get(url)
         
         if resp.status_code != 200:
             return []
@@ -2413,7 +2455,7 @@ def _get_nba_fresh_standings():
     """Create fresh NBA standings with all teams at 0-0 for new season"""
     try:
         url = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams"
-        resp = requests.get(url)
+        resp = _http_get(url)
         
         if resp.status_code != 200:
             return []
@@ -2496,7 +2538,7 @@ def _get_nhl_standings_fast():
     """Fast NHL standings using dedicated endpoint"""
     try:
         url = "https://site.api.espn.com/apis/v2/sports/hockey/nhl/standings"
-        resp = requests.get(url)
+        resp = _http_get(url)
         
         if resp.status_code != 200:
             return []
@@ -2609,7 +2651,7 @@ def _get_ncaaf_standings_fast():
     """Fast NCAAF standings using dedicated endpoint"""
     try:
         url = "https://site.api.espn.com/apis/v2/sports/football/college-football/standings"
-        resp = requests.get(url)
+        resp = _http_get(url)
         
         if resp.status_code != 200:
             return []
@@ -2670,7 +2712,7 @@ def _get_ncaam_standings_fast():
     """Fast NCAA Men's Basketball standings using dedicated endpoint"""
     try:
         url = "https://site.api.espn.com/apis/v2/sports/basketball/mens-college-basketball/standings"
-        resp = requests.get(url)
+        resp = _http_get(url)
         
         if resp.status_code != 200:
             return []
@@ -2731,7 +2773,7 @@ def _get_ncaawb_standings_fast():
     """Fast NCAA Women's Basketball standings using dedicated endpoint"""
     try:
         url = "https://site.api.espn.com/apis/v2/sports/basketball/womens-college-basketball/standings"
-        resp = requests.get(url)
+        resp = _http_get(url)
         
         if resp.status_code != 200:
             return []
@@ -2795,7 +2837,7 @@ def _get_ncaah_standings_fast():
         standings_url = "https://site.api.espn.com/apis/v2/sports/hockey/mens-college-hockey/standings"
         conf_map = {}
         
-        resp = requests.get(standings_url)
+        resp = _http_get(standings_url)
         if resp.status_code == 200:
             data = resp.json()
             conferences = data.get('children', [])
@@ -2854,7 +2896,7 @@ def _get_ncaah_standings_fast():
         # Fall back to teams endpoint with conference lookup
         # Note: ESPN's hockey data is incomplete - records not available in API
         teams_url = "https://site.api.espn.com/apis/site/v2/sports/hockey/mens-college-hockey/teams?limit=200"
-        resp = requests.get(teams_url)
+        resp = _http_get(teams_url)
         
         if resp.status_code != 200:
             return []
@@ -2901,7 +2943,7 @@ def _get_ncaawh_standings_fast():
         standings_url = "https://site.api.espn.com/apis/v2/sports/hockey/womens-college-hockey/standings"
         conf_map = {}
         
-        resp = requests.get(standings_url)
+        resp = _http_get(standings_url)
         if resp.status_code == 200:
             data = resp.json()
             conferences = data.get('children', [])
@@ -2961,7 +3003,7 @@ def _get_ncaawh_standings_fast():
         # NOTE: Wisconsin Badgers women's hockey is missing from ESPN's teams endpoint (API limitation)
         # NOTE: ESPN's hockey data is incomplete - records not available in API
         teams_url = "https://site.api.espn.com/apis/site/v2/sports/hockey/womens-college-hockey/teams?limit=200"
-        resp = requests.get(teams_url)
+        resp = _http_get(teams_url)
         
         if resp.status_code != 200:
             return []
@@ -3009,7 +3051,7 @@ def _get_standings_original(league_key):
     
     # Use teams API to get all teams and their records
     teams_url = f"{BASE_URL}/{league_path}/teams"
-    resp = requests.get(teams_url)
+    resp = _http_get(teams_url)
     
     if resp.status_code != 200:
         return []
@@ -3124,7 +3166,7 @@ def _get_team_record(team_id, league_key):
     try:
         # Get detailed team information
         team_url = f"{BASE_URL}/{league_path}/teams/{team_id}"
-        resp = requests.get(team_url)
+        resp = _http_get(team_url)
         
         if resp.status_code != 200:
             return 0, 0, "0.000", ""
@@ -3425,7 +3467,7 @@ def _get_team_statistics(league_key):
         
         # Get list of teams first
         teams_url = f"{BASE_URL}/{league_path}/teams"
-        resp = requests.get(teams_url)
+        resp = _http_get(teams_url)
         
         if resp.status_code != 200:
             print(f"Failed to get teams list: {resp.status_code}")
@@ -3462,7 +3504,7 @@ def _get_team_statistics(league_key):
             try:
                 # Get team statistics
                 team_stats_url = f"{BASE_URL}/{league_path}/teams/{team_id}/statistics"
-                team_resp = requests.get(team_stats_url)
+                team_resp = _http_get(team_stats_url)
                 
                 if team_resp.status_code == 200:
                     team_data = team_resp.json()
@@ -3625,7 +3667,7 @@ def _get_mlb_statistics():
         try:
             # Add limit parameter to get top 50 players instead of default 5
             url = f"https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories={stat_key}&statGroup={stat_group}&season={season}&limit=50"
-            response = requests.get(url, timeout=10)
+            response = _http_get(url, timeout=10)
             
             if response.status_code == 200:
                 data = response.json()
@@ -3725,7 +3767,7 @@ def get_statistics(league_key):
         for endpoint in endpoints_to_try:
             try:
                 print(f"Attempting to fetch statistics from: {endpoint}")
-                resp = requests.get(endpoint, timeout=10)
+                resp = _http_get(endpoint, timeout=10)
                 
                 if resp.status_code == 200:
                     data = resp.json()
@@ -3819,7 +3861,7 @@ def get_player_statistics(league_key):
         for endpoint in endpoints_to_try:
             try:
                 print(f"Attempting to fetch player statistics from: {endpoint}")
-                resp = requests.get(endpoint, timeout=10)
+                resp = _http_get(endpoint, timeout=10)
                 
                 if resp.status_code == 200:
                     data = resp.json()
@@ -4491,7 +4533,7 @@ def get_team_info(league_key, team_id):
     if not league_path or not team_id:
         return {}
     try:
-        resp = requests.get(f"{BASE_URL}/{league_path}/teams/{team_id}")
+        resp = _http_get(f"{BASE_URL}/{league_path}/teams/{team_id}")
         if resp.status_code != 200:
             return {}
         team = resp.json().get("team", {})
@@ -4560,7 +4602,7 @@ def get_team_roster(league_key, team_id):
     if not league_path or not team_id:
         return []
     try:
-        resp = requests.get(f"{BASE_URL}/{league_path}/teams/{team_id}/roster")
+        resp = _http_get(f"{BASE_URL}/{league_path}/teams/{team_id}/roster")
         if resp.status_code != 200:
             return []
         data = resp.json()
@@ -4594,7 +4636,7 @@ def get_team_news(league_key, team_id, limit=15):
     if not league_path or not team_id:
         return []
     try:
-        resp = requests.get(f"{BASE_URL}/{league_path}/teams/{team_id}/news", params={"limit": limit})
+        resp = _http_get(f"{BASE_URL}/{league_path}/teams/{team_id}/news", params={"limit": limit})
         if resp.status_code != 200:
             return []
         try:
@@ -4631,7 +4673,7 @@ def get_transactions(league_key, team_id=None, limit=50, page=1):
         params = {"limit": limit, "page": page}
         if team_id:
             params["team"] = team_id
-        resp = requests.get(f"{BASE_URL}/{league_path}/transactions", params=params)
+        resp = _http_get(f"{BASE_URL}/{league_path}/transactions", params=params)
         if resp.status_code != 200:
             return [], False
         data = resp.json()
@@ -4675,7 +4717,7 @@ def _get_nfl_team_cache() -> dict:
     if _DRAFT_TEAM_CACHE:
         return _DRAFT_TEAM_CACHE
     try:
-        resp = requests.get(f"{BASE_URL}/football/nfl/teams", params={"limit": 50})
+        resp = _http_get(f"{BASE_URL}/football/nfl/teams", params={"limit": 50})
         if resp.status_code == 200:
             for sport in resp.json().get("sports", []):
                 for league in sport.get("leagues", []):
@@ -4699,13 +4741,13 @@ def get_draft(year):
     import re
     base = "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl"
     try:
-        resp = requests.get(f"{base}/seasons/{year}/draft")
+        resp = _http_get(f"{base}/seasons/{year}/draft")
         if resp.status_code != 200:
             return None
         data = resp.json()
         num_rounds = data.get("numberOfRounds", 7)
 
-        rounds_resp = requests.get(f"{base}/seasons/{year}/draft/rounds")
+        rounds_resp = _http_get(f"{base}/seasons/{year}/draft/rounds")
         rounds = []
         if rounds_resp.status_code == 200:
             for item in rounds_resp.json().get("items", []):
@@ -4722,7 +4764,7 @@ def get_draft(year):
         status_info = data.get("status", {})
         if isinstance(status_info, dict) and "$ref" in status_info:
             try:
-                sr = requests.get(status_info["$ref"])
+                sr = _http_get(status_info["$ref"])
                 if sr.status_code == 200:
                     state = sr.json().get("type", {}).get("state", "post")
                     status = str(state).lower()
@@ -4746,7 +4788,7 @@ def get_draft_round(year, round_num):
 
     base = "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl"
     try:
-        rounds_resp = requests.get(f"{base}/seasons/{year}/draft/rounds")
+        rounds_resp = _http_get(f"{base}/seasons/{year}/draft/rounds")
         if rounds_resp.status_code != 200:
             return []
         target = next((rd for rd in rounds_resp.json().get("items", [])
@@ -4773,7 +4815,7 @@ def get_draft_round(year, round_num):
         player_name = position = college_ref_url = ""
         if athlete_ref:
             try:
-                ar = requests.get(athlete_ref)
+                ar = _http_get(athlete_ref)
                 if ar.status_code == 200:
                     ad = ar.json()
                     player_name = ad.get("displayName") or ad.get("fullName", "")
@@ -4814,7 +4856,7 @@ def get_draft_round(year, round_num):
         if not cid:
             return "", ""
         try:
-            cr = requests.get(ref_url)
+            cr = _http_get(ref_url)
             if cr.status_code == 200:
                 cd = cr.json()
                 return cid, cd.get("name") or cd.get("shortName", "")
@@ -4842,7 +4884,7 @@ def get_team_transactions(league_key, team_id, limit=25):
     if not league_path or not team_id:
         return []
     try:
-        resp = requests.get(
+        resp = _http_get(
             f"{BASE_URL}/{league_path}/transactions",
             params={"team": team_id, "limit": limit},
         )
@@ -4886,7 +4928,7 @@ def get_golf_leaderboard(tour_key):
     if not league_path:
         return None
     try:
-        resp = requests.get(f"{BASE_URL}/{league_path}/scoreboard")
+        resp = _http_get(f"{BASE_URL}/{league_path}/scoreboard")
         if resp.status_code != 200:
             return None
         data = resp.json()
@@ -4942,7 +4984,7 @@ def get_golf_schedule(tour_key):
         return []
     try:
         year = datetime.now().year
-        resp = requests.get(
+        resp = _http_get(
             f"{BASE_URL}/{league_path}/scoreboard",
             params={"dates": f"{year}0101-{year}1231"},
         )
@@ -4991,7 +5033,7 @@ def get_world_cup_standings(league_key):
         return []
     try:
         url = f"https://site.api.espn.com/apis/v2/sports/{league_path}/standings"
-        resp = requests.get(url, timeout=15)
+        resp = _http_get(url, timeout=15)
         if resp.status_code != 200:
             return []
         data = resp.json()
@@ -5285,7 +5327,7 @@ def _load_fantasy_season(season, max_rank):
         "X-Fantasy-Filter": '{"players":{"limit":12000}}',
         "Accept": "application/json",
     }
-    resp = requests.get(url, headers=headers, timeout=90)
+    resp = _http_get(url, headers=headers, timeout=90)
     if resp.status_code != 200:
         # Raised, not swallowed: an empty list here would be indistinguishable
         # from "ESPN has not published this season yet", and the caller reports

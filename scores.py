@@ -705,7 +705,8 @@ class HomeView(BaseView):
                 fav['league'], fav.get('abbreviation', ''))
             loader.card_ready.connect(self._on_card_ready)
             self._fav_loaders.append(loader)
-            loader.start()
+            # Rebuilds and leaving Home drop _fav_loaders while cards still load.
+            _start_detached_thread(loader)
 
     def _on_card_ready(self, team_id, league, summary, news_lines):
         for i in range(self.favorites_list.count()):
@@ -790,10 +791,14 @@ class LiveScoresView(BaseView):
         _saved_text = settings.get('auto_refresh_interval', '1 minute')
         self.current_refresh_interval = self.refresh_intervals.get(_saved_text, 60000)
 
+        self._loader = None          # LiveScoresLoader while a load is running
+        self._pending_old_scores = {}  # monitored scores captured when a refresh began
+
         self.setup_ui()
         
-        # Setup auto-refresh timer for live updates
-        self.refresh_timer = QTimer()
+        # Setup auto-refresh timer for live updates. Parented to the view so it
+        # stops when the view is replaced, instead of refreshing a dead view.
+        self.refresh_timer = QTimer(self)
         self.refresh_timer.timeout.connect(self.refresh_live_scores)
         self._update_refresh_timer()
     
@@ -929,7 +934,59 @@ class LiveScoresView(BaseView):
                 self.parent_app.open_game_details(game_id, from_live_scores=True)
     
     def load_live_scores(self):
-        """Load and display live, upcoming, and completed games from all sports."""
+        """Start loading live, upcoming, and completed games from all sports.
+
+        The fetch runs on a LiveScoresLoader thread. On a busy college football
+        Saturday it is dozens of requests and can take longer than the refresh
+        interval; done on the UI thread, that froze the window for good. A load
+        already in progress is left to finish rather than started again.
+        """
+        if self._loader is not None and self._loader.isRunning():
+            return
+        if self.live_scores_list.count() == 0:
+            self.live_scores_list.addItem("Loading live scores...")
+        loader = LiveScoresLoader(self._get_today_games_all_sports)
+        loader.data_loaded.connect(self._on_live_scores_loaded)
+        loader.error_occurred.connect(self._on_live_scores_error)
+        self._loader = loader
+        _start_detached_thread(loader)
+
+    def _on_live_scores_error(self, message: str):
+        self._show_api_error(f"Failed to load live scores: {message}")
+        self._pending_old_scores = {}
+
+    def _on_live_scores_loaded(self, live_games: list, current_date_games: list):
+        """Show freshly loaded games, keeping the user's place in the list."""
+        # An exception escaping a slot aborts the app under PyQt6.
+        try:
+            self._show_loaded_live_scores(live_games, current_date_games)
+        except Exception as e:
+            self._show_api_error(f"Failed to load live scores: {e}")
+        self._pending_old_scores = {}
+
+    def _show_loaded_live_scores(self, live_games, current_date_games):
+        current = self.live_scores_list.currentItem()
+        current_data = current.data(Qt.ItemDataRole.UserRole) if current else None
+        selected_id = current_data.get("id") if isinstance(current_data, dict) else None
+        selected_row = self.live_scores_list.currentRow()
+
+        self._render_live_scores(live_games, current_date_games)
+
+        restored = False
+        if selected_id:
+            for row in range(self.live_scores_list.count()):
+                data = self.live_scores_list.item(row).data(Qt.ItemDataRole.UserRole)
+                if isinstance(data, dict) and data.get("id") == selected_id:
+                    self.live_scores_list.setCurrentRow(row)
+                    restored = True
+                    break
+        if not restored and 0 <= selected_row < self.live_scores_list.count():
+            self.live_scores_list.setCurrentRow(selected_row)
+
+        self._check_monitored_scores(self._pending_old_scores)
+
+    def _render_live_scores(self, live_games, current_date_games):
+        """Fill the list from already-fetched games. No network access."""
         from datetime import datetime
 
         self.live_scores_list.clear()
@@ -938,13 +995,7 @@ class LiveScoresView(BaseView):
 
         try:
             today = datetime.now().date()
-            
-            # Get live games
-            live_games = ApiService.get_live_scores_all_sports()
-            
-            # Get all games for today
-            current_date_games = self._get_today_games_all_sports()
-            
+
             # Categorize games
             live_games_dict = {game.get('id', ''): game for game in live_games}
             upcoming_games = []
@@ -1114,10 +1165,13 @@ class LiveScoresView(BaseView):
                         teams[1].get("score", "")
                     )
         
-        # Reload the scores
+        if self._loader is not None and self._loader.isRunning():
+            return  # the load in flight will bring the latest scores
+        self._pending_old_scores = old_scores
         self.load_live_scores()
-        
-        # Check for score changes in monitored games
+
+    def _check_monitored_scores(self, old_scores):
+        """Announce score changes in monitored games since old_scores was taken."""
         for game_id in self.monitored_games:
             if game_id in self.game_data and game_id in old_scores:
                 game = self.game_data[game_id]
@@ -1176,20 +1230,35 @@ class LiveScoresView(BaseView):
         error_label.setStyleSheet("color: red; font-weight: bold;")
         self.layout.addWidget(error_label)
     
-    def _get_today_games_all_sports(self):
-        """Get all games for the current date from all sports"""
+    @staticmethod
+    def _get_today_games_all_sports():
+        """Get all games for the current date from all sports.
+
+        Runs on the LiveScoresLoader thread, so it must not touch widgets.
+        """
         from models.game import GameData
         from datetime import datetime
 
         all_games = []
         today = datetime.now().date()
 
-        leagues = ApiService.get_leagues()
+        leagues = list(ApiService.get_leagues())
 
-        for league in leagues:
+        def fetch(league):
             try:
-                # Get scores for current date for this league
-                scores_data = ApiService.get_scores(league, today)
+                return ApiService.get_scores(league, today) or []
+            except Exception as e:
+                print(f"Error fetching {league} games: {e}")
+                return []
+
+        # One scoreboard per league, fetched in parallel like the live games.
+        from concurrent.futures import ThreadPoolExecutor
+        from espn_api import LIVE_FETCH_WORKERS
+        with ThreadPoolExecutor(max_workers=LIVE_FETCH_WORKERS) as pool:
+            scoreboards = list(pool.map(fetch, leagues))
+
+        for league, scores_data in zip(leagues, scoreboards):
+            try:
                 for game_raw in scores_data:
                     # Create GameData object for consistent formatting
                     game = GameData(game_raw, league)
@@ -1378,28 +1447,23 @@ class LeagueView(BaseView):
         self.league = league
         self.news_headlines = []
 
-        # For football leagues, ensure we have a week
+        # Bumped by every load_scores, so a slow load that finishes after a
+        # newer one (stepping weeks quickly) is dropped instead of shown.
+        self._scores_generation = 0
+
+        # For football leagues, the season (and, unless one was asked for, the
+        # week) comes from ESPN's calendar. That is a network request, so the
+        # first load fetches it on its thread; until then these are placeholders.
         if self.is_football_league():
-            try:
-                from services.football_calendar import (
-                    get_current_season_week_and_type, SEASON_TYPE_REGULAR)
-                # Season, week and season type all come from ESPN's own calendar.
-                # A week number alone does not identify a week — they restart at 1
-                # in each season type — so the type travels with it. That pairing
-                # is what lets preseason show at all: ESPN's week.number is 1
-                # during preseason, which read as the September opener.
-                self.current_season, current_type, current_week = (
-                    get_current_season_week_and_type(league))
-                self.current_week = week if week is not None else current_week
-                self.current_season_type = (
-                    season_type if season_type is not None
-                    else (current_type if week is None else SEASON_TYPE_REGULAR))
-            except Exception:
-                self.current_season = datetime.now().year
-                self.current_week = week if week is not None else 1
-                self.current_season_type = season_type or 2
+            self._calendar_pending = True
+            self._requested_week = week
+            self._requested_season_type = season_type
+            self.current_season = datetime.now().year
+            self.current_week = week if week is not None else 1
+            self.current_season_type = season_type or 2
             self.current_date = None
         else:
+            self._calendar_pending = False
             self.current_season = None
             self.current_week = None
             self.current_season_type = None
@@ -1454,43 +1518,80 @@ class LeagueView(BaseView):
             self.parent_app.open_game_details(data)
 
     def load_scores(self):
-        """Load scores for the current date or week"""
-        self.scores_list.clear()
-        if self.is_football_league() and self.current_week is not None:
+        """Start loading scores for the current date or week.
+
+        The scoreboard, the news and, the first time, the football calendar
+        are fetched on a LeagueScoresLoader thread. On a college football
+        Saturday the scoreboard alone is several MB; fetched here it froze the
+        window on every open, every week step and every Back from a game.
+        """
+        self._scores_generation += 1
+        football = self.is_football_league()
+        if football and self._calendar_pending:
+            self.date_label.setText("Finding the current week...")
+        elif football:
             self.date_label.setText(self._week_label())
-            try:
-                scores_data = ApiService.get_scores(
-                    self.league, week=self.current_week, season=self.current_season,
-                    seasontype=self.current_season_type)
-                self.news_headlines = ApiService.get_news(self.league)
-                if not scores_data:
-                    self.scores_list.addItem("No games found for this week.")
-                else:
-                    self._add_game_sections(scores_data)
-                if self.news_headlines:
-                    self.scores_list.addItem("--- News Headlines ---")
-                    news_item = self.scores_list.item(self.scores_list.count()-1)
-                    news_item.setData(Qt.ItemDataRole.UserRole, "__news__")
-                self._add_common_sections()
-            except Exception as e:
-                self._show_api_error(f"Failed to load scores: {str(e)}")
         else:
-            date_str = self.current_date.strftime("%A, %B %d, %Y")
-            self.date_label.setText(f"Date: {date_str}")
-            try:
-                scores_data = ApiService.get_scores(self.league, self.current_date)
-                self.news_headlines = ApiService.get_news(self.league)
-                if not scores_data:
-                    self.scores_list.addItem("No games found for this date.")
-                else:
-                    self._add_game_sections(scores_data)
-                if self.news_headlines:
-                    self.scores_list.addItem("--- News Headlines ---")
-                    news_item = self.scores_list.item(self.scores_list.count()-1)
-                    news_item.setData(Qt.ItemDataRole.UserRole, "__news__")
-                self._add_common_sections()
-            except Exception as e:
-                self._show_api_error(f"Failed to load scores: {str(e)}")
+            self.date_label.setText(f"Date: {self.current_date.strftime('%A, %B %d, %Y')}")
+
+        self.scores_list.clear()
+        self.scores_list.addItem("Loading scores...")
+        self.scores_list.setCurrentRow(0)
+
+        if football:
+            request = dict(week=self.current_week, season=self.current_season,
+                           seasontype=self.current_season_type)
+        else:
+            request = dict(date=self.current_date)
+        loader = LeagueScoresLoader(
+            self._scores_generation, self.league, request,
+            resolve_calendar=football and self._calendar_pending,
+            requested_week=getattr(self, '_requested_week', None),
+            requested_season_type=getattr(self, '_requested_season_type', None))
+        loader.data_loaded.connect(self._on_scores_loaded)
+        loader.error_occurred.connect(self._on_scores_error)
+        _start_detached_thread(loader)
+
+    def _on_scores_error(self, generation: int, message: str):
+        if generation == self._scores_generation:
+            self._show_api_error(f"Failed to load scores: {message}")
+
+    def _on_scores_loaded(self, generation: int, calendar, scores_data: list, news: list):
+        if generation != self._scores_generation:
+            return  # a newer load has started since
+        # An exception escaping a slot aborts the app under PyQt6, so a bad game
+        # record must end here as an error message, as it did before.
+        try:
+            self._show_loaded_scores(calendar, scores_data, news)
+        except Exception as e:
+            self._show_api_error(f"Failed to load scores: {e}")
+
+    def _show_loaded_scores(self, calendar, scores_data, news):
+        if calendar is not None:
+            self.current_season, self.current_season_type, self.current_week = calendar
+            self._calendar_pending = False
+        if self.is_football_league():
+            self.date_label.setText(self._week_label())
+
+        had_focus = self.scores_list.hasFocus()
+        self.news_headlines = news
+        self.scores_list.clear()
+        if not scores_data:
+            self.scores_list.addItem(
+                "No games found for this week." if self.is_football_league()
+                else "No games found for this date.")
+        else:
+            self._add_game_sections(scores_data)
+        if self.news_headlines:
+            self.scores_list.addItem("--- News Headlines ---")
+            news_item = self.scores_list.item(self.scores_list.count()-1)
+            news_item.setData(Qt.ItemDataRole.UserRole, "__news__")
+        self._add_common_sections()
+        # The list was showing "Loading scores..."; land on the first row so a
+        # screen reader announces what replaced it.
+        self.scores_list.setCurrentRow(0)
+        if had_focus:
+            self.scores_list.setFocus()
 
     def _add_game_sections(self, scores_data):
         """Add games under In Progress / Upcoming / Completed / Postponed headers.
@@ -1597,7 +1698,8 @@ class LeagueView(BaseView):
                 self.standings_loader = StandingsLoader(self.league)
                 self.standings_loader.data_loaded.connect(self._on_standings_data_loaded)
                 self.standings_loader.error_occurred.connect(self._on_standings_data_error)
-                self.standings_loader.start()
+                # A second press, or leaving the view, replaces this reference mid-load.
+                _start_detached_thread(self.standings_loader)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to show standings: {str(e)}")
     
@@ -1953,11 +2055,12 @@ class LeagueView(BaseView):
         self.set_focus_and_select_first(self.scores_list)
 
     def previous_week(self):
-        if self.current_week:
+        # Until the calendar arrives the week is a placeholder to step from.
+        if self.current_week and not self._calendar_pending:
             self._step_week(-1)
 
     def next_week(self):
-        if self.current_week:
+        if self.current_week and not self._calendar_pending:
             self._step_week(+1)
     
     def _show_api_error(self, message: str):
@@ -6891,9 +6994,10 @@ class WildCardTabsMixin:
                 lambda data, i=index: self._on_wildcard_loaded(i, data))
             loader.error_occurred.connect(
                 lambda _msg, i=index: self._on_wildcard_loaded(i, {}))
-            # Held on self so the thread is not garbage collected mid-flight.
+            # Switching tabs mid-load replaces _wildcard_loader, so the running
+            # thread is held until it finishes instead.
             self._wildcard_loader = loader
-            loader.start()
+            _start_detached_thread(loader)
         except Exception as e:
             print(f"[WARNING] Wild card tab failed: {e}")
 
@@ -7566,6 +7670,111 @@ class NewsDialog(QDialog):
 
 
 # Background loading classes for performance optimization
+
+# Threads started by views that may be deleted before the thread finishes.
+# A QThread garbage-collected while running aborts the whole process, so each
+# one is held here until its finished signal.
+_running_threads = set()
+
+
+def _start_detached_thread(thread: QThread):
+    _running_threads.add(thread)
+    thread.finished.connect(lambda: _running_threads.discard(thread))
+    thread.start()
+
+
+class LiveScoresLoader(QThread):
+    """Fetches everything Live Scores - All Sports shows, off the UI thread."""
+    data_loaded = pyqtSignal(list, list)  # live games, all of today's games
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, fetch_today_games):
+        super().__init__()
+        self.fetch_today_games = fetch_today_games
+
+    def run(self):
+        try:
+            live_games = ApiService.get_live_scores_all_sports() or []
+            today_games = self.fetch_today_games()
+            self.data_loaded.emit(live_games, today_games)
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+
+
+class LeagueScoresLoader(QThread):
+    """Fetches a league view's scoreboard and news, and the football calendar
+    the first time a football league opens."""
+    # generation, (season, season_type, week) or None, scores, news
+    data_loaded = pyqtSignal(int, object, list, list)
+    error_occurred = pyqtSignal(int, str)
+
+    def __init__(self, generation, league, request, resolve_calendar=False,
+                 requested_week=None, requested_season_type=None):
+        super().__init__()
+        self.generation = generation
+        self.league = league
+        self.request = dict(request)
+        self.resolve_calendar = resolve_calendar
+        self.requested_week = requested_week
+        self.requested_season_type = requested_season_type
+
+    def _resolve_calendar(self):
+        """(season, season_type, week) to show, per ESPN's calendar.
+
+        A week number alone does not identify a week (they restart at 1 in each
+        season type), so the type travels with it. That pairing is what lets
+        preseason show at all: ESPN's week.number is 1 during preseason, which
+        read as the September opener.
+        """
+        from services.football_calendar import (
+            get_current_season_week_and_type, SEASON_TYPE_REGULAR)
+        week, season_type = self.requested_week, self.requested_season_type
+        try:
+            season, current_type, current_week = get_current_season_week_and_type(self.league)
+        except Exception:
+            return (datetime.now().year, season_type or SEASON_TYPE_REGULAR,
+                    week if week is not None else 1)
+        if season_type is None:
+            season_type = current_type if week is None else SEASON_TYPE_REGULAR
+        return season, season_type, (week if week is not None else current_week)
+
+    def run(self):
+        try:
+            calendar = None
+            if self.resolve_calendar:
+                calendar = self._resolve_calendar()
+                season, season_type, week = calendar
+                self.request.update(week=week, season=season, seasontype=season_type)
+            scores = ApiService.get_scores(self.league, **self.request) or []
+            try:
+                news = ApiService.get_news(self.league) or []
+            except Exception:
+                news = []
+            self.data_loaded.emit(self.generation, calendar, scores, news)
+        except Exception as e:
+            self.error_occurred.emit(self.generation, str(e))
+
+
+class StatisticsLoader(QThread):
+    """Loads a league's team or player statistics for StatisticsViewDialog."""
+    data_loaded = pyqtSignal(dict)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, league: str, stat_type: str):
+        super().__init__()
+        self.league = league
+        self.stat_type = stat_type
+
+    def run(self):
+        try:
+            if self.stat_type == "player":
+                data = ApiService.get_player_statistics(self.league)
+            else:
+                data = ApiService.get_team_statistics(self.league)
+            self.data_loaded.emit(data or {})
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+
 
 class StandingsLoader(QThread):
     """Background thread for loading standings data"""
@@ -9294,8 +9503,9 @@ class FantasyCheatsheetDialog(QDialog):
         # Held on the class, not the instance: the download outlives a dialog the
         # user closes straight away, and a QThread deleted mid-run warns and can
         # take the process with it.
+        # Reopening the board mid-download replaces _active_loader too.
         FantasyCheatsheetDialog._active_loader = loader
-        loader.start()
+        _start_detached_thread(loader)
 
     def _reload_board(self):
         FantasyCheatsheetDialog._cached_board = None
@@ -10550,16 +10760,52 @@ class StatisticsViewDialog(QDialog):
         title = QLabel(f"{self.league} {self.stat_type.title()} Statistics")
         layout.addWidget(title)
         
-        # Load statistics data IMMEDIATELY and show available stats
+        # Statistics load on a thread: team stats are one request per team
+        # (30-60+), MLB player stats are 39. Fetched here in the constructor
+        # they froze the window before the dialog even appeared. The dialog
+        # opens at once on a focusable "Loading" row, and the stats replace it.
+        self._content_layout = QVBoxLayout()
+        self._loading_list = QListWidget()
+        self._loading_list.setAccessibleName(f"{self.stat_type.title()} statistics")
+        self._loading_list.addItem(f"Loading {self.league} {self.stat_type} statistics...")
+        self._loading_list.setCurrentRow(0)
+        self._content_layout.addWidget(self._loading_list)
+        layout.addLayout(self._content_layout)
+
+        loader = StatisticsLoader(self.league, self.stat_type)
+        loader.data_loaded.connect(self._on_statistics_loaded)
+        loader.error_occurred.connect(self._on_statistics_error)
+        self._statistics_loader = loader
+        _start_detached_thread(loader)
+
+        # Close button
+        close_btn = QPushButton("Close")
+        close_btn.setAutoDefault(False)  # Prevent auto-activation
+        close_btn.setDefault(False)      # Not the default button
+        close_btn.clicked.connect(lambda: self._debug_accept("Main close button"))
+        layout.addWidget(close_btn)
+
+        self.setLayout(layout)
+
+    def _clear_loading_row(self):
+        self._content_layout.removeWidget(self._loading_list)
+        self._loading_list.deleteLater()
+
+    def _on_statistics_error(self, message: str):
+        self._clear_loading_row()
+        error_label = QLabel(f"Error loading statistics: {message}")
+        self._content_layout.addWidget(error_label)
+
+    def _on_statistics_loaded(self, statistics_data: dict):
+        self._clear_loading_row()
+        self._show_statistics(self._content_layout, statistics_data)  # catches its own errors
+        if hasattr(self, 'stats_list'):
+            self.stats_list.setFocus()
+
+    def _show_statistics(self, layout, statistics_data):
+        """Build the statistics interface from loaded data. No network access."""
         try:
-            print(f"DEBUG: Loading {self.stat_type} statistics data for {self.league}")
-            
-            # Only load the specific type of statistics we need
-            if self.stat_type == "player":
-                self.statistics_data = ApiService.get_player_statistics(self.league)
-            else:  # team
-                self.statistics_data = ApiService.get_team_statistics(self.league)
-            
+            self.statistics_data = statistics_data
             if self.statistics_data:
                 available_stats = self._get_available_statistics()
                 print(f"DEBUG: Got {len(available_stats)} available stats")
@@ -10579,16 +10825,7 @@ class StatisticsViewDialog(QDialog):
             traceback.print_exc()
             error_label = QLabel(f"Error loading statistics: {str(e)}")
             layout.addWidget(error_label)
-        
-        # Close button
-        close_btn = QPushButton("Close")
-        close_btn.setAutoDefault(False)  # Prevent auto-activation
-        close_btn.setDefault(False)      # Not the default button
-        close_btn.clicked.connect(lambda: self._debug_accept("Main close button"))
-        layout.addWidget(close_btn)
 
-        self.setLayout(layout)
-    
     def _debug_accept(self, reason):
         """Debug wrapper for accept() to track why dialog is closing"""
         print(f"DEBUG: StatisticsViewDialog.accept() called - reason: {reason}")

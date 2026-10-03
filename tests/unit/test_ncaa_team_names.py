@@ -143,7 +143,7 @@ class TestNCAAvTeamNames(unittest.TestCase):
             ]
         }
 
-    def mock_requests_get(self, url):
+    def mock_requests_get(self, url, **kwargs):
         """Mock requests.get to return test data"""
         class MockResponse:
             def __init__(self, json_data, status_code=200):
