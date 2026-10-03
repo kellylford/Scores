@@ -131,6 +131,7 @@ jobs:
           rm -f "$RUNNER_TMP/dist.p12"
           echo "Imported identities:"
           security find-identity -v -p codesigning "$KEYCHAIN"
+          echo "KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
 
       - name: Stage App Store Connect API key
         env:
@@ -143,10 +144,29 @@ jobs:
           echo "$ASC_KEY_P8_BASE64" | base64 --decode > "$DIR/AuthKey_${ASC_KEY_ID}.p8"
           echo "ASC_KEY_PATH=$DIR/AuthKey_${ASC_KEY_ID}.p8" >> "$GITHUB_ENV"
 
-      - name: Archive
+      # Signing is manual, with the imported Apple Distribution certificate.
+      # Automatic signing had Xcode create a new Apple Development certificate on
+      # every fresh runner, until the account hit Apple's limit and archives
+      # failed with "reached the maximum number of certificates".
+      - name: Install App Store provisioning profile
+        id: profile
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          BUNDLE_ID: com.sportsscores.app
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/asc"
+          "$RUNNER_TEMP/asc/bin/pip" install --quiet "pyjwt[crypto]" requests
+          CERT_SERIAL="$(security find-certificate -c "Apple Distribution" -p "$KEYCHAIN" \
+            | openssl x509 -noout -serial | cut -d= -f2)"
+          export CERT_SERIAL
+          export ASC_KEY_P8="$(cat "$ASC_KEY_PATH")"
+          "$RUNNER_TEMP/asc/bin/python" iOS/SportsScoresApp/scripts/appstore_profile.py
+
+      - name: Archive
+        env:
+          PROFILE_NAME: ${{ steps.profile.outputs.profile_name }}
         run: |
           set -euo pipefail
           xcodebuild \
@@ -155,26 +175,26 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/SportsScores.xcarchive" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$ASC_KEY_PATH" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM=P887QF74N8 \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
             clean archive
 
       - name: Export App Store IPA
         env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          PROFILE_NAME: ${{ steps.profile.outputs.profile_name }}
         run: |
           set -euo pipefail
+          OPTS="$RUNNER_TEMP/ExportOptions.plist"
+          cp iOS/SportsScoresApp/scripts/ExportOptions.plist "$OPTS"
+          plutil -replace signingStyle -string manual "$OPTS"
+          plutil -replace signingCertificate -string "Apple Distribution" "$OPTS"
+          plutil -replace provisioningProfiles -json "{\"com.sportsscores.app\": \"$PROFILE_NAME\"}" "$OPTS"
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/SportsScores.xcarchive" \
             -exportPath "$RUNNER_TEMP/export" \
-            -exportOptionsPlist iOS/SportsScoresApp/scripts/ExportOptions.plist \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$ASC_KEY_PATH" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+            -exportOptionsPlist "$OPTS"
           ls -lh "$RUNNER_TEMP/export/"
 
       - name: Validate and upload to App Store Connect
