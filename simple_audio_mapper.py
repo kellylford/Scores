@@ -8,6 +8,7 @@ Simple beep-based spatial audio for baseball pitch locations with optional true 
 import math
 import platform
 from PyQt6.QtCore import QObject, pyqtSignal, QTimer
+from audio_queue import play_in_background
 
 # Windows-specific audio
 if platform.system() == "Windows":
@@ -85,8 +86,8 @@ class SimpleAudioPitchMapper(QObject):
                 x, y, velocity, pitch_type, batter_hand
             )
             
-            # Play the beep with stereo balance simulation
-            self._play_beep_with_balance(frequency, duration, balance)
+            # Play the beep with stereo balance simulation, off the UI thread
+            play_in_background(self._play_beep_with_balance, frequency, duration, balance)
             
             # Emit feedback
             balance_desc = self._get_balance_description(balance)

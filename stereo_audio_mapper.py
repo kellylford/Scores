@@ -12,6 +12,7 @@ import tempfile
 import os
 import platform
 from PyQt6.QtCore import QObject, pyqtSignal
+from audio_queue import play_in_background
 
 # Windows audio playback
 if platform.system() == "Windows":
@@ -45,8 +46,8 @@ class StereoAudioPitchMapper(QObject):
                 x, y, velocity, pitch_type, batter_hand
             )
             
-            # Generate and play stereo audio
-            self._play_stereo_beep(frequency, duration, balance)
+            # Generate and play stereo audio, off the UI thread
+            play_in_background(self._play_stereo_beep_reporting, frequency, duration, balance)
             
             # Emit feedback
             balance_desc = self._get_balance_description(balance)
@@ -91,6 +92,13 @@ class StereoAudioPitchMapper(QObject):
         
         return frequency, duration, adjusted_balance, location_desc
     
+    def _play_stereo_beep_reporting(self, frequency, duration, balance):
+        """_play_stereo_beep on the audio thread, reporting failure by signal."""
+        try:
+            self._play_stereo_beep(frequency, duration, balance)
+        except Exception as e:
+            self.audio_error.emit(str(e))
+
     def _play_stereo_beep(self, frequency, duration, balance):
         """Generate and play a stereo WAV file with proper left/right balance"""
         
