@@ -12,6 +12,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Core infrastructure implemented, text processing being refined
   - Game story text placeholders currently under investigation
 
+## [0.9.9] - 2026-10-03
+
+### Fixed
+- **Live Scores - All Sports froze and never recovered on a busy day.** It
+  fetched a full summary for every live game, one after another, on the UI
+  thread: over a minute with 50 live games, and the 30-second refresh started
+  the next load as soon as one finished. It now loads on a background thread,
+  eight requests at a time, skips a refresh while one is running, and keeps
+  your place in the list.
+- **League views and Statistics froze the window while loading.** Both now load
+  in the background behind a "Loading..." row.
+- **Crashes when leaving or reopening a screen mid-load** (Standings, Wild Card
+  tabs, fantasy cheatsheet, favorite team cards).
+- **ESPN requests had no timeout**, so one stalled response could hang the app.
+  Every request now gives up after 15 seconds.
+
 ## [0.9.8] - 2026-10-03
 
 ### Changed
