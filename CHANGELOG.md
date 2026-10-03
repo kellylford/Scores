@@ -12,22 +12,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Core infrastructure implemented, text processing being refined
   - Game story text placeholders currently under investigation
 
-## [0.9.9] - 2026-10-03
-
-### Fixed
-- **Live Scores - All Sports froze and never recovered on a busy day.** It
-  fetched a full summary for every live game, one after another, on the UI
-  thread: over a minute with 50 live games, and the 30-second refresh started
-  the next load as soon as one finished. It now loads on a background thread,
-  eight requests at a time, skips a refresh while one is running, and keeps
-  your place in the list.
-- **League views and Statistics froze the window while loading.** Both now load
-  in the background behind a "Loading..." row.
-- **Crashes when leaving or reopening a screen mid-load** (Standings, Wild Card
-  tabs, fantasy cheatsheet, favorite team cards).
-- **ESPN requests had no timeout**, so one stalled response could hang the app.
-  Every request now gives up after 15 seconds.
-
 ## [0.9.8] - 2026-10-03
 
 ### Changed
@@ -37,6 +21,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (suspended games included), Upcoming, Completed, then Postponed / Cancelled.
   Each group opens with a header row giving its count ("Upcoming, 42 games").
   The arrow keys stop on the headers, and activating one does nothing.
+- **Live Scores loads the way the iOS app does.** It made about 85 requests on a
+  busy Saturday: every scoreboard twice, plus a full summary per live game for
+  its latest play. It now makes one request per league for today, all at once,
+  and reads the latest play from the scoreboard. About 5 seconds instead of more
+  than a minute.
+- **Golf in Live Scores** has its own section at the top, as on iOS: each
+  tournament in progress with its round and top three, ties shown as T1. Enter
+  opens the tour's leaderboard.
+
+### Fixed
+- **Live Scores - All Sports froze and never recovered on a busy day.** It loaded
+  on the UI thread, and the refresh started the next load as soon as one
+  finished. It now loads in the background, skips a refresh while one is
+  running, and keeps your place in the list.
+- **Golf tournaments in Live Scores read "Unknown at Unknown".**
+- **Golf scores were wrong for golfers partway through a round.** ESPN's total
+  leaves out the round in progress, so +1, -4 and -8 through 12 holes showed -3
+  instead of -11. Totals are now added up from the round scores, in Live Scores
+  and on the leaderboard. CUT, WD and DQ are unchanged.
+- **League views and Statistics froze the window while loading.** Both now load
+  in the background behind a "Loading..." row.
+- **Crashes when leaving or reopening a screen mid-load** (Standings, Wild Card
+  tabs, fantasy cheatsheet, favorite team cards).
+- **ESPN requests had no timeout**, so one stalled response could hang the app.
+  Every request now gives up after 15 seconds.
 
 ## [0.9.7] - 2026-09-27
 
