@@ -16,8 +16,8 @@ A companion **iOS app** (SwiftUI, VoiceOver-first) lives in `iOS/SportsScoresApp
 ```powershell
 .venv\Scripts\activate
 python scores.py
-# Or with a sport pre-selected:
-python main.py --sport mlb
+# Or straight to one screen (--<sport>, --<sport>-teams, --<sport>-standings, --live):
+python main.py --mlb
 ```
 
 **Build distributables:**
