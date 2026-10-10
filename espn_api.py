@@ -737,7 +737,8 @@ def get_live_scores_all_sports():
                         
                         teams.append({
                             "name": team_name,
-                            "score": str(score)
+                            "score": str(score),
+                            "home_away": home_away
                         })
                         
                         # Track home and away teams
@@ -760,7 +761,8 @@ def get_live_scores_all_sports():
                     
                     # Now get detailed play information for live games only
                     try:
-                        recent_play = live_game_update(league_key, event, status_text)[0] or status_text
+                        play, status_text = live_game_update(league_key, event, status_text)
+                        recent_play = play or status_text
                     except Exception as e:
                         # If detailed call fails, continue with basic status
                         print(f"Failed to get details for {game_name}: {e}")
@@ -785,6 +787,10 @@ def get_live_scores_all_sports():
     return live_games
 
 
+# Seconds to wait for one live game's summary before showing it without a play.
+LIVE_PLAY_TIMEOUT = 10
+
+
 def live_game_update(league_key, event, status_text=""):
     """Current play and clock for one live game, as the All Scores view shows them.
 
@@ -803,8 +809,16 @@ def live_game_update(league_key, event, status_text=""):
     if league_key == 'MLB':
         detailed = extract_baseball_enhanced_display(event)
     if not detailed:
-        details = get_game_details(league_key, event.get("id", ""))
-        detailed = extract_recent_play(details, league_key)
+        # The latest play is all that's wanted, so skip the hockey web page
+        # get_game_details otherwise adds, and bound the wait.
+        details = get_game_details(league_key, event.get("id", ""),
+                                   include_web_plays=False, timeout=LIVE_PLAY_TIMEOUT)
+        if league_key == 'MLB':
+            # extract_recent_play's MLB branch would re-download the scoreboard
+            # this event came from, only to find the same missing situation.
+            detailed = _extract_generic_recent_play(details)
+        else:
+            detailed = extract_recent_play(details, league_key)
         competitions = (details.get("header") or {}).get("competitions") or [{}]
         status_type = competitions[0].get("status", {}).get("type", {})
         status_text = status_type.get("shortDetail") or status_text
@@ -816,9 +830,9 @@ def live_game_update(league_key, event, status_text=""):
 def _is_live_game(game):
     """True when a scoreboard event or get_scores() game is under way."""
     competitions = game.get("competitions") or [{}]
-    type_info = (competitions[0] or {}).get("status", {}).get("type", {})
-    return (type_info.get("state", "").lower() == "in"
-            or "progress" in type_info.get("description", "").lower())
+    type_info = ((competitions[0] or {}).get("status") or {}).get("type") or {}
+    return ((type_info.get("state") or "").lower() == "in"
+            or "progress" in (type_info.get("description") or "").lower())
 
 
 def get_live_plays(league_key, games, max_workers=8):
@@ -1114,7 +1128,15 @@ def extract_recent_play(game_details, league=None):
         
         # Fallback to regular processing if situation data unavailable
         pass
-    
+
+    return _extract_generic_recent_play(game_details)
+
+
+def _extract_generic_recent_play(game_details):
+    """The latest play from a game summary, for leagues without an enhanced display."""
+    if not game_details:
+        return None
+
     # Build player ID to name mapping from rosters (if available)
     player_names = {}
     rosters = game_details.get("rosters", [])
@@ -1434,19 +1456,22 @@ def get_news(league_key, limit=10):
         news_items.append(news_item)
     return news_items
 
-def get_game_details(league_key, game_id):
+def get_game_details(league_key, game_id, include_web_plays=True, timeout=None):
+    """The game's summary. `include_web_plays=False` skips the hockey web-page
+    fetch below, for callers that only want the latest play; `timeout` bounds
+    the summary request."""
     league_path = LEAGUES.get(league_key)
     if not league_path:
         return {}
     url = f"{BASE_URL}/{league_path}/summary?event={game_id}"
-    resp = requests.get(url)
+    resp = requests.get(url, timeout=timeout)
     if resp.status_code != 200:
         return {}
     details = resp.json()
 
     # ESPN hockey series games can occasionally expose fuller play groups via the
     # web gamepackage payload. Prefer whichever source has more events.
-    if league_key in ["NHL", "NCAAH", "NCAAWH"]:
+    if include_web_plays and league_key in ["NHL", "NCAAH", "NCAAWH"]:
         api_plays = details.get("plays", []) if isinstance(details, dict) else []
         web_plays = _fetch_web_gamepackage_plays(league_path, game_id)
         if len(web_plays) > len(api_plays):

@@ -52,7 +52,8 @@ class TestGetLivePlays:
         with patch.object(espn_api, "get_game_details", return_value=summary("10:00 - 2nd")) as details, \
                 patch.object(espn_api, "extract_recent_play", return_value=FOOTBALL_PLAY):
             result = espn_api.get_live_plays("NCAAF", games)
-        details.assert_called_once_with("NCAAF", "1")
+        details.assert_called_once()
+        assert details.call_args[0] == ("NCAAF", "1")
         assert list(result) == ["1"]
 
     def test_clock_comes_from_the_summary_not_the_stale_scoreboard(self):
@@ -86,7 +87,7 @@ class TestGetLivePlays:
     def test_one_failing_game_does_not_lose_the_others(self):
         games = [scoreboard_game("1", "in", "1:00 - 1st"), scoreboard_game("2", "in", "2:00 - 1st")]
 
-        def details(league, game_id):
+        def details(league, game_id, **kwargs):
             if game_id == "1":
                 raise ConnectionError("summary unavailable")
             return summary("2:00 - 1st")
@@ -130,7 +131,7 @@ class TestMlbUsesScoreboardSituation:
     def test_missing_situation_falls_back_to_the_summary(self):
         games = [scoreboard_game("1", "in", "Top 5th")]
         with patch.object(espn_api, "get_game_details", return_value=summary("Mid 5th")) as details, \
-                patch.object(espn_api, "extract_recent_play", return_value="P: Pitcher | AB: Batter | Count: 0-0"):
+                patch.object(espn_api, "_extract_generic_recent_play", return_value="P: Pitcher | AB: Batter | Count: 0-0"):
             result = espn_api.get_live_plays("MLB", games)
         details.assert_called_once()
         assert result["1"]["status"] == "Mid 5th"
@@ -142,3 +143,70 @@ class TestAllScoresPath:
         with patch.object(espn_api, "get_game_details", return_value={}), \
                 patch.object(espn_api, "extract_recent_play", return_value=None):
             assert espn_api.live_game_update("NHL", game, "End of 2nd Period") == (None, "End of 2nd Period")
+
+    def test_summary_is_fetched_without_the_hockey_web_page_and_with_a_timeout(self):
+        game = scoreboard_game("1", "in", "5:00 - 2nd")
+        with patch.object(espn_api, "get_game_details", return_value={}) as details, \
+                patch.object(espn_api, "extract_recent_play", return_value="Goal scored by somebody"):
+            espn_api.live_game_update("NHL", game, "5:00 - 2nd")
+        details.assert_called_once_with("NHL", "1", include_web_plays=False,
+                                        timeout=espn_api.LIVE_PLAY_TIMEOUT)
+
+    def test_mlb_fallback_does_not_refetch_the_scoreboard(self):
+        game = scoreboard_game("1", "in", "Top 5th")  # no situation on the event
+        with patch.object(espn_api, "get_game_details", return_value={}), \
+                patch.object(espn_api, "requests") as fake_requests:
+            espn_api.live_game_update("MLB", game, "Top 5th")
+        fake_requests.get.assert_not_called()
+
+
+def all_scores_board(*events):
+    return {"events": list(events)}
+
+
+class TestGetLiveScoresAllSports:
+    """The All Scores path, which now shares live_game_update with the league view."""
+
+    def run(self, update):
+        event = scoreboard_game("1", "in", "3:00 - 1st")
+        event["competitions"][0]["competitors"][0]["team"]["displayName"] = "Home Team"
+
+        def fake_get(url, **kwargs):
+            class Resp:
+                status_code = 200
+                def json(self):
+                    return all_scores_board(event) if "football/nfl" in url else {"events": []}
+            return Resp()
+
+        with patch.object(espn_api, "requests") as fake_requests, \
+                patch.object(espn_api, "live_game_update", side_effect=update):
+            fake_requests.get.side_effect = fake_get
+            return [g for g in espn_api.get_live_scores_all_sports() if g["league"] == "NFL"]
+
+    def test_play_and_summary_clock_are_used(self):
+        games = self.run(lambda league, event, status: (FOOTBALL_PLAY, "2:40 - 1st"))
+        assert games[0]["recent_play"] == FOOTBALL_PLAY
+        assert games[0]["status"] == "2:40 - 1st"
+
+    def test_no_play_falls_back_to_the_clock(self):
+        games = self.run(lambda league, event, status: (None, status))
+        assert games[0]["recent_play"] == "3:00 - 1st"
+
+    def test_failed_detail_fetch_falls_back_to_the_scoreboard_clock(self):
+        def boom(league, event, status):
+            raise TimeoutError("summary timed out")
+        games = self.run(boom)
+        assert games[0]["recent_play"] == "3:00 - 1st"
+        assert games[0]["status"] == "3:00 - 1st"
+
+    def test_teams_carry_home_and_away(self):
+        games = self.run(lambda league, event, status: (None, status))
+        assert {t["home_away"] for t in games[0]["teams"]} == {"home", "away"}
+
+
+class TestIsLiveGame:
+    def test_missing_or_null_status_is_not_live(self):
+        assert not espn_api._is_live_game({"competitions": [{"status": None}]})
+        assert not espn_api._is_live_game({"competitions": [{"status": {"type": None}}]})
+        assert not espn_api._is_live_game({"competitions": [{"status": {"type": {"state": None}}}]})
+        assert not espn_api._is_live_game({})
