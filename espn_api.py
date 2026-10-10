@@ -943,8 +943,14 @@ def freshen_live_games(league_key, games, now=None):
         import pytz
         from datetime import datetime
         now = datetime.now(pytz.utc)
+    try:
+        days = sorted(_started_unfinished_game_dates(games, now))
+    except Exception as e:
+        # A bad start time mustn't cost the user the whole week.
+        print(f"Couldn't work out live {league_key} game dates: {e}")
+        return games
     fresh = {}
-    for day in sorted(_started_unfinished_game_dates(games, now)):
+    for day in days:
         try:
             fresh.update((g.get("id"), g) for g in get_scores(league_key, date=day))
         except Exception as e:

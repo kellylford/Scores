@@ -278,3 +278,15 @@ class TestLoaderFreshensFootballWeeksOnly:
 
     def test_date_request_is_not(self):
         self.run_loader(dict(date=date(2026, 10, 9))).assert_not_called()
+
+
+class TestFreshenNeverCostsTheWeek:
+    def test_non_string_start_keeps_the_week(self):
+        week = [game("1", "in", start=12345)]
+        with patch.object(espn_api, "get_scores") as get_scores:
+            assert espn_api.freshen_live_games("NFL", week, now=NOW) is week
+        get_scores.assert_not_called()
+
+    def test_naive_now_keeps_the_week(self):
+        week = [game("1", "in")]
+        assert espn_api.freshen_live_games("NFL", week, now=datetime(2026, 10, 10)) is week

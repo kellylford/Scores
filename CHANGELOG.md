@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sport's own scores list, because ESPN's week-by-week scoreboard lags its
   daily one. Live games in a football week now come from today's scoreboard.
 - **Windows: a live football game's clock was read twice** in Live Scores.
+- **Windows: Live Scores read some scores backwards.** "Colts at Commanders -
+  13-30" gave the home score first after an away-first name; scores now follow
+  the team order. Games without a play no longer read their status twice.
 - **Windows: F5 in a sport's scores list jumped back to the top.** It now stays
   on the game you were on.
 

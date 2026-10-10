@@ -134,3 +134,15 @@ class TestRenameLeavesThePlay:
         names = {"Kansas City Chiefs": "Chiefs"}
         text = "Kansas City Chiefs 7 at X 3 | Kansas City Chiefs timeout\n5:00 Q2"
         assert lpf.use_list_team_names(text, names) == "Chiefs 7 at X 3 | Kansas City Chiefs timeout\n5:00 Q2"
+
+
+class TestAwayThenHome:
+    def test_home_listed_first_comes_out_away_first(self):
+        # ESPN lists home first; "Colts at Commanders" must read 30-13, not 13-30.
+        teams = [{"name": "Commanders", "score": "13", "home_away": "home"},
+                 {"name": "Colts", "score": "30", "home_away": "away"}]
+        assert [t["score"] for t in lpf.away_then_home(teams)] == ["30", "13"]
+
+    def test_unknown_sides_keep_their_order(self):
+        teams = [{"name": "A"}, {"name": "B"}, {"name": "C"}]
+        assert [t["name"] for t in lpf.away_then_home(teams)] == ["A", "B"]

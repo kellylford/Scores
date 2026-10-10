@@ -24,12 +24,17 @@ def short_play(text, limit=PLAY_LIMIT):
     return cut.rstrip(" ,;:|-") + "..."
 
 
-def score_line(teams):
-    """'Away 3 at Home 7', in that order whenever home and away are known."""
+def away_then_home(teams):
+    """The first two teams, away first whenever home and away are known."""
     away = next((t for t in teams if t.get("home_away") == "away"), None)
     home = next((t for t in teams if t.get("home_away") == "home"), None)
-    ordered = [away, home] if away and home else list(teams[:2])
-    return " at ".join(f"{t.get('name', '')} {t.get('score', '')}".strip() for t in ordered)
+    return [away, home] if away and home else list(teams[:2])
+
+
+def score_line(teams):
+    """'Away 3 at Home 7', in that order whenever home and away are known."""
+    return " at ".join(f"{t.get('name', '')} {t.get('score', '')}".strip()
+                       for t in away_then_home(teams))
 
 
 def _repeats_clock(status, line):

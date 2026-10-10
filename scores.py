@@ -1074,7 +1074,8 @@ class LiveScoresView(BaseView):
                         # Build display text
                         display_text = f"{game_name}"
                         if teams and len(teams) >= 2:
-                            team1, team2 = teams[0], teams[1]
+                            # game_name reads "Away at Home"; ESPN lists home first.
+                            team1, team2 = live_play_format.away_then_home(teams)
                             score1 = team1.get("score", "")
                             score2 = team2.get("score", "")
                             if score1 and score2:
