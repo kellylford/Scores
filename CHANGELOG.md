@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### In Progress
+- **Game Wrap Up Feature**: ESPN text processing and game story extraction (under construction)
+  - Core infrastructure implemented, text processing being refined
+  - Game story text placeholders currently under investigation
+
+## [0.9.9.1] - 2026-10-10
+
+A Windows-only update; the iPhone app stays at 0.9.9.
+
 ### Added
 - **Windows: live games in a single sport's scores now show the current play,**
   as Live Scores does. Football shows the last play, clock, possession and down
@@ -24,11 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the team order. Games without a play no longer read their status twice.
 - **Windows: F5 in a sport's scores list jumped back to the top.** It now stays
   on the game you were on.
-
-### In Progress
-- **Game Wrap Up Feature**: ESPN text processing and game story extraction (under construction)
-  - Core infrastructure implemented, text processing being refined
-  - Game story text placeholders currently under investigation
+- Updated Python dependencies, including urllib3 2.8.0.
 
 ## [0.9.9] - 2026-10-03
 

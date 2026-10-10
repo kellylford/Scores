@@ -95,6 +95,8 @@ Lives entirely in `iOS/SportsScoresApp/` (Xcode project, SwiftUI). Nothing in th
 
 Both apps share one version: `VERSION` drives the Windows build and the iOS marketing version, and one `v*` tag releases both. The iOS build number is the commit count. Keep `MARKETING_VERSION` in `iOS/SportsScoresApp/project.yml` and `project.pbxproj` equal to `VERSION`; `tests/unit/test_version_sync.py` enforces it.
 
+A four-part version (e.g. `0.9.9.1`) is a Windows-only patch release: the iOS project keeps the three-part version it shipped at (App Store marketing versions allow only three parts), and `ios-release.yml` skips the build for that tag. The next release of both apps moves to the next three-part version.
+
 The iOS app previously lived on a separate `iOS` branch that also carried a stale copy of the Windows app. That branch is retired; its history is preserved at the `ios-branch-archive` tag.
 
 ## Key Patterns

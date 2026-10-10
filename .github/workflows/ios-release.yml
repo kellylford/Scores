@@ -48,8 +48,29 @@ on:
         type: string
 
 jobs:
+  # A four-part version (v0.9.9.1) is a Windows-only patch release: the tag
+  # still triggers this workflow, but there is no iOS build to make. App Store
+  # marketing versions allow only three parts, so the iOS project stays on the
+  # three-part version (tests/unit/test_version_sync.py checks it).
+  platforms:
+    runs-on: ubuntu-latest
+    outputs:
+      ios: ${{ steps.check.outputs.ios }}
+    steps:
+      - id: check
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [[ "${GITHUB_REF_NAME#v}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Windows-only patch release ($GITHUB_REF_NAME): no iOS build."
+            echo "ios=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ios=true" >> "$GITHUB_OUTPUT"
+          fi
+
   build-upload:
-    if: inputs.existing_build == '' || inputs.existing_build == null
+    needs: platforms
+    if: >-
+      needs.platforms.outputs.ios == 'true' &&
+      (inputs.existing_build == '' || inputs.existing_build == null)
     runs-on: macos-latest
     timeout-minutes: 45
     outputs:
@@ -231,10 +252,11 @@ jobs:
   # that through the App Store Connect API. Runs on Linux: it only calls the API,
   # and spends most of its time waiting for processing.
   external-testflight:
-    needs: build-upload
+    needs: [platforms, build-upload]
     # always() so it still runs when build-upload is skipped for existing_build.
     if: >-
       always() &&
+      needs.platforms.outputs.ios == 'true' &&
       (needs.build-upload.result == 'success' || inputs.existing_build != '') &&
       (github.ref_type == 'tag' || inputs.external || inputs.existing_build != '')
     runs-on: ubuntu-latest
