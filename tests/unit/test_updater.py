@@ -180,3 +180,29 @@ class TestInstallerAlreadyOpen:
         assert path.endswith(".exe")
         with open(path, "rb") as f:
             assert f.read() == b"new"
+
+
+class TestFourPartPatchVersions:
+    """A Windows-only patch release adds a fourth part (0.9.9.1); see version.py."""
+
+    def test_patch_is_newer_than_its_base(self):
+        assert updater.is_newer("0.9.9.1", "0.9.9")
+        assert not updater.is_newer("0.9.9", "0.9.9.1")
+        assert not updater.is_newer("0.9.9.1", "0.9.9.1")
+
+    def test_next_three_part_release_is_newer_than_the_patch(self):
+        assert updater.is_newer("0.9.10", "0.9.9.1")
+        assert not updater.is_newer("0.9.9.1", "0.9.10")
+
+    def test_patch_release_is_offered_with_its_installer(self):
+        releases = [
+            _release("v0.9.9", assets=["Scores-0.9.9-Setup.exe", "Scores.exe"]),
+            _release("v0.9.9.1", assets=["Scores.exe", "Scores-0.9.9.1-Setup.exe"]),
+        ]
+        info = _check(releases, "0.9.9")
+        assert info["version"] == "0.9.9.1"
+        assert info["url"].endswith("Scores-0.9.9.1-Setup.exe")
+
+    def test_patch_is_up_to_date_against_its_own_release(self):
+        releases = [_release("v0.9.9"), _release("v0.9.9.1", assets=["Scores-0.9.9.1-Setup.exe"])]
+        assert _check(releases, "0.9.9.1") is None
