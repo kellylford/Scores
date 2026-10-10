@@ -1083,13 +1083,14 @@ class LiveScoresView(BaseView):
                         if status and game_league not in ["NFL", "NCAAF"]:
                             display_text += f" ({status})"
                         
-                        # Enhanced display for different sports
-                        if recent_play:
+                        # Enhanced display for different sports. recent_play is
+                        # the status itself when the scoreboard had no play.
+                        if recent_play and len(recent_play.strip()) > len((status or "").strip()):
                             display_text = live_play_format.format_live_game(
                                 game_league, teams, status, recent_play, display_text)
-                        else:
-                            if status:
-                                display_text += f" ({status})"
+                        elif status and game_league in ["NFL", "NCAAF"]:
+                            # Other leagues already have the status above.
+                            display_text += f" ({status})"
                         
                         item = QListWidgetItem(display_text)
                         item.setData(Qt.ItemDataRole.UserRole, game)
@@ -1436,7 +1437,9 @@ class LeagueView(BaseView):
         # Bumped by every load_scores, so a slow load that finishes after a
         # newer one (stepping weeks quickly) is dropped instead of shown.
         self._scores_generation = 0
-        self._reselect = None  # UserRole of the row to land on after a refresh
+        # (generation, UserRole) of the row a refresh should land on; tied to
+        # its load so it can't carry over to another day, week or failed load.
+        self._reselect = None
         # Dialogs whose data is being fetched by _fetch_then, by title.
         self._background_fetches = {}
 
@@ -1506,8 +1509,11 @@ class LeagueView(BaseView):
         if data and isinstance(data, str) and self.parent_app:
             self.parent_app.open_game_details(data)
 
-    def load_scores(self):
+    def load_scores(self, reselect=None):
         """Start loading scores for the current date or week.
+
+        `reselect` is the UserRole of the row to land on once loaded (a
+        refresh's selected game); otherwise the first row.
 
         The scoreboard, the news and, the first time, the football calendar
         are fetched on a LeagueScoresLoader thread. On a college football
@@ -1515,6 +1521,7 @@ class LeagueView(BaseView):
         window on every open, every week step and every Back from a game.
         """
         self._scores_generation += 1
+        self._reselect = (self._scores_generation, reselect) if reselect is not None else None
         football = self.is_football_league()
         if football and self._calendar_pending:
             self.date_label.setText("Finding the current week...")
@@ -1581,7 +1588,8 @@ class LeagueView(BaseView):
         # game that was selected instead, so someone following a live game
         # doesn't lose it.
         row = 0
-        reselect, self._reselect = self._reselect, None
+        pending, self._reselect = self._reselect, None
+        reselect = pending[1] if pending and pending[0] == self._scores_generation else None
         if reselect is not None:
             for i in range(self.scores_list.count()):
                 if self.scores_list.item(i).data(Qt.ItemDataRole.UserRole) == reselect:
@@ -2052,9 +2060,14 @@ class LeagueView(BaseView):
     def refresh(self):
         """Refresh the current view, staying on the selected game."""
         current = self.scores_list.currentItem()
-        self._reselect = current.data(Qt.ItemDataRole.UserRole) if current else None
-        self.load_scores()
-        self.set_focus_and_select_first(self.scores_list)
+        selected = current.data(Qt.ItemDataRole.UserRole) if current else None
+        # A second F5 before the first load lands is on "Loading scores...";
+        # keep aiming for the game the first one was on.
+        if selected is None and self._reselect and self._reselect[0] == self._scores_generation:
+            selected = self._reselect[1]
+        self.load_scores(reselect=selected)
+        # Focus only: the row is chosen when the scores arrive.
+        self.scores_list.setFocus()
     
     def _add_nav_buttons(self):
         btn_layout = QHBoxLayout()

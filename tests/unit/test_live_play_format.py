@@ -121,3 +121,16 @@ class TestClockMatch:
     def test_same_clock_is_a_repeat(self):
         play = "Team A 7 at Team B 3 | Pass\n1:11 Q4 | 1st & 10 | TB: 2 plays"
         assert "(1:11 - 4th)" not in lpf.format_football([], "1:11 - 4th", play)
+
+
+class TestFootballScoreLineOnly:
+    def test_status_gets_its_own_line(self):
+        play = "Away Team 3 at Home Team 7 | Kickoff"
+        assert lpf.format_football([], "Halftime", play) == f"{play}\nHalftime"
+
+
+class TestRenameLeavesThePlay:
+    def test_play_text_keeps_espns_names(self):
+        names = {"Kansas City Chiefs": "Chiefs"}
+        text = "Kansas City Chiefs 7 at X 3 | Kansas City Chiefs timeout\n5:00 Q2"
+        assert lpf.use_list_team_names(text, names) == "Chiefs 7 at X 3 | Kansas City Chiefs timeout\n5:00 Q2"

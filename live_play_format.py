@@ -52,6 +52,10 @@ def format_football(teams, status, recent_play):
         if status and status not in stats_line and not _repeats_clock(status, stats_line):
             stats_line += f" ({status})"
         return f"{team_line}\n{stats_line}"
+    if " at " in recent_play:
+        # The scoreboard's line 1 alone (teams, score, play): with no clock
+        # line to carry the status, the status gets a line of its own.
+        return f"{recent_play}\n{status}" if status else recent_play
     return _single_line(teams, status, recent_play)
 
 
@@ -96,7 +100,7 @@ def format_live_game(league, teams, status, recent_play, game_text):
 
 
 def use_list_team_names(text, name_map):
-    """Rename teams on the first line of a live game's text.
+    """Rename teams in the score at the start of a live game's text.
 
     The play text names teams by ESPN's full display name ("Kansas City
     Chiefs"); a league's list uses the short name for NFL and MLB ("Chiefs").
@@ -105,13 +109,16 @@ def use_list_team_names(text, name_map):
     list name.
     """
     first, sep, rest = text.partition("\n")
+    # Only the teams and score: line 1 can go on to the play, which names
+    # teams in ESPN's words and is left as ESPN wrote it.
+    score, bar, play = first.partition(" | ")
     # Longest first, so "New York Yankees" is replaced before a shorter name
     # it contains could be.
     for full in sorted(name_map, key=len, reverse=True):
         short = name_map[full]
         if full and short and full != short:
-            first = first.replace(full, short)
-    return first + sep + rest
+            score = score.replace(full, short)
+    return score + bar + play + sep + rest
 
 
 def list_team_names(game_raw, teams):

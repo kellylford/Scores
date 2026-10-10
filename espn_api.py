@@ -897,25 +897,59 @@ def scoreboard_live_detail(league_key, comp):
         return None
 
 
-def freshen_live_games(league_key, games, today=None):
-    """A football week's games, with live ones taken from today's scoreboard.
+def _started_unfinished_game_dates(games, now):
+    """ESPN game dates (US Eastern) of games that have kicked off and not finished.
+
+    A game counts once its start time has passed, not only once the board says
+    "in": a stale board can still list a game that has kicked off as upcoming.
+    ESPN's dates= board files a game under its Eastern date, so a 10:30 pm ET
+    kickoff still live at 1 am is on the previous day's board.
+    """
+    import pytz
+    from datetime import datetime
+    eastern = pytz.timezone("US/Eastern")
+    dates = set()
+    for game in games:
+        if game_section(game) in ("completed", "postponed"):
+            continue
+        start = None
+        for fmt in ("%Y-%m-%dT%H:%MZ", "%Y-%m-%dT%H:%M:%SZ"):
+            try:
+                start = datetime.strptime(game.get("date") or "", fmt)
+                break
+            except ValueError:
+                pass
+        if start is None:
+            continue
+        start = pytz.utc.localize(start)
+        if start <= now:
+            dates.add(start.astimezone(eastern).date())
+    return dates
+
+
+def freshen_live_games(league_key, games, now=None):
+    """A football week's games, with ones under way taken from the daily board.
 
     The week-addressed scoreboard (dates=YEAR&week=N) a football league view
     reads runs behind the date-addressed one Live Scores reads: on 2026-10-09
     it showed Utah State 6 when the game was at 9, and the clock minutes back.
-    When any game in the week is live, today's scoreboard is fetched once and
-    its version of each game replaces the week's. Games not on today's board
-    keep the week's version, and any failure returns `games` unchanged.
+    For each ESPN date with a game that has started and not finished (almost
+    always one), that day's board is fetched and its version of each game
+    replaces the week's. This is an extra scoreboard request on every load
+    of a week with a game under way, and none otherwise. Games not on a daily
+    board keep the week's version, and a failure keeps the week's games.
     """
-    if not any(game_section(g) == "in_progress" for g in games):
-        return games
-    if today is None:
-        from datetime import date as _date
-        today = _date.today()
-    try:
-        fresh = {g.get("id"): g for g in get_scores(league_key, date=today)}
-    except Exception as e:
-        print(f"Couldn't refresh live {league_key} games: {e}")
+    if now is None:
+        import pytz
+        from datetime import datetime
+        now = datetime.now(pytz.utc)
+    fresh = {}
+    for day in sorted(_started_unfinished_game_dates(games, now)):
+        try:
+            fresh.update((g.get("id"), g) for g in get_scores(league_key, date=day))
+        except Exception as e:
+            print(f"Couldn't refresh live {league_key} games for {day}: {e}")
+    if not fresh:
         return games
     return sort_games_by_section([fresh.get(g.get("id"), g) for g in games])
 
