@@ -897,6 +897,29 @@ def scoreboard_live_detail(league_key, comp):
         return None
 
 
+def freshen_live_games(league_key, games, today=None):
+    """A football week's games, with live ones taken from today's scoreboard.
+
+    The week-addressed scoreboard (dates=YEAR&week=N) a football league view
+    reads runs behind the date-addressed one Live Scores reads: on 2026-10-09
+    it showed Utah State 6 when the game was at 9, and the clock minutes back.
+    When any game in the week is live, today's scoreboard is fetched once and
+    its version of each game replaces the week's. Games not on today's board
+    keep the week's version, and any failure returns `games` unchanged.
+    """
+    if not any(game_section(g) == "in_progress" for g in games):
+        return games
+    if today is None:
+        from datetime import date as _date
+        today = _date.today()
+    try:
+        fresh = {g.get("id"): g for g in get_scores(league_key, date=today)}
+    except Exception as e:
+        print(f"Couldn't refresh live {league_key} games: {e}")
+        return games
+    return sort_games_by_section([fresh.get(g.get("id"), g) for g in games])
+
+
 def _football_scoreboard_display(comp):
     """Two lines in extract_football_enhanced_display's format, from a
     scoreboard competition: teams, scores, red zone and last play; then clock,

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Windows: live games in a single sport's scores now show the current play,**
+  as Live Scores does. Football shows the last play, clock, possession and down
+  and distance; baseball shows runners, count, outs, batter and last play;
+  other sports show the latest play. Before, the In Progress section showed only
+  the score and clock.
+
+### Fixed
+- **Windows: NFL and college football live scores ran minutes behind** in a
+  sport's own scores list, because ESPN's week-by-week scoreboard lags its
+  daily one. Live games in a football week now come from today's scoreboard.
+- **Windows: a live football game's clock was read twice** in Live Scores.
+- **Windows: F5 in a sport's scores list jumped back to the top.** It now stays
+  on the game you were on.
+
 ### In Progress
 - **Game Wrap Up Feature**: ESPN text processing and game story extraction (under construction)
   - Core infrastructure implemented, text processing being refined

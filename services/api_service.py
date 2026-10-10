@@ -23,6 +23,11 @@ class ApiService:
         return ApiService._call(espn_api.get_scores, league, date, week, seasontype, season)
 
     @staticmethod
+    def freshen_live_games(league: str, games: List[Dict]) -> List[Dict]:
+        """A football week's games with live ones from today's fresher scoreboard."""
+        return ApiService._call(espn_api.freshen_live_games, league, games)
+
+    @staticmethod
     def get_mlb_wildcard_standings() -> Dict:
         """MLB wild card race as {"AL": [...], "NL": [...]}; {} when unavailable."""
         return ApiService._call(espn_api.get_mlb_wildcard_standings) or {}
