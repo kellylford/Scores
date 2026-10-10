@@ -480,6 +480,89 @@ class BaseView(QWidget):
                 list_widget.setCurrentRow(0)
         QTimer.singleShot(FOCUS_DELAY_MS, focus_and_select)
 
+    def _format_enhanced_football(self, game_name, teams, status, recent_play, game_id):
+        """Format enhanced football display with two-line format"""
+        try:
+            # The recent_play already contains the hybrid format with newline separation
+            # Line 1: Team names with (RZ) indicator
+            # Line 2: Clock | Down & Distance | Drive Stats
+            lines = recent_play.split('\n')
+            
+            if len(lines) >= 2:
+                # Two-line format: use both lines
+                team_line = lines[0]
+                stats_line = lines[1]
+                
+                # Add status if available and not already in stats
+                if status and status not in stats_line:
+                    stats_line += f" ({status})"
+                
+                display_text = f"{team_line}\n{stats_line}"
+            else:
+                # Fallback to single line if format doesn't have newline
+                score_text = f"{teams[0].get('name', '')} {teams[0].get('score', '')} - {teams[1].get('name', '')} {teams[1].get('score', '')}"
+                if status:
+                    display_text = f"{score_text} ({status}) | {recent_play}"
+                else:
+                    display_text = f"{score_text} | {recent_play}"
+            
+            return display_text
+            
+        except Exception as e:
+            # Fallback to basic format if something goes wrong
+            score_text = f"{teams[0].get('name', '')} {teams[0].get('score', '')} - {teams[1].get('name', '')} {teams[1].get('score', '')}"
+            if status:
+                return f"{score_text} ({status}) | {recent_play[:50]}"
+            else:
+                return f"{score_text} | {recent_play[:50]}"
+
+    def _format_enhanced_baseball(self, game_name, teams, status, recent_play, game_id):
+        """Format enhanced baseball display with base runners, count, and batter info"""
+        try:
+            # The recent_play contains the enhanced format with newline separation
+            # Line 1: Team names with scores
+            # Line 2: Base situation | Count | At bat: Player
+            # Line 3: Last: Play description
+            lines = recent_play.split('\n')
+            
+            if len(lines) >= 3:
+                # Three-line format: use all lines
+                team_line = lines[0]
+                situation_line = lines[1]
+                last_play_line = lines[2]
+                
+                # Add status if available (inning info)
+                if status and status not in situation_line:
+                    team_line += f" ({status})"
+                
+                display_text = f"{team_line}\n{situation_line}\n{last_play_line}"
+            elif len(lines) >= 2:
+                # Two-line fallback
+                team_line = lines[0]
+                situation_line = lines[1]
+                
+                if status:
+                    team_line += f" ({status})"
+                
+                display_text = f"{team_line}\n{situation_line}"
+            else:
+                # Single line fallback
+                score_text = f"{teams[0].get('name', '')} {teams[0].get('score', '')} - {teams[1].get('name', '')} {teams[1].get('score', '')}"
+                if status:
+                    display_text = f"{score_text} ({status}) | {recent_play}"
+                else:
+                    display_text = f"{score_text} | {recent_play}"
+            
+            return display_text
+            
+        except Exception as e:
+            # Fallback to basic format if something goes wrong
+            score_text = f"{teams[0].get('name', '')} {teams[0].get('score', '')} - {teams[1].get('name', '')} {teams[1].get('score', '')}"
+            if status:
+                return f"{score_text} ({status}) | {recent_play[:50]}"
+            else:
+                return f"{score_text} | {recent_play[:50]}"
+
 class HomeView(BaseView):
     """Home view showing league selection"""
     
@@ -1283,89 +1366,6 @@ class LiveScoresView(BaseView):
             print(f"Error formatting game display: {e}")
             return game.get('name', 'Unknown Game')
     
-    def _format_enhanced_football(self, game_name, teams, status, recent_play, game_id):
-        """Format enhanced football display with two-line format"""
-        try:
-            # The recent_play already contains the hybrid format with newline separation
-            # Line 1: Team names with (RZ) indicator
-            # Line 2: Clock | Down & Distance | Drive Stats
-            lines = recent_play.split('\n')
-            
-            if len(lines) >= 2:
-                # Two-line format: use both lines
-                team_line = lines[0]
-                stats_line = lines[1]
-                
-                # Add status if available and not already in stats
-                if status and status not in stats_line:
-                    stats_line += f" ({status})"
-                
-                display_text = f"{team_line}\n{stats_line}"
-            else:
-                # Fallback to single line if format doesn't have newline
-                score_text = f"{teams[0].get('name', '')} {teams[0].get('score', '')} - {teams[1].get('name', '')} {teams[1].get('score', '')}"
-                if status:
-                    display_text = f"{score_text} ({status}) | {recent_play}"
-                else:
-                    display_text = f"{score_text} | {recent_play}"
-            
-            return display_text
-            
-        except Exception as e:
-            # Fallback to basic format if something goes wrong
-            score_text = f"{teams[0].get('name', '')} {teams[0].get('score', '')} - {teams[1].get('name', '')} {teams[1].get('score', '')}"
-            if status:
-                return f"{score_text} ({status}) | {recent_play[:50]}"
-            else:
-                return f"{score_text} | {recent_play[:50]}"
-
-    def _format_enhanced_baseball(self, game_name, teams, status, recent_play, game_id):
-        """Format enhanced baseball display with base runners, count, and batter info"""
-        try:
-            # The recent_play contains the enhanced format with newline separation
-            # Line 1: Team names with scores
-            # Line 2: Base situation | Count | At bat: Player
-            # Line 3: Last: Play description
-            lines = recent_play.split('\n')
-            
-            if len(lines) >= 3:
-                # Three-line format: use all lines
-                team_line = lines[0]
-                situation_line = lines[1]
-                last_play_line = lines[2]
-                
-                # Add status if available (inning info)
-                if status and status not in situation_line:
-                    team_line += f" ({status})"
-                
-                display_text = f"{team_line}\n{situation_line}\n{last_play_line}"
-            elif len(lines) >= 2:
-                # Two-line fallback
-                team_line = lines[0]
-                situation_line = lines[1]
-                
-                if status:
-                    team_line += f" ({status})"
-                
-                display_text = f"{team_line}\n{situation_line}"
-            else:
-                # Single line fallback
-                score_text = f"{teams[0].get('name', '')} {teams[0].get('score', '')} - {teams[1].get('name', '')} {teams[1].get('score', '')}"
-                if status:
-                    display_text = f"{score_text} ({status}) | {recent_play}"
-                else:
-                    display_text = f"{score_text} | {recent_play}"
-            
-            return display_text
-            
-        except Exception as e:
-            # Fallback to basic format if something goes wrong
-            score_text = f"{teams[0].get('name', '')} {teams[0].get('score', '')} - {teams[1].get('name', '')} {teams[1].get('score', '')}"
-            if status:
-                return f"{score_text} ({status}) | {recent_play[:50]}"
-            else:
-                return f"{score_text} | {recent_play[:50]}"
-
     def refresh(self):
         """Refresh the live scores"""
         self.refresh_live_scores()
@@ -1466,13 +1466,7 @@ class LeagueView(BaseView):
                 if not scores_data:
                     self.scores_list.addItem("No games found for this week.")
                 else:
-                    for game_raw in scores_data:
-                        game = GameData(game_raw, self.league)
-                        item_text = game.get_display_text()
-                        self.scores_list.addItem(item_text)
-                        list_item = self.scores_list.item(self.scores_list.count()-1)
-                        if list_item:
-                            list_item.setData(Qt.ItemDataRole.UserRole, game_raw.get("id"))
+                    self._add_games(scores_data)
                 if self.news_headlines:
                     self.scores_list.addItem("--- News Headlines ---")
                     news_item = self.scores_list.item(self.scores_list.count()-1)
@@ -1489,13 +1483,7 @@ class LeagueView(BaseView):
                 if not scores_data:
                     self.scores_list.addItem("No games found for this date.")
                 else:
-                    for game_raw in scores_data:
-                        game = GameData(game_raw, self.league)
-                        item_text = game.get_display_text()
-                        self.scores_list.addItem(item_text)
-                        list_item = self.scores_list.item(self.scores_list.count()-1)
-                        if list_item:
-                            list_item.setData(Qt.ItemDataRole.UserRole, game_raw.get("id"))
+                    self._add_games(scores_data)
                 if self.news_headlines:
                     self.scores_list.addItem("--- News Headlines ---")
                     news_item = self.scores_list.item(self.scores_list.count()-1)
@@ -1503,6 +1491,38 @@ class LeagueView(BaseView):
                 self._add_common_sections()
             except Exception as e:
                 self._show_api_error(f"Failed to load scores: {str(e)}")
+
+    def _add_games(self, scores_data):
+        """List the games. Live ones carry the current play, as in All Scores."""
+        try:
+            live_plays = ApiService.get_live_plays(self.league, scores_data)
+        except Exception as e:
+            # The scores themselves loaded; a play-detail failure shouldn't hide them.
+            print(f"Failed to load live plays for {self.league}: {e}")
+            live_plays = {}
+        for game_raw in scores_data:
+            game_id = game_raw.get("id")
+            item = QListWidgetItem(self._game_display_text(game_raw, live_plays.get(game_id)))
+            item.setData(Qt.ItemDataRole.UserRole, game_id)
+            self.scores_list.addItem(item)
+
+    def _game_display_text(self, game_raw, live=None):
+        """One game's list text, with the live play lines when there are any.
+
+        `live` is this game's entry from ApiService.get_live_plays().
+        """
+        game = GameData(game_raw, self.league)
+        if not live:
+            return game.get_display_text()
+        recent_play = live["play"]
+        # The clock line, e.g. "12:57 - 4th" or "Top 5th", taken from the same
+        # fetch as the play so the two agree.
+        status = live.get("status") or game.start_time or game.status
+        if self.league in ("NFL", "NCAAF"):
+            return self._format_enhanced_football(game.name, game.teams, status, recent_play, game.game_id)
+        if self.league == "MLB":
+            return self._format_enhanced_baseball(game.name, game.teams, status, recent_play, game.game_id)
+        return f"{game.get_display_text()} | {recent_play[:50]}"
 
     def _add_common_sections(self):
         if self.league in ["MLB", "NFL", "NBA", "NHL", "NCAAF", "NCAAM", "NCAAWB", "NCAAH", "NCAAWH"]:

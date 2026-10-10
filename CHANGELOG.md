@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Live games in a single sport's scores now show the current play,** the
+  same as All Scores: for football, the last play, down and distance, clock and
+  drive; for baseball, runners, count, outs, batter and last play; for other
+  sports, the latest play. Previously only the score and clock appeared there.
+  For football, the clock beside the play now comes from the same update as the
+  play, because ESPN's week-by-week scoreboard can run minutes behind.
+
 ### In Progress
 - **Game Wrap Up Feature**: ESPN text processing and game story extraction (under construction)
   - Core infrastructure implemented, text processing being refined

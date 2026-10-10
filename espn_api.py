@@ -759,18 +759,12 @@ def get_live_scores_all_sports():
                     status_text = type_info.get("shortDetail", type_info.get("detail", "In Progress"))
                     
                     # Now get detailed play information for live games only
-                    recent_play = status_text  # Default fallback
                     try:
-                        # This is the key: only call detailed API for confirmed live games
-                        game_details = get_game_details(league_key, game_id)
-                        detailed_play = extract_recent_play(game_details, league_key)
-                        if detailed_play and len(detailed_play.strip()) > len(status_text.strip()):
-                            # Use detailed play if it's more informative than basic status
-                            recent_play = detailed_play
+                        recent_play = live_game_update(league_key, event, status_text)[0] or status_text
                     except Exception as e:
                         # If detailed call fails, continue with basic status
                         print(f"Failed to get details for {game_name}: {e}")
-                        pass
+                        recent_play = status_text
                     
                     game = {
                         "id": game_id,
@@ -789,6 +783,72 @@ def get_live_scores_all_sports():
             continue
     
     return live_games
+
+
+def live_game_update(league_key, event, status_text=""):
+    """Current play and clock for one live game, as the All Scores view shows them.
+
+    `event` is a scoreboard event, or a get_scores() game dict — both carry
+    `id` and `competitions`. Returns (play, status): play is None when nothing
+    more informative than `status_text` (the scoreboard's clock line) is
+    available; status is the summary's own clock when the summary was fetched,
+    else `status_text`. The summary's clock matters for football: the
+    week-addressed scoreboard the league view reads can lag the game by
+    minutes, which put a stale clock beside a current play.
+
+    MLB reads the situation straight off the scoreboard event, which already
+    has it; every other league needs the game's summary, one request per game.
+    """
+    detailed = None
+    if league_key == 'MLB':
+        detailed = extract_baseball_enhanced_display(event)
+    if not detailed:
+        details = get_game_details(league_key, event.get("id", ""))
+        detailed = extract_recent_play(details, league_key)
+        competitions = (details.get("header") or {}).get("competitions") or [{}]
+        status_type = competitions[0].get("status", {}).get("type", {})
+        status_text = status_type.get("shortDetail") or status_text
+    if detailed and len(detailed.strip()) > len((status_text or "").strip()):
+        return detailed, status_text
+    return None, status_text
+
+
+def _is_live_game(game):
+    """True when a scoreboard event or get_scores() game is under way."""
+    competitions = game.get("competitions") or [{}]
+    type_info = (competitions[0] or {}).get("status", {}).get("type", {})
+    return (type_info.get("state", "").lower() == "in"
+            or "progress" in type_info.get("description", "").lower())
+
+
+def get_live_plays(league_key, games, max_workers=8):
+    """Current-play text for every live game in a get_scores() result.
+
+    Returns {game id: {"play": text, "status": clock}} (see live_game_update);
+    games that aren't live, or whose detail fetch fails or adds nothing beyond
+    the clock, are left out. Summaries are fetched in parallel because a
+    college football Saturday can have dozens of games live at once and the
+    league view loads on the UI thread.
+    """
+    live = [g for g in games or [] if g.get("id") and _is_live_game(g)]
+    if not live:
+        return {}
+
+    def fetch(game):
+        type_info = game["competitions"][0].get("status", {}).get("type", {})
+        status_text = type_info.get("shortDetail", type_info.get("detail", ""))
+        try:
+            play, status = live_game_update(league_key, game, status_text)
+        except Exception as e:
+            print(f"Failed to get live play for {game.get('name', game['id'])}: {e}")
+            return game["id"], None
+        return game["id"], {"play": play, "status": status} if play else None
+
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=min(max_workers, len(live))) as pool:
+        results = pool.map(fetch, live)
+    return {game_id: update for game_id, update in results if update}
+
 
 def extract_football_enhanced_display(game_details):
     """Extract enhanced football display with hybrid format (down/distance + drive stats + redzone)"""
