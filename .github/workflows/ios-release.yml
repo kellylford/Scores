@@ -34,7 +34,7 @@ on:
         required: false
         type: string
       marketing_version:
-        description: "Marketing version override. Leave blank to use the VERSION file, as a release does."
+        description: "Marketing version override. Leave blank to use the VERSION file (its first three parts), as a release does."
         required: false
         type: string
       external:
@@ -43,7 +43,7 @@ on:
         type: boolean
         default: false
       existing_build:
-        description: "Skip building: send this already-uploaded build number (of the VERSION version) to external testers."
+        description: "Skip building: send this already-uploaded build number (of the VERSION version, first three parts) to external testers."
         required: false
         type: string
 
@@ -124,7 +124,9 @@ jobs:
             echo "::error::Tag $GITHUB_REF_NAME does not match VERSION ($APP_VERSION)."
             exit 1
           fi
-          MARKETING_VERSION="${INPUT_MARKETING_VERSION:-$APP_VERSION}"
+          # App Store marketing versions have at most three parts; a four-part
+          # VERSION (a Windows-only patch) leaves iOS on its first three.
+          MARKETING_VERSION="${INPUT_MARKETING_VERSION:-$(echo "$APP_VERSION" | cut -d. -f1-3)}"
           # The commit count only grows, so each release commit gets a new,
           # higher build number with nothing to remember or bump by hand.
           BUILD_NUMBER="${INPUT_BUILD_NUMBER:-$(git rev-list --count HEAD)}"
@@ -278,7 +280,7 @@ jobs:
           BUILD_NUMBER: ${{ inputs.existing_build || needs.build-upload.outputs.build_number }}
         run: |
           set -euo pipefail
-          APP_VERSION="${APP_VERSION:-$(tr -d '[:space:]' < VERSION)}"
+          APP_VERSION="${APP_VERSION:-$(tr -d '[:space:]' < VERSION | cut -d. -f1-3)}"
           export APP_VERSION
           export ASC_KEY_P8="$(echo "$ASC_KEY_P8_BASE64" | base64 --decode)"
           NOTES="docs/release-notes-v${APP_VERSION}.md"

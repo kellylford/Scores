@@ -60,13 +60,20 @@ comes from the `VERSION` file, and the run fails if the tag doesn't match it.
 The build number is the commit count (`git rev-list --count HEAD`). It only ever
 grows, so every release commit gets a new, higher build with nothing to bump.
 
+**Windows-only patch releases** use a four-part version (`v0.9.9.1`). This
+workflow still runs for that tag, but its `platforms` job skips every iOS step,
+and the run shows green with only `platforms` run. App Store marketing versions
+allow three parts, so the iOS project stays on the version it shipped at, and a
+manual run while `VERSION` is four-part uses its first three parts. A manual run
+started from a four-part tag skips too; start it from `main`.
+
 To upload without a release:
 
 1. **Actions** tab → **iOS TestFlight / App Store Release** → **Run workflow**.
 2. Set the branch to **`main`**.
 3. **Build number**: leave blank for the commit count. Set it only to re-upload a
    commit that already has a build on App Store Connect.
-4. **Marketing version**: leave blank to use `VERSION`.
+4. **Marketing version**: leave blank to use `VERSION` (its first three parts).
 5. Run. On success the build appears in App Store Connect / TestFlight (Processing for
    ~5–15 min), after which you can add it to a TestFlight group or submit it for App
    Store review. The `.ipa` is also saved as a run artifact.
@@ -95,7 +102,7 @@ The API key needs the App Manager or Admin role to manage TestFlight groups.
   done in App Store Connect.
 - The workflow sets the build and marketing numbers for that run only; it does
   **not** commit them back. `MARKETING_VERSION` in `iOS/SportsScoresApp/project.yml`
-  and `project.pbxproj` is kept equal to `VERSION` by hand at release time, and
+  and `project.pbxproj` is kept equal to `VERSION` (its first three parts) by hand at release time, and
   `tests/unit/test_version_sync.py` fails if it drifts. `CURRENT_PROJECT_VERSION` in
   the repo is only used for local Xcode builds.
 - **App:** "Sports Scores Fast", bundle id `com.sportsscores.app`, team `P887QF74N8`.

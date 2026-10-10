@@ -10,7 +10,7 @@ Live games in a sport's scores list now show the current play, the same as Live 
 - **Baseball:** runners on base, the count and outs, who's batting, and the last play.
 - **Other sports:** the latest play after the score.
 
-The plays come from the scores already being downloaded, so the list loads just as fast as before.
+The plays come from the scores already being downloaded, with no extra request per game.
 
 ### Fixes
 
