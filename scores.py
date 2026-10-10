@@ -58,6 +58,7 @@ from services.api_service import ApiService
 from services.venue_service import venue_service
 from models.game import GameData
 from models.news import NewsData
+import live_play_format
 from models.standings import StandingsData
 from accessible_table import AccessibleTable, StandingsTable, WildCardTable, LeadersTable, BoxscoreTable, InjuryTable
 
@@ -1073,7 +1074,8 @@ class LiveScoresView(BaseView):
                         # Build display text
                         display_text = f"{game_name}"
                         if teams and len(teams) >= 2:
-                            team1, team2 = teams[0], teams[1]
+                            # game_name reads "Away at Home"; ESPN lists home first.
+                            team1, team2 = live_play_format.away_then_home(teams)
                             score1 = team1.get("score", "")
                             score2 = team2.get("score", "")
                             if score1 and score2:
@@ -1082,17 +1084,14 @@ class LiveScoresView(BaseView):
                         if status and game_league not in ["NFL", "NCAAF"]:
                             display_text += f" ({status})"
                         
-                        # Enhanced display for different sports
-                        if recent_play:
-                            if game_league in ["NFL", "NCAAF"]:
-                                display_text = self._format_enhanced_football(game_name, teams, status, recent_play, game_id)
-                            elif game_league == "MLB":
-                                display_text = self._format_enhanced_baseball(game_name, teams, status, recent_play, game_id)
-                            else:
-                                display_text += f" | {recent_play[:50]}"
-                        else:
-                            if status:
-                                display_text += f" ({status})"
+                        # Enhanced display for different sports. recent_play is
+                        # the status itself when the scoreboard had no play.
+                        if recent_play and len(recent_play.strip()) > len((status or "").strip()):
+                            display_text = live_play_format.format_live_game(
+                                game_league, teams, status, recent_play, display_text)
+                        elif status and game_league in ["NFL", "NCAAF"]:
+                            # Other leagues already have the status above.
+                            display_text += f" ({status})"
                         
                         item = QListWidgetItem(display_text)
                         item.setData(Qt.ItemDataRole.UserRole, game)
@@ -1292,7 +1291,8 @@ class LiveScoresView(BaseView):
                 "name": raw.get('name', game.get('name', '')),
                 "league": game['league'],
                 "status": status,
-                "teams": [{"name": t.get("name", ""), "score": str(t.get("score", ""))}
+                "teams": [{"name": t.get("name", ""), "score": str(t.get("score", "")),
+                           "home_away": t.get("home_away", "")}
                           for t in raw.get('teams', [])],
                 "recent_play": espn_api.scoreboard_live_detail(game['league'], comp) or status,
             })
@@ -1423,89 +1423,6 @@ class LiveScoresView(BaseView):
             print(f"Error formatting game display: {e}")
             return game.get('name', 'Unknown Game')
     
-    def _format_enhanced_football(self, game_name, teams, status, recent_play, game_id):
-        """Format enhanced football display with two-line format"""
-        try:
-            # The recent_play already contains the hybrid format with newline separation
-            # Line 1: Team names with (RZ) indicator
-            # Line 2: Clock | Down & Distance | Drive Stats
-            lines = recent_play.split('\n')
-            
-            if len(lines) >= 2:
-                # Two-line format: use both lines
-                team_line = lines[0]
-                stats_line = lines[1]
-                
-                # Add status if available and not already in stats
-                if status and status not in stats_line:
-                    stats_line += f" ({status})"
-                
-                display_text = f"{team_line}\n{stats_line}"
-            else:
-                # Fallback to single line if format doesn't have newline
-                score_text = f"{teams[0].get('name', '')} {teams[0].get('score', '')} - {teams[1].get('name', '')} {teams[1].get('score', '')}"
-                if status:
-                    display_text = f"{score_text} ({status}) | {recent_play}"
-                else:
-                    display_text = f"{score_text} | {recent_play}"
-            
-            return display_text
-            
-        except Exception as e:
-            # Fallback to basic format if something goes wrong
-            score_text = f"{teams[0].get('name', '')} {teams[0].get('score', '')} - {teams[1].get('name', '')} {teams[1].get('score', '')}"
-            if status:
-                return f"{score_text} ({status}) | {recent_play[:50]}"
-            else:
-                return f"{score_text} | {recent_play[:50]}"
-
-    def _format_enhanced_baseball(self, game_name, teams, status, recent_play, game_id):
-        """Format enhanced baseball display with base runners, count, and batter info"""
-        try:
-            # The recent_play contains the enhanced format with newline separation
-            # Line 1: Team names with scores
-            # Line 2: Base situation | Count | At bat: Player
-            # Line 3: Last: Play description
-            lines = recent_play.split('\n')
-            
-            if len(lines) >= 3:
-                # Three-line format: use all lines
-                team_line = lines[0]
-                situation_line = lines[1]
-                last_play_line = lines[2]
-                
-                # Add status if available (inning info)
-                if status and status not in situation_line:
-                    team_line += f" ({status})"
-                
-                display_text = f"{team_line}\n{situation_line}\n{last_play_line}"
-            elif len(lines) >= 2:
-                # Two-line fallback
-                team_line = lines[0]
-                situation_line = lines[1]
-                
-                if status:
-                    team_line += f" ({status})"
-                
-                display_text = f"{team_line}\n{situation_line}"
-            else:
-                # Single line fallback
-                score_text = f"{teams[0].get('name', '')} {teams[0].get('score', '')} - {teams[1].get('name', '')} {teams[1].get('score', '')}"
-                if status:
-                    display_text = f"{score_text} ({status}) | {recent_play}"
-                else:
-                    display_text = f"{score_text} | {recent_play}"
-            
-            return display_text
-            
-        except Exception as e:
-            # Fallback to basic format if something goes wrong
-            score_text = f"{teams[0].get('name', '')} {teams[0].get('score', '')} - {teams[1].get('name', '')} {teams[1].get('score', '')}"
-            if status:
-                return f"{score_text} ({status}) | {recent_play[:50]}"
-            else:
-                return f"{score_text} | {recent_play[:50]}"
-
     def refresh(self):
         """Refresh the live scores"""
         self.refresh_live_scores()
@@ -1521,6 +1438,9 @@ class LeagueView(BaseView):
         # Bumped by every load_scores, so a slow load that finishes after a
         # newer one (stepping weeks quickly) is dropped instead of shown.
         self._scores_generation = 0
+        # (generation, UserRole) of the row a refresh should land on; tied to
+        # its load so it can't carry over to another day, week or failed load.
+        self._reselect = None
         # Dialogs whose data is being fetched by _fetch_then, by title.
         self._background_fetches = {}
 
@@ -1590,8 +1510,11 @@ class LeagueView(BaseView):
         if data and isinstance(data, str) and self.parent_app:
             self.parent_app.open_game_details(data)
 
-    def load_scores(self):
+    def load_scores(self, reselect=None):
         """Start loading scores for the current date or week.
+
+        `reselect` is the UserRole of the row to land on once loaded (a
+        refresh's selected game); otherwise the first row.
 
         The scoreboard, the news and, the first time, the football calendar
         are fetched on a LeagueScoresLoader thread. On a college football
@@ -1599,6 +1522,7 @@ class LeagueView(BaseView):
         window on every open, every week step and every Back from a game.
         """
         self._scores_generation += 1
+        self._reselect = (self._scores_generation, reselect) if reselect is not None else None
         football = self.is_football_league()
         if football and self._calendar_pending:
             self.date_label.setText("Finding the current week...")
@@ -1661,8 +1585,18 @@ class LeagueView(BaseView):
             news_item.setData(Qt.ItemDataRole.UserRole, "__news__")
         self._add_common_sections()
         # The list was showing "Loading scores..."; land on the first row so a
-        # screen reader announces what replaced it.
-        self.scores_list.setCurrentRow(0)
+        # screen reader announces what replaced it. A refresh (F5) lands on the
+        # game that was selected instead, so someone following a live game
+        # doesn't lose it.
+        row = 0
+        pending, self._reselect = self._reselect, None
+        reselect = pending[1] if pending and pending[0] == self._scores_generation else None
+        if reselect is not None:
+            for i in range(self.scores_list.count()):
+                if self.scores_list.item(i).data(Qt.ItemDataRole.UserRole) == reselect:
+                    row = i
+                    break
+        self.scores_list.setCurrentRow(row)
         if had_focus:
             self.scores_list.setFocus()
 
@@ -1685,9 +1619,31 @@ class LeagueView(BaseView):
             count = len(games)
             self.scores_list.addItem(f"{title}, {count} {'game' if count == 1 else 'games'}")
             for game_raw in games:
-                item = QListWidgetItem(GameData(game_raw, self.league).get_display_text())
+                text = (self._live_game_text(game_raw) if key == "in_progress" else None)
+                item = QListWidgetItem(text or GameData(game_raw, self.league).get_display_text())
                 item.setData(Qt.ItemDataRole.UserRole, game_raw.get("id"))
                 self.scores_list.addItem(item)
+
+    def _live_game_text(self, game_raw):
+        """A live game's text with its current play, laid out as Live Scores
+        lays it out, or None when the scoreboard has no play to add.
+
+        The play comes from the scoreboard entry already loaded, so this costs
+        no request.
+        """
+        from espn_api import scoreboard_live_detail
+        comp = (game_raw.get("competitions") or [{}])[0] or {}
+        play = scoreboard_live_detail(self.league, comp)
+        game = GameData(game_raw, self.league)
+        status = game.start_time or game.status
+        if not play or len(play.strip()) <= len((status or "").strip()):
+            return None
+        text = live_play_format.format_live_game(
+            self.league, game.teams, status, play, game.get_display_text())
+        # Live Scores names teams in full; this list uses short names for
+        # NFL and MLB, and type-ahead should find a live game the same way.
+        return live_play_format.use_list_team_names(
+            text, live_play_format.list_team_names(game_raw, game.teams))
 
     def _add_common_sections(self):
         if self.league in ["MLB", "NFL", "NBA", "NHL", "NCAAF", "NCAAM", "NCAAWB", "NCAAH", "NCAAWH"]:
@@ -2103,9 +2059,16 @@ class LeagueView(BaseView):
             QMessageBox.critical(self, "Error", f"Failed to change date: {str(e)}")
     
     def refresh(self):
-        """Refresh the current view"""
-        self.load_scores()
-        self.set_focus_and_select_first(self.scores_list)
+        """Refresh the current view, staying on the selected game."""
+        current = self.scores_list.currentItem()
+        selected = current.data(Qt.ItemDataRole.UserRole) if current else None
+        # A second F5 before the first load lands is on "Loading scores...";
+        # keep aiming for the game the first one was on.
+        if selected is None and self._reselect and self._reselect[0] == self._scores_generation:
+            selected = self._reselect[1]
+        self.load_scores(reselect=selected)
+        # Focus only: the row is chosen when the scores arrive.
+        self.scores_list.setFocus()
     
     def _add_nav_buttons(self):
         btn_layout = QHBoxLayout()
@@ -7910,6 +7873,8 @@ class LeagueScoresLoader(QThread):
                 season, season_type, week = calendar
                 self.request.update(week=week, season=season, seasontype=season_type)
             scores = ApiService.get_scores(self.league, **self.request) or []
+            if self.request.get("week") is not None:
+                scores = ApiService.freshen_live_games(self.league, scores)
             try:
                 news = ApiService.get_news(self.league) or []
             except Exception:
