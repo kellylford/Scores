@@ -35,7 +35,7 @@ jobs:
   build:
     runs-on: windows-latest
     # Runs in the `azure-signing` environment so the OIDC token's subject is
-    # repo:kellylford/Scores:environment:azure-signing, which the Azure federated
+    # repo:TheIdeaPlace@340125137/Scores@1028291236:environment:azure-signing (numeric-id form; the repo moved from kellylford on 2026-10-10), which the Azure federated
     # credential trusts (wildcard tag subjects aren't supported in this tenant).
     # This is ONLY a claim-matching mechanism, not a deployment gate — do not add
     # protection rules to this environment or every build, including PRs, will

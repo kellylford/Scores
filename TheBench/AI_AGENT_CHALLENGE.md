@@ -237,7 +237,7 @@ Success in this challenge requires not just technical proficiency, but the abili
 
 ## Reference Implementation
 
-The reference implementation can be found at: https://github.com/kellylford/Scores
+The reference implementation can be found at: https://github.com/TheIdeaPlace/Scores
 
 Key commits to study:
 - `feat: Add automatic timezone conversion for game times` - Demonstrates feature implementation across multiple layers

@@ -73,7 +73,7 @@ Experience baseball like never before with spatial audio mapping that converts p
 
 ### For End Users (Recommended)
 
-1. **Download**: Get `Scores-<version>-Setup.exe` from the [latest release](https://github.com/kellylford/Scores/releases)
+1. **Download**: Get `Scores-<version>-Setup.exe` from the [latest release](https://github.com/TheIdeaPlace/Scores/releases)
 2. **Install**: Run it — it installs just for you, needs no administrator rights,
    and adds a Start Menu shortcut. The download is code-signed, so there is no
    SmartScreen warning to click through.
@@ -98,7 +98,7 @@ If you want to run from source or contribute to development:
 
 ```bash
 # Clone the repository
-git clone https://github.com/kellylford/Scores.git
+git clone https://github.com/TheIdeaPlace/Scores.git
 cd Scores
 
 # Use the automated build setup (recommended)
@@ -235,11 +235,11 @@ A: The executable includes the entire GUI framework and Python runtime for porta
 A: Currently Windows only, but cross-platform versions are planned for future releases.
 
 **Q: How do I report bugs or request features?**  
-A: Visit the [GitHub Issues page](https://github.com/kellylford/Scores/issues) to report bugs or request features.
+A: Visit the [GitHub Issues page](https://github.com/TheIdeaPlace/Scores/issues) to report bugs or request features.
 
 ## Support & Contributing
 
-- **Issues**: Report bugs through the [GitHub repository](https://github.com/kellylford/Scores/issues)
+- **Issues**: Report bugs through the [GitHub repository](https://github.com/TheIdeaPlace/Scores/issues)
 - **Feature Requests**: Let us know what sports data you'd like to see
 - **Accessibility**: Help us improve accessibility features
 - **Contributing**: This project focuses on accessibility and comprehensive sports data presentation

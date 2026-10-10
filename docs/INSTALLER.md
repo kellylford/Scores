@@ -50,7 +50,7 @@ A local build is unsigned, so SmartScreen will warn on it. Only CI signs.
 ## Automatic updates
 
 `services/updater.py` reads
-`https://api.github.com/repos/kellylford/Scores/releases`, ignores drafts and
+`https://api.github.com/repos/TheIdeaPlace/Scores/releases`, ignores drafts and
 prereleases, takes the highest `v<semver>` tag, and compares it to `version.py`.
 When a release is newer it downloads that release's `*Setup.exe` asset to the temp
 directory, launches it, and quits the app so Setup can replace the files.
@@ -100,20 +100,20 @@ new. Three things are needed:
    make every build, including pull requests, wait for approval:
 
    ```bash
-   gh api -X PUT repos/kellylford/Scores/environments/azure-signing
+   gh api -X PUT repos/TheIdeaPlace/Scores/environments/azure-signing
    ```
 
 2. **Repository secrets** `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`,
    `AZURE_SUBSCRIPTION_ID` — the same values QuickMail and WeatherFast use:
 
    ```bash
-   gh secret set AZURE_CLIENT_ID --repo kellylford/Scores
-   gh secret set AZURE_TENANT_ID --repo kellylford/Scores
-   gh secret set AZURE_SUBSCRIPTION_ID --repo kellylford/Scores
+   gh secret set AZURE_CLIENT_ID --repo TheIdeaPlace/Scores
+   gh secret set AZURE_TENANT_ID --repo TheIdeaPlace/Scores
+   gh secret set AZURE_SUBSCRIPTION_ID --repo TheIdeaPlace/Scores
    ```
 
 3. **A federated credential on that Azure app registration** for this repo, with
-   subject `repo:kellylford/Scores:environment:azure-signing`
+   subject `repo:TheIdeaPlace/Scores:environment:azure-signing`
    (issuer `https://token.actions.githubusercontent.com`, audience
    `api://AzureADTokenExchange`). Add it in the Azure portal under the app
    registration's *Certificates & secrets → Federated credentials*, choosing

@@ -64,6 +64,6 @@ This release establishes **Sports Scores as the most accessible sports applicati
 ---
 
 **Release Date**: August 31, 2025  
-**GitHub Release**: https://github.com/kellylford/Scores/releases/tag/v0.55.0  
+**GitHub Release**: https://github.com/TheIdeaPlace/Scores/releases/tag/v0.55.0  
 **Git Tag**: v0.55.0  
 **Commit**: 405f569

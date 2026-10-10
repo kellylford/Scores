@@ -43,7 +43,7 @@
 ### Running from Source Code
 ```bash
 # Clone repository
-git clone https://github.com/kellylford/Scores.git
+git clone https://github.com/TheIdeaPlace/Scores.git
 cd Scores
 
 # Install dependencies
@@ -233,7 +233,7 @@ pip install PyQt6 requests pyinstaller
 ### Build Process
 ```bash
 # Clone and setup
-git clone https://github.com/kellylford/Scores.git
+git clone https://github.com/TheIdeaPlace/Scores.git
 cd Scores
 
 # Install dependencies
@@ -298,7 +298,7 @@ python -m PyInstaller SportsScores_Fixed.spec
 - **GitHub Issues:** Report bugs and feature requests
 
 ### Support Channels
-- **GitHub Repository:** https://github.com/kellylford/Scores
+- **GitHub Repository:** https://github.com/TheIdeaPlace/Scores
 - **Issue Tracker:** For bug reports and feature requests
 - **Documentation:** Always check latest docs for solutions
 
