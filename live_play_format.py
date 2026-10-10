@@ -40,7 +40,8 @@ def _repeats_clock(status, line):
     with no clock ("Halftime", "End of 3rd") still adds something.
     """
     match = _STATUS_CLOCK.match(status or "")
-    return bool(match) and match.group(1) in line
+    # Whole clock only: "1:11" must not match inside "11:11".
+    return bool(match) and re.search(rf"(?<![\d:]){re.escape(match.group(1))}\b", line) is not None
 
 
 def format_football(teams, status, recent_play):

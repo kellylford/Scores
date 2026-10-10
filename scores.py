@@ -58,6 +58,7 @@ from services.api_service import ApiService
 from services.venue_service import venue_service
 from models.game import GameData
 from models.news import NewsData
+import espn_api
 import live_play_format
 from models.standings import StandingsData
 from accessible_table import AccessibleTable, StandingsTable, WildCardTable, LeadersTable, BoxscoreTable, InjuryTable
@@ -1293,6 +1294,10 @@ class LeagueView(BaseView):
         self.news_headlines = []
         self._games_by_id = {}
         self._live_generation = 0
+        # The last plays fetched, by game id. A refresh draws live games with
+        # these straight away, so F5 on a live game reads its play rather than
+        # just the score while the new plays load.
+        self._last_live_plays = {}
 
         # For football leagues, ensure we have a week
         if self.is_football_league():
@@ -1421,7 +1426,12 @@ class LeagueView(BaseView):
         for game_raw in scores_data:
             game_id = game_raw.get("id")
             self._games_by_id[game_id] = game_raw
-            item = QListWidgetItem(GameData(game_raw, self.league).get_display_text())
+            last = self._last_live_plays.get(game_id)
+            if last and espn_api.is_live_game(game_raw):
+                text = self._game_display_text(game_raw, last)
+            else:
+                text = GameData(game_raw, self.league).get_display_text()
+            item = QListWidgetItem(text)
             item.setData(Qt.ItemDataRole.UserRole, game_id)
             self.scores_list.addItem(item)
 
@@ -1433,6 +1443,7 @@ class LeagueView(BaseView):
         # A later load (refresh, another day or week) has replaced this list.
         if generation != self._live_generation:
             return
+        self._last_live_plays = live_plays
         for row in range(self.scores_list.count()):
             item = self.scores_list.item(row)
             game_id = item.data(Qt.ItemDataRole.UserRole)

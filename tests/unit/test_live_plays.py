@@ -206,7 +206,7 @@ class TestGetLiveScoresAllSports:
 
 class TestIsLiveGame:
     def test_missing_or_null_status_is_not_live(self):
-        assert not espn_api._is_live_game({"competitions": [{"status": None}]})
-        assert not espn_api._is_live_game({"competitions": [{"status": {"type": None}}]})
-        assert not espn_api._is_live_game({"competitions": [{"status": {"type": {"state": None}}}]})
-        assert not espn_api._is_live_game({})
+        assert not espn_api.is_live_game({"competitions": [{"status": None}]})
+        assert not espn_api.is_live_game({"competitions": [{"status": {"type": None}}]})
+        assert not espn_api.is_live_game({"competitions": [{"status": {"type": {"state": None}}}]})
+        assert not espn_api.is_live_game({})

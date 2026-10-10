@@ -827,7 +827,7 @@ def live_game_update(league_key, event, status_text=""):
     return None, status_text
 
 
-def _is_live_game(game):
+def is_live_game(game):
     """True when a scoreboard event or get_scores() game is under way."""
     competitions = game.get("competitions") or [{}]
     type_info = ((competitions[0] or {}).get("status") or {}).get("type") or {}
@@ -844,7 +844,7 @@ def get_live_plays(league_key, games, max_workers=8):
     college football Saturday can have dozens of games live at once and the
     league view loads on the UI thread.
     """
-    live = [g for g in games or [] if g.get("id") and _is_live_game(g)]
+    live = [g for g in games or [] if g.get("id") and is_live_game(g)]
     if not live:
         return {}
 

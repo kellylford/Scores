@@ -111,3 +111,13 @@ class TestListTeamNames:
     def test_missing_competitions_give_no_names(self):
         assert lpf.list_team_names({}, self.LIST_TEAMS) == {}
         assert lpf.list_team_names({"competitions": []}, self.LIST_TEAMS) == {}
+
+
+class TestClockMatch:
+    def test_shorter_clock_inside_a_longer_one_is_not_a_repeat(self):
+        play = "Team A 7 at Team B 3 | Pass\n11:11 Q4 | 1st & 10 | TB: 2 plays"
+        assert lpf.format_football([], "1:11 - 4th", play).endswith("(1:11 - 4th)")
+
+    def test_same_clock_is_a_repeat(self):
+        play = "Team A 7 at Team B 3 | Pass\n1:11 Q4 | 1st & 10 | TB: 2 plays"
+        assert "(1:11 - 4th)" not in lpf.format_football([], "1:11 - 4th", play)
