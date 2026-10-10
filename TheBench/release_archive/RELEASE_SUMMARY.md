@@ -29,7 +29,7 @@ The Scores application v0.5.0-preview has been successfully prepared and release
 ### 🔗 GitHub Release
 The tag has been pushed to GitHub. To complete the release:
 
-1. **Go to**: https://github.com/kellylford/Scores/releases
+1. **Go to**: https://github.com/TheIdeaPlace/Scores/releases
 2. **Click**: "Create a new release"
 3. **Select**: Tag `v0.5.0-preview`
 4. **Title**: "Scores v0.5.0-preview - Enhanced Build System"

@@ -83,23 +83,23 @@ gh api repos/OWNER/REPO/branches/BRANCH/protection \
   --field enforce_admins=true
 
 # Example for our Scores repository
-gh api repos/kellylford/Scores/branches/0.5release/protection \
+gh api repos/TheIdeaPlace/Scores/branches/0.5release/protection \
   --method PUT \
   --field restrictions='{"users":[],"teams":[],"apps":[]}' \
   --field enforce_admins=true
 
 # Remove protection (unlock branch)
-gh api repos/kellylford/Scores/branches/0.5release/protection \
+gh api repos/TheIdeaPlace/Scores/branches/0.5release/protection \
   --method DELETE
 ```
 
 #### **Check Protection Status:**
 ```bash
 # View current protection rules
-gh api repos/kellylford/Scores/branches/0.5release/protection
+gh api repos/TheIdeaPlace/Scores/branches/0.5release/protection
 
 # List all protected branches
-gh api repos/kellylford/Scores/branches --jq '.[] | select(.protected==true) | .name'
+gh api repos/TheIdeaPlace/Scores/branches --jq '.[] | select(.protected==true) | .name'
 ```
 
 ### Method 3: GitHub REST API
@@ -109,7 +109,7 @@ gh api repos/kellylford/Scores/branches --jq '.[] | select(.protected==true) | .
 curl -X PUT \
   -H "Authorization: token YOUR_TOKEN" \
   -H "Accept: application/vnd.github.v3+json" \
-  https://api.github.com/repos/kellylford/Scores/branches/0.5release/protection \
+  https://api.github.com/repos/TheIdeaPlace/Scores/branches/0.5release/protection \
   -d '{
     "required_status_checks": null,
     "enforce_admins": true,

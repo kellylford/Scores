@@ -128,7 +128,7 @@ class TestCheckForUpdate:
                 updater.check_for_update(current_version="0.8.0")
 
 
-URL = "https://github.com/kellylford/Scores/releases/download/v0.9.8/Scores-0.9.8-Setup.exe"
+URL = "https://github.com/TheIdeaPlace/Scores/releases/download/v0.9.8/Scores-0.9.8-Setup.exe"
 
 
 class TestInstallerAlreadyOpen:

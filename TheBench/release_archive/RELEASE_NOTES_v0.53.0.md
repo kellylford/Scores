@@ -201,7 +201,7 @@ This release represents a major step toward becoming a comprehensive sports anal
 **Build**: Windows 64-bit executable with embedded Python runtime
 
 ### 🤝 Support & Feedback
-- **GitHub Issues**: https://github.com/kellylford/Scores/issues
+- **GitHub Issues**: https://github.com/TheIdeaPlace/Scores/issues
 - **Feature Requests**: Use GitHub Discussions
 - **Bug Reports**: Include version number (v0.53.0-preview)
 - **Documentation**: Full guides available in repository

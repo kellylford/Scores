@@ -293,6 +293,6 @@ The audio system was designed with:
 
 **Prepared by**: GitHub Copilot  
 **For**: Kelly Ford  
-**Repository**: kellylford/Scores  
+**Repository**: TheIdeaPlace/Scores  
 **Branch Strategy**: audio → main merge preparation  
 **Ready for execution when convenient**

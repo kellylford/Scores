@@ -16,7 +16,7 @@
 #define MyAppName "Scores"
 #define MyAppPublisher "Kelly Ford"
 #define MyAppExeName "Scores.exe"
-#define MyAppURL "https://github.com/kellylford/Scores"
+#define MyAppURL "https://github.com/TheIdeaPlace/Scores"
 
 [Setup]
 ; Stable AppId so upgrades replace the prior install (never change this GUID).

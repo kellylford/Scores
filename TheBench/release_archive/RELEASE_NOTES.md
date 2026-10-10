@@ -75,7 +75,7 @@ Scores is a desktop application that provides real-time access to:
 - **First Launch Delay**: Initial startup may take 3-5 seconds (normal for the application size)
 - **Internet Required**: Application needs internet connection for live data
 - **Windows Only**: Currently only supports Windows (Mac/Linux versions being explored)
-- **Issue List**: Visit https://github.com/kellylford/Scores/issues
+- **Issue List**: Visit https://github.com/TheIdeaPlace/Scores/issues
 
 ### � What's Coming Next?
 
@@ -88,7 +88,7 @@ We're actively working on improvements based on user feedback:
 ### � Support & Feedback
 
 This is a preview release, and we'd love to hear from you!
-- **Issues**: Report bugs through the GitHub repository at https://github.com/kellylford/Scores/issues
+- **Issues**: Report bugs through the GitHub repository at https://github.com/TheIdeaPlace/Scores/issues
 - **Feature Requests**: Let us know what sports data you'd like to have
 - **Accessibility**: Help us improve accessibility features
 - **General Feedback**: Share your experience using the app

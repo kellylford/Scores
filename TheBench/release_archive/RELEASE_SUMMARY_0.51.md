@@ -102,7 +102,7 @@ git push origin v0.51.0-preview
 ```
 
 #### 5. Create GitHub Release
-1. Go to: https://github.com/kellylford/Scores/releases
+1. Go to: https://github.com/TheIdeaPlace/Scores/releases
 2. Click "Create a new release"
 3. Select tag: `v0.51.0-preview`
 4. Title: "Scores v0.51.0-preview - Enhanced UX & Accessibility"

@@ -19,7 +19,7 @@ import requests
 
 from version import __version__
 
-GITHUB_REPO = "kellylford/Scores"
+GITHUB_REPO = "TheIdeaPlace/Scores"
 RELEASES_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases?per_page=30"
 RELEASES_PAGE = f"https://github.com/{GITHUB_REPO}/releases/latest"
 # Windows releases are tagged `v<semver>` (e.g. v0.8.0).
